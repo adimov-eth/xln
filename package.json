@@ -1,0 +1,10 @@
+{
+  "name": "xln-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
+  "devDependencies": {
+    "typescript": "^5.1.3"
+  }
+}
