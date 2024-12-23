@@ -151,107 +151,297 @@ export const XLN = {
      * Implements a DAG-based state machine with LRU caching and hashcash verification
      */
     HSTM: {
-      // Example chain context key (chainId + entityProvider + entityId hash)
       '0x3233232323232323232323232323232323232323232323232323232323232323': {
-        // LRU cache for hashcash tokens
         lruCache: {
           capacity: 1000,
           tokens: {
-            // token hash -> {timestamp, difficulty}
-            '0xabcd': { ts: 1680000000000, difficulty: 4 },
-            '0xdef0': { ts: 1680000001000, difficulty: 4 }
+            '0xabcd': { ts: 1680000000000, difficulty: 4, nonce: '0x1234' },
+            '0xdef0': { ts: 1680000001000, difficulty: 4, nonce: '0x5678' },
+            '0xf123': { ts: 1680000002000, difficulty: 5, nonce: '0x9abc' }
           }
         },
   
-        // Claimchain represents the main state transition chain
         claimchain: {
-          // Current head of the chain
           head: {
             blockHash: '0xf1f1f1',
             timestamp: 1680000002000,
             number: 42,
-            // Previous state reference
             prev: '0xe0e0e0',
-            // Input that led to this state
             input: {
-              type: 'TRANSFER',
-              data: { /* transaction details */ }
+              type: 'BATCH',
+              data: {
+                transactions: [
+                  {
+                    type: 'TRANSFER',
+                    token: '0x5555772846680b2d55f4724546996789aa000000', // USDT
+                    amount: '1000000000000000000', // 1 USDT
+                    from: '0xAlice',
+                    to: '0xBob',
+                    nonce: 5,
+                    signature: '0xalicesig'
+                  },
+                  {
+                    type: 'CHANNEL_UPDATE',
+                    channelId: '0xchannel1',
+                    balanceUpdate: {
+                      token: '0x5555772846680b2d55f4724546996789aa000000',
+                      amount: '-1000000000000000000',
+                      participant: '0xAlice'
+                    },
+                    signature: '0xalicesig2'
+                  }
+                ]
+              }
             },
-            // Resulting output state
             output: {
-              balances: { /* updated balances */ },
-              nonce: 12,
+              balances: {
+                '0xAlice': {
+                  '0x5555772846680b2d55f4724546996789aa000000': '9000000000000000000',
+                  '0x6623451555f4724546996789aa0231789aa00000': '5000000000000000000'
+                },
+                '0xBob': {
+                  '0x5555772846680b2d55f4724546996789aa000000': '11000000000000000000',
+                  '0x6623451555f4724546996789aa0231789aa00000': '3000000000000000000'
+                }
+              },
+              channels: {
+                '0xchannel1': {
+                  participants: ['0xAlice', '0xBob'],
+                  balances: {
+                    '0x5555772846680b2d55f4724546996789aa000000': {
+                      '0xAlice': '4000000000000000000',
+                      '0xBob': '6000000000000000000'
+                    }
+                  },
+                  nonce: 12,
+                  lastUpdate: 1680000002000
+                }
+              },
+              nonce: 42,
               timestamp: 1680000002000
             }
           },
   
-          // Merkle Patricia Trie for state storage
           mpt: {
             root: '0xmptroot',
             nodes: {
-              // Simplified MPT structure
               '0xmptroot': {
                 children: {
-                  '0x0': '0xchild1',
-                  '0x1': '0xchild2'
+                  '0x0': '0xbalances',
+                  '0x1': '0xchannels'
+                }
+              },
+              '0xbalances': {
+                children: {
+                  '0xAlice': {
+                    value: {
+                      '0x5555772846680b2d55f4724546996789aa000000': '9000000000000000000',
+                      '0x6623451555f4724546996789aa0231789aa00000': '5000000000000000000'
+                    }
+                  },
+                  '0xBob': {
+                    value: {
+                      '0x5555772846680b2d55f4724546996789aa000000': '11000000000000000000',
+                      '0x6623451555f4724546996789aa0231789aa00000': '3000000000000000000'
+                    }
+                  }
+                }
+              },
+              '0xchannels': {
+                children: {
+                  '0xchannel1': {
+                    value: {
+                      participants: ['0xAlice', '0xBob'],
+                      balances: {
+                        '0x5555772846680b2d55f4724546996789aa000000': {
+                          '0xAlice': '4000000000000000000',
+                          '0xBob': '6000000000000000000'
+                        }
+                      },
+                      nonce: 12,
+                      lastUpdate: 1680000002000
+                    }
+                  }
                 }
               }
-              // ... more MPT nodes
             }
           },
   
-          // State hierarchy components
           stateComponents: {
-            // Basic state triple
             basic: {
               prev: '0xe0e0e0',
-              input: { /* current input */ },
-              output: { /* current output */ }
-            },
-  
-            // Extended with head/data
-            extended: {
-              head: '0xf1f1f1',
-              data: {
-                signerKey: '0xsigner',
-                timestamp: 1680000002000
-                // ... other metadata
+              input: {
+                type: 'CHANNEL_UPDATE',
+                channelId: '0xchannel1',
+                update: {
+                  balances: {
+                    '0x5555772846680b2d55f4724546996789aa000000': {
+                      '0xAlice': '3900000000000000000',
+                      '0xBob': '6100000000000000000'
+                    }
+                  },
+                  nonce: 13
+                },
+                signatures: ['0xalicesig', '0xbobsig']
+              },
+              output: {
+                success: true,
+                newState: {
+                  channels: {
+                    '0xchannel1': {
+                      balances: {
+                        '0x5555772846680b2d55f4724546996789aa000000': {
+                          '0xAlice': '3900000000000000000',
+                          '0xBob': '6100000000000000000'
+                        }
+                      },
+                      nonce: 13,
+                      lastUpdate: 1680000002500
+                    }
+                  }
+                }
               }
             },
   
-            // Full state with mempool
+            extended: {
+              head: '0xf1f1f1',
+              data: {
+                signerKey: '0xAlice',
+                timestamp: 1680000002000,
+                channelStates: {
+                  '0xchannel1': {
+                    status: 'ACTIVE',
+                    lastSyncNonce: 12,
+                    pendingUpdates: 1
+                  }
+                }
+              }
+            },
+  
             full: {
               prev: '0xe0e0e0',
-              input: { /* current input */ },
-              output: { /* current output */ },
+              input: { /* same as basic.input */ },
+              output: { /* same as basic.output */ },
               mempool: [
-                // Pending transactions/state updates
+                {
+                  type: 'CHANNEL_UPDATE',
+                  channelId: '0xchannel1',
+                  update: {
+                    balances: {
+                      '0x5555772846680b2d55f4724546996789aa000000': {
+                        '0xAlice': '3800000000000000000',
+                        '0xBob': '6200000000000000000'
+                      }
+                    },
+                    nonce: 14
+                  },
+                  signature: '0xalicesig3'
+                },
                 {
                   type: 'TRANSFER',
-                  data: { /* pending tx details */ }
+                  token: '0x6623451555f4724546996789aa0231789aa00000',
+                  amount: '1000000000000000000',
+                  from: '0xBob',
+                  to: '0xAlice',
+                  nonce: 6,
+                  signature: '0xbobsig2'
                 }
               ]
             }
           }
         },
   
-        // Entity-specific data (e.g., Bob:Ch, Carol:Ch from whiteboard)
         entities: {
           'Bob': {
             channels: {
-              // Channel-specific state machines
               '0xchannel1': {
-                // Similar structure to main claimchain
-                head: { /* ... */ },
-                mpt: { /* ... */ }
+                head: {
+                  blockHash: '0xc1c1c1',
+                  timestamp: 1680000002500,
+                  number: 13,
+                  prev: '0xc0c0c0',
+                  input: {
+                    type: 'CHANNEL_UPDATE',
+                    update: {
+                      balances: {
+                        '0x5555772846680b2d55f4724546996789aa000000': {
+                          '0xAlice': '3900000000000000000',
+                          '0xBob': '6100000000000000000'
+                        }
+                      },
+                      nonce: 13
+                    },
+                    signatures: ['0xalicesig', '0xbobsig']
+                  },
+                  output: {
+                    success: true,
+                    newBalances: {
+                      '0x5555772846680b2d55f4724546996789aa000000': {
+                        '0xAlice': '3900000000000000000',
+                        '0xBob': '6100000000000000000'
+                      }
+                    }
+                  }
+                },
+                mpt: {
+                  root: '0xbobchannelroot',
+                  nodes: {
+                    '0xbobchannelroot': {
+                      value: {
+                        balances: {
+                          '0x5555772846680b2d55f4724546996789aa000000': {
+                            '0xAlice': '3900000000000000000',
+                            '0xBob': '6100000000000000000'
+                          }
+                        },
+                        nonce: 13,
+                        lastUpdate: 1680000002500
+                      }
+                    }
+                  }
+                }
               }
             }
           },
           'Carol': {
             channels: {
               '0xchannel2': {
-                head: { /* ... */ },
-                mpt: { /* ... */ }
+                head: {
+                  blockHash: '0xc2c2c2',
+                  timestamp: 1680000003000,
+                  number: 5,
+                  prev: '0xc1c1c1',
+                  input: {
+                    type: 'CHANNEL_DEPOSIT',
+                    token: '0x6623451555f4724546996789aa0231789aa00000',
+                    amount: '5000000000000000000',
+                    from: 'Carol'
+                  },
+                  output: {
+                    success: true,
+                    newBalances: {
+                      '0x6623451555f4724546996789aa0231789aa00000': {
+                        'Carol': '5000000000000000000'
+                      }
+                    }
+                  }
+                },
+                mpt: {
+                  root: '0xcarolchannelroot',
+                  nodes: {
+                    '0xcarolchannelroot': {
+                      value: {
+                        balances: {
+                          '0x6623451555f4724546996789aa0231789aa00000': {
+                            'Carol': '5000000000000000000'
+                          }
+                        },
+                        nonce: 5,
+                        lastUpdate: 1680000003000
+                      }
+                    }
+                  }
+                }
               }
             }
           }
