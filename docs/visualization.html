@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>HSTM Network Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background: #f5f5f5;
+        }
+        #container {
+            display: flex;
+            height: 100vh;
+        }
+        #network {
+            flex: 1;
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin: 20px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        #sidebar {
+            width: 300px;
+            padding: 20px;
+            background: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            margin: 20px 20px 20px 0;
+            border-radius: 8px;
+            overflow-y: auto;
+        }
+        .node {
+            cursor: pointer;
+        }
+        .node circle {
+            stroke: #fff;
+            stroke-width: 2px;
+        }
+        .node text {
+            font-size: 12px;
+        }
+        .link {
+            stroke: #999;
+            stroke-opacity: 0.6;
+            stroke-width: 1px;
+        }
+        .tooltip {
+            position: absolute;
+            padding: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        .node-details {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .node-details h3 {
+            margin: 0 0 10px 0;
+            color: #2c3e50;
+        }
+        .metrics {
+            font-size: 12px;
+            color: #666;
+        }
+        .metrics div {
+            margin: 5px 0;
+        }
+        .channel {
+            margin: 10px 0;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 4px;
+        }
+        .legend {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.1);
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            margin-right: 8px;
+            border-radius: 50%;
+        }
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            z-index: 1000;
+        }
+        
+        .controls button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background: #3498db;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        .controls button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .controls button:hover:not(:disabled) {
+            background: #2980b9;
+        }
+        
+        .state-info {
+            font-size: 14px;
+            color: #2c3e50;
+            margin: 0 10px;
+        }
+        
+        .playback-controls {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .timeline {
+            width: 300px;
+            margin: 0 10px;
+        }
+        
+        .timeline input {
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="network"></div>
+        <div id="sidebar">
+            <h2>HSTM Network Details</h2>
+            <div id="nodeDetails"></div>
+        </div>
+    </div>
+    
+    <div class="controls">
+        <div class="playback-controls">
+            <button id="playPauseBtn" title="Play/Pause">⏵</button>
+            <button id="prevBtn" title="Previous State">⏪</button>
+            <button id="nextBtn" title="Next State">⏩</button>
+        </div>
+        <div class="timeline">
+            <input type="range" id="timelineSlider" min="0" max="0" value="0">
+        </div>
+        <div class="state-info">
+            State: <span id="currentState">0</span> / <span id="totalStates">0</span>
+        </div>
+        <button id="liveBtn" title="Go to Live">Live</button>
+    </div>
+
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script type="module">
+        // Node type colors
+        const nodeColors = {
+            ROOT: '#e74c3c',
+            BRANCH: '#3498db',
+            LEAF: '#2ecc71',
+            BRIDGE: '#f1c40f'
+        };
+
+        // Node status colors
+        const statusColors = {
+            ACTIVE: '#27ae60',
+            FROZEN: '#95a5a6',
+            PRUNED: '#7f8c8d',
+            PENDING: '#f39c12',
+            ERROR: '#c0392b'
+        };
+
+        // Initialize force simulation
+        const simulation = d3.forceSimulation()
+            .force('link', d3.forceLink().id(d => d.id).distance(100))
+            .force('charge', d3.forceManyBody().strength(-300))
+            .force('center', d3.forceCenter(window.innerWidth / 2, window.innerHeight / 2))
+            .force('collision', d3.forceCollide().radius(50));
+
+        // Create SVG container
+        const svg = d3.select('#network')
+            .append('svg')
+            .attr('width', '100%')
+            .attr('height', '100%');
+
+        // Create arrow marker for directed links
+        svg.append('defs').append('marker')
+            .attr('id', 'arrowhead')
+            .attr('viewBox', '-0 -5 10 10')
+            .attr('refX', 20)
+            .attr('refY', 0)
+            .attr('orient', 'auto')
+            .attr('markerWidth', 6)
+            .attr('markerHeight', 6)
+            .attr('xoverflow', 'visible')
+            .append('svg:path')
+            .attr('d', 'M 0,-5 L 10 ,0 L 0,5')
+            .attr('fill', '#999')
+            .style('stroke', 'none');
+
+        // Create tooltip
+        const tooltip = d3.select('body').append('div')
+            .attr('class', 'tooltip')
+            .style('opacity', 0);
+
+        // Add legend
+        const legend = d3.select('#network')
+            .append('div')
+            .attr('class', 'legend');
+
+        // Add node type legend
+        const nodeTypeLegend = legend.append('div')
+            .style('margin-bottom', '10px');
+        
+        nodeTypeLegend.append('h4')
+            .style('margin', '5px 0')
+            .text('Node Types');
+
+        Object.entries(nodeColors).forEach(([type, color]) => {
+            nodeTypeLegend.append('div')
+                .attr('class', 'legend-item')
+                .html(`
+                    <div class="legend-color" style="background: ${color}"></div>
+                    <div>${type}</div>
+                `);
+        });
+
+        // Add status legend
+        const statusLegend = legend.append('div');
+        
+        statusLegend.append('h4')
+            .style('margin', '5px 0')
+            .text('Node Status');
+
+        Object.entries(statusColors).forEach(([status, color]) => {
+            statusLegend.append('div')
+                .attr('class', 'legend-item')
+                .html(`
+                    <div class="legend-color" style="background: ${color}"></div>
+                    <div>${status}</div>
+                `);
+        });
+
+        // Function to update the visualization
+        function updateVisualization(data) {
+            // Clear existing elements
+            svg.selectAll('.link').remove();
+            svg.selectAll('.node').remove();
+
+            // Create links
+            const links = svg.selectAll('.link')
+                .data(data.links)
+                .enter()
+                .append('line')
+                .attr('class', 'link')
+                .attr('marker-end', 'url(#arrowhead)');
+
+            // Create nodes
+            const nodes = svg.selectAll('.node')
+                .data(data.nodes)
+                .enter()
+                .append('g')
+                .attr('class', 'node')
+                .call(d3.drag()
+                    .on('start', dragStarted)
+                    .on('drag', dragged)
+                    .on('end', dragEnded));
+
+            // Add circles to nodes
+            nodes.append('circle')
+                .attr('r', d => getNodeRadius(d))
+                .style('fill', d => nodeColors[d.type])
+                .style('stroke', d => statusColors[d.status])
+                .style('stroke-width', '3px');
+
+            // Add labels to nodes
+            nodes.append('text')
+                .attr('dy', 4)
+                .attr('text-anchor', 'middle')
+                .text(d => d.data.name || d.id.slice(0, 8))
+                .style('fill', '#2c3e50');
+
+            // Add hover effects
+            nodes.on('mouseover', (event, d) => {
+                tooltip.transition()
+                    .duration(200)
+                    .style('opacity', .9);
+                tooltip.html(getTooltipContent(d))
+                    .style('left', (event.pageX + 10) + 'px')
+                    .style('top', (event.pageY - 10) + 'px');
+            })
+            .on('mouseout', () => {
+                tooltip.transition()
+                    .duration(500)
+                    .style('opacity', 0);
+            })
+            .on('click', (event, d) => {
+                showNodeDetails(d);
+                event.stopPropagation();
+            });
+
+            // Update simulation
+            simulation
+                .nodes(data.nodes)
+                .on('tick', ticked);
+
+            simulation.force('link')
+                .links(data.links);
+
+            // Tick function to update positions
+            function ticked() {
+                links
+                    .attr('x1', d => d.source.x)
+                    .attr('y1', d => d.source.y)
+                    .attr('x2', d => d.target.x)
+                    .attr('y2', d => d.target.y);
+
+                nodes
+                    .attr('transform', d => `translate(${d.x},${d.y})`);
+            }
+        }
+
+        // Helper functions
+        function getNodeRadius(node) {
+            switch (node.type) {
+                case 'ROOT': return 20;
+                case 'BRANCH': return 15;
+                case 'BRIDGE': return 12;
+                case 'LEAF': return 10;
+                default: return 8;
+            }
+        }
+
+        function getTooltipContent(node) {
+            return `
+                <div style="margin-bottom: 5px">
+                    <strong>${node.data.name || node.id}</strong>
+                </div>
+                <div>Type: ${node.type}</div>
+                <div>Status: ${node.status}</div>
+                <div>Depth: ${node.depth}</div>
+                <div>Transactions: ${node.metadata?.metrics?.processedTx || 0}</div>
+            `;
+        }
+
+        function showNodeDetails(node) {
+            const details = d3.select('#nodeDetails');
+            details.html(`
+                <div class="node-details">
+                    <h3>${node.data.name || node.id}</h3>
+                    <div class="metrics">
+                        <div><strong>Type:</strong> ${node.type}</div>
+                        <div><strong>Status:</strong> ${node.status}</div>
+                        <div><strong>Depth:</strong> ${node.depth}</div>
+                        <div><strong>Scale:</strong> ${node.scale}</div>
+                        <div><strong>Created:</strong> ${new Date(node.timestamp).toLocaleString()}</div>
+                        <div><strong>Last Update:</strong> ${new Date(node.metadata?.lastTransition || Date.now()).toLocaleString()}</div>
+                        <div><strong>Processed Tx:</strong> ${node.metadata?.metrics?.processedTx || 0}</div>
+                        <div><strong>Children:</strong> ${node.metadata?.metrics?.childrenCount || 0}</div>
+                        <div><strong>Avg Processing Time:</strong> ${(node.metadata?.metrics?.avgProcessingTime || 0).toFixed(2)}ms</div>
+                    </div>
+                    ${getChannelsHtml(node)}
+                    ${getBalancesHtml(node)}
+                </div>
+            `);
+        }
+
+        function getChannelsHtml(node) {
+            if (!node.state?.channels?.size) return '';
+            
+            let html = '<h4>Channels</h4>';
+            node.state.channels.forEach((channel, channelId) => {
+                html += `
+                    <div class="channel">
+                        <div><strong>ID:</strong> ${channelId.slice(0, 8)}...</div>
+                        <div><strong>Status:</strong> ${channel.status}</div>
+                        <div><strong>Type:</strong> ${channel.channelType}</div>
+                        <div><strong>Nonce:</strong> ${channel.nonce}</div>
+                        <div><strong>Last Update:</strong> ${new Date(channel.lastUpdate).toLocaleString()}</div>
+                    </div>
+                `;
+            });
+            return html;
+        }
+
+        function getBalancesHtml(node) {
+            if (!node.state?.balances?.size) return '';
+            
+            let html = '<h4>Balances</h4>';
+            node.state.balances.forEach((balance, token) => {
+                html += `
+                    <div><strong>${token}:</strong> ${formatBalance(balance)}</div>
+                `;
+            });
+            return html;
+        }
+
+        function formatBalance(balance) {
+            const num = BigInt(balance);
+            return (Number(num) / 1e18).toFixed(6);
+        }
+
+        // Drag functions
+        function dragStarted(event) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            event.subject.fx = event.subject.x;
+            event.subject.fy = event.subject.y;
+        }
+
+        function dragged(event) {
+            event.subject.fx = event.x;
+            event.subject.fy = event.y;
+        }
+
+        function dragEnded(event) {
+            if (!event.active) simulation.alphaTarget(0);
+            event.subject.fx = null;
+            event.subject.fy = null;
+        }
+
+        // Function to convert HSTM data to visualization format
+        function convertHSTMToGraphData(hstm) {
+            const nodes = [];
+            const links = [];
+            const nodeMap = new Map();
+
+            // Add nodes
+            hstm.nodes.forEach((node, id) => {
+                nodes.push({
+                    id,
+                    ...node
+                });
+                nodeMap.set(id, node);
+            });
+
+            // Add links
+            hstm.connections.forEach((connections, sourceId) => {
+                connections.forEach(targetId => {
+                    links.push({
+                        source: sourceId,
+                        target: targetId
+                    });
+                });
+            });
+
+            return { nodes, links };
+        }
+
+        // State history management
+        let stateHistory = [];
+        let currentStateIndex = -1;
+        let isPlaying = false;
+        let isLive = true;
+        const playbackInterval = 1000; // 1 second between states
+        let playbackTimer = null;
+
+        // UI Elements
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const liveBtn = document.getElementById('liveBtn');
+        const timelineSlider = document.getElementById('timelineSlider');
+        const currentStateSpan = document.getElementById('currentState');
+        const totalStatesSpan = document.getElementById('totalStates');
+
+        // Update UI state
+        function updateUIState() {
+            const totalStates = stateHistory.length;
+            timelineSlider.max = totalStates - 1;
+            timelineSlider.value = currentStateIndex;
+            currentStateSpan.textContent = currentStateIndex + 1;
+            totalStatesSpan.textContent = totalStates;
+            
+            prevBtn.disabled = currentStateIndex <= 0;
+            nextBtn.disabled = currentStateIndex >= totalStates - 1;
+            liveBtn.disabled = isLive;
+            
+            playPauseBtn.textContent = isPlaying ? '⏸' : '⏵';
+
+            console.log('UI State Updated:', {
+                currentState: currentStateIndex + 1,
+                totalStates,
+                isLive,
+                isPlaying
+            });
+        }
+
+        // Playback controls
+        function togglePlayback() {
+            isPlaying = !isPlaying;
+            if (isPlaying) {
+                playbackTimer = setInterval(() => {
+                    if (currentStateIndex < stateHistory.length - 1) {
+                        showNextState();
+                    } else {
+                        isPlaying = false;
+                        clearInterval(playbackTimer);
+                        updateUIState();
+                    }
+                }, playbackInterval);
+            } else {
+                clearInterval(playbackTimer);
+            }
+            updateUIState();
+        }
+
+        function showPreviousState() {
+            if (currentStateIndex > 0) {
+                currentStateIndex--;
+                isLive = false;
+                const state = stateHistory[currentStateIndex];
+                console.log('Showing previous state:', currentStateIndex + 1);
+                updateVisualization(state);
+                updateUIState();
+            }
+        }
+
+        function showNextState() {
+            if (currentStateIndex < stateHistory.length - 1) {
+                currentStateIndex++;
+                const state = stateHistory[currentStateIndex];
+                console.log('Showing next state:', currentStateIndex + 1);
+                updateVisualization(state);
+                updateUIState();
+            }
+            isLive = (currentStateIndex === stateHistory.length - 1);
+        }
+
+        function goToLive() {
+            isLive = true;
+            currentStateIndex = stateHistory.length - 1;
+            const state = stateHistory[currentStateIndex];
+            console.log('Going to live state:', currentStateIndex + 1);
+            updateVisualization(state);
+            updateUIState();
+        }
+
+        // Event listeners
+        playPauseBtn.addEventListener('click', () => {
+            console.log('Play/Pause clicked');
+            togglePlayback();
+        });
+        
+        prevBtn.addEventListener('click', () => {
+            console.log('Previous clicked');
+            showPreviousState();
+        });
+        
+        nextBtn.addEventListener('click', () => {
+            console.log('Next clicked');
+            showNextState();
+        });
+        
+        liveBtn.addEventListener('click', () => {
+            console.log('Live clicked');
+            goToLive();
+        });
+        
+        timelineSlider.addEventListener('input', (e) => {
+            currentStateIndex = parseInt(e.target.value);
+            isLive = currentStateIndex === stateHistory.length - 1;
+            const state = stateHistory[currentStateIndex];
+            console.log('Timeline changed to state:', currentStateIndex + 1);
+            updateVisualization(state);
+            updateUIState();
+        });
+
+        // Modify the startMonitoring function to handle state history
+        function startMonitoring(hstm) {
+            // Initial state
+            const initialState = convertHSTMToGraphData(hstm);
+            stateHistory.push(initialState);
+            currentStateIndex = 0;
+            updateVisualization(initialState);
+            updateUIState();
+
+            setInterval(() => {
+                const graphData = convertHSTMToGraphData(hstm);
+                
+                // Only add new state if it's different from the last state
+                const lastState = stateHistory[stateHistory.length - 1];
+                if (JSON.stringify(graphData) !== JSON.stringify(lastState)) {
+                    console.log('New state detected:', {
+                        nodes: graphData.nodes.length,
+                        links: graphData.links.length
+                    });
+                    
+                    // Add new state to history
+                    stateHistory.push(graphData);
+                    
+                    // Limit history size (optional)
+                    if (stateHistory.length > 100) {
+                        stateHistory.shift();
+                        if (currentStateIndex > 0) currentStateIndex--;
+                    }
+                    
+                    // Update visualization if in live mode
+                    if (isLive) {
+                        currentStateIndex = stateHistory.length - 1;
+                        updateVisualization(graphData);
+                    }
+                    
+                    updateUIState();
+                }
+            }, 1000);
+        }
+
+        // Initialize with example data
+        const exampleData = {
+            nodes: [
+                { id: 'root', type: 'ROOT', status: 'ACTIVE', data: { name: 'Root' }, depth: 0, metadata: { metrics: { processedTx: 0 } } }
+            ],
+            links: []
+        };
+        stateHistory.push(exampleData);
+        currentStateIndex = 0;
+        updateVisualization(exampleData);
+        updateUIState();
+
+        // Export functions for external use
+        window.HSTMViz = {
+            updateVisualization,
+            startMonitoring
+        };
+
+        // Load and run the example
+        import('./dist/example.js').then(module => {
+            console.log('Example module loaded, running example...');
+            module.runExample().catch(console.error);
+        }).catch(error => {
+            console.error('Failed to load example:', error);
+        });
+    </script>
+</body>
+</html> 

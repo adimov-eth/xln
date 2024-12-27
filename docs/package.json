@@ -1,0 +1,8 @@
+{
+  "name": "hstm-example",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "typescript": "5.3.3"
+  }
+} 

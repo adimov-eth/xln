@@ -1,6 +1,13 @@
 [profile.default]
-src = "src"
+src = "contracts"
 out = "out"
 libs = ["lib"]
+solc = "0.8.24"
+optimizer = true
+optimizer_runs = 1000
 
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+[rpc_endpoints]
+local = "http://127.0.0.1:8545"
+testnode1 = "http://127.0.0.1:8545"
+testnode2 = "http://127.0.0.1:8546"
+testnode3 = "http://127.0.0.1:8547"
