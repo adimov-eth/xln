@@ -118,14 +118,23 @@ End with actionable next steps whenever possible. Success is measured by shippin
 
 ## Project Overview
 
-XLN (Extended Lightning Network) v1 - A hierarchical blockchain architecture built on Ethereum that revolutionizes payment channel networks by solving the "inbound capacity problem". The system uses a novel reserve-credit mechanism and hierarchical actor model based on the "Kalashnikov Principle" of simplicity, reliability, and clarity.
+XLN (Extended Lightning Network) v1 - A revolutionary platform for creating tradeable digital corporations with built-in governance, inheritance, and payment channels. Every component in the system is a tradeable entity with shares, creating the first truly composable digital economy.
+
+## Key Innovations
+
+1. **Tradeable Digital Corporations**: Every entity has shares that can be bought, sold, or inherited
+2. **Dual Governance Modes**: ShareholderPriority (capital rules) or QuorumPriority (protocol rules)
+3. **Inheritance Tokens**: The first cryptocurrency that can be inherited without trust
+4. **Universal Entity Model**: Everything is an entity - protocols, contracts, wallets, extensions
+5. **Reserve-Credit System**: Flexible payment channels without pre-funding requirements
 
 ## Project Status
 
-**Current Phase**: Architecture & Planning
-- Core specifications complete (see `/docs/XLN_SPECIFICATION.md` and `/docs/XLN_PRD.md`)
-- Implementation not yet started
-- No package.json or build configuration exists yet
+**Current Phase**: Phase 1 Implementation - Core Entity System
+- Core MVP implemented (server, basic entities, persistence)
+- Master Implementation Plan created (10-week timeline)
+- Currently building: Entity governance, shares, and trading
+- See `/docs/MASTER_IMPLEMENTATION_PLAN.md` for detailed roadmap
 
 ## Key Commands
 
@@ -169,19 +178,25 @@ bun run format:check # Check formatting
 ### Core Mental Model: Post Office Simulation
 The system uses a consistent analogy for clarity:
 - **Server**: A central Post Office Sorting Room that routes messages
-- **Signer**: Board Members managing multiple companies
-- **Entity**: Companies with internal rules and board governance
+- **Signer**: Board Members managing multiple companies (can be observers)
+- **Entity**: Tradeable Digital Corporations with shares and flexible governance
 - **EntityInput**: Formal Memos sent to companies
 - **EntityTx**: Atomic Agenda Items within memos
 - **EntityBlock**: Signed Minutes of Board Meetings
 - **Outbox**: Temporary "To-Do" Tray for inter-entity communication
 
+### Revolutionary Concepts
+- **Jurisdiction vs Entity**: Jurisdiction has intrinsic validators (like Ethereum), Entities have extrinsic validators (from smart contracts)
+- **Entity Handover Protocol**: 2-week grace period for ownership transitions with observer pattern
+- **Inheritance Tokens**: QuorumPriority mode enables trustless inheritance via inactivity detection
+- **Everything is an Entity**: Foundation, contracts, wallets, extensions - all tradeable with shares
+
 ### Hierarchical Actor Model (5 Layers)
 1. **Server** - Top-level coordinator, manages signers, operates in ticks
-2. **Signer** - BLS signer handling entities, enables multi-sig
-3. **Entity** - User identity, manages channels via state machine
-4. **Channel** - Payment channel between entities
-5. **Depositary** - Token storage linked to entities
+2. **Signer** - Manages entity replicas, can be active participant or observer
+3. **Entity** - Tradeable corporation with shares, governance, and state machine
+4. **Channel** - Payment channel between entities (Phase 6-7)
+5. **Depositary** - Token storage linked to entities (Phase 4)
 
 ### Core Concepts
 - **Reserve-Credit System**: Novel approach where channels have both reserve (collateral) and credit (spending power)
@@ -244,7 +259,14 @@ The system uses a consistent analogy for clarity:
 
 ## Resources
 
+- **Master Plan**: `/docs/MASTER_IMPLEMENTATION_PLAN.md` - 10-week implementation roadmap
 - **Full Specification**: `/docs/XLN_SPECIFICATION.md` - Detailed technical architecture
 - **PRD**: `/docs/XLN_PRD.md` - Product requirements and success metrics
-- **Planning Documents**: `/drafts/` - Various design discussions and reviews
-- **Ethereum Compatibility**: Use RLP encoding, Keccak256 hashing, secp256k1/BLS signatures
+- **Governance Docs**: 
+  - `/docs/GOVERNANCE_MODELS.md` - ShareholderPriority vs QuorumPriority
+  - `/docs/INHERITANCE_TOKENS.md` - Trustless crypto inheritance
+  - `/docs/ENTITY_HANDOVER_PROTOCOL.md` - Ownership transitions
+  - `/docs/EVERYTHING_IS_ENTITY.md` - Universal entity model
+- **GitHub Issues**: Active development tracking
+  - Issue #7: Phase 1 - Core Entity System
+  - Issue #8: Inheritance Tokens Feature
