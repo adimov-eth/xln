@@ -164,6 +164,7 @@ We welcome contributions! Please read our [Contributing Guidelines](CONTRIBUTING
 
 - [Technical Specification](docs/XLN_SPECIFICATION.md) - Detailed architecture
 - [Product Requirements](docs/XLN_PRD.md) - Product vision and metrics
+- [Implementation Plan](docs/IMPLEMENTATION_PLAN.md) - Phased development roadmap
 - [CLAUDE.md](CLAUDE.md) - AI assistant configuration
 
 ## License
