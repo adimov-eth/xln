@@ -1,17 +1,18 @@
 # XLN (Extended Lightning Network) v1
 
-A hierarchical blockchain architecture that revolutionizes payment channel networks by solving the "inbound capacity problem" through a novel reserve-credit mechanism.
+A revolutionary platform for creating tradeable digital corporations with built-in governance, inheritance, and payment channels. XLN solves both organizational governance and payment scalability in one unified system.
 
 ## Overview
 
-XLN v1 implements a pure functional, deterministic state machine architecture inspired by the "Kalashnikov Principle" - ultimate reliability through simplicity. The system simulates a distributed consensus environment using a Post Office metaphor for clarity.
+XLN v1 implements a pure functional, deterministic state machine architecture inspired by the "Kalashnikov Principle" - ultimate reliability through simplicity. Every component in the system is a tradeable entity with shares, creating the first truly composable digital economy.
 
-### Key Innovation: Reserve-Credit System
+### Key Innovations
 
-Unlike traditional payment channels that require pre-funding, XLN introduces a dual mechanism:
-- **Reserve**: Collateral locked in channels
-- **Credit**: Spending power that can exceed reserves
-- **Solution**: Eliminates the need for inbound capacity pre-allocation
+1. **Tradeable Digital Corporations**: Every entity has shares that can be bought, sold, or inherited
+2. **Dual Governance Modes**: ShareholderPriority (capital rules) or QuorumPriority (protocol rules)
+3. **Inheritance Tokens**: The first cryptocurrency that can be inherited without trust
+4. **Universal Entity Model**: Everything is an entity - protocols, contracts, wallets, extensions
+5. **Reserve-Credit System**: Flexible payment channels without pre-funding requirements
 
 ## Architecture
 
@@ -38,11 +39,12 @@ Unlike traditional payment channels that require pre-funding, XLN introduces a d
 - Participates in entity consensus
 - Signs blocks with BLS signatures (future)
 
-#### Entity (Company)
-- Self-contained state machine
-- Multi-sig governance via quorum
-- Proposer-based block production
-- Deterministic state transitions
+#### Entity (Digital Corporation)
+- Tradeable with automatic share issuance
+- Flexible governance (ShareholderPriority or QuorumPriority)
+- Can be bought via hostile takeover (51% shares)
+- Supports inheritance through inactivity detection
+- Seamless ownership transitions via handover protocol
 
 ## Quick Start
 
@@ -127,6 +129,34 @@ bun run clean
     └── entities/       # Entity states
 ```
 
+## Governance Features
+
+### ShareholderPriority Mode
+- Shareholders can vote to replace management (quorum)
+- Enables hostile takeovers via 51% ownership
+- Traditional corporate governance model
+- Market dynamics determine control
+
+### QuorumPriority Mode
+- Quorum is sovereign, cannot be replaced by shareholders
+- Enables inheritance tokens (trustless crypto inheritance)
+- Creates uncapturable infrastructure
+- Perfect for protocols and foundations
+
+### Entity Handover Protocol
+- Seamless ownership transitions with 2-week grace period
+- Observer pattern for hot standby (new owners ready to take over)
+- Incentive alignment: cooperate or lose reserve access
+- Zero downtime during transitions
+
+### Universal Entity Model
+Everything in XLN is a tradeable entity:
+- **XLN Foundation**: Can be forked like any entity
+- **Smart Contracts**: EntityProvider.sol has shares
+- **Wallet Software**: Updates controlled by wallet entity
+- **Extensions**: Can be acquired via hostile takeover
+- **Audit Firms**: Reputation reflected in share value
+
 ## Development Status
 
 ### Implemented ✅
@@ -136,19 +166,19 @@ bun run clean
 - WAL and snapshot persistence
 - Recursive message passing
 
-### In Progress 🚧
-- BLS signature aggregation
-- Merkle tree state commitments
-- Network layer (WebSocket/REST)
-- Channel implementation
-- Depositary system
+### Priority Development 🚧
+- Entity governance modes (ShareholderPriority/QuorumPriority)
+- Share issuance and trading
+- Inheritance token functionality
+- Entity handover protocol
+- Universal entity registration
 
 ### Future Work 📋
-- Production-grade consensus
-- Horizontal scaling
-- Cross-entity channels
+- Payment channels with reserve-credit
+- Multi-hop routing
 - Smart contract integration
 - Performance optimizations
+- Production deployment
 
 ## Contributing
 

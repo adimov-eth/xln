@@ -29,13 +29,14 @@
 ## 1. Executive Summary
 
 ### 1.1 Product Vision
-XLN (Extended Lightning Network) revolutionizes blockchain payment channels by solving the inbound capacity problem through an innovative reserve-credit system, enabling efficient, scalable, and flexible financial transactions.
+XLN (Extended Lightning Network) revolutionizes digital organizations by creating the first tradeable, self-governing entities that can be bought, sold, and inherited like traditional companies, while solving payment scalability through an innovative reserve-credit system.
 
 ### 1.2 Key Objectives
-- **Solve Inbound Capacity Problem**: Enable bidirectional payment flows without pre-funding requirements
-- **Achieve Massive Scale**: Support 10M+ payment channels per hub
-- **Enable Real-Time Processing**: 100ms block times for instant transactions
-- **Provide Programmability**: Support complex business logic and governance
+- **Create Digital Corporations**: Entities with tradeable shares and flexible governance
+- **Enable Inheritance Tokens**: First cryptocurrency that can be inherited without trust
+- **Solve Inbound Capacity Problem**: Enable bidirectional payment flows without pre-funding
+- **Universal Entity Model**: Everything (protocols, contracts, extensions) becomes a tradeable entity
+- **Achieve Massive Scale**: Support 10M+ channels through hierarchical architecture
 
 ### 1.3 Success Metrics
 - Process 100,000+ TPS at peak load
@@ -56,10 +57,12 @@ Current payment channel networks (Lightning Network, Raiden) suffer from:
 
 ### 2.2 Solution Overview
 XLN introduces:
+- **Tradeable Entities**: Digital corporations with shares that can be bought/sold/inherited
+- **Governance Modes**: ShareholderPriority (capital rules) vs QuorumPriority (protocol rules)
+- **Inheritance Tokens**: Trustless inheritance through inactivity detection
+- **Universal Entity Model**: Everything is an entity - protocols, contracts, wallets, extensions
 - **Reserve-Credit System**: Flexible capital allocation with trust-based credit
-- **Hierarchical Actor Model**: Clean architecture for complex systems
-- **Programmable Entities**: Smart contract-like functionality off-chain
-- **Optimized State Management**: Configurable Merkle trees for scale
+- **Entity Handover Protocol**: Seamless ownership transitions with incentive alignment
 
 ### 2.3 Target Market
 - **Payment Service Providers**: High-volume transaction processing
@@ -110,18 +113,44 @@ XLN introduces:
 2. **Internal Settlements**: Corporate treasury management
 3. **Partner Networks**: Consortium payment systems
 
-### 3.4 Individual User
+### 3.4 Digital Estate Owner
 
-**Profile**: End-user making payments
+**Profile**: Crypto holder planning inheritance
 **Needs**:
-- Simple wallet interface
-- Low fees
-- Transaction privacy
+- Trustless inheritance mechanism
+- Tradeable inheritance rights
+- Customizable activation conditions
 
 **Use Cases**:
-1. **Peer-to-Peer Payments**: Send money to friends
-2. **Online Purchases**: E-commerce transactions
-3. **Gaming/Content**: Micropayments for digital goods
+1. **Estate Planning**: Distribute crypto assets to heirs
+2. **Inheritance Trading**: Heirs can sell future rights
+3. **Living Control**: Maintain full control while active
+
+### 3.5 Corporate Raider
+
+**Profile**: Investor seeking undervalued digital entities
+**Needs**:
+- Transparent ownership records
+- Liquid share markets
+- Hostile takeover mechanisms
+
+**Use Cases**:
+1. **Entity Acquisition**: Buy 51% shares to control entities
+2. **Infrastructure Takeover**: Acquire protocol entities
+3. **Management Replacement**: Vote out inefficient teams
+
+### 3.6 Protocol Developer
+
+**Profile**: Builds extensions and infrastructure
+**Needs**:
+- Monetizable development
+- Governance control
+- Fork protection
+
+**Use Cases**:
+1. **Extension Entities**: Create tradeable protocol extensions
+2. **Audit Requirements**: Multi-entity approval for security
+3. **Fork Freedom**: Create alternative protocol versions
 
 ---
 
@@ -165,20 +194,22 @@ XLN introduces:
 
 #### FR-4.1.3: Entity Machine
 **Priority**: P0 (Critical)
-**Description**: Business logic container with governance
+**Description**: Tradeable digital corporations with flexible governance
 
 **Requirements**:
-- SHALL support single and multi-sig configurations
-- SHALL implement proposal/voting system
-- SHALL manage channels and depositaries
-- SHALL maintain entity-specific state
-- SHALL execute custom business logic
+- SHALL issue shares automatically upon creation
+- SHALL support ShareholderPriority and QuorumPriority governance modes
+- SHALL enable share trading and ownership transfers
+- SHALL implement entity handover protocol with grace periods
+- SHALL support inheritance tokens with inactivity detection
+- SHALL allow any component to become a tradeable entity
 
 **Acceptance Criteria**:
-- [ ] Creates entities in <200ms
-- [ ] Processes proposals within one block
-- [ ] Supports 1M+ channels per entity
-- [ ] Handles 10,000+ TPS per entity
+- [ ] Creates entities with shares in <200ms
+- [ ] Processes ownership transfers atomically
+- [ ] Handles hostile takeovers via 51% ownership
+- [ ] Implements 2-week handover grace period
+- [ ] Detects inactivity for inheritance activation
 
 #### FR-4.1.4: Channel Machine
 **Priority**: P0 (Critical)
@@ -250,7 +281,60 @@ XLN introduces:
 - [ ] Calculates capacity correctly
 - [ ] Settles credit atomically
 
-### 4.3 State Management
+### 4.3 Entity Governance
+
+#### FR-4.3.1: Governance Modes
+**Priority**: P0 (Critical)
+**Description**: Two fundamental governance models
+
+**Requirements**:
+- SHALL implement ShareholderPriority mode where shareholders can replace quorum
+- SHALL implement QuorumPriority mode where quorum is sovereign
+- SHALL enforce governance rules based on mode
+- SHALL prevent unauthorized governance changes
+- SHALL support mode selection at entity creation
+
+**Acceptance Criteria**:
+- [ ] ShareholderPriority allows 51% takeovers
+- [ ] QuorumPriority prevents shareholder coups
+- [ ] Mode cannot be changed after creation
+- [ ] Inheritance tokens work in QuorumPriority mode
+
+#### FR-4.3.2: Entity Handover Protocol
+**Priority**: P0 (Critical)
+**Description**: Seamless ownership transitions
+
+**Requirements**:
+- SHALL support observer pattern for hot standby
+- SHALL implement 2-week grace period for handovers
+- SHALL freeze reserves for non-cooperative transitions
+- SHALL enable automatic role transitions
+- SHALL maintain continuous entity operation
+
+**Acceptance Criteria**:
+- [ ] Observers sync state before activation
+- [ ] Old signers have 2 weeks to cooperate
+- [ ] Non-cooperation triggers reserve freeze
+- [ ] Zero downtime during transitions
+
+#### FR-4.3.3: Universal Entity Model
+**Priority**: P0 (Critical)
+**Description**: Everything becomes a tradeable entity
+
+**Requirements**:
+- SHALL allow any component to become an entity
+- SHALL auto-generate shares with entity name
+- SHALL support entity hierarchies and dependencies
+- SHALL enable multi-entity approval requirements
+- SHALL implement trust relationships between entities
+
+**Acceptance Criteria**:
+- [ ] Foundation, contracts, wallets are entities
+- [ ] Extensions require multi-entity signatures
+- [ ] Entity names serve as tickers
+- [ ] Hostile takeovers possible for any entity
+
+### 4.4 State Management
 
 #### FR-4.3.1: Merkle Tree System
 **Priority**: P0 (Critical)

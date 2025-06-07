@@ -12,7 +12,8 @@
       "Bash(git add:*)",
       "Bash(git push:*)",
       "Bash(gh issue create:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(gh issue comment:*)"
     ]
   },
   "enableAllProjectMcpServers": false
