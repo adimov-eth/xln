@@ -1,6 +1,50 @@
-# XLN Architecture Documentation - Filtered Conversations
+# XLN Architecture Documentation - Updated Architecture
 
-## 1. Core Architecture & Entity Management
+## 1. Simplified 3-Layer Architecture
+
+### Current Architecture: Server → Entity → Account
+
+XLN now uses a simplified 3-layer architecture:
+
+```
+Server (routing + state management)
+  └── Entity (consensus + business logic)
+        └── Account (channel operations)
+```
+
+**Key Change**: Signer is NOT a machine layer - it's an organizational grouping concept.
+
+### What "Signer" Actually Means
+
+```typescript
+// Signer = organizational grouping + cryptographic identity
+type ServerState = {
+  height: number;
+  signers: EntityState[][];  // signers[signerIndex][entityIndex]
+  mempool: ServerTx[];
+};
+
+type ServerTx = {
+  signerIndex: number;  // which "account/group" 
+  entityIndex: number;  // which entity in that group
+  input: EntityInput;
+};
+```
+
+**Signer Characteristics:**
+- **Cryptographic identity**: Derives private key from server's master secret using index
+- **Organizational grouping**: Groups entities by ownership
+- **Key derivation index**: signer[0], signer[1], signer[2]... generate different keys
+- **Signing authority**: Provides cryptographic signatures for entity operations
+
+**Example:**
+```
+Signer[0] = "Alice's signing key" → owns entities A, B, C
+Signer[1] = "Bob's signing key" → owns entities D, E  
+Signer[2] = "DAO's signing key" → owns entity F
+```
+
+## 2. Core Architecture & Entity Management
 
 ### Entity-Signer Relationship
 
@@ -25,7 +69,7 @@ or change quorum composition - but only if all entities on all jurisdictions cha
 quorum is specifically the hash of public keys. if even one changes then the hash is new
 ```
 
-## 2. Cross-Jurisdictional Swaps
+## 3. Cross-Jurisdictional Swaps
 
 ### HTLC Implementation
 
@@ -46,7 +90,7 @@ quorum is specifically the hash of public keys. if even one changes then the has
    - Hub's guarantees: He locks B-tokens first, but A are still free
 ```
 
-## 3. Database Architecture
+## 4. Database Architecture
 
 ### LevelDB Strategy
 
@@ -65,7 +109,7 @@ but if you just copy paste lvl db folders
 it will be fast
 ```
 
-## 4. XLN Vision & Manifesto
+## 5. XLN Vision & Manifesto
 
 ### XLN Definition
 
@@ -100,7 +144,7 @@ Instead of "locking funds" for Layer 2 participation, participant opens a **cred
 Each server aggregates state changes, collects signatures from quorum, and fixes new checkpoint.
 ```
 
-## 5. Entity Types & Management
+## 6. Entity Types & Management
 
 ### Quorum vs Shareholder Priority
 
@@ -123,4 +167,27 @@ no external system manages them.
 And Entity, they are already tied to ether, and what events happen in ether, either Quorum changed itself,
 or Shareholder Emergency Meeting and changed Quorum, it reads this and is obliged to obey.
 ```
+
+## 7. Updated Architecture Benefits
+
+### Why This Simplification?
+
+**Removed Complexity:**
+- Signer machines as separate state machines
+- Three-layer hierarchy (Server → Signer → Entity)  
+- Intermediate consensus layer
+
+**Achieved:**
+- Cleaner architecture with fewer layers to manage
+- Better performance without intermediate state management
+- Simpler reasoning with direct server-to-entity communication
+- Maintained functionality for entity grouping and key management
+
+### Alternative Naming Considerations
+
+The founder mentioned potential alternative names:
+- **Sigil** - emphasizing the symbolic/identifier aspect
+- **Clavis** - emphasizing the key/access aspect
+
+Current preference remains **Signer** for clarity and simplicity.
 

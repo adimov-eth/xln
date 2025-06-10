@@ -1,4 +1,3 @@
-
 import { Buffer } from 'buffer';
 import { Level } from 'level';
 import * as enc from './encoding';
@@ -69,11 +68,11 @@ export class StorageManager {
       stateRoot: enc.hashServerState(state),
       timestamp: Date.now()
     };
-    batch.put('', enc.encode([
+    batch.put('root', Buffer.from(enc.encode([
       serverRoot.height,
       Buffer.from(serverRoot.stateRoot, 'hex'),
       serverRoot.timestamp
-    ]));
+    ])));
     
     // Save each entity state
     for (const [signerId, entities] of state.entities) {
@@ -88,25 +87,26 @@ export class StorageManager {
 
   async loadServerState(): Promise<t.Result<t.ServerState>> {
     try {
-      const state: t.ServerState = {
-        height: 0,
-        mempool: new Map(),
-        entities: new Map()
-      };
+      let height = 0;
       
       // Load server root
       try {
-        const rootData = await this.stateDb.get('');
-        const [height] = enc.decode(rootData) as [number, Buffer, number];
-        state.height = height;
+        const rootData = await this.stateDb.get('root');
+        const decoded = enc.decode(rootData) as any[];
+        const heightData = decoded[0];
+        height = typeof heightData === 'number' 
+            ? heightData 
+            : parseInt(Buffer.from(heightData).toString('hex') || '0', 16);
       } catch (error: any) {
         if (error.code !== 'LEVEL_NOT_FOUND') throw error;
         // No root means fresh state
       }
       
+      const entities = new Map<t.SignerId, Map<t.EntityId, t.EntityState>>();
+      
       // Load all entity states
       for await (const [key, value] of this.stateDb.iterator()) {
-        if (key === '') continue; // Skip root
+        if (key === 'root') continue; // Skip root
         
         const [signerId, entityId] = key.split('/');
         if (!signerId || !entityId) continue;
@@ -117,16 +117,23 @@ export class StorageManager {
         }
         
         // Get or create signer map
-        let signerEntities = state.entities.get(signerId);
+        let signerEntities = entities.get(signerId);
         if (!signerEntities) {
           signerEntities = new Map();
-          (state.entities as Map<string, Map<string, t.EntityState>>).set(signerId, signerEntities);
+          entities.set(signerId, signerEntities);
         }
         
         signerEntities.set(entityId, entityResult.value);
       }
       
-      return { ok: true, value: state };
+      return { 
+        ok: true, 
+        value: {
+          height,
+          mempool: new Map(),
+          entities
+        } 
+      };
     } catch (error) {
       return { ok: false, error: error as Error };
     }
@@ -243,20 +250,20 @@ function padBlockNumber(height: number): string {
 }
 
 function encodeEntityState(state: t.EntityState): Buffer {
-  return enc.encode([
+  return Buffer.from(enc.encode([
     state.status,
     enc.encodeEntityStorage(state.storage),
     state.mempool.map(tx => enc.encodeEntityTx(tx)),
-    state.lastBlock ? enc.encodeEntityBlock(state.lastBlock) : null,
-    state.proposedBlock ? enc.encodeEntityBlock(state.proposedBlock) : null,
+    state.lastBlock ? enc.encodeEntityBlock(state.lastBlock) : Buffer.from([]),
+    state.proposedBlock ? enc.encodeEntityBlock(state.proposedBlock) : Buffer.from([]),
     state.height
-  ]);
+  ]));
 }
 
 function decodeEntityState(data: Buffer): t.Result<t.EntityState> {
   try {
     const decoded = enc.decode(data) as any[];
-    const [status, storageData, mempoolData, lastBlockData, proposedBlockData, height] = decoded;
+    const [status, storageData, mempoolData, lastBlockData, proposedBlockData, heightData] = decoded;
     
     // Decode storage
     const storageResult = enc.decodeEntityStorage(storageData);
@@ -272,18 +279,22 @@ function decodeEntityState(data: Buffer): t.Result<t.EntityState> {
     
     // Decode blocks if present
     let lastBlock: t.EntityBlock | undefined;
-    if (lastBlockData) {
+    if (lastBlockData && Buffer.isBuffer(lastBlockData) && lastBlockData.length > 0) {
       const blockResult = decodeEntityBlock(lastBlockData);
       if (!blockResult.ok) return blockResult;
       lastBlock = blockResult.value;
     }
     
     let proposedBlock: t.EntityBlock | undefined;
-    if (proposedBlockData) {
+    if (proposedBlockData && Buffer.isBuffer(proposedBlockData) && proposedBlockData.length > 0) {
       const blockResult = decodeEntityBlock(proposedBlockData);
       if (!blockResult.ok) return blockResult;
       proposedBlock = blockResult.value;
     }
+    
+    const height = typeof heightData === 'number'
+        ? heightData
+        : parseInt(Buffer.from(heightData).toString('hex') || '0', 16);
     
     return {
       ok: true,
@@ -304,7 +315,14 @@ function decodeEntityState(data: Buffer): t.Result<t.EntityState> {
 function decodeEntityBlock(data: Buffer): t.Result<t.EntityBlock> {
   try {
     const decoded = enc.decode(data) as any[];
-    const [height, timestamp, txsData, stateRoot, storageData] = decoded;
+    const [heightData, timestampData, txsData, stateRoot, storageData] = decoded;
+    
+    const height = typeof heightData === 'number'
+      ? heightData
+      : parseInt(Buffer.from(heightData).toString('hex') || '0', 16);
+    const timestamp = typeof timestampData === 'number'
+      ? timestampData
+      : parseInt(Buffer.from(timestampData).toString('hex') || '0', 16);
     
     // Decode transactions
     const txs: t.EntityTx[] = [];
@@ -336,8 +354,15 @@ function decodeEntityBlock(data: Buffer): t.Result<t.EntityBlock> {
 function decodeServerBlock(data: Buffer): t.Result<t.ServerBlock> {
   try {
     const decoded = enc.decode(data) as any[];
-    const [height, timestamp, inputsData, stateRoot] = decoded;
+    const [heightData, timestampData, inputsData, stateRoot] = decoded;
     
+    const height = typeof heightData === 'number'
+      ? heightData
+      : parseInt(Buffer.from(heightData).toString('hex') || '0', 16);
+    const timestamp = typeof timestampData === 'number'
+      ? timestampData
+      : parseInt(Buffer.from(timestampData).toString('hex') || '0', 16);
+
     // Decode inputs
     const inputs: t.ServerTx[] = [];
     for (const inputData of inputsData) {
@@ -363,8 +388,12 @@ function decodeServerBlock(data: Buffer): t.Result<t.ServerBlock> {
 function decodeServerTx(data: Buffer): t.Result<t.ServerTx> {
   try {
     const decoded = enc.decode(data) as any[];
-    const [signerId, entityId, inputData, timestamp] = decoded;
+    const [signerId, entityId, inputData, timestampData] = decoded;
     
+    const timestamp = typeof timestampData === 'number'
+      ? timestampData
+      : parseInt(Buffer.from(timestampData).toString('hex') || '0', 16);
+
     // Decode input
     const inputResult = decodeEntityInput(inputData);
     if (!inputResult.ok) return inputResult;
