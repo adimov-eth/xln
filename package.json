@@ -1,0 +1,16 @@
+{
+  "name": "v0",
+  "module": "src/index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "level": "^10.0.0",
+    "rlp": "^3.0.0"
+  }
+}
