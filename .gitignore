@@ -2,6 +2,9 @@
 node_modules
 test-db
 data
+blocks
+wal
+state
 
 # output
 out
