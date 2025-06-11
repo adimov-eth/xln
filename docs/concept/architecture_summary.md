@@ -11,7 +11,7 @@ XLN is a programmable trust network built on a **simplified 3-layer hierarchy** 
 ```
 Server (routing + state management)
   └── Entity (consensus + business logic)  
-        └── Account (channel operations)
+        └── Channel (bilateral operations)
 ```
 
 **Key Principle**: Each layer is a separate state machine with its own consensus rules and data structures.
@@ -95,7 +95,7 @@ function applyEntityInput(entity: EntityState, input: EntityInput): EntityState 
 
 ### Removed Complexity
 - ❌ Signer machines as separate state machines
-- ❌ Four-layer hierarchy (Server → Signer → Entity → Account)
+- ❌ Four-layer hierarchy (Server → Signer → Entity → Channel)
 - ❌ Intermediate consensus layer
 - ❌ Complex routing between machine layers
 
@@ -130,9 +130,9 @@ type EntityTx = {
 };
 ```
 
-### Account Level
+### Channel Level
 ```typescript
-type AccountInput =
+type ChannelInput =
   | { kind: 'transfer'; amount: number; to: string }
   | { kind: 'credit_limit'; limit: number }
   | { kind: 'dispute'; evidence: any };
@@ -181,7 +181,7 @@ Current preference remains **Signer** for clarity and developer familiarity.
 - Updated processing pipeline to eliminate intermediate layer
 
 ### What Stayed the Same
-- Entity and Account machine concepts unchanged
+- Entity and Channel machine concepts unchanged
 - Business logic and consensus rules preserved  
 - Storage and persistence strategy maintained
 - Core functional programming approach retained
@@ -189,9 +189,9 @@ Current preference remains **Signer** for clarity and developer familiarity.
 ## Next Steps
 
 This simplified architecture provides a solid foundation for:
-1. **Core implementation** - basic server, entity, and account machines
+1. **Core implementation** - basic server, entity, and channel machines
 2. **Consensus layer** - proposal/voting mechanisms within entities  
-3. **Channel operations** - bilateral account state management
+3. **Channel operations** - bilateral channel state management
 4. **Network layer** - when ready to scale beyond single-server simulation
 5. **Security layer** - signatures, access control, dispute resolution
 

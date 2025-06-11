@@ -9,7 +9,7 @@ XLN now uses a simplified 3-layer architecture:
 ```
 Server (routing + state management)
   └── Entity (consensus + business logic)
-        └── Account (channel operations)
+        └── Channel (bilateral operations)
 ```
 
 **Key Change**: Signer is NOT a machine layer - it's an organizational grouping concept.

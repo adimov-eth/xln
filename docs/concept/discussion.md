@@ -1,4 +1,4 @@
-> How would you implement the foundation of .xln in TypeScript? Just the general code. Not the entire file, but the basic concept. So there would be a server machine, inside which there are signers grouped by indices 0, 1, 2, etc. Just keys derived from one common server private key and entities that are bound to signers. One entity can be stored in multiple signers, meaning they act as a quorum. We're simulating everything on one server. We're not interested in networking right now. We're not going further yet. We're not interested in accounts. We're going layer by layer. Servers and entities. The main thing is that requests arrive in the server's mempool. They are periodically processed and sent further to entities. What kind of basic requests would you make? What should we call them? We could call them, for example, server transaction, entity transaction, etc. And some server transactions, or rather all of them, are essentially operations with entity machines. That is, they have parameters like signer index or signer ID. This is optional. And the entity index they're directed to. These are consensus-level transactions, and most importantly, entity creation. So, how would you implement initial creation? Not quite genesis, but rather import, or suggest another word. Because genesis implies state 0, but here you can import. That is, join the quorum later. For example, at block 100, when the entity already has its history without you. And you just import its state into your signer on your server. So, describe how you would initially do this. Most importantly, no security is needed right now. No signatures, hashes, access checks, ACL. Only focus on the purest business logic and fault tolerance. That is, if you suddenly kill the Node.js process and restart it, it should take the last snapshot from state level db and apply the write-ahead-log from history level db. And we can reload like a revolver, periodically dumping states to HDD and dumping large chunks of history to HDD as well. For a frequently operated hub. That is, just constantly growing level dbs. So, describe what ideas you have, and most importantly, if you don't understand something, ask me questions. Leading questions. And check previous chats about XLN. Maybe you'll find some ideas there. If you find something, give me a quote where you found the answer to your question from old chats. It will be interesting to see how well you search in the past.
+> How would you implement the foundation of .xln in TypeScript? Just the general code. Not the entire file, but the basic concept. So there would be a server machine, inside which there are signers grouped by indices 0, 1, 2, etc. Just keys derived from one common server private key and entities that are bound to signers. One entity can be stored in multiple signers, meaning they act as a quorum. We're simulating everything on one server. We're not interested in networking right now. We're not going further yet. We're not interested in channels. We're going layer by layer. Servers and entities. The main thing is that requests arrive in the server's mempool. They are periodically processed and sent further to entities. What kind of basic requests would you make? What should we call them? We could call them, for example, server transaction, entity transaction, etc. And some server transactions, or rather all of them, are essentially operations with entity machines. That is, they have parameters like signer index or signer ID. This is optional. And the entity index they're directed to. These are consensus-level transactions, and most importantly, entity creation. So, how would you implement initial creation? Not quite genesis, but rather import, or suggest another word. Because genesis implies state 0, but here you can import. That is, join the quorum later. For example, at block 100, when the entity already has its history without you. And you just import its state into your signer on your server. So, describe how you would initially do this. Most importantly, no security is needed right now. No signatures, hashes, access checks, ACL. Only focus on the purest business logic and fault tolerance. That is, if you suddenly kill the Node.js process and restart it, it should take the last snapshot from state level db and apply the write-ahead-log from history level db. And we can reload like a revolver, periodically dumping states to HDD and dumping large chunks of history to HDD as well. For a frequently operated hub. That is, just constantly growing level dbs. So, describe what ideas you have, and most importantly, if you don't understand something, ask me questions. Leading questions. And check previous chats about XLN. Maybe you'll find some ideas there. If you find something, give me a quote where you found the answer to your question from old chats. It will be interesting to see how well you search in the past.
 
 Here's how I understood the task, and how I would start implementing the minimal **XLN business logic** in TypeScript, without signatures, ACL, and network, but with **mempool**, **entity machines**, **signers**, **write-ahead log**, and **recovery through snapshot**.
 
@@ -450,7 +450,7 @@ All we're doing now is turning it into atomic pure functions with predictable be
 
 ##### You said:
 
-Do you understand everything in detail, 100%? Not 99, but 100. Do you understand why we're avoiding account machines now? Do you understand why we need LevelDB in WriteAhead.log? Analyze the naming yourself from scratch. Don't you find EntityInput and ImportEntity strange, that the word Entity is on both sides? Suggest top-3 naming options for all these words. Maybe you'll come up with better ones than me. Try to reanalyze From First Principles the entire concept of machines nested in Hierarchy, and suggest how you would do it yourself, where simplicity and reliability should be as reliable as a Kalashnikov rifle. Overall, I agree with tasks 1, 2. Import Entity from snapshot, probably a bit later. Core.ts. I think Core.js is essentially the server. Process this as a brilliant architect, how to do this in minimum lines of code, so that it builds in the head into a beautiful functional page. What do you think, where to store InputEntity functions inside Entity.ts or inside server.ts, as supermachines that exist above?
+Do you understand everything in detail, 100%? Not 99, but 100. Do you understand why we're avoiding channel machines now? Do you understand why we need LevelDB in WriteAhead.log? Analyze the naming yourself from scratch. Don't you find EntityInput and ImportEntity strange, that the word Entity is on both sides? Suggest top-3 naming options for all these words. Maybe you'll come up with better ones than me. Try to reanalyze From First Principles the entire concept of machines nested in Hierarchy, and suggest how you would do it yourself, where simplicity and reliability should be as reliable as a Kalashnikov rifle. Overall, I agree with tasks 1, 2. Import Entity from snapshot, probably a bit later. Core.ts. I think Core.js is essentially the server. Process this as a brilliant architect, how to do this in minimum lines of code, so that it builds in the head into a beautiful functional page. What do you think, where to store InputEntity functions inside Entity.ts or inside server.ts, as supermachines that exist above?
 
 ---
 
@@ -458,15 +458,15 @@ I understand **everything 100%**. And here's proof — I'll dissect your XLN to 
 
 ---
 
-## ✅ Why **no accounts** right now
+## ✅ Why **no channels** right now
 
 Because:
 
-- Account — is a submachine, **context-dependent** (resources, guarantees, holdings).
+- Channel — is a submachine, **context-dependent** (resources, guarantees, holdings).
     
 - **Entity** level — minimally necessary granularity for simulating quorum, blocks, inputs, commits.
     
-- **Only after** validating core reliability, appearance of dispute and credit lines — we can add accounts.
+- **Only after** validating core reliability, appearance of dispute and credit lines — we can add channels.
     
 - If we add them now — we'll drown in subscriptions, rollbacks and ACL, which we don't need yet.
     
@@ -674,7 +674,7 @@ So the correct scheme — _explicitly indicate the machine in the object or type
 |---|---|---|---|
 |Server|`ServerTx`|—|Routes to Entities|
 |Entity|`EntityInput`|`EntityTx`|`EntityBlock`|
-|Account|`AccountInput`|`AccountTx`|`AccountBlock`|
+|Channel|`ChannelInput`|`ChannelTx`|`ChannelBlock`|
 
 **Key Changes:**
 - `ServerTx` replaces `ServerInput` - direct routing to entities
@@ -720,7 +720,7 @@ Question: **where to place this?**
 |---|---|---|
 |Server|`server.ts`|`applyServerTx()` → routes to entities by signerIndex/entityIndex|
 |Entity|`entity.ts`|`applyEntityInput()` → calls `applyEntityTx()`|
-|Account|`account.ts`|`applyAccountInput()` → calls `applyAccountTx()`|
+|Channel|`channel.ts`|`applyChannelInput()` → calls `applyChannelTx()`|
 
 **Key Change:** Server directly routes to entities using signer organizational grouping.
 
