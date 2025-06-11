@@ -1,86 +1,81 @@
-export type SignerId = string;    // 32-byte hex
-export type EntityId = string;    // 32-byte hex
-export type TxHash = string;      // 32-byte hex
-export type BlockHash = string;   // 32-byte hex
+// types.ts
+import { Buffer } from 'buffer';
 
+// Basic types
+export type Hash = Buffer;
+export type Address = Buffer;
+export type Timestamp = number;
 
-export type EntityTx = {
-  readonly op: string;
-  readonly args: readonly (string | number)[];
-  readonly nonce?: number;
+// Server types
+export interface ServerState {
+  height: number;
+  signers: Map<number, Map<string, EntityState>>;
+  mempool: ServerTx[];
+}
+
+export interface ServerTx {
+  signerIndex: number;
+  entityId: string;
+  input: EntityInput;
+}
+
+export interface ServerBlock {
+  height: number;
+  timestamp: Timestamp;
+  inputs: ServerTx[];
+  stateRoot: Hash;
+}
+
+// Entity types
+export interface EntityState {
+  height: number;
+  nonce: number;
+  data: any;  // Business-specific state
+  mempool: EntityTx[];
+  status: 'idle' | 'pending';
+}
+
+export type EntityInput =
+  | { kind: 'import'; state: EntityState; height: number }
+  | { kind: 'add_tx'; tx: EntityTx }
+  | { kind: 'propose_block' }
+  | { kind: 'commit_block'; height: number };
+
+export interface EntityTx {
+  nonce: number;
+  op: string;
+  data: any;
+}
+
+export interface EntityBlock {
+  height: number;
+  txs: EntityTx[];
+  prevHash: Hash;
+  stateRoot: Hash;
+}
+
+// Outbox for cross-entity communication
+export interface OutboxMessage {
+  fromEntity: string;
+  toEntity: string;
+  toSigner: number;
+  payload: EntityInput;
+}
+
+// Storage keys
+export const KEYS = {
+  serverRoot: Buffer.from([0x00]),
+  serverBlock: (height: number) => {
+    const key = Buffer.allocUnsafe(5);
+    key[0] = 0x01;
+    key.writeUInt32BE(height, 1);
+    return key;
+  },
+  entityState: (signerIndex: number, entityId: string) => {
+    const key = Buffer.allocUnsafe(33);
+    key[0] = 0x02;
+    key.writeUInt32BE(signerIndex, 1);
+    Buffer.from(entityId, 'hex').copy(key, 5);
+    return key;
+  }
 };
-
-export type EntityInput = 
-  | { readonly type: 'AddTx'; readonly tx: EntityTx }
-  | { readonly type: 'ProposeBlock' }
-  | { readonly type: 'CommitBlock'; readonly blockHash: BlockHash }
-  | { readonly type: 'Flush' };
-
-export type ServerTx = {
-  readonly signerId: SignerId;
-  readonly entityId: EntityId;
-  readonly input: EntityInput;
-  readonly timestamp: number;
-};
-
-export type OutboxMessage = {
-  readonly from: EntityId;
-  readonly to: EntityId;
-  readonly signerId: SignerId;
-  readonly payload: EntityInput;
-};
-
-export type EntityStorage = {
-  readonly [key: string]: string | number | boolean;
-};
-
-export type EntityBlock = {
-  readonly height: number;
-  readonly timestamp: number;
-  readonly txs: readonly EntityTx[];
-  readonly stateRoot: BlockHash;
-  readonly storage: EntityStorage;
-};
-
-export type EntityStatus = 'idle' | 'proposing' | 'committing';
-
-export type EntityState = {
-  readonly status: EntityStatus;
-  readonly storage: EntityStorage;
-  readonly mempool: readonly EntityTx[];
-  readonly lastBlock?: EntityBlock;
-  readonly proposedBlock?: EntityBlock;
-  readonly height: number;
-};
-
-export type ServerBlock = {
-  readonly height: number;
-  readonly timestamp: number;
-  readonly inputs: readonly ServerTx[];
-  readonly stateRoot: BlockHash;
-};
-
-export type MempoolEntry = {
-  readonly tx: ServerTx;
-  readonly timestamp: number;
-};
-
-export type ServerState = {
-  readonly height: number;
-  readonly mempool: ReadonlyMap<TxHash, MempoolEntry>;
-  readonly entities: ReadonlyMap<SignerId, ReadonlyMap<EntityId, EntityState>>;
-  readonly lastBlock?: ServerBlock;
-};
-
-export type MempoolConfig = {
-  readonly maxAge: number;
-};
-
-export type ServerConfig = {
-  readonly tickInterval: number;
-  readonly mempool: MempoolConfig;
-};
-
-export type Result<T, E = Error> = 
-  | { readonly ok: true; readonly value: T }
-  | { readonly ok: false; readonly error: E };

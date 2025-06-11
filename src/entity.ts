@@ -1,162 +1,82 @@
+// entity.ts
+import { encode, hash } from './encoding';
+import { type EntityInput, type EntityState, type EntityTx, type Hash, type OutboxMessage } from './types';
 
-import { hashEntityState } from './encoding';
-import * as t from './types';
-
-export function createEntity(id: t.EntityId): t.EntityState {
+export function createEntity(id: string): EntityState {
   return {
-    status: 'idle',
-    storage: { value: 0 },
+    height: 0,
+    nonce: 0,
+    data: { counter: 0 },
     mempool: [],
-    height: 0
+    status: 'idle'
   };
 }
 
-export function executeEntityTx(
-  storage: t.EntityStorage,
-  tx: t.EntityTx
-): t.Result<t.EntityStorage> {
-  switch (tx.op) {
-    case 'Create':
-      return { ok: true, value: { value: 0 } };
-      
-    case 'Increment': {
-      const current = Number(storage.value || 0);
-      const increment = Number(tx.args[0] || 1);
-      return { 
-        ok: true, 
-        value: { ...storage, value: current + increment }
-      };
-    }
+export function applyEntityInput(
+  state: EntityState,
+  input: EntityInput,
+  outbox: OutboxMessage[]
+): EntityState {
+  switch (input.kind) {
+    case 'import':
+      return { ...input.state, mempool: [], status: 'idle' };
     
-    case 'Set': {
-      const [key, value] = tx.args;
-      if (typeof key !== 'string') {
-        return { ok: false, error: new Error('Invalid key') };
-      }
+    case 'add_tx':
       return {
-        ok: true,
-        value: { ...storage, [key]: value as string | number | boolean }
+        ...state,
+        mempool: [...state.mempool, input.tx]
       };
-    }
+    
+    case 'propose_block':
+      if (state.status !== 'idle' || state.mempool.length === 0) {
+        return state;
+      }
+      // For single-signer, immediately finalize
+      return finalizeBlock(state);
+    
+    case 'commit_block':
+      // In single-signer mode, blocks are auto-committed
+      return state;
     
     default:
-      return { ok: false, error: new Error(`Unknown operation: ${tx.op}`) };
+      return state;
   }
 }
 
-export function applyEntityInput(
-  state: t.EntityState,
-  input: t.EntityInput,
-  outbox: t.OutboxMessage[] = []
-): t.Result<t.EntityState> {
-  switch (input.type) {
-    case 'AddTx': {
-      return {
-        ok: true,
-        value: {
-          ...state,
-          mempool: [...state.mempool, input.tx]
-        }
-      };
-    }
+function finalizeBlock(state: EntityState): EntityState {
+  const newState = { ...state };
+  
+  // Apply all transactions
+  for (const tx of state.mempool) {
+    newState.data = applyEntityTx(newState.data, tx);
+    newState.nonce = Math.max(newState.nonce, tx.nonce);
+  }
+  
+  // Clear mempool and increment height
+  newState.height++;
+  newState.mempool = [];
+  newState.status = 'idle';
+  
+  return newState;
+}
+
+function applyEntityTx(data: any, tx: EntityTx): any {
+  switch (tx.op) {
+    case 'increment':
+      return { ...data, counter: (data.counter || 0) + 1 };
     
-    case 'ProposeBlock': {
-      if (state.status !== 'idle') {
-        return { 
-          ok: false, 
-          error: new Error('Cannot propose: entity not idle') 
-        };
-      }
-      
-      if (state.mempool.length === 0) {
-        return { 
-          ok: false, 
-          error: new Error('Cannot propose: empty mempool') 
-        };
-      }
-      
-      let newStorage = state.storage;
-      const executedTxs: t.EntityTx[] = [];
-      
-      for (const tx of state.mempool) {
-        const result = executeEntityTx(newStorage, tx);
-        if (result.ok) {
-          newStorage = result.value;
-          executedTxs.push(tx);
-        }
-      }
-      
-      const proposedBlock: t.EntityBlock = {
-        height: state.height + 1,
-        timestamp: Date.now(),
-        txs: executedTxs,
-        storage: newStorage,
-        stateRoot: hashEntityState({ ...state, storage: newStorage })
-      };
-      
-      return {
-        ok: true,
-        value: {
-          ...state,
-          status: 'proposing',
-          proposedBlock,
-          mempool: state.mempool.filter(tx => !executedTxs.includes(tx))
-        }
-      };
-    }
-    
-    case 'CommitBlock': {
-      if (state.status !== 'proposing' || !state.proposedBlock) {
-        return { 
-          ok: false, 
-          error: new Error('No block to commit') 
-        };
-      }
-      
-      if (state.proposedBlock.stateRoot !== input.blockHash) {
-        return { 
-          ok: false, 
-          error: new Error('Block hash mismatch') 
-        };
-      }
-      
-      return {
-        ok: true,
-        value: {
-          ...state,
-          status: 'idle',
-          storage: state.proposedBlock.storage,
-          lastBlock: state.proposedBlock,
-          proposedBlock: undefined,
-          height: state.proposedBlock.height
-        }
-      };
-    }
-    
-    case 'Flush': {
-      if (state.mempool.length === 0) {
-        return { ok: true, value: state };
-      }
-      
-      // For single-signer entity, auto-propose and commit
-      const proposeResult = applyEntityInput(state, { type: 'ProposeBlock' });
-      if (!proposeResult.ok) return proposeResult;
-      
-      const proposedState = proposeResult.value;
-      if (!proposedState.proposedBlock) {
-        return { ok: false, error: new Error('Failed to create block') };
-      }
-      
-      return applyEntityInput(
-        proposedState, 
-        { 
-          type: 'CommitBlock', 
-          blockHash: proposedState.proposedBlock.stateRoot 
-        }
-      );
-    }
+    case 'set':
+      return { ...data, ...tx.data };
     
     default:
-      return { ok: false, error: new Error('Unknown input type') };
+      return data;
   }
+}
+
+export function getEntityStateRoot(state: EntityState): Hash {
+  return hash(encode({
+    height: state.height,
+    nonce: state.nonce,
+    data: state.data
+  }));
 }
