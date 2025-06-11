@@ -160,7 +160,7 @@ export function applyEntityInput(
     
     case 'inbox':
       // Handle inter-entity messages
-      console.log(`Entity ${entityId} received message from ${input.from}:`, input.message);
+      console.log(`Entity ${entityId} received message from ${input.from}:`, input.message.type);
       
       // Process different message types
       if (input.message.type === 'credit_line_update') {
@@ -168,8 +168,9 @@ export function applyEntityInput(
           ...state,
           data: {
             ...state.data,
-            creditLine: input.message.newLimit,
-            creditUtilization: input.message.utilizationRate
+            creditLine: input.message.newLimit || 0,
+            creditUtilization: input.message.utilizationRate || 0,
+            messageCount: (state.data.messageCount || 0) + 1
           }
         };
       } else if (input.message.type === 'invoice') {
@@ -177,12 +178,20 @@ export function applyEntityInput(
           ...state,
           data: {
             ...state.data,
-            pendingInvoices: [...(state.data.pendingInvoices || []), input.message]
+            pendingInvoiceCount: (state.data.pendingInvoiceCount || 0) + 1,
+            invoiceTotal: (state.data.invoiceTotal || 0) + (input.message.total || 0),
+            messageCount: (state.data.messageCount || 0) + 1
           }
         };
       }
       
-      return state;
+      return {
+        ...state,
+        data: {
+          ...state.data,
+          messageCount: (state.data.messageCount || 0) + 1
+        }
+      };
     
     default:
       return state;
@@ -231,67 +240,37 @@ function applyEntityTx(data: any, tx: EntityTx): any {
       const amount = tx.data.amount || 0;
       return {
         ...data,
-        balance: (data.balance || 0) - amount,
-        transactions: [...(data.transactions || []), {
-          type: 'transfer_out',
-          to: tx.data.to,
-          amount: amount,
-          memo: tx.data.memo,
-          timestamp: Date.now()
-        }]
+        balance: Math.max(0, (data.balance || 0) - amount), // Prevent negative balance
+        transferCount: (data.transferCount || 0) + 1
       };
     
     case 'loan_request':
       return {
         ...data,
-        pendingLoans: [...(data.pendingLoans || []), {
-          type: 'request',
-          to: tx.data.to,
-          amount: tx.data.amount,
-          purpose: tx.data.purpose,
-          timestamp: Date.now()
-        }]
+        loanRequestCount: (data.loanRequestCount || 0) + 1
       };
     
     case 'loan_approval':
       return {
         ...data,
-        balance: (data.balance || 0) - tx.data.amount,
-        activeLoans: [...(data.activeLoans || []), {
-          borrower: tx.data.borrower,
-          amount: tx.data.amount,
-          interestRate: tx.data.interestRate,
-          term: tx.data.term,
-          timestamp: Date.now()
-        }]
+        balance: (data.balance || 0) - (tx.data.amount || 0),
+        loanCount: (data.loanCount || 0) + 1
       };
     
     case 'purchase':
-      const totalCost = tx.data.quantity * tx.data.price;
+      const totalCost = (tx.data.quantity || 0) * (tx.data.price || 0);
       return {
         ...data,
-        balance: (data.balance || 0) - totalCost,
-        purchases: [...(data.purchases || []), {
-          from: tx.data.to,
-          item: tx.data.item,
-          quantity: tx.data.quantity,
-          price: tx.data.price,
-          total: totalCost,
-          timestamp: Date.now()
-        }]
+        balance: Math.max(0, (data.balance || 0) - totalCost),
+        purchaseCount: (data.purchaseCount || 0) + 1
       };
     
     case 'restock':
       return {
         ...data,
-        inventory: (data.inventory || 0) + tx.data.quantity,
-        balance: (data.balance || 0) - tx.data.cost,
-        restocks: [...(data.restocks || []), {
-          item: tx.data.item,
-          quantity: tx.data.quantity,
-          cost: tx.data.cost,
-          timestamp: Date.now()
-        }]
+        inventory: (data.inventory || 0) + (tx.data.quantity || 0),
+        balance: Math.max(0, (data.balance || 0) - (tx.data.cost || 0)),
+        restockCount: (data.restockCount || 0) + 1
       };
     
     default:

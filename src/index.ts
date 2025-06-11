@@ -1,6 +1,6 @@
 import { Server } from './server';
 import { Database } from './store';
-import { type EntityTx, type ServerTx, type EntityInput } from './types';
+import { type EntityTx, type ServerTx } from './types';
 
 async function main() {
   // Initialize database
@@ -36,8 +36,8 @@ async function main() {
             role: entity.role,
             balance: entity.initialBalance || entity.balance || 0,
             inventory: entity.inventory || 0,
-            transactions: [],
-            connections: []
+            transactionCount: 0,
+            messageCount: 0
           },
           mempool: [],
           status: 'idle',
@@ -154,67 +154,66 @@ async function main() {
   
   for (const entity of entities) {
     // Propose block
-    await server.submitTx({
+    const proposeResult = await server.submitTx({
       signerIndex: 0,
       entityId: entity.id,
       input: { type: 'propose_block' }
     });
     
-    // Simulate consensus voting (multiple signers)
-    for (let signerIndex = 1; signerIndex < 3; signerIndex++) {
-      await server.submitTx({
-        signerIndex,
-        entityId: entity.id,
-        input: { 
-          type: 'vote', 
-          blockHeight: 1,
-          blockHash: 'simulated_hash' // In real system, this would be calculated
-        }
-      });
+    if (proposeResult.ok) {
+      console.log(`✓ Processed block for ${entity.id}`);
+    } else {
+      console.log(`✗ Failed to process block for ${entity.id}:`, proposeResult.error);
     }
-    
-    console.log(`✓ Processed block for ${entity.id}`);
   }
 
   // Simulate inter-entity communication
   console.log('\n--- Inter-entity communication ---\n');
 
   // Bank sends credit line update to user1
-  const creditLineUpdate: EntityInput = {
-    type: 'inbox',
-    from: 'bank',
-    message: {
-      type: 'credit_line_update',
-      recipient: 'user1',
-      newLimit: 10000,
-      utilizationRate: 0.5
-    }
-  };
-  
-  await server.submitTx({
+  const creditUpdate = await server.submitTx({
     signerIndex: 0,
     entityId: 'user1',
-    input: creditLineUpdate
+    input: { 
+      type: 'inbox', 
+      from: 'bank', 
+      message: {
+        type: 'credit_line_update',
+        recipient: 'user1',
+        newLimit: 10000,
+        utilizationRate: 0.5
+      }
+    }
   });
 
+  if (creditUpdate.ok) {
+    console.log('✓ Credit line update sent to user1');
+  } else {
+    console.log('✗ Failed to send credit update:', creditUpdate.error);
+  }
+
   // Merchant sends invoice to user1
-  const invoice: EntityInput = {
-    type: 'inbox',
-    from: 'merchant',
-    message: {
-      type: 'invoice',
-      recipient: 'user1',
-      items: [{ name: 'product_a', quantity: 5, price: 100 }],
-      total: 500,
-      dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
-    }
-  };
-  
-  await server.submitTx({
+  const invoiceResult = await server.submitTx({
     signerIndex: 0,
     entityId: 'user1',
-    input: invoice
+    input: { 
+      type: 'inbox', 
+      from: 'merchant', 
+      message: {
+        type: 'invoice',
+        recipient: 'user1',
+        items: [{ name: 'product_a', quantity: 5, price: 100 }],
+        total: 500,
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    }
   });
+
+  if (invoiceResult.ok) {
+    console.log('✓ Invoice sent to user1');
+  } else {
+    console.log('✗ Failed to send invoice:', invoiceResult.error);
+  }
 
   // Simulate error scenarios
   console.log('\n--- Testing error scenarios ---\n');
