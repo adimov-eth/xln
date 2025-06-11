@@ -1,6 +1,6 @@
 // entity.ts
 import { encode, hash } from './encoding';
-import { type EntityInput, type EntityState, type EntityTx, type Hash, type OutboxMessage } from './types';
+import { type EntityBlock, type EntityInput, type EntityState, type EntityTx, type Hash, type OutboxMessage } from './types';
 
 export function createEntity(id: string): EntityState {
   return {
@@ -15,13 +15,17 @@ export function createEntity(id: string): EntityState {
 export function applyEntityInput(
   state: EntityState,
   input: EntityInput,
-  outbox: OutboxMessage[]
+  outbox: OutboxMessage[],
+  signerIndex: number,
+  entityId: string
 ): EntityState {
-  switch (input.kind) {
+  switch (input.type) {
     case 'import':
-      return { ...input.state, mempool: [], status: 'idle' };
+      return input.state;
     
-    case 'add_tx':
+    case 'add_tx': 
+      if (state.status !== 'idle') return state;
+      
       return {
         ...state,
         mempool: [...state.mempool, input.tx]
@@ -31,11 +35,109 @@ export function applyEntityInput(
       if (state.status !== 'idle' || state.mempool.length === 0) {
         return state;
       }
-      // For single-signer, immediately finalize
-      return finalizeBlock(state);
+      
+      // Create proposed block
+      const block: EntityBlock = {
+        height: state.height + 1,
+        txs: [...state.mempool],
+        prevHash: state.consensusBlock ? 
+          hash(encode(state.consensusBlock)) : 
+          Buffer.alloc(32),
+        stateRoot: Buffer.alloc(32), // Will be computed after dry-run
+        proposer: signerIndex,
+        signatures: new Map()
+      };
+      
+      // Dry-run to compute state root
+      const dryRunState = applyBlockTransactions(state, block.txs);
+      block.stateRoot = getEntityStateRoot(dryRunState);
+      
+      // For multi-signer, send to validators
+      if (input.quorum && input.quorum.length > 1) {
+        for (const [signer, weight] of input.quorum) {
+          if (signer !== signerIndex) {
+            outbox.push({
+              fromEntity: entityId,
+              toEntity: entityId,
+              toSigner: signer,
+              payload: { type: 'validate_block', block }
+            });
+          }
+        }
+        
+        return {
+          ...state,
+          status: 'awaiting_signatures',
+          proposedBlock: block
+        };
+      }
+      
+      // Single-signer auto-commit
+      return finalizeBlock(state, block);
+    
+    case 'validate_block':
+      // Validator receives block
+      if (!input.block || state.status !== 'idle') return state;
+      
+      // Verify block execution
+      const testState = applyBlockTransactions(state, input.block.txs);
+      const expectedRoot = getEntityStateRoot(testState);
+      
+      if (!expectedRoot.equals(input.block.stateRoot)) {
+        console.error('Block validation failed: state root mismatch');
+        return state;
+      }
+      
+      // Send signature back
+      outbox.push({
+        fromEntity: entityId,
+        toEntity: entityId,
+        toSigner: input.block.proposer,
+        payload: {
+          type: 'block_signature',
+          height: input.block.height,
+          signature: Buffer.from('dummy-sig'), // Would be real signature
+          signerIndex: signerIndex,
+          quorum: [] // Would be passed from validation context
+        }
+      });
+      
+      return state;
+    
+    case 'block_signature':
+      if (!state.proposedBlock || 
+          state.proposedBlock.height !== input.height) {
+        return state;
+      }
+      
+      // Add signature
+      state.proposedBlock.signatures.set(
+        input.signerIndex, 
+        input.signature
+      );
+      
+      // Check if we have quorum (67%)
+      const totalWeight = input.quorum.reduce((sum, [_, w]) => sum + w, 0);
+      let signedWeight = 0;
+      
+      for (const [signer, weight] of input.quorum) {
+        if (state.proposedBlock.signatures.has(signer)) {
+          signedWeight += weight;
+        }
+      }
+      
+      if (signedWeight >= totalWeight * 0.67) {
+        // Finalize with signatures
+        return finalizeBlock(state, state.proposedBlock);
+      }
+      
+      return state;
     
     case 'commit_block':
-      // In single-signer mode, blocks are auto-committed
+      // Handle explicit block commit
+      if (state.proposedBlock && state.proposedBlock.height === input.height) {
+        return finalizeBlock(state, state.proposedBlock);
+      }
       return state;
     
     default:
@@ -43,21 +145,33 @@ export function applyEntityInput(
   }
 }
 
-function finalizeBlock(state: EntityState): EntityState {
-  const newState = { ...state };
+function applyBlockTransactions(state: EntityState, txs: EntityTx[]): EntityState {
+  let newData = state.data;
+  let maxNonce = state.nonce;
   
-  // Apply all transactions
-  for (const tx of state.mempool) {
-    newState.data = applyEntityTx(newState.data, tx);
-    newState.nonce = Math.max(newState.nonce, tx.nonce);
+  for (const tx of txs) {
+    newData = applyEntityTx(newData, tx);
+    maxNonce = Math.max(maxNonce, tx.nonce);
   }
   
-  // Clear mempool and increment height
-  newState.height++;
-  newState.mempool = [];
-  newState.status = 'idle';
+  return {
+    ...state,
+    data: newData,
+    nonce: maxNonce
+  };
+}
+
+function finalizeBlock(state: EntityState, block: EntityBlock): EntityState {
+  const finalState = applyBlockTransactions(state, block.txs);
   
-  return newState;
+  return {
+    ...finalState,
+    height: block.height,
+    mempool: [],
+    status: 'idle',
+    consensusBlock: block,
+    proposedBlock: undefined
+  };
 }
 
 function applyEntityTx(data: any, tx: EntityTx): any {

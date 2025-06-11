@@ -1,4 +1,3 @@
-// example.ts
 import { Server } from './server';
 import { Database } from './store';
 import { type EntityTx, type ServerTx } from './types';
@@ -12,14 +11,14 @@ async function main() {
   const server = new Server(db);
   await server.initialize();
 
-  // Start processing
+  // Start processing loop
   server.start();
 
   // Create a simple entity
   const createTx: ServerTx = {
     signerIndex: 0,
     entityId: 'entity1',
-    input: { kind: 'import', state: {
+    input: { type: 'import', state: {
       height: 0,
       nonce: 0,
       data: { counter: 0 },
@@ -40,7 +39,7 @@ async function main() {
     await server.submitTx({
       signerIndex: 0,
       entityId: 'entity1',
-      input: { kind: 'add_tx', tx }
+      input: { type: 'add_tx', tx }
     });
   }
 
@@ -48,11 +47,11 @@ async function main() {
   await server.submitTx({
     signerIndex: 0,
     entityId: 'entity1',
-    input: { kind: 'propose_block' }
+    input: { type: 'propose_block' }
   });
 
   // Wait for processing
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise(resolve => setTimeout(resolve, 2000));
 
   // Print final state
   server.printTree();

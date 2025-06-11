@@ -1,16 +1,31 @@
-// server.ts
-import { decode, encode, hash } from './encoding';
+import { encode, hash } from './encoding';
 import { applyEntityInput, createEntity, getEntityStateRoot } from './entity';
+import { EntityDirectory } from './entityRegestry';
+import { MessageRouter } from './routing';
 import { Database } from './store';
-import { type Hash, KEYS, type OutboxMessage, type ServerBlock, type ServerState, type ServerTx } from './types';
+import { KEYS, type OutboxMessage, type ServerBlock, type ServerState, type ServerTx } from './types';
 
 export class Server {
-  private state: ServerState;
   private db: Database;
-  private tickInterval: NodeJS.Timeout | null = null;
+  private entityDirectory: EntityDirectory;
+  private router: MessageRouter;
+  private state: ServerState;
+  private running = false;
+  private tickInterval?: NodeJS.Timeout;
 
-  constructor(db: Database) {
+  constructor(db: Database, signerIndices: number[] = [0]) {
     this.db = db;
+    this.entityDirectory = new EntityDirectory();
+    
+    // Configure router for local signers
+    this.router = new MessageRouter(
+      {
+        localSigners: new Set(signerIndices),
+        remoteEndpoints: new Map() // Would be configured for real network
+      },
+      (tx) => this.state.mempool.push(tx)
+    );
+    
     this.state = {
       height: 0,
       signers: new Map(),
@@ -19,71 +34,57 @@ export class Server {
   }
 
   async initialize(): Promise<void> {
-    // Load server root
-    const rootData = await this.db.get(KEYS.serverRoot);
-    if (rootData) {
-      const root = decode(rootData) as { height: number };
-      this.state.height = root.height;
-      
-      // Load entity states
-      await this.loadEntityStates();
-      
-      // Replay blocks since last snapshot
-      await this.replayBlocks(root.height);
-    }
-  }
-
-  private async loadEntityStates(): Promise<void> {
-    // In production, would scan all entity keys
-    // For MVP, entities are created on-demand
-  }
-
-  private async replayBlocks(fromHeight: number): Promise<void> {
-    let height = fromHeight;
-    while (true) {
-      const blockData = await this.db.get(KEYS.serverBlock(height + 1));
-      if (!blockData) break;
-      
-      const block = decode(blockData) as ServerBlock;
-      this.replayBlock(block);
-      height++;
-    }
-  }
-
-  private replayBlock(block: ServerBlock): void {
-    const outbox: OutboxMessage[] = [];
-    
-    for (const tx of block.inputs) {
-      this.applyServerTx(tx, outbox);
-    }
-    
-    // Process outbox messages
-    for (const msg of outbox) {
-      this.state.mempool.push({
-        signerIndex: msg.toSigner,
-        entityId: msg.toEntity,
-        input: msg.payload
-      });
-    }
-    
-    this.state.height = block.height;
-  }
-
-  start(): void {
-    this.tickInterval = setInterval(() => {
-      this.processTick();
-    }, 100);
-  }
-
-  stop(): void {
-    if (this.tickInterval) {
-      clearInterval(this.tickInterval);
-      this.tickInterval = null;
+    // Load last server state from database
+    try {
+      const rootData = await this.db.get(KEYS.serverRoot);
+      if (rootData) {
+        const { height } = JSON.parse(rootData.toString());
+        this.state.height = height;
+      }
+    } catch (error) {
+      // Fresh start
+      this.state.height = 0;
     }
   }
 
   async submitTx(tx: ServerTx): Promise<void> {
     this.state.mempool.push(tx);
+  }
+
+  start(): void {
+    if (this.running) return;
+    this.running = true;
+    this.tickInterval = setInterval(() => {
+      this.processTick().catch(console.error);
+    }, 1000);
+  }
+
+  stop(): void {
+    this.running = false;
+    if (this.tickInterval) {
+      clearInterval(this.tickInterval);
+      this.tickInterval = undefined;
+    }
+  }
+
+  printTree(): void {
+    console.log('=== Server State ===');
+    console.log('Height:', this.state.height);
+    console.log('Mempool size:', this.state.mempool.length);
+    console.log('Signers:', this.state.signers.size);
+    
+    for (const [signerIndex, entities] of this.state.signers) {
+      console.log(`\nSigner ${signerIndex}:`);
+      for (const [entityId, entityState] of entities) {
+        console.log(`  Entity ${entityId}:`, {
+          height: entityState.height,
+          nonce: entityState.nonce,
+          data: entityState.data,
+          mempoolSize: entityState.mempool.length,
+          status: entityState.status
+        });
+      }
+    }
   }
 
   private async processTick(): Promise<void> {
@@ -115,17 +116,12 @@ export class Server {
       stateRoot: block.stateRoot
     }));
 
-    // Persist entity states
+    // Persist states and blocks
     await this.persistEntityStates();
+    await this.persistEntityBlocks(outbox);
 
-    // Process outbox (simulated network delivery)
-    for (const msg of outbox) {
-      this.state.mempool.push({
-        signerIndex: msg.toSigner,
-        entityId: msg.toEntity,
-        input: msg.payload
-      });
-    }
+    // Route outbox messages properly
+    await this.router.route(outbox);
   }
 
   private applyServerTx(tx: ServerTx, outbox: OutboxMessage[]): void {
@@ -137,34 +133,37 @@ export class Server {
     }
 
     // Get or create entity
-    let entity = signerEntities.get(tx.entityId);
-    if (!entity) {
-      entity = createEntity(tx.entityId);
-      signerEntities.set(tx.entityId, entity);
+    let entityState = signerEntities.get(tx.entityId);
+    if (!entityState && tx.input.type === 'import') {
+      entityState = tx.input.state;
+    } else if (!entityState) {
+      entityState = createEntity(tx.entityId);
     }
 
-    // Apply input
-    const newEntity = applyEntityInput(entity, tx.input, outbox);
-    signerEntities.set(tx.entityId, newEntity);
+    // Apply entity input
+    const newState = applyEntityInput(
+      entityState,
+      tx.input,
+      outbox,
+      tx.signerIndex,
+      tx.entityId
+    );
+
+    signerEntities.set(tx.entityId, newState);
   }
 
-  private computeStateRoot(): Hash {
-    const signerHashes: Array<[number, Hash]> = [];
-    
-    for (const [signerIndex, entities] of this.state.signers) {
-      const entityHashes: Array<[string, Hash]> = [];
-      
-      for (const [entityId, state] of entities) {
-        entityHashes.push([entityId, getEntityStateRoot(state)]);
-      }
-      
-      signerHashes.push([signerIndex, hash(encode(entityHashes))]);
-    }
-    
-    return hash(encode({
+  private computeStateRoot(): Buffer {
+    const stateData = {
       height: this.state.height,
-      signers: signerHashes
-    }));
+      signers: Array.from(this.state.signers.entries()).map(([signerIndex, entities]) => [
+        signerIndex,
+        Array.from(entities.entries()).map(([entityId, state]) => [
+          entityId,
+          getEntityStateRoot(state)
+        ])
+      ])
+    };
+    return hash(encode(stateData));
   }
 
   private async persistEntityStates(): Promise<void> {
@@ -172,28 +171,21 @@ export class Server {
     
     for (const [signerIndex, entities] of this.state.signers) {
       for (const [entityId, state] of entities) {
-        batch.push({
-          key: KEYS.entityState(signerIndex, entityId),
-          value: encode(state)
-        });
+        const key = KEYS.entityState(signerIndex, entityId);
+        const value = encode(state);
+        batch.push({ key, value });
       }
     }
     
-    await this.db.batch(batch);
+    if (batch.length > 0) {
+      await this.db.batch(batch);
+    }
   }
 
-  // Debug helpers
-  getState(): ServerState {
-    return this.state;
-  }
-
-  printTree(): void {
-    console.log(`Server (height: ${this.state.height})`);
-    for (const [signerIndex, entities] of this.state.signers) {
-      console.log(`  Signer[${signerIndex}]`);
-      for (const [entityId, state] of entities) {
-        console.log(`    Entity[${entityId}]: height=${state.height}, counter=${state.data.counter}`);
-      }
+  private async persistEntityBlocks(outbox: OutboxMessage[]): Promise<void> {
+    // For now, just log the outbox messages
+    if (outbox.length > 0) {
+      console.log(`Generated ${outbox.length} outbox messages`);
     }
   }
 }

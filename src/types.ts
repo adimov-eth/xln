@@ -32,14 +32,24 @@ export interface EntityState {
   nonce: number;
   data: any;  // Business-specific state
   mempool: EntityTx[];
-  status: 'idle' | 'pending';
+  status: 'idle' | 'pending' | 'awaiting_signatures';
+  proposedBlock?: EntityBlock;
+  consensusBlock?: EntityBlock;  // Last signed block
 }
 
 export type EntityInput =
-  | { kind: 'import'; state: EntityState; height: number }
-  | { kind: 'add_tx'; tx: EntityTx }
-  | { kind: 'propose_block' }
-  | { kind: 'commit_block'; height: number };
+  | { type: 'import'; state: EntityState; height: number }
+  | { type: 'add_tx'; tx: EntityTx }
+  | { type: 'propose_block'; quorum?: Array<[number, number]> }
+  | { type: 'commit_block'; height: number }
+  | { type: 'validate_block'; block: EntityBlock }
+  | { 
+      type: 'block_signature'; 
+      height: number; 
+      signature: Buffer; 
+      signerIndex: number;
+      quorum: Array<[number, number]>; 
+    };
 
 export interface EntityTx {
   nonce: number;
@@ -52,6 +62,8 @@ export interface EntityBlock {
   txs: EntityTx[];
   prevHash: Hash;
   stateRoot: Hash;
+  proposer: number;
+  signatures: Map<number, Buffer>;  // signerIndex -> signature
 }
 
 // Outbox for cross-entity communication
@@ -76,6 +88,13 @@ export const KEYS = {
     key[0] = 0x02;
     key.writeUInt32BE(signerIndex, 1);
     Buffer.from(entityId, 'hex').copy(key, 5);
+    return key;
+  },
+  entityBlock: (entityId: string, height: number) => {
+    const key = Buffer.allocUnsafe(37);
+    key[0] = 0x03;
+    Buffer.from(entityId, 'hex').copy(key, 1);
+    key.writeUInt32BE(height, 33);
     return key;
   }
 };
