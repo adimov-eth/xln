@@ -140,6 +140,50 @@ export function applyEntityInput(
       }
       return state;
     
+    case 'vote':
+      // Handle vote input for consensus
+      if (!state.proposedBlock || state.proposedBlock.height !== input.blockHeight) {
+        console.log(`Invalid vote: no proposed block at height ${input.blockHeight}`);
+        return state;
+      }
+      
+      // In a real system, verify the blockHash matches
+      // For simulation, we'll accept the vote
+      state.proposedBlock.signatures.set(signerIndex, Buffer.from('vote-sig'));
+      
+      // Check if we have enough votes (simplified: just count signatures)
+      if (state.proposedBlock.signatures.size >= 2) {
+        return finalizeBlock(state, state.proposedBlock);
+      }
+      
+      return state;
+    
+    case 'inbox':
+      // Handle inter-entity messages
+      console.log(`Entity ${entityId} received message from ${input.from}:`, input.message);
+      
+      // Process different message types
+      if (input.message.type === 'credit_line_update') {
+        return {
+          ...state,
+          data: {
+            ...state.data,
+            creditLine: input.message.newLimit,
+            creditUtilization: input.message.utilizationRate
+          }
+        };
+      } else if (input.message.type === 'invoice') {
+        return {
+          ...state,
+          data: {
+            ...state.data,
+            pendingInvoices: [...(state.data.pendingInvoices || []), input.message]
+          }
+        };
+      }
+      
+      return state;
+    
     default:
       return state;
   }
@@ -182,7 +226,76 @@ function applyEntityTx(data: any, tx: EntityTx): any {
     case 'set':
       return { ...data, ...tx.data };
     
+    case 'transfer':
+      // Handle transfers between entities
+      const amount = tx.data.amount || 0;
+      return {
+        ...data,
+        balance: (data.balance || 0) - amount,
+        transactions: [...(data.transactions || []), {
+          type: 'transfer_out',
+          to: tx.data.to,
+          amount: amount,
+          memo: tx.data.memo,
+          timestamp: Date.now()
+        }]
+      };
+    
+    case 'loan_request':
+      return {
+        ...data,
+        pendingLoans: [...(data.pendingLoans || []), {
+          type: 'request',
+          to: tx.data.to,
+          amount: tx.data.amount,
+          purpose: tx.data.purpose,
+          timestamp: Date.now()
+        }]
+      };
+    
+    case 'loan_approval':
+      return {
+        ...data,
+        balance: (data.balance || 0) - tx.data.amount,
+        activeLoans: [...(data.activeLoans || []), {
+          borrower: tx.data.borrower,
+          amount: tx.data.amount,
+          interestRate: tx.data.interestRate,
+          term: tx.data.term,
+          timestamp: Date.now()
+        }]
+      };
+    
+    case 'purchase':
+      const totalCost = tx.data.quantity * tx.data.price;
+      return {
+        ...data,
+        balance: (data.balance || 0) - totalCost,
+        purchases: [...(data.purchases || []), {
+          from: tx.data.to,
+          item: tx.data.item,
+          quantity: tx.data.quantity,
+          price: tx.data.price,
+          total: totalCost,
+          timestamp: Date.now()
+        }]
+      };
+    
+    case 'restock':
+      return {
+        ...data,
+        inventory: (data.inventory || 0) + tx.data.quantity,
+        balance: (data.balance || 0) - tx.data.cost,
+        restocks: [...(data.restocks || []), {
+          item: tx.data.item,
+          quantity: tx.data.quantity,
+          cost: tx.data.cost,
+          timestamp: Date.now()
+        }]
+      };
+    
     default:
+      console.log(`Unknown transaction type: ${tx.op}`);
       return data;
   }
 }

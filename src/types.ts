@@ -78,7 +78,9 @@ export type EntityInput =
       signature: Buffer; 
       signerIndex: number;
       quorum: Array<[number, number]>; 
-    };
+    }
+  | { type: 'vote'; blockHeight: number; blockHash: string }
+  | { type: 'inbox'; from: string; message: any };
 
 export interface EntityTx {
   nonce: number;

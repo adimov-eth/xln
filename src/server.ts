@@ -152,25 +152,6 @@ export class Server {
     }
   }
 
-  printTree(): void {
-    console.log('=== Server State ===');
-    console.log('Height:', this.state.height);
-    console.log('Mempool size:', this.state.mempool.size);
-    console.log('Signers:', this.state.signers.size);
-    
-    for (const [signerIndex, entities] of this.state.signers) {
-      console.log(`\nSigner ${signerIndex}:`);
-      for (const [entityId, entityState] of entities) {
-        console.log(`  Entity ${entityId}:`, {
-          height: entityState.height,
-          nonce: entityState.nonce,
-          data: entityState.data,
-          mempoolSize: entityState.mempool.length,
-          status: entityState.status
-        });
-      }
-    }
-  }
 
   private async processTick(): Promise<void> {
     if (this.state.mempool.size === 0) return;
@@ -343,7 +324,7 @@ export class Server {
     // This is a simplified recovery that assumes we know our entities
     
     // Try to load common entity IDs (in real system, we'd have an index)
-    const commonEntityIds = ['entity1', 'entity2', 'entity3']; // Expand as needed
+    const commonEntityIds = ['entity1', 'entity2', 'entity3', 'bank', 'merchant', 'user1', 'user2']; // Expand as needed
     
     for (let signerIndex = 0; signerIndex < 10; signerIndex++) { // Check first 10 signers
       for (const entityId of commonEntityIds) {
@@ -365,5 +346,36 @@ export class Server {
         }
       }
     }
+  }
+
+  async getEntityState(entityId: string): Promise<EntityState | undefined> {
+    // Check all signers for the entity
+    for (const [signerIndex, entities] of this.state.signers) {
+      const state = entities.get(entityId);
+      if (state) {
+        return state;
+      }
+    }
+    return undefined;
+  }
+
+  printTree(): void {
+    console.log('Server State Tree:');
+    console.log(`├─ Height: ${this.state.height}`);
+    console.log(`├─ Mempool: ${this.state.mempool.size} transactions`);
+    console.log(`└─ Signers:`);
+    
+    const signerEntries = Array.from(this.state.signers.entries());
+    signerEntries.forEach(([signerIndex, entities], i) => {
+      const isLast = i === signerEntries.length - 1;
+      console.log(`   ${isLast ? '└─' : '├─'} Signer ${signerIndex}:`);
+      
+      const entityEntries = Array.from(entities.entries());
+      entityEntries.forEach(([entityId, state], j) => {
+        const isLastEntity = j === entityEntries.length - 1;
+        const prefix = isLast ? '      ' : '   │  ';
+        console.log(`   ${prefix}${isLastEntity ? '└─' : '├─'} ${entityId}: height=${state.height}, nonce=${state.nonce}, status=${state.status}`);
+      });
+    });
   }
 }
