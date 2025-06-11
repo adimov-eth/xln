@@ -1,0 +1,31 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# XLN Project Structure Guide
+
+The XLN codebase follows a strict *core ⇄ effects* layering.  Use these references when navigating:
+
+## Pure core
+- Protocol registry & default ops: [src/protocols.ts](mdc:src/protocols.ts)
+- Core reducers / hashing utilities: [src/core.ts](mdc:src/core.ts)
+- Type system (branded primitives, entity, server):
+  - [src/types/primitives.ts](mdc:src/types/primitives.ts)
+  - [src/types/entity.ts](mdc:src/types/entity.ts)
+  - [src/types/server.ts](mdc:src/types/server.ts)
+
+## Shared utilities
+- Crypto + BigInt-aware JSON helpers: [src/utils.ts](mdc:src/utils.ts)
+- Functional Result helpers: [src/types/result.ts](mdc:src/types/result.ts)
+- Entity Tx guards & validators: [src/guards/entityGuards.ts](mdc:src/guards/entityGuards.ts)
+
+## Effects layer
+- LevelDB persistence & snapshot logic: [src/persistence.ts](mdc:src/persistence.ts)
+- Runtime server loop & I/O: [src/server.ts](mdc:src/server.ts)
+
+## Entry points
+- Library re-exports: [src/index.ts](mdc:src/index.ts)
+- Bun executable: [index.ts](mdc:index.ts)
+
+> All new pure business logic should live under `src/` with no side-effects; any I/O must be isolated in dedicated effect modules.

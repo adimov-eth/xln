@@ -1,24 +1,12 @@
-import { Buffer } from 'buffer';
 import { createHash } from 'crypto';
 import { Level } from 'level';
 import * as RLP from 'rlp';
-import type { EntityState, ServerState, ServerTx } from './types.ts';
-
-// BigInt-aware JSON (prefix __bigint__)
-const jsonReplacer = (_: string, value: unknown) =>
-  typeof value === 'bigint' ? `__bigint__${value.toString()}` : value;
-const jsonReviver = (_: string, value: unknown) =>
-  typeof value === 'string' && value.startsWith('__bigint__')
-    ? BigInt(value.slice(10))
-    : value;
-
-const bigJsonEncoding = {
-  encode: (val: unknown) =>
-    Buffer.from(JSON.stringify(val, jsonReplacer), 'utf8'),
-  decode: (buf: Buffer) => JSON.parse(buf.toString('utf8'), jsonReviver),
-  buffer: true as const,
-  type: 'bigjson' as const,
-};
+import type { EntityState } from './types/entity.ts';
+import type { Result } from './types/result.ts';
+import { err, ok } from './types/result.ts';
+import type { Message, ServerState } from './types/server.ts';
+import { isDirectMsg } from './types/server.ts';
+import { bigJsonEncoding, jsonReplacer } from './utils.ts';
 
 // Database instances - will be initialized on first use
 let stateDB: Level<string, any> | null = null;
@@ -76,11 +64,25 @@ const ensureInit = async (): Promise<void> => {
  */
 export const appendWAL = async (
   height: number,
-  tx: ServerTx,
+  tx: Message,
 ): Promise<void> => {
+  if (!isDirectMsg(tx)) return;
   await ensureInit();
   const key = `${height}:${tx.signer}:${tx.entityId}`;
   await walDB!.put(key, tx);
+};
+
+/** Safe variant returning Result */
+export const appendWALRes = async (
+  height: number,
+  tx: Message,
+): Promise<Result<void, Error>> => {
+  try {
+    await appendWAL(height, tx);
+    return ok(undefined);
+  } catch (e) {
+    return err(e as Error);
+  }
 };
 
 /**
@@ -88,19 +90,32 @@ export const appendWAL = async (
  */
 export const storeBlock = async (
   height: number,
-  blockData: readonly ServerTx[],
+  blockData: readonly Message[],
 ): Promise<void> => {
   await ensureInit();
+  const direct = blockData.filter(isDirectMsg);
   const payload = RLP.encode([
     height,
     Date.now(),
-    blockData.map((tx) => [
+    direct.map((tx) => [
       tx.signer,
       tx.entityId,
       JSON.stringify(tx.input, jsonReplacer),
     ]),
   ]);
   await blockDB!.put(height.toString(), payload);
+};
+
+export const storeBlockRes = async (
+  height: number,
+  blockData: readonly Message[],
+): Promise<Result<void, Error>> => {
+  try {
+    await storeBlock(height, blockData);
+    return ok(undefined);
+  } catch (e) {
+    return err(e as Error);
+  }
 };
 
 /**
@@ -122,6 +137,15 @@ export const saveSnapshot = async (server: ServerState): Promise<void> => {
     height: server.height,
     hash: root.digest('hex'),
   });
+};
+
+export const saveSnapshotRes = async (server: ServerState): Promise<Result<void, Error>> => {
+  try {
+    await saveSnapshot(server);
+    return ok(undefined);
+  } catch (e) {
+    return err(e as Error);
+  }
 };
 
 /**
@@ -153,14 +177,14 @@ export const restoreServer = async (): Promise<ServerState> => {
   }
 
   // Replay WAL after snapshot
-  const mempool: ServerTx[] = [];
+  const mempool: Message[] = [];
   for await (const [key, tx] of walDB!.iterator()) {
     const parts = (key as string).split(':');
     const hStr = parts[0];
     if (!hStr) continue;
     
     const h = parseInt(hStr, 10);
-    if (h >= height) mempool.push(tx as ServerTx);
+    if (h >= height) mempool.push(tx as Message);
   }
 
   return {
@@ -168,4 +192,13 @@ export const restoreServer = async (): Promise<ServerState> => {
     signers,
     mempool,
   };
+};
+
+export const restoreServerRes = async (): Promise<Result<ServerState, Error>> => {
+  try {
+    const srv = await restoreServer();
+    return ok(srv);
+  } catch (e) {
+    return err(e as Error);
+  }
 }; 

@@ -1,34 +1,24 @@
-import { createHash } from 'crypto';
+import * as RLP from 'rlp';
+import { addTxToMempool, commitBlock as commitBlockTransition, proposeBlock as proposeBlockTransition, transitionKey } from './entityTransitions.ts';
+import { composeApplyTxs, defaultProtocols } from './protocols.ts';
 import type {
-    EntityInput,
-    EntityState,
-    EntityTx,
-    OutboxMsg,
-    ServerState,
-    ServerTx,
-} from './types.ts';
-
-/**
- * Pure utility: compute SHA-256 over UTF-8 string.
- */
-const sha256 = (data: string): string =>
-  createHash('sha256').update(data, 'utf8').digest('hex');
-
-/**
- * Custom JSON replacer that handles BigInt serialization.
- */
-const jsonReplacer = (key: string, value: unknown): unknown => {
-  if (typeof value === 'bigint') {
-    return `__bigint__${value.toString()}`;
-  }
-  return value;
-};
+  EntityInput,
+  EntityState,
+  EntityTx,
+} from './types/entity.ts';
+import type { Message, ServerState } from './types/server.ts';
+import { jsonReplacer, sha256, StreamingHash } from './utils.ts';
 
 /**
  * Compute deterministic block hash from ordered tx list.
  */
-export const hashBlock = (txs: readonly EntityTx[]): string =>
-  sha256(JSON.stringify(txs, jsonReplacer));
+export const hashBlock = (txs: readonly EntityTx[]): string => {
+  // RLP encode [ [op, dataJson] ... ] for canonical binary representation
+  const encoded = RLP.encode(
+    txs.map((tx) => [tx.op, JSON.stringify(tx.data, jsonReplacer)]),
+  );
+  return sha256(encoded);
+};
 
 /**
  * Apply business-logic transactions to opaque application state (default wallet).
@@ -38,23 +28,9 @@ export const applyTxs = <TState extends Record<string, unknown>>(
   state: TState,
   txs: readonly EntityTx[],
 ): TState => {
-  return txs.reduce<TState>((acc, tx) => {
-    switch (tx.op) {
-      case 'mint': {
-        const rawPrev = (acc as Record<string, unknown>).balance as
-          | bigint
-          | undefined;
-        const prev = rawPrev ?? 0n;
-        const amount = BigInt((tx as any).data.amount);
-        return { ...acc, balance: prev + amount } as TState;
-      }
-      case 'transfer':
-        // domain-specific; noop in generic core
-        return acc;
-      default:
-        return acc;
-    }
-  }, { ...state });
+  // Use composed protocol handler; fallback to identity for unknown state shape
+  const apply = composeApplyTxs<Record<string, unknown>>(defaultProtocols as any);
+  return apply(state as Record<string, unknown>, txs) as TState;
 };
 
 /**
@@ -111,76 +87,48 @@ export const applyEntityInput = <TState extends Record<string, unknown>>(
   entity: EntityState<TState>,
   input: EntityInput,
   entityId: string,
-  outbox: OutboxMsg[],
+  outbox: Message[],
 ): EntityState<TState> => {
-  switch (input.type) {
-    case 'add_tx':
-      return entity.status === 'idle'
-        ? { ...entity, mempool: [...entity.mempool, input.tx] }
-        : entity;
+  // Transition table mapping
+  const stateTransitions: Record<string, (e: EntityState<TState>) => EntityState<TState>> = {
+    [transitionKey('idle', 'add_tx')]: () => addTxToMempool(entity, (input as any).tx),
+    [transitionKey('idle', 'propose_block')]: () => proposeBlockTransition(entity),
+    [transitionKey('proposed', 'commit_block')]: () => commitBlockTransition(entity, (input as any).blockHash, entityId, outbox),
+  } as const;
 
-    case 'propose_block':
-      if (entity.status !== 'idle' || entity.mempool.length === 0) return entity;
-      return {
-        ...entity,
-        proposed: {
-          txs: [...entity.mempool],
-          hash: hashBlock(entity.mempool),
-          status: 'pending',
-        },
-        status: 'proposed',
-      };
-
-    case 'commit_block':
-      if (entity.status !== 'proposed' || entity.proposed?.hash !== input.blockHash)
-        return entity;
-      const newState = applyTxs(entity.state, entity.proposed.txs);
-      // sample cross-entity notification
-      const bal = (newState as any).balance as bigint | undefined;
-      if (bal !== undefined && bal > 1000n) {
-        outbox.push({
-          from: entityId,
-          toEntity: 'hub',
-          toSigner: entity.quorum[0] ?? 0,
-          input: { type: 'add_tx', tx: { op: 'notify', data: { balance: (newState as any).balance } } },
-        });
-      }
-      return {
-        ...entity,
-        height: entity.height + 1,
-        state: newState,
-        mempool: [],
-        proposed: undefined,
-        status: 'idle',
-      };
-    default:
-      return entity;
-  }
+  const fn = stateTransitions[transitionKey(entity.status, input.type)];
+  return fn ? fn(entity) : entity;
 };
 
 /**
  * Process current mempool into next block; pure & synchronous.
  */
 export const applyServerBlock = (server: ServerState): ServerState => {
-  const outbox: OutboxMsg[] = [];
+  const outbox: Message[] = [];
   const newSigners = new Map<number, Map<string, EntityState>>();
 
   // iterate signers for structural cloning
   for (const [idx, entities] of server.signers) newSigners.set(idx, new Map(entities));
 
-  server.mempool.forEach((tx) => {
-    const entities = newSigners.get(tx.signer);
+  server.mempool.forEach((msg) => {
+    if (msg.scope !== 'direct') return; // only direct messages trigger state
+    const entities = newSigners.get(msg.signer);
     if (!entities) return;
-    const entity = entities.get(tx.entityId);
-    if (!entity || !entity.quorum.includes(tx.signer)) return;
-    const updated = applyEntityInput(entity, tx.input, tx.entityId, outbox);
-    entities.set(tx.entityId, updated);
+    const entity = entities.get(msg.entityId);
+    if (!entity) return;
+    // quorum membership check
+    if (!entity.quorum.includes(msg.signer)) return;
+    // proposer validation: only first quorum member may propose block
+    if (msg.input.type === 'propose_block' && entity.quorum[0] !== msg.signer) return;
+    const updated = applyEntityInput(entity, msg.input, msg.entityId, outbox);
+    entities.set(msg.entityId, updated);
   });
 
-  const newMempool: ServerTx[] = outbox.map((msg) => ({
-    signer: msg.toSigner,
-    entityId: msg.toEntity,
-    input: msg.input,
+  const newMempool: Message[] = outbox.filter((m) => m.scope === 'outbox').map((m) => ({
+    scope: 'direct',
+    signer: m.toSigner,
+    entityId: m.toEntity,
+    input: m.input,
   }));
 
   return {
@@ -194,11 +142,22 @@ export const applyServerBlock = (server: ServerState): ServerState => {
  * Deterministically hash server topology (signer→entity heights).
  */
 export const computeServerHash = (server: ServerState): string => {
-  const snapshot: string[][] = [];
+  const rootHash = StreamingHash.create();
+  
   for (const [idx, entities] of server.signers) {
-    const arr: string[] = [];
-    for (const [id, st] of entities) arr.push(`${id}:${st.height}`);
-    snapshot[idx] = arr;
+    const signerHash = StreamingHash.create();
+    signerHash.update(`signer:${idx}`);
+    
+    for (const [id, st] of entities) {
+      const entityHash = StreamingHash.create()
+        .update(`entity:${id}`)
+        .update(`height:${st.height}`)
+        .update(JSON.stringify(st.state, jsonReplacer));
+      signerHash.update(entityHash.digest());
+    }
+    
+    rootHash.update(signerHash.digest());
   }
-  return sha256(JSON.stringify(snapshot, jsonReplacer));
+  
+  return rootHash.digest();
 }; 
