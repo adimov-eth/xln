@@ -18,15 +18,25 @@ async function main() {
   const createTx: ServerTx = {
     signerIndex: 0,
     entityId: 'entity1',
-    input: { type: 'import', state: {
-      height: 0,
-      nonce: 0,
-      data: { counter: 0 },
-      mempool: [],
-      status: 'idle'
-    }, height: 0 }
+    input: { 
+      type: 'import', 
+      state: {
+        height: 0,
+        nonce: 0,
+        data: { counter: 0 },
+        mempool: [],
+        status: 'idle',
+        proposedBlock: undefined,
+        consensusBlock: undefined
+      }, 
+      height: 0 
+    }
   };
-  await server.submitTx(createTx);
+  const createResult = await server.submitTx(createTx);
+  if (!createResult.ok) {
+    console.error('Failed to create entity:', createResult.error);
+    return;
+  }
 
   // Submit some transactions
   for (let i = 0; i < 10; i++) {
@@ -36,19 +46,27 @@ async function main() {
       data: {}
     };
     
-    await server.submitTx({
+    const txResult = await server.submitTx({
       signerIndex: 0,
       entityId: 'entity1',
       input: { type: 'add_tx', tx }
     });
+    
+    if (!txResult.ok) {
+      console.error('Failed to submit tx:', txResult.error);
+    }
   }
 
   // Trigger block creation
-  await server.submitTx({
+  const blockResult = await server.submitTx({
     signerIndex: 0,
     entityId: 'entity1',
     input: { type: 'propose_block' }
   });
+  
+  if (!blockResult.ok) {
+    console.error('Failed to propose block:', blockResult.error);
+  }
 
   // Wait for processing
   await new Promise(resolve => setTimeout(resolve, 2000));
@@ -61,7 +79,5 @@ async function main() {
   await db.close();
 }
 
-// Run if main module
-if (require.main === module) {
-  main().catch(console.error);
-}
+// Run main function
+main().catch(console.error);

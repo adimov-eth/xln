@@ -20,7 +20,7 @@ function serialize(obj: any): any {
   if (typeof obj === 'string') return Buffer.from(obj);
   if (Array.isArray(obj)) return obj.map(serialize);
   if (obj instanceof Map) {
-    return Array.from(obj.entries()).map(([k, v]) => [serialize(k), serialize(v)]);
+    return ['__map__', Array.from(obj.entries()).map(([k, v]) => [serialize(k), serialize(v)])];
   }
   if (typeof obj === 'object' && obj !== null) {
     return Object.entries(obj).map(([k, v]) => [k, serialize(v)]);
@@ -36,13 +36,21 @@ function deserialize(data: any): any {
     return data.toString();
   }
   if (Array.isArray(data)) {
-    // Check if it looks like a Map (array of pairs)
-    if (data.length > 0 && Array.isArray(data[0]) && data[0].length === 2) {
+    // Check if it's a serialized Map
+    if (data.length === 2 && data[0] === '__map__') {
       const map = new Map();
-      for (const [k, v] of data) {
+      for (const [k, v] of data[1]) {
         map.set(deserialize(k), deserialize(v));
       }
       return map;
+    }
+    // Check if it looks like an object (array of key-value pairs)
+    if (data.length > 0 && Array.isArray(data[0]) && data[0].length === 2 && typeof data[0][0] === 'string') {
+      const obj: any = {};
+      for (const [key, value] of data) {
+        obj[key] = deserialize(value);
+      }
+      return obj;
     }
     return data.map(deserialize);
   }

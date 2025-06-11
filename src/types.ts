@@ -1,16 +1,45 @@
 // types.ts
 import { Buffer } from 'buffer';
 
+// Result types for error handling
+export type Result<T, E = Error> = 
+  | { ok: true; value: T }
+  | { ok: false; error: E };
+
+export function Ok<T>(value: T): Result<T> {
+  return { ok: true, value };
+}
+
+export function Err<E>(error: E): Result<never, E> {
+  return { ok: false, error };
+}
+
 // Basic types
 export type Hash = Buffer;
 export type Address = Buffer;
 export type Timestamp = number;
 
+// Mempool configuration
+export interface MempoolConfig {
+  maxSize: number;
+  maxAge: number; // milliseconds
+  maxTxsPerEntity: number;
+  evictionBatchSize: number;
+}
+
+export interface MempoolEntry {
+  tx: ServerTx;
+  timestamp: number;
+  entityId: string;
+  signerIndex: number;
+}
+
 // Server types
 export interface ServerState {
   height: number;
   signers: Map<number, Map<string, EntityState>>;
-  mempool: ServerTx[];
+  mempool: Map<Hash, MempoolEntry>; // txHash -> entry
+  config: MempoolConfig;
 }
 
 export interface ServerTx {
