@@ -34,10 +34,10 @@ async function main() {
           nonce: 0,
           data: { 
             role: entity.role,
-            balance: entity.initialBalance || 0,
+            balance: entity.initialBalance || entity.balance || 0,
             inventory: entity.inventory || 0,
             transactions: [],
-            connections: new Map()
+            connections: []
           },
           mempool: [],
           status: 'idle',

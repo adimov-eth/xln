@@ -16,26 +16,46 @@ export function hash(data: Buffer): Buffer {
 
 function serialize(obj: any): any {
   if (Buffer.isBuffer(obj)) return obj;
-  if (typeof obj === 'number') return obj;
+  if (typeof obj === 'number') {
+    // RLP only supports non-negative integers
+    // Store negative numbers as [sign, absolute value]
+    if (obj < 0) {
+      return ['__neg__', Math.abs(obj)];
+    }
+    return obj;
+  }
   if (typeof obj === 'string') return Buffer.from(obj);
   if (Array.isArray(obj)) return obj.map(serialize);
   if (obj instanceof Map) {
     return ['__map__', Array.from(obj.entries()).map(([k, v]) => [serialize(k), serialize(v)])];
   }
   if (typeof obj === 'object' && obj !== null) {
-    return Object.entries(obj).map(([k, v]) => [k, serialize(v)]);
+    // Skip undefined values to avoid encoding issues
+    const entries = Object.entries(obj).filter(([_, v]) => v !== undefined);
+    return entries.map(([k, v]) => [k, serialize(v)]);
   }
+  if (obj === undefined) return '__undefined__';
+  if (obj === null) return '__null__';
   return obj;
 }
 
 function deserialize(data: any): any {
   if (Buffer.isBuffer(data)) {
+    // Check for special markers first
+    const str = data.toString();
+    if (str === '__undefined__') return undefined;
+    if (str === '__null__') return null;
+    
     // Simple heuristic: if it's 32 bytes, keep as buffer (likely a hash)
     if (data.length === 32) return data;
-    // Otherwise try to decode as string
-    return data.toString();
+    // Otherwise return as string
+    return str;
   }
   if (Array.isArray(data)) {
+    // Check for negative number
+    if (data.length === 2 && data[0] === '__neg__') {
+      return -data[1];
+    }
     // Check if it's a serialized Map
     if (data.length === 2 && data[0] === '__map__') {
       const map = new Map();
