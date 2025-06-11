@@ -1,6 +1,5 @@
 import { decode, encode, hash } from './encoding';
 import { applyEntityInput, createEntity, getEntityStateRoot } from './entity';
-import { EntityDirectory } from './entityRegestry';
 import { MessageRouter } from './routing';
 import { Database } from './store';
 import {
@@ -9,8 +8,6 @@ import {
   Ok,
   type EntityState,
   type Hash,
-  type MempoolConfig,
-  type MempoolEntry,
   type OutboxMessage,
   type Result,
   type ServerBlock,
@@ -18,122 +15,186 @@ import {
   type ServerTx
 } from './types';
 
+// Process a transaction (not pure - handles entity creation)
+function processTransaction(
+  state: ServerState,
+  tx: ServerTx
+): { 
+  updatedState: ServerState;
+  outbox: OutboxMessage[];
+  error?: string;
+} {
+  const outbox: OutboxMessage[] = [];
+  
+  // Get or create signer map
+  let signerEntities = state.signers.get(tx.signerIndex);
+  if (!signerEntities) {
+    signerEntities = new Map();
+    state = {
+      ...state,
+      signers: new Map(state.signers).set(tx.signerIndex, signerEntities)
+    };
+  }
+
+  // Get or create entity
+  let entityState = signerEntities.get(tx.entityId);
+  
+  // Handle entity creation
+  if (!entityState) {
+    if (tx.input.type === 'import') {
+      entityState = tx.input.state;
+      // Ensure consensus config is set
+      if (!entityState.quorum) {
+        entityState.quorum = [[tx.signerIndex, 1]];
+        entityState.threshold = 0.67;
+        entityState.proposer = tx.signerIndex;
+      }
+    } else {
+      // Create new entity with default consensus
+      entityState = createEntity(tx.entityId);
+      entityState.quorum = [[tx.signerIndex, 1]];
+      entityState.threshold = 0.67;
+      entityState.proposer = tx.signerIndex;
+    }
+    
+    // Update entity index immutably
+    const newEntityIndex = new Map(state.entityIndex);
+    let entitySet = newEntityIndex.get(tx.signerIndex);
+    if (!entitySet) {
+      entitySet = new Set();
+    } else {
+      // Clone the set to avoid mutation
+      entitySet = new Set(entitySet);
+    }
+    entitySet.add(tx.entityId);
+    newEntityIndex.set(tx.signerIndex, entitySet);
+    
+    state = {
+      ...state,
+      entityIndex: newEntityIndex
+    };
+  }
+
+  // Apply entity input (pure function)
+  const newEntityState = applyEntityInput(
+    entityState,
+    tx.input,
+    outbox,
+    tx.signerIndex,
+    tx.entityId
+  );
+
+  // Update state immutably
+  const newSignerEntities = new Map(signerEntities);
+  newSignerEntities.set(tx.entityId, newEntityState);
+  
+  const newSigners = new Map(state.signers);
+  newSigners.set(tx.signerIndex, newSignerEntities);
+  
+  return {
+    updatedState: {
+      ...state,
+      signers: newSigners
+    },
+    outbox
+  };
+}
+
+// Pure function to collect all entity blocks into a server block
+function createServerBlock(
+  state: ServerState,
+  height: number,
+  inputs: ServerTx[]
+): ServerBlock {
+  return {
+    height,
+    timestamp: Date.now(),
+    inputs,
+    stateRoot: computeStateRoot(state)
+  };
+}
+
+// Pure function to compute server state root
+function computeStateRoot(state: ServerState): Buffer {
+  const stateData = {
+    height: state.height,
+    signers: Array.from(state.signers.entries()).map(([signerIndex, entities]) => [
+      signerIndex,
+      Array.from(entities.entries()).map(([entityId, entityState]) => [
+        entityId,
+        getEntityStateRoot(entityState)
+      ])
+    ])
+  };
+  return hash(encode(stateData));
+}
+
 export class Server {
   private db: Database;
-  private entityDirectory: EntityDirectory;
   private router: MessageRouter;
   private state: ServerState;
+  private incomingQueue: ServerTx[] = [];  // External API calls and inter-entity messages
   private running = false;
   private tickInterval?: NodeJS.Timeout;
 
-  constructor(db: Database, signerIndices: number[] = [0], config?: Partial<MempoolConfig>) {
+  constructor(db: Database) {
     this.db = db;
-    this.entityDirectory = new EntityDirectory();
-    
-    const defaultConfig: MempoolConfig = {
-      maxSize: 10000,
-      maxAge: 300000, // 5 minutes
-      maxTxsPerEntity: 100,
-      evictionBatchSize: 100
-    };
-    
-    // Configure router for local signers
     this.router = new MessageRouter(
       {
-        localSigners: new Set(signerIndices),
-        remoteEndpoints: new Map() // Would be configured for real network
+        localSigners: new Set([0, 1, 2]), // Support first 3 signers locally
+        remoteEndpoints: new Map()
       },
-      (tx) => {
-        const result = this.addToMempool(tx);
-        if (!result.ok) {
-          console.error('Failed to add tx to mempool:', result.error);
-        }
+      (tx: ServerTx) => {
+        // Queue for next tick
+        this.incomingQueue.push(tx);
       }
     );
     
     this.state = {
       height: 0,
       signers: new Map(),
-      mempool: new Map(),
-      config: { ...defaultConfig, ...config }
+      entityIndex: new Map()
     };
-  }
-
-  private addToMempool(tx: ServerTx): Result<void> {
-    const txHash = hash(encode(tx));
-    
-    // Check if already exists
-    if (this.state.mempool.has(txHash)) {
-      return Err(new Error('Transaction already in mempool'));
-    }
-    
-    // Check mempool size limit
-    if (this.state.mempool.size >= this.state.config.maxSize) {
-      this.evictOldTransactions();
-      
-      if (this.state.mempool.size >= this.state.config.maxSize) {
-        return Err(new Error('Mempool is full'));
-      }
-    }
-    
-    // Check per-entity limit
-    const entityTxCount = Array.from(this.state.mempool.values())
-      .filter(entry => entry.entityId === tx.entityId && entry.signerIndex === tx.signerIndex)
-      .length;
-      
-    if (entityTxCount >= this.state.config.maxTxsPerEntity) {
-      return Err(new Error('Too many transactions for this entity'));
-    }
-    
-    const entry: MempoolEntry = {
-      tx,
-      timestamp: Date.now(),
-      entityId: tx.entityId,
-      signerIndex: tx.signerIndex
-    };
-    
-    this.state.mempool.set(txHash, entry);
-    return Ok(undefined);
-  }
-
-  private evictOldTransactions(): void {
-    const now = Date.now();
-    const maxAge = this.state.config.maxAge;
-    const toEvict: Hash[] = [];
-    
-    // First, evict expired transactions
-    for (const [hash, entry] of this.state.mempool) {
-      if (now - entry.timestamp > maxAge) {
-        toEvict.push(hash);
-      }
-    }
-    
-    // If we need more space, evict oldest transactions
-    if (toEvict.length < this.state.config.evictionBatchSize) {
-      const sortedEntries = Array.from(this.state.mempool.entries())
-        .sort(([, a], [, b]) => a.timestamp - b.timestamp);
-        
-      const needed = this.state.config.evictionBatchSize - toEvict.length;
-      for (let i = 0; i < needed && i < sortedEntries.length; i++) {
-        const entry = sortedEntries[i];
-        if (entry) {
-          toEvict.push(entry[0]);
-        }
-      }
-    }
-    
-    // Remove evicted transactions
-    for (const hash of toEvict) {
-      this.state.mempool.delete(hash);
-    }
-    
-    if (toEvict.length > 0) {
-      console.log(`Evicted ${toEvict.length} transactions from mempool`);
-    }
   }
 
   async submitTx(tx: ServerTx): Promise<Result<void>> {
-    return this.addToMempool(tx);
+    // For entity creation, process immediately
+    if (tx.input.type === 'import') {
+      const result = processTransaction(this.state, tx);
+      if (result.error) {
+        return Err(new Error(result.error));
+      }
+      this.state = result.updatedState;
+      
+      // Route any outbox messages
+      if (result.outbox.length > 0) {
+        await this.router.route(result.outbox);
+      }
+      
+      return Ok(undefined);
+    }
+    
+    // For other transactions, check entity exists
+    const signerEntities = this.state.signers.get(tx.signerIndex);
+    const entity = signerEntities?.get(tx.entityId);
+    if (!entity) {
+      return Err(new Error(`Entity ${tx.entityId} not found for signer ${tx.signerIndex}`));
+    }
+    
+    // Add to entity's mempool
+    const result = processTransaction(this.state, tx);
+    if (result.error) {
+      return Err(new Error(result.error));
+    }
+    
+    this.state = result.updatedState;
+    
+    // Route any outbox messages immediately
+    if (result.outbox.length > 0) {
+      await this.router.route(result.outbox);
+    }
+    
+    return Ok(undefined);
   }
 
   start(): void {
@@ -152,153 +213,103 @@ export class Server {
     }
   }
 
-
   private async processTick(): Promise<void> {
-    if (this.state.mempool.size === 0) return;
-
-    const outbox: OutboxMessage[] = [];
-    const inputs = Array.from(this.state.mempool.values()).map(entry => entry.tx);
-    const processedHashes: Hash[] = [];
-
-    // Apply all inputs
-    for (const entry of this.state.mempool.values()) {
-      const txHash = hash(encode(entry.tx));
-      
-      try {
-        this.applyServerTx(entry.tx, outbox);
-        processedHashes.push(txHash);
-      } catch (error) {
-        console.error('Error processing transaction:', error);
+    // Phase 1: Collect inputs for this block
+    const blockInputs = [...this.incomingQueue];
+    this.incomingQueue = [];
+    
+    if (blockInputs.length === 0) return;
+    
+    // Phase 2: Apply all inputs (pure computation)
+    let currentState = this.state;
+    const allOutbox: OutboxMessage[] = [];
+    
+    for (const tx of blockInputs) {
+      const result = processTransaction(currentState, tx);
+      if (!result.error) {
+        currentState = result.updatedState;
+        allOutbox.push(...result.outbox);
       }
     }
-
-    // Remove processed transactions from mempool
-    for (const txHash of processedHashes) {
-      this.state.mempool.delete(txHash);
-    }
-
-    if (processedHashes.length > 0) {
-      // Create server block
-      const block: ServerBlock = {
-        height: ++this.state.height,
-        timestamp: Date.now(),
-        inputs: inputs.slice(0, processedHashes.length),
-        stateRoot: this.computeStateRoot()
-      };
-
-      // Write block to WAL
-      await this.db.put(KEYS.serverBlock(block.height), encode(block));
-
-      // Write server root
-      await this.db.put(KEYS.serverRoot, encode({
-        height: this.state.height,
-        stateRoot: block.stateRoot
-      }));
-
-      // Persist states and blocks
-      await this.persistEntityStates();
-      await this.persistEntityBlocks(outbox);
-
-      // Route outbox messages properly
-      await this.router.route(outbox);
-    }
-  }
-
-  private applyServerTx(tx: ServerTx, outbox: OutboxMessage[]): void {
-    // Get or create signer map
-    let signerEntities = this.state.signers.get(tx.signerIndex);
-    if (!signerEntities) {
-      signerEntities = new Map();
-      this.state.signers.set(tx.signerIndex, signerEntities);
-    }
-
-    // Get or create entity
-    let entityState = signerEntities.get(tx.entityId);
-    if (!entityState && tx.input.type === 'import') {
-      entityState = tx.input.state;
-      
-      // Register entity in directory
-      this.entityDirectory.register({
-        entityId: tx.entityId,
-        quorum: [[tx.signerIndex, 1]], // Single signer for now
-        threshold: 0.67,
-        proposer: tx.signerIndex
-      });
-    } else if (!entityState) {
-      entityState = createEntity(tx.entityId);
-      
-      // Register new entity
-      this.entityDirectory.register({
-        entityId: tx.entityId,
-        quorum: [[tx.signerIndex, 1]],
-        threshold: 0.67,
-        proposer: tx.signerIndex
-      });
-    }
-
-    // Apply entity input
-    const newState = applyEntityInput(
-      entityState,
-      tx.input,
-      outbox,
-      tx.signerIndex,
-      tx.entityId
-    );
-
-    signerEntities.set(tx.entityId, newState);
-  }
-
-  private computeStateRoot(): Buffer {
-    const stateData = {
-      height: this.state.height,
-      signers: Array.from(this.state.signers.entries()).map(([signerIndex, entities]) => [
-        signerIndex,
-        Array.from(entities.entries()).map(([entityId, state]) => [
-          entityId,
-          getEntityStateRoot(state)
-        ])
-      ])
+    
+    // Phase 3: Create server block
+    const newHeight = this.state.height + 1;
+    const serverBlock = createServerBlock(currentState, newHeight, blockInputs);
+    
+    // Phase 4: Update state
+    this.state = {
+      ...currentState,
+      height: newHeight
     };
-    return hash(encode(stateData));
+    
+    // Phase 5: Persist everything
+    await this.persistState(serverBlock);
+    
+    // Phase 6: Route outbox messages
+    for (const msg of allOutbox) {
+      // In real system, this would go through network
+      // For now, deliver locally if possible
+      const targetSigner = this.state.signers.get(msg.toSigner);
+      const targetEntity = targetSigner?.get(msg.toEntity);
+      
+      if (targetEntity) {
+        const inboxTx: ServerTx = {
+          signerIndex: msg.toSigner,
+          entityId: msg.toEntity,
+          input: msg.payload
+        };
+        this.incomingQueue.push(inboxTx);
+      }
+    }
   }
 
-  private async persistEntityStates(): Promise<void> {
+  private async persistState(block: ServerBlock): Promise<void> {
     const batch: Array<{ key: Buffer; value: Buffer }> = [];
     
+    // Persist server block
+    batch.push({
+      key: KEYS.serverBlock(block.height),
+      value: encode(block)
+    });
+    
+    // Persist server root
+    batch.push({
+      key: KEYS.serverRoot,
+      value: encode({ height: this.state.height })
+    });
+    
+    // Persist all entity states
     for (const [signerIndex, entities] of this.state.signers) {
       for (const [entityId, state] of entities) {
-        const key = KEYS.entityState(signerIndex, entityId);
-        const value = encode(state);
-        batch.push({ key, value });
+        batch.push({
+          key: KEYS.entityState(signerIndex, entityId),
+          value: encode(state)
+        });
+      }
+      
+      // Persist entity index
+      const entityIds = this.state.entityIndex.get(signerIndex);
+      if (entityIds) {
+        batch.push({
+          key: KEYS.entityIndex(signerIndex),
+          value: encode(Array.from(entityIds))
+        });
       }
     }
     
-    if (batch.length > 0) {
-      await this.db.batch(batch);
-    }
-  }
-
-  private async persistEntityBlocks(outbox: OutboxMessage[]): Promise<void> {
-    const batch: Array<{ key: Buffer; value: Buffer }> = [];
-    
-    for (const [signerIndex, entities] of this.state.signers) {
+    // Persist entity blocks
+    for (const [_, entities] of this.state.signers) {
       for (const [entityId, state] of entities) {
         if (state.consensusBlock) {
-          const key = KEYS.entityBlock(entityId, state.consensusBlock.height);
-          const value = encode(state.consensusBlock);
-          batch.push({ key, value });
+          batch.push({
+            key: KEYS.entityBlock(entityId, state.consensusBlock.height),
+            value: encode(state.consensusBlock)
+          });
         }
       }
     }
     
-    if (batch.length > 0) {
-      await this.db.batch(batch);
-    }
-    
-    // Log outbox messages for debugging
-    if (outbox.length > 0) {
-      console.log(`Generated ${outbox.length} outbox messages`);
-    }
+    await this.db.batch(batch);
   }
 
   async initialize(): Promise<void> {
@@ -309,7 +320,7 @@ export class Server {
         const decoded = decode(rootData);
         this.state.height = decoded.height;
         
-        // Load entity states for all signers
+        // Load entity states using index
         await this.loadEntityStates();
       }
     } catch (error) {
@@ -319,38 +330,42 @@ export class Server {
   }
 
   private async loadEntityStates(): Promise<void> {
-    // For now, we'll need to iterate through known entity keys
-    // In a full implementation, we'd maintain an index of entities
-    // This is a simplified recovery that assumes we know our entities
-    
-    // Try to load common entity IDs (in real system, we'd have an index)
-    const commonEntityIds = ['entity1', 'entity2', 'entity3', 'bank', 'merchant', 'user1', 'user2']; // Expand as needed
-    
-    for (let signerIndex = 0; signerIndex < 10; signerIndex++) { // Check first 10 signers
-      for (const entityId of commonEntityIds) {
-        try {
-          const key = KEYS.entityState(signerIndex, entityId);
-          const stateData = await this.db.get(key);
-          if (stateData) {
-            const entityState = decode(stateData) as EntityState;
-            
-            let signerMap = this.state.signers.get(signerIndex);
-            if (!signerMap) {
-              signerMap = new Map();
-              this.state.signers.set(signerIndex, signerMap);
+    // Load entity indices for each signer
+    for (let signerIndex = 0; signerIndex < 10; signerIndex++) {
+      try {
+        const indexData = await this.db.get(KEYS.entityIndex(signerIndex));
+        if (indexData) {
+          const entityIds = decode(indexData) as string[];
+          const entitySet = new Set(entityIds);
+          this.state.entityIndex.set(signerIndex, entitySet);
+          
+          // Load each entity state
+          const signerMap = new Map<string, EntityState>();
+          for (const entityId of entityIds) {
+            try {
+              const stateData = await this.db.get(KEYS.entityState(signerIndex, entityId));
+              if (stateData) {
+                const entityState = decode(stateData) as EntityState;
+                signerMap.set(entityId, entityState);
+              }
+            } catch (error) {
+              // Entity state missing, skip
             }
-            signerMap.set(entityId, entityState);
           }
-        } catch (error) {
-          // Entity doesn't exist, continue
+          
+          if (signerMap.size > 0) {
+            this.state.signers.set(signerIndex, signerMap);
+          }
         }
+      } catch (error) {
+        // No index for this signer, continue
       }
     }
   }
 
   async getEntityState(entityId: string): Promise<EntityState | undefined> {
     // Check all signers for the entity
-    for (const [signerIndex, entities] of this.state.signers) {
+    for (const [_, entities] of this.state.signers) {
       const state = entities.get(entityId);
       if (state) {
         return state;
@@ -362,7 +377,7 @@ export class Server {
   printTree(): void {
     console.log('Server State Tree:');
     console.log(`├─ Height: ${this.state.height}`);
-    console.log(`├─ Mempool: ${this.state.mempool.size} transactions`);
+    console.log(`├─ Incoming Queue: ${this.incomingQueue.length} messages`);
     console.log(`└─ Signers:`);
     
     const signerEntries = Array.from(this.state.signers.entries());
@@ -374,7 +389,7 @@ export class Server {
       entityEntries.forEach(([entityId, state], j) => {
         const isLastEntity = j === entityEntries.length - 1;
         const prefix = isLast ? '      ' : '   │  ';
-        console.log(`   ${prefix}${isLastEntity ? '└─' : '├─'} ${entityId}: height=${state.height}, nonce=${state.nonce}, status=${state.status}`);
+        console.log(`   ${prefix}${isLastEntity ? '└─' : '├─'} ${entityId}: height=${state.height}, nonce=${state.nonce}, mempool=${state.mempool.length}, status=${state.status}`);
       });
     });
   }

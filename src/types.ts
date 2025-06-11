@@ -19,27 +19,11 @@ export type Hash = Buffer;
 export type Address = Buffer;
 export type Timestamp = number;
 
-// Mempool configuration
-export interface MempoolConfig {
-  maxSize: number;
-  maxAge: number; // milliseconds
-  maxTxsPerEntity: number;
-  evictionBatchSize: number;
-}
-
-export interface MempoolEntry {
-  tx: ServerTx;
-  timestamp: number;
-  entityId: string;
-  signerIndex: number;
-}
-
 // Server types
 export interface ServerState {
   height: number;
   signers: Map<number, Map<string, EntityState>>;
-  mempool: Map<Hash, MempoolEntry>; // txHash -> entry
-  config: MempoolConfig;
+  entityIndex: Map<number, Set<string>>; // signerIndex -> entity IDs
 }
 
 export interface ServerTx {
@@ -64,6 +48,10 @@ export interface EntityState {
   status: 'idle' | 'pending' | 'awaiting_signatures';
   proposedBlock?: EntityBlock;
   consensusBlock?: EntityBlock;  // Last signed block
+  // Consensus configuration (replaces EntityRegistry)
+  quorum: Array<[number, number]>;  // [signerIndex, weight]
+  threshold: number;  // e.g., 0.67 for 67%
+  proposer: number;  // Current proposer signer index
 }
 
 export type EntityInput =
@@ -80,7 +68,22 @@ export type EntityInput =
       quorum: Array<[number, number]>; 
     }
   | { type: 'vote'; blockHeight: number; blockHash: string }
-  | { type: 'inbox'; from: string; message: any };
+  | { type: 'inbox'; from: string; message: EntityMessage };
+
+// Typed inter-entity messages
+export type EntityMessage =
+  | { type: 'credit_line_update'; recipient: string; newLimit: number; utilizationRate: number }
+  | { type: 'invoice'; recipient: string; items: InvoiceItem[]; total: number; dueDate: string }
+  | { type: 'payment'; from: string; to: string; amount: number; reference?: string }
+  | { type: 'transfer_notification'; from: string; to: string; amount: number; memo?: string }
+  | { type: 'channel_proposal'; proposer: string; terms: any } // For future channel layer
+  | { type: 'channel_update'; channelId: string; update: any };
+
+export interface InvoiceItem {
+  name: string;
+  quantity: number;
+  price: number;
+}
 
 export interface EntityTx {
   nonce: number;
@@ -115,17 +118,25 @@ export const KEYS = {
     return key;
   },
   entityState: (signerIndex: number, entityId: string) => {
-    const key = Buffer.allocUnsafe(33);
+    const idBuf = Buffer.from(entityId, 'utf8');
+    const key = Buffer.allocUnsafe(5 + idBuf.length);
     key[0] = 0x02;
     key.writeUInt32BE(signerIndex, 1);
-    Buffer.from(entityId, 'hex').copy(key, 5);
+    idBuf.copy(key, 5);
     return key;
   },
   entityBlock: (entityId: string, height: number) => {
-    const key = Buffer.allocUnsafe(37);
+    const idBuf = Buffer.from(entityId, 'utf8');
+    const key = Buffer.allocUnsafe(1 + idBuf.length + 4);
     key[0] = 0x03;
-    Buffer.from(entityId, 'hex').copy(key, 1);
-    key.writeUInt32BE(height, 33);
+    idBuf.copy(key, 1);
+    key.writeUInt32BE(height, 1 + idBuf.length);
+    return key;
+  },
+  entityIndex: (signerIndex: number) => {
+    const key = Buffer.allocUnsafe(5);
+    key[0] = 0x04;
+    key.writeUInt32BE(signerIndex, 1);
     return key;
   }
 };

@@ -8,7 +8,11 @@ export function createEntity(id: string): EntityState {
     nonce: 0,
     data: { counter: 0 },
     mempool: [],
-    status: 'idle'
+    status: 'idle',
+    // Default single-signer consensus
+    quorum: [[0, 1]],
+    threshold: 0.67,
+    proposer: 0
   };
 }
 
@@ -53,8 +57,8 @@ export function applyEntityInput(
       block.stateRoot = getEntityStateRoot(dryRunState);
       
       // For multi-signer, send to validators
-      if (input.quorum && input.quorum.length > 1) {
-        for (const [signer, weight] of input.quorum) {
+      if (state.quorum && state.quorum.length > 1) {
+        for (const [signer, _weight] of state.quorum) {
           if (signer !== signerIndex) {
             outbox.push({
               fromEntity: entityId,
@@ -110,28 +114,35 @@ export function applyEntityInput(
         return state;
       }
       
-      // Add signature
-      state.proposedBlock.signatures.set(
-        input.signerIndex, 
-        input.signature
-      );
+      // Create new signatures map without mutation
+      const newSignatures = new Map(state.proposedBlock.signatures);
+      newSignatures.set(input.signerIndex, input.signature);
       
-      // Check if we have quorum (67%)
-      const totalWeight = input.quorum.reduce((sum, [_, w]) => sum + w, 0);
+      // Create new block with updated signatures
+      const updatedBlock: EntityBlock = {
+        ...state.proposedBlock,
+        signatures: newSignatures
+      };
+      
+      // Check if we have quorum
+      const totalWeight = state.quorum.reduce((sum, [_, w]) => sum + w, 0);
       let signedWeight = 0;
       
-      for (const [signer, weight] of input.quorum) {
-        if (state.proposedBlock.signatures.has(signer)) {
+      for (const [signer, weight] of state.quorum) {
+        if (newSignatures.has(signer)) {
           signedWeight += weight;
         }
       }
       
-      if (signedWeight >= totalWeight * 0.67) {
+      if (signedWeight >= totalWeight * state.threshold) {
         // Finalize with signatures
-        return finalizeBlock(state, state.proposedBlock);
+        return finalizeBlock(state, updatedBlock);
       }
       
-      return state;
+      return {
+        ...state,
+        proposedBlock: updatedBlock
+      };
     
     case 'commit_block':
       // Handle explicit block commit
@@ -147,51 +158,85 @@ export function applyEntityInput(
         return state;
       }
       
-      // In a real system, verify the blockHash matches
-      // For simulation, we'll accept the vote
-      state.proposedBlock.signatures.set(signerIndex, Buffer.from('vote-sig'));
+      // Create new signatures map without mutation
+      const voteSignatures = new Map(state.proposedBlock.signatures);
+      voteSignatures.set(signerIndex, Buffer.from('vote-sig'));
+      
+      // Create new block with updated signatures
+      const votedBlock: EntityBlock = {
+        ...state.proposedBlock,
+        signatures: voteSignatures
+      };
       
       // Check if we have enough votes (simplified: just count signatures)
-      if (state.proposedBlock.signatures.size >= 2) {
-        return finalizeBlock(state, state.proposedBlock);
+      if (voteSignatures.size >= 2) {
+        return finalizeBlock(state, votedBlock);
       }
       
-      return state;
+      return {
+        ...state,
+        proposedBlock: votedBlock
+      };
     
     case 'inbox':
       // Handle inter-entity messages
       console.log(`Entity ${entityId} received message from ${input.from}:`, input.message.type);
       
       // Process different message types
-      if (input.message.type === 'credit_line_update') {
-        return {
-          ...state,
-          data: {
-            ...state.data,
-            creditLine: input.message.newLimit || 0,
-            creditUtilization: input.message.utilizationRate || 0,
-            messageCount: (state.data.messageCount || 0) + 1
-          }
-        };
-      } else if (input.message.type === 'invoice') {
-        return {
-          ...state,
-          data: {
-            ...state.data,
-            pendingInvoiceCount: (state.data.pendingInvoiceCount || 0) + 1,
-            invoiceTotal: (state.data.invoiceTotal || 0) + (input.message.total || 0),
-            messageCount: (state.data.messageCount || 0) + 1
-          }
-        };
+      switch (input.message.type) {
+        case 'credit_line_update':
+          return {
+            ...state,
+            data: {
+              ...state.data,
+              creditLine: input.message.newLimit,
+              creditUtilization: input.message.utilizationRate,
+              messageCount: (state.data.messageCount || 0) + 1
+            }
+          };
+          
+        case 'invoice':
+          return {
+            ...state,
+            data: {
+              ...state.data,
+              pendingInvoiceCount: (state.data.pendingInvoiceCount || 0) + 1,
+              invoiceTotal: (state.data.invoiceTotal || 0) + input.message.total,
+              messageCount: (state.data.messageCount || 0) + 1
+            }
+          };
+          
+        case 'payment':
+          return {
+            ...state,
+            data: {
+              ...state.data,
+              balance: (state.data.balance || 0) + input.message.amount,
+              paymentCount: (state.data.paymentCount || 0) + 1,
+              messageCount: (state.data.messageCount || 0) + 1
+            }
+          };
+          
+        case 'transfer_notification':
+          return {
+            ...state,
+            data: {
+              ...state.data,
+              notificationCount: (state.data.notificationCount || 0) + 1,
+              messageCount: (state.data.messageCount || 0) + 1
+            }
+          };
+          
+        default:
+          // Unknown message type
+          return {
+            ...state,
+            data: {
+              ...state.data,
+              messageCount: (state.data.messageCount || 0) + 1
+            }
+          };
       }
-      
-      return {
-        ...state,
-        data: {
-          ...state.data,
-          messageCount: (state.data.messageCount || 0) + 1
-        }
-      };
     
     default:
       return state;
@@ -238,9 +283,14 @@ function applyEntityTx(data: any, tx: EntityTx): any {
     case 'transfer':
       // Handle transfers between entities
       const amount = tx.data.amount || 0;
+      const currentBalance = data.balance || 0;
+      if (amount > currentBalance) {
+        // Transaction would fail - don't update counters
+        return data;
+      }
       return {
         ...data,
-        balance: Math.max(0, (data.balance || 0) - amount), // Prevent negative balance
+        balance: currentBalance - amount,
         transferCount: (data.transferCount || 0) + 1
       };
     
@@ -251,25 +301,42 @@ function applyEntityTx(data: any, tx: EntityTx): any {
       };
     
     case 'loan_approval':
+      const loanAmount = tx.data.amount || 0;
+      const bankBalance = data.balance || 0;
+      if (loanAmount > bankBalance) {
+        // Bank doesn't have enough funds
+        return data;
+      }
       return {
         ...data,
-        balance: (data.balance || 0) - (tx.data.amount || 0),
+        balance: bankBalance - loanAmount,
         loanCount: (data.loanCount || 0) + 1
       };
     
     case 'purchase':
       const totalCost = (tx.data.quantity || 0) * (tx.data.price || 0);
+      const buyerBalance = data.balance || 0;
+      if (totalCost > buyerBalance) {
+        // Not enough funds for purchase
+        return data;
+      }
       return {
         ...data,
-        balance: Math.max(0, (data.balance || 0) - totalCost),
+        balance: buyerBalance - totalCost,
         purchaseCount: (data.purchaseCount || 0) + 1
       };
     
     case 'restock':
+      const restockCost = tx.data.cost || 0;
+      const merchantBalance = data.balance || 0;
+      if (restockCost > merchantBalance) {
+        // Not enough funds to restock
+        return data;
+      }
       return {
         ...data,
         inventory: (data.inventory || 0) + (tx.data.quantity || 0),
-        balance: Math.max(0, (data.balance || 0) - (tx.data.cost || 0)),
+        balance: merchantBalance - restockCost,
         restockCount: (data.restockCount || 0) + 1
       };
     

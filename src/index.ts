@@ -42,7 +42,11 @@ async function main() {
           mempool: [],
           status: 'idle',
           proposedBlock: undefined,
-          consensusBlock: undefined
+          consensusBlock: undefined,
+          // Single signer for simulation
+          quorum: [[0, 1]],
+          threshold: 0.67,
+          proposer: 0
         }, 
         height: 0 
       }
