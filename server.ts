@@ -3,9 +3,6 @@ import { Level } from 'level';
 import RLP from 'rlp';
 
 
-
-
-
 export type EntityTx = {
   op: string;    
   data: any;
@@ -33,7 +30,7 @@ export type ProposedBlock = {
   txs: EntityTx[];
   hash: string;
   status: 'pending' | 'committed';
-  votes?: number[];  // Track which signers have voted
+  votes?: number[]; 
 };
 
 export type EntityState = {
@@ -50,9 +47,6 @@ export type ServerState = {
   signers: Map<number, Map<string, EntityState>>;
   mempool: ServerTx[];
 };
-
-
-
 
 
 const keys = {
@@ -106,7 +100,7 @@ const proposeBlock = (entity: EntityState): EntityState => {
       txs: entity.mempool,
       hash: hash([entity.height + 1, entity.mempool]),
       status: 'pending',
-      votes: [] // Initialize empty votes array
+      votes: []
     }
   };
 };
@@ -116,7 +110,7 @@ const commitBlock = (entity: EntityState, blockHash: string, signerIdx: number):
     return [entity, []];
   }
   
-  // For single-signer entities, commit immediately
+
   if (entity.quorum.length === 1) {
     const newState = entity.proposed.txs.reduce(
       (state, tx) => applyEntityTx(state, tx),
@@ -146,18 +140,18 @@ const commitBlock = (entity: EntityState, blockHash: string, signerIdx: number):
     }, messages];
   }
   
-  // For multi-signer entities, collect votes
+
   const currentVotes = entity.proposed.votes || [];
   
-  // Add vote if not already voted
+
   if (!currentVotes.includes(signerIdx)) {
     const newVotes = [...currentVotes, signerIdx];
     
-    // Check if we have enough votes (2/3 majority)
+  
     const requiredVotes = Math.ceil(entity.quorum.length * 2 / 3);
     
     if (newVotes.length >= requiredVotes) {
-      // Commit the block
+    
       const newState = entity.proposed.txs.reduce(
         (state, tx) => applyEntityTx(state, tx),
         entity.state
@@ -185,7 +179,7 @@ const commitBlock = (entity: EntityState, blockHash: string, signerIdx: number):
         status: 'idle'
       }, messages];
     } else {
-      // Not enough votes yet, just update votes
+    
       return [{
         ...entity,
         proposed: {
@@ -196,7 +190,7 @@ const commitBlock = (entity: EntityState, blockHash: string, signerIdx: number):
     }
   }
   
-  // Signer already voted, no change
+
   return [entity, []];
 };
 
