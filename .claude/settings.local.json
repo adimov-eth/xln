@@ -3,7 +3,9 @@
     "allow": [
       "Bash(rm:*)",
       "Bash(grep:*)",
-      "Bash(bun:*)"
+      "Bash(bun:*)",
+      "mcp__ide__getDiagnostics",
+      "Bash(rg:*)"
     ],
     "deny": []
   }

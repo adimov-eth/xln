@@ -1,15 +1,29 @@
 import { createHash } from 'crypto';
 import { Level } from 'level';
 import RLP from 'rlp';
+import { 
+  EntityId, SignerIdx, BlockHeight, BlockHash, 
+  toEntityId, toSignerIdx, toBlockHeight, toBlockHash,
+  Result, Ok, Err, ProcessingError
+} from './types';
+import { 
+  parseSignerIdx, parseBlockHeight, parseEntityId, 
+  incrementBlockHeight, nextBlockHeight, signerIdxFromAny, 
+  mapToSignerIdx 
+} from './typeHelpers';
+import { 
+  ErrorCollector, ErrorSeverity, CollectedResult, 
+  CollectedOk, CollectedErr 
+} from './errorHandling';
 
 // --- Types & Registry ---
 export type EntityMeta = {
-  id: string;
-  quorum: number[];    // participating signers
-  proposer: number;    // default signer index
+  id: EntityId;
+  quorum: SignerIdx[];    // participating signers
+  proposer: SignerIdx;    // default signer index
 };
 
-export type Registry = Map<string, EntityMeta>;
+export type Registry = Map<EntityId, EntityMeta>;
 export const createRegistry = (): Registry => new Map();
 
 // Register entity (pure function)
@@ -20,7 +34,12 @@ export const registerEntity = (
   proposer = 0
 ): Registry => {
   const newRegistry = new Map(registry);
-  newRegistry.set(id, { id, quorum, proposer });
+  const entityId = parseEntityId(id);
+  newRegistry.set(entityId, { 
+    id: entityId, 
+    quorum: mapToSignerIdx(quorum), 
+    proposer: parseSignerIdx(proposer) 
+  });
   return newRegistry;
 };
 
@@ -28,11 +47,11 @@ export const registerEntity = (
 
 export const isSignerAuthorized = (
   registry: Registry,
-  entityId: string,
-  signer: number
+  entityId: EntityId,
+  signer: SignerIdx
 ): boolean => {
   const meta = registry.get(entityId);
-  return meta ? meta.quorum.includes(signer) : false;
+  return meta ? meta.quorum.some(s => s === signer) : false;
 };
 
 // --- Core Types ---
@@ -41,52 +60,54 @@ export type EntityTx = { op: string; data: any };
 export type EntityInput =
   | { type: 'add_tx'; tx: EntityTx }
   | { type: 'propose_block'; txs: EntityTx[]; hash: string }
-  | { type: 'approve_block'; hash: string }
+  | { type: 'approve_block'; hash: string; from?: SignerIdx }
   | { type: 'commit_block'; hash: string };
 
 export type ServerTx = {
-  signer: number;
-  entityId: string;
+  signer: SignerIdx;
+  entityId: EntityId;
   input: EntityInput;
 };
 
 export type OutboxMsg = {
-  from: string;
-  toEntity: string;
-  toSigner?: number;  // Optional - let server figure it out if not specified
+  from: EntityId;
+  toEntity: EntityId;
+  toSigner?: SignerIdx;  // Optional - let server figure it out if not specified
   input: EntityInput;
 };
 
 // --- State ---
 export type EntityState = {
-  height: number;
+  height: BlockHeight;
   state: any;
   mempool: EntityTx[];
   proposed?: {
     txs: EntityTx[];
-    hash: string;
-    approves: Set<number>;
+    hash: BlockHash;
+    approves: Set<SignerIdx>;
   };
   quorumHash: string;
   status: 'Idle' | 'Proposed';
-  lastProcessedHeight?: number;  // Track last processed server height to prevent replays
+  lastBlockHash?: BlockHash;  // Chain integrity verification
+  lastProcessedHeight?: BlockHeight;  // Track last processed server height to prevent replays
 };
 
 export type ServerState = {
-  height: number;
+  height: BlockHeight;
   registry: Registry;
-  signers: Map<number, Map<string, EntityState>>;
+  signers: Map<SignerIdx, Map<EntityId, EntityState>>;
   mempool: ServerTx[];
+  lastBlockHash?: BlockHash;  // Server chain integrity
 };
 
 // --- Storage Keys with padded height ---
-const pad = (n: number) => n.toString().padStart(10, '0');
+const pad = (n: number | BlockHeight) => n.toString().padStart(10, '0');
 const keys = {
-  state: (signer: number, entityId: string) => `${signer}:${entityId}`,
+  state: (signer: SignerIdx, entityId: EntityId) => `${signer}:${entityId}`,
   registry: () => 'registry',
-  wal: (height: number, signer: number, entityId: string) => `wal:${pad(height)}:${signer}:${entityId}`,
-  walRegistry: (height: number, id: string) => `wal:reg:${pad(height)}:${id}`,  // Include padded height for proper ordering
-  block: (height: number) => `block:${pad(height)}`,
+  wal: (height: BlockHeight, signer: SignerIdx, entityId: EntityId) => `wal:${pad(height)}:${signer}:${entityId}`,
+  walRegistry: (height: BlockHeight, id: EntityId) => `wal:reg:${pad(height)}:${id}`,  // Include padded height for proper ordering
+  block: (height: BlockHeight) => `block:${pad(height)}`,
   meta: () => 'meta:height'
 };
 
@@ -104,17 +125,17 @@ const toRlpData = (obj: any): any => {
   return obj.toString();
 };
 
-const hash = (data: any): string => {
+const hash = (data: any): BlockHash => {
   const rlpData = toRlpData(data);
-  return createHash('sha256').update(RLP.encode(rlpData)).digest('hex');
+  return toBlockHash(createHash('sha256').update(RLP.encode(rlpData)).digest('hex'));
 };
 
 // Compute integrity hash of the entire state tree
-const computeStateHash = (signers: Map<number, Map<string, EntityState>>): string => {
+const computeStateHash = (signers: Map<SignerIdx, Map<EntityId, EntityState>>): BlockHash => {
   const stateData: any[] = [];
   
   // Sort signers by index
-  const sortedSigners = Array.from(signers.entries()).sort((a, b) => a[0] - b[0]);
+  const sortedSigners = Array.from(signers.entries()).sort((a, b) => Number(a[0]) - Number(b[0]));
   
   for (const [signerIdx, entities] of sortedSigners) {
     const entityData: any[] = [];
@@ -129,7 +150,8 @@ const computeStateHash = (signers: Map<number, Map<string, EntityState>>): strin
         toRlpData(entity.state),
         entity.mempool.map(tx => toRlpData(tx)),
         entity.status,
-        entity.proposed ? [entity.proposed.hash, Array.from(entity.proposed.approves).sort()] : null
+        entity.proposed ? [entity.proposed.hash, Array.from(entity.proposed.approves).sort((a, b) => Number(a) - Number(b))] : null,
+        entity.lastBlockHash || ''
       ]);
     }
     
@@ -140,12 +162,13 @@ const computeStateHash = (signers: Map<number, Map<string, EntityState>>): strin
 };
 
 // --- Entity Logic ---
-const createEntity = (quorum: number[]): EntityState => ({
-  height: 0,
+const createEntity = (quorum: SignerIdx[]): EntityState => ({
+  height: toBlockHeight(0),
   state: { balance: 0n },
   mempool: [],
-  quorumHash: hash(quorum),
-  status: 'Idle'
+  quorumHash: hash(quorum).slice(0, 16),  // Just use first 16 chars for quorum hash
+  status: 'Idle',
+  lastBlockHash: undefined
 });
 
 const applyEntityTx = (state: any, tx: EntityTx): any => {
@@ -157,14 +180,14 @@ const applyEntityTx = (state: any, tx: EntityTx): any => {
   }
 };
 
-const generateTransferMessages = (txs: EntityTx[], fromEntityId: string): OutboxMsg[] => {
+const generateTransferMessages = (txs: EntityTx[], fromEntityId: EntityId): OutboxMsg[] => {
   const messages: OutboxMsg[] = [];
   
   txs.forEach(tx => {
     if (tx.op === 'transfer') {
       messages.push({
         from: fromEntityId,
-        toEntity: tx.data.to,
+        toEntity: toEntityId(tx.data.to),
         // No toSigner - let the server figure out routing
         input: { 
           type: 'add_tx', 
@@ -180,51 +203,85 @@ const generateTransferMessages = (txs: EntityTx[], fromEntityId: string): Outbox
 export const processEntityInput = (
   entity: EntityState,
   input:  EntityInput,
-  signer: number,
+  signer: SignerIdx,
   meta:   EntityMeta
-): [EntityState, OutboxMsg[]] => {
+): Result<[EntityState, OutboxMsg[]], ProcessingError> => {
   const outbox: OutboxMsg[] = [];
   switch (input.type) {
     case 'add_tx':
       if (entity.status === 'Idle') {
-        return [{ ...entity, mempool: [...entity.mempool, input.tx] }, []];
+        return Ok<[EntityState, OutboxMsg[]], ProcessingError>([{ ...entity, mempool: [...entity.mempool, input.tx] }, []]);
       }
-      return [entity, []];
+      return Ok<[EntityState, OutboxMsg[]], ProcessingError>([entity, []]);
 
     case 'propose_block':
-      if (entity.status !== 'Idle') return [entity, []];
-      const block = { txs: input.txs, hash: input.hash };
+      if (entity.status !== 'Idle') {
+        return Err({ type: 'validation', field: 'status', message: 'Entity is not idle' });
+      }
+      const blockHash = toBlockHash(input.hash);
+      const block = { txs: input.txs, hash: blockHash };
+      
+      // If this is a broadcast from another signer (not the original proposer)
+      if (signer !== meta.proposer) {
+        // Accept the proposal and immediately approve it
+        const proposed = { ...block, approves: new Set([signer]) };
+        
+        // Send approval to ALL signers (including ourselves and proposer)
+        const approvalMsgs = meta.quorum.map(s => ({
+          from: meta.id,
+          toEntity: meta.id,
+          toSigner: s,
+          input: { type: 'approve_block' as const, hash: input.hash, from: signer }
+        }));
+        
+        return Ok<[EntityState, OutboxMsg[]], ProcessingError>([{ ...entity, proposed, status: 'Proposed' as const }, approvalMsgs]);
+      }
+      
+      // Original proposer creating the proposal
       const proposed = { ...block, approves: new Set([signer]) };
       
       // Single-signer entity: immediate apply with transfer messages
       if (meta.quorum.length === 1) {
         const newState = input.txs.reduce(applyEntityTx, entity.state);
         const transferMessages = generateTransferMessages(input.txs, meta.id);
-        return [{
+        const newHeight = incrementBlockHeight(entity.height);
+        return Ok<[EntityState, OutboxMsg[]], ProcessingError>([{
           ...entity,
-          height: entity.height + 1,
+          height: newHeight,
           state: newState,
-          mempool: [],         // ⬅ CLEAR mempool here
+          mempool: [],
           proposed: undefined,
-          status: 'Idle' as const
-        }, transferMessages];
+          status: 'Idle' as const,
+          lastBlockHash: blockHash
+        }, transferMessages]);
       }
       
-      // Multi-signer entity: broadcast approve to committee
-      return [{ ...entity, proposed, status: 'Proposed' as const },
+      // Multi-signer entity: broadcast proposal to committee
+      return Ok<[EntityState, OutboxMsg[]], ProcessingError>([{ ...entity, proposed, status: 'Proposed' as const },
         meta.quorum.filter(p => p !== signer).map(p => ({
           from: meta.id,
           toEntity: meta.id,
           toSigner: p,
-          input: { type: 'approve_block' as const, hash: input.hash }
+          input: { type: 'propose_block' as const, txs: input.txs, hash: input.hash }
         }))
-      ];
+      ]);
 
     case 'approve_block':
-      if (entity.status !== 'Proposed' || entity.proposed?.hash !== input.hash || !meta.quorum.includes(signer)) {
-        return [entity, []];
+      if (entity.status !== 'Proposed' || !entity.proposed) {
+        return Err({ type: 'validation', field: 'status', message: 'No active proposal' });
       }
-      const approves = new Set(entity.proposed.approves).add(signer);
+      if (entity.proposed.hash !== toBlockHash(input.hash)) {
+        return Err({ type: 'validation', field: 'hash', message: 'Hash mismatch' });
+      }
+      
+      // Use the 'from' field if provided, otherwise use the executing signer
+      const approvingSigner = input.from ?? signer;
+      
+      if (!meta.quorum.some(q => q === approvingSigner)) {
+        return Err({ type: 'unauthorized', signer: approvingSigner, entity: meta.id });
+      }
+      
+      const approves = new Set(entity.proposed.approves).add(approvingSigner);
       // if quorum reached, proposer issues commit
       if (approves.size * 3 >= meta.quorum.length * 2) {
         // only proposer commits
@@ -234,28 +291,37 @@ export const processEntityInput = (
           toSigner: meta.proposer,
           input: { type: 'commit_block' as const, hash: input.hash }
         });
-        return [{ ...entity, proposed: { ...entity.proposed, approves } }, outbox];
+        return Ok<[EntityState, OutboxMsg[]], ProcessingError>([{ ...entity, proposed: { ...entity.proposed, approves } }, outbox]);
       }
-      return [{ ...entity, proposed: { ...entity.proposed, approves } }, []];
+      return Ok<[EntityState, OutboxMsg[]], ProcessingError>([{ ...entity, proposed: { ...entity.proposed, approves } }, []]);
 
     case 'commit_block':
-      if (entity.status !== 'Proposed' || entity.proposed?.hash !== input.hash || signer !== meta.proposer) {
-        return [entity, []];
+      if (entity.status !== 'Proposed' || !entity.proposed) {
+        return Err({ type: 'validation', field: 'status', message: 'No active proposal' });
       }
+      if (entity.proposed.hash !== toBlockHash(input.hash)) {
+        return Err({ type: 'validation', field: 'hash', message: 'Hash mismatch' });
+      }
+      if (signer !== meta.proposer) {
+        return Err({ type: 'unauthorized', signer, entity: meta.id });
+      }
+      
       // final apply with transfer messages
       const nextState = entity.proposed.txs.reduce(applyEntityTx, entity.state);
       const transferMessages = generateTransferMessages(entity.proposed.txs, meta.id);
-      return [{
+      const newHeight = incrementBlockHeight(entity.height);
+      return Ok<[EntityState, OutboxMsg[]], ProcessingError>([{
         ...entity,
-        height: entity.height + 1,
+        height: newHeight,
         state: nextState,
         mempool: [],
         proposed: undefined,
-        status: 'Idle' as const
-      }, transferMessages];
+        status: 'Idle' as const,
+        lastBlockHash: entity.proposed.hash
+      }, transferMessages]);
 
     default:
-      return [entity, []];
+      return Err({ type: 'validation', field: 'type', message: 'Unknown input type' });
   }
 };
 
@@ -263,44 +329,110 @@ export const processEntityInput = (
 export const processServerTx = (
   server: ServerState,
   tx:     ServerTx
-): [ServerState, OutboxMsg[]] => {
-  if (!isSignerAuthorized(server.registry, tx.entityId, tx.signer)) return [server, []];
+): Result<[ServerState, OutboxMsg[]], ProcessingError> => {
+  if (!isSignerAuthorized(server.registry, tx.entityId, tx.signer)) {
+    return Err({ type: 'unauthorized', signer: tx.signer, entity: tx.entityId });
+  }
+  
   const signerMap = server.signers.get(tx.signer);
   const meta      = server.registry.get(tx.entityId);
-  if (!signerMap || !meta) return [server, []];
+  if (!signerMap || !meta) {
+    return Err({ type: 'not_found', resource: 'entity', id: tx.entityId });
+  }
 
   const entity = signerMap.get(tx.entityId);
-  if (!entity) return [server, []];
+  if (!entity) {
+    return Err({ type: 'not_found', resource: 'entity_state', id: tx.entityId });
+  }
   
-  // Remove the problematic replay check - it prevented multiple txs per entity per block
-  const [newEntity, msgs] = processEntityInput(entity, tx.input, tx.signer, meta);
+  const result = processEntityInput(entity, tx.input, tx.signer, meta);
+  if (!result.ok) {
+    return result;
+  }
   
+  const [newEntity, msgs] = result.value;
   const newSignerMap = new Map(signerMap);
   newSignerMap.set(tx.entityId, newEntity);
   
-  return [{ ...server, signers: new Map(server.signers).set(tx.signer, newSignerMap) }, msgs];
+  return Ok<[ServerState, OutboxMsg[]], ProcessingError>([{ ...server, signers: new Map(server.signers).set(tx.signer, newSignerMap) }, msgs]);
 };
 
 export const processMempool = async (
   server: ServerState,
   storage?: Storage,
-  targetHeight?: number  // Pass the target height for WAL logging
-): Promise<[ServerState, OutboxMsg[]]> => {
-  const walHeight = targetHeight || server.height + 1;
+  targetHeight?: BlockHeight  // Pass the target height for WAL logging
+): Promise<CollectedResult<[ServerState, OutboxMsg[]]>> => {
+  const walHeight = targetHeight || nextBlockHeight(server);
+  const errorCollector = new ErrorCollector();
   
+  // Log to WAL if storage is provided
   if (storage && server.mempool.length > 0) {
-    const batch = storage.wal.batch();
-    server.mempool.forEach(tx => {
-      batch.put(keys.wal(walHeight, tx.signer, tx.entityId), JSON.stringify(tx));
-    });
-    await batch.write();
+    try {
+      const batch = storage.wal.batch();
+      server.mempool.forEach(tx => {
+        batch.put(keys.wal(walHeight, tx.signer, tx.entityId), JSON.stringify(tx));
+      });
+      await batch.write();
+    } catch (walError) {
+      errorCollector.addError(walError, {
+        operation: 'WAL write',
+        height: walHeight
+      });
+      // Continue processing even if WAL fails
+    }
   }
-  let cur = server; const all: OutboxMsg[] = [];
+  
+  // Process transactions sequentially to maintain consistency
+  let currentServer = server;
+  const allMessages: OutboxMsg[] = [];
+  let processedCount = 0;
+  let failedCount = 0;
+  
   for (const tx of server.mempool) {
-    const [next, msgs] = processServerTx(cur, tx);
-    cur = next; all.push(...msgs);
+    const result = processServerTx(currentServer, tx);
+    if (result.ok) {
+      const [nextServer, msgs] = result.value;
+      currentServer = nextServer;
+      allMessages.push(...msgs);
+      processedCount++;
+    } else {
+      failedCount++;
+      // Determine severity based on error type
+      const severity = result.error.type === 'validation' 
+        ? ErrorSeverity.WARNING 
+        : ErrorSeverity.ERROR;
+      
+      errorCollector.add(result.error, severity, {
+        entityId: tx.entityId,
+        signer: tx.signer,
+        operation: tx.input.type,
+        height: walHeight
+      });
+      
+      // Continue processing other transactions unless critical
+      if (result.error.type === 'not_found' && 
+          (result.error.resource === 'entity' || result.error.resource === 'entity_state')) {
+        // Critical error - entity doesn't exist or state is corrupted
+        errorCollector.addCritical(
+          new Error(`Critical: ${result.error.resource} ${tx.entityId} not found - stopping batch`),
+          { entityId: tx.entityId, signer: tx.signer }
+        );
+        break;
+      }
+    }
   }
-  return [{ ...cur, mempool: [] }, all];
+  
+  // Log summary if there were errors
+  if (errorCollector.hasErrors()) {
+    console.warn(`Mempool processing completed with errors: ${processedCount} succeeded, ${failedCount} failed`);
+    console.debug(errorCollector.format());
+  }
+  
+  // Return success with collected errors even if some transactions failed
+  return CollectedOk(
+    [{ ...currentServer, mempool: [] }, allMessages],
+    errorCollector
+  );
 };
 
 export const routeMessages = (server: ServerState, msgs: OutboxMsg[]): ServerState => {
@@ -329,8 +461,8 @@ export const routeMessages = (server: ServerState, msgs: OutboxMsg[]): ServerSta
 
 // --- Auto-Propose Logic ---
 type AutoProposeCandidate = {
-  signerIdx: number;
-  entityId: string;
+  signerIdx: SignerIdx;
+  entityId: EntityId;
   entity: EntityState;
   meta: EntityMeta;
 };
@@ -385,12 +517,12 @@ const autoProposeSingleSigners = (
 
 // --- Content-Addressed Storage ---
 export type ArchiveEntry = {
-  height: number;
+  height: BlockHeight;
   timestamp: number;
-  stateRoot: string;
-  parentHash?: string;  // Previous archive hash
+  stateRoot: BlockHash;
+  parentHash?: BlockHash;  // Previous archive hash
   signers: Record<number, Record<string, any>>;
-  registry: [string, EntityMeta][];
+  registry: [EntityId, EntityMeta][];
 };
 
 // Helper to convert Map to object for serialization
@@ -426,7 +558,7 @@ export const archiveSnapshot = async (
     height: server.height,
     timestamp: Date.now(),
     stateRoot: computeStateHash(server.signers),
-    parentHash,
+    parentHash: parentHash ? toBlockHash(parentHash) : undefined,
     signers: mapToObject(server.signers, (entities) => 
       mapToObject(entities, serializeEntityForArchive)
     ),
@@ -466,30 +598,39 @@ export const recoverFromArchive = async (
     const entry: ArchiveEntry = JSON.parse(data);
     
     // Reconstruct server state
-    const signers = new Map<number, Map<string, EntityState>>();
-    for (const [signerIdx, entities] of Object.entries(entry.signers)) {
-      const entityMap = new Map<string, EntityState>();
-      for (const [entityId, entityData] of Object.entries(entities)) {
-        // entityData is already deserialized from JSON, just need to convert BigInt
+    const signers = new Map<SignerIdx, Map<EntityId, EntityState>>();
+    for (const [signerIdxStr, entities] of Object.entries(entry.signers)) {
+      const signerIdx = parseSignerIdx(signerIdxStr);
+      const entityMap = new Map<EntityId, EntityState>();
+      for (const [entityIdStr, entityData] of Object.entries(entities)) {
+        const entityId = parseEntityId(entityIdStr);
+        // entityData is already deserialized from JSON, just need to convert types
         const entity = {
           ...entityData,
+          height: toBlockHeight(entityData.height),
           state: { ...entityData.state, balance: BigInt(entityData.state.balance) },
           proposed: entityData.proposed ? {
             ...entityData.proposed,
-            approves: new Set(entityData.proposed.approves)
+            hash: toBlockHash(entityData.proposed.hash),
+            approves: new Set(entityData.proposed.approves.map((a: any) => signerIdxFromAny(a)))
           } : undefined,
-          lastProcessedHeight: entityData.lastProcessedHeight
+          lastBlockHash: entityData.lastBlockHash ? toBlockHash(entityData.lastBlockHash) : undefined,
+          lastProcessedHeight: entityData.lastProcessedHeight ? toBlockHeight(entityData.lastProcessedHeight) : undefined
         } as EntityState;
         entityMap.set(entityId, entity);
       }
-      signers.set(Number(signerIdx), entityMap);
+      signers.set(signerIdx, entityMap);
     }
     
     return {
       height: entry.height,
-      registry: new Map(entry.registry),
+      registry: new Map(entry.registry.map(([id, meta]) => [
+        id,
+        { ...meta, quorum: meta.quorum.map((q: any) => signerIdxFromAny(q)), proposer: signerIdxFromAny(meta.proposer) }
+      ])),
       signers,
-      mempool: []
+      mempool: [],
+      lastBlockHash: entry.stateRoot
     };
   } catch (err) {
     console.debug(`Failed to load archive ${hashOrRef}:`, err);
@@ -526,15 +667,25 @@ export const processBlock = async (
   storage?: Storage,
   archiveInterval = 100  // Archive every N blocks
 ): Promise<ServerState> => {
-  const targetHeight = server.height + 1;
+  const targetHeight = nextBlockHeight(server);
   const blockTxs = server.mempool;
+  const errorCollector = new ErrorCollector();
   
   // Track which entities were touched in this block
   const touchedEntities = new Set<string>();
   blockTxs.forEach(tx => touchedEntities.add(`${tx.signer}:${tx.entityId}`));
   
   // Process mempool with target height for WAL
-  const [afterApply, msgs] = await processMempool(server, storage, targetHeight);
+  const processingResult = await processMempool(server, storage, targetHeight);
+  
+  // Handle errors from mempool processing
+  if (!processingResult.ok || processingResult.errors.hasCritical()) {
+    console.error('Critical error in mempool processing:', processingResult.errors.format());
+    throw new Error('Failed to process mempool - critical errors encountered');
+  }
+  
+  const [afterApply, msgs] = processingResult.value;
+  errorCollector.merge(processingResult.errors);
   
   // Update lastProcessedHeight for all touched entities
   const updatedSigners = new Map(afterApply.signers);
@@ -553,28 +704,49 @@ export const processBlock = async (
   if (storage) {
     // Regular block storage
     if (blockTxs.length > 0) {
-      const stateHash = computeStateHash(afterUpdate.signers);
-      const payload = [
-        targetHeight,
-        Date.now(),
-        stateHash,
-        blockTxs.map(tx => [tx.signer, tx.entityId, toRlpData(tx.input)])
-      ];
-      await storage.blocks.put(
-        keys.block(targetHeight), 
-        Buffer.from(RLP.encode(payload)).toString('hex')
-      );
+      try {
+        const stateHash = computeStateHash(afterUpdate.signers);
+        const payload = [
+          targetHeight,
+          Date.now(),
+          stateHash,
+          blockTxs.map(tx => [tx.signer, tx.entityId, toRlpData(tx.input)])
+        ];
+        await storage.blocks.put(
+          keys.block(targetHeight), 
+          Buffer.from(RLP.encode(payload)).toString('hex')
+        );
+      } catch (blockError) {
+        errorCollector.addError(blockError, {
+          operation: 'block storage',
+          height: targetHeight
+        });
+        // Continue - block storage failure is not critical
+      }
     }
     
     // Create immutable archive at intervals
     if (targetHeight % archiveInterval === 0) {
-      const parentHash = await storage.refs.get('HEAD').catch(() => undefined);
-      await archiveSnapshot(
-        { ...afterUpdate, height: targetHeight }, 
-        storage, 
-        parentHash as string
-      );
+      try {
+        const parentHash = await storage.refs.get('HEAD').catch(() => undefined);
+        await archiveSnapshot(
+          { ...afterUpdate, height: targetHeight }, 
+          storage, 
+          parentHash as string
+        );
+      } catch (archiveError) {
+        errorCollector.addWarning(archiveError, {
+          operation: 'archive snapshot',
+          height: targetHeight
+        });
+        // Archive failure is not critical
+      }
     }
+  }
+  
+  // Log final error summary if any errors occurred
+  if (errorCollector.hasErrors()) {
+    console.warn(`Block ${targetHeight} processed with errors:`, errorCollector.format());
   }
   
   const routed = routeMessages({ ...afterUpdate, mempool: [] }, msgs);
@@ -584,7 +756,7 @@ export const processBlock = async (
 };
 
 // Helper function to trigger proposals for multi-signer entities
-export const proposeBlock = (server: ServerState, signer: number, entityId: string): ServerState => {
+export const proposeBlock = (server: ServerState, signer: SignerIdx, entityId: EntityId): ServerState => {
   const entity = server.signers.get(signer)?.get(entityId);
   if (!entity || entity.status !== 'Idle' || entity.mempool.length === 0) {
     return server;
@@ -594,8 +766,8 @@ export const proposeBlock = (server: ServerState, signer: number, entityId: stri
   const blockHash = hash([entity.height + 1, txs]);
   
   const proposeTx: ServerTx = {
-    signer,
-    entityId,
+    signer: signer,
+    entityId: entityId,
     input: { type: 'propose_block', txs, hash: blockHash }
   };
   
@@ -627,7 +799,8 @@ export const registerEntityWithLog = async (
   proposer = 0
 ): Promise<ServerState> => {
   // Use next height for WAL logging to ensure proper ordering
-  const targetHeight = server.height + 1;
+  const targetHeight = nextBlockHeight(server);
+  const entityId = parseEntityId(id);
   
   // 1) Log to WAL as system transaction with type marker
   const entry = JSON.stringify({ 
@@ -638,13 +811,17 @@ export const registerEntityWithLog = async (
     height: targetHeight 
   });
   await storage.wal.put(
-    keys.walRegistry(targetHeight, id),
+    keys.walRegistry(targetHeight, entityId),
     entry
   );
 
   // 2) Update registry in memory
   const newReg = new Map(server.registry);
-  newReg.set(id, { id, quorum, proposer });
+  newReg.set(entityId, { 
+    id: entityId, 
+    quorum: quorum.map(toSignerIdx), 
+    proposer: toSignerIdx(proposer) 
+  });
   return { ...server, registry: newReg };
 };
 
@@ -711,18 +888,22 @@ export const saveSnapshot = async (server: ServerState, storage: Storage) => {
 
 export const loadSnapshot = async (storage: Storage): Promise<ServerState | null> => {
   try {
-    const height = parseInt(await storage.state.get(keys.meta()) as string);
+    const height = parseBlockHeight(await storage.state.get(keys.meta()) as string);
     
     // Load registry from snapshot
     let registry: Registry;
     try {
       const registryData = await storage.state.get(keys.registry()) as string;
-      registry = new Map(JSON.parse(registryData));
+      const rawRegistry = JSON.parse(registryData) as Array<[string, EntityMeta]>;
+      registry = new Map(rawRegistry.map(([id, meta]) => [
+        toEntityId(id),
+        { ...meta, id: toEntityId(id), quorum: meta.quorum.map((q: any) => toSignerIdx(Number(q))), proposer: toSignerIdx(Number(meta.proposer)) }
+      ]));
     } catch {
       registry = createRegistry();  // Fallback for old snapshots
     }
     
-    const signers = new Map<number, Map<string, EntityState>>();
+    const signers = new Map<SignerIdx, Map<EntityId, EntityState>>();
     
     for await (const [key, value] of storage.state.iterator()) {
       if (key === keys.meta() || key === keys.registry()) continue;
@@ -734,18 +915,22 @@ export const loadSnapshot = async (storage: Storage): Promise<ServerState | null
       const parts = keyStr.split(':');
       if (parts.length !== 2) continue;
       
-      const signerIdx = parseInt(parts[0]);
-      const entityId = parts[1];
-      
-      // Validate signerIdx is a valid number
-      if (isNaN(signerIdx)) continue;
-      
-      if (!signers.has(signerIdx)) {
-        signers.set(signerIdx, new Map());
+      // Use try-catch to handle invalid conversions
+      try {
+        const signerIdx = parseSignerIdx(parts[0]);
+        const entityId = parseEntityId(parts[1]);
+        
+        if (!signers.has(signerIdx)) {
+          signers.set(signerIdx, new Map());
+        }
+        
+        const entity = deserializeEntity(value as string);
+        signers.get(signerIdx)!.set(entityId, entity);
+      } catch (conversionErr) {
+        // Skip invalid entries
+        console.debug(`Skipping invalid state entry ${keyStr}:`, conversionErr);
+        continue;
       }
-      
-      const entity = deserializeEntity(value as string);
-      signers.get(signerIdx)!.set(entityId, entity);
     }
     
     console.log(`Recovered state at height ${height} with ${signers.size} signers`);
@@ -765,23 +950,27 @@ export const initializeServer = (): ServerState => {
   registry = registerEntity(registry, 'hub', [1], 1);
   registry = registerEntity(registry, 'dao', [0, 1, 2], 0);  // signer 0 is the default proposer
   
+  const s0 = toSignerIdx(0);
+  const s1 = toSignerIdx(1);
+  const s2 = toSignerIdx(2);
+  
   return {
-    height: 0,
+    height: toBlockHeight(0),
     registry,
     mempool: [],
     signers: new Map([
-      [0, new Map([
-        ['alice', createEntity([0])],           
-        ['dao', createEntity([0, 1, 2])]         
+      [s0, new Map([
+        [toEntityId('alice'), createEntity([s0])],           
+        [toEntityId('dao'), createEntity([s0, s1, s2])]         
       ])],
-      [1, new Map([
-        ['bob', createEntity([1])],               
-        ['hub', createEntity([1])],               
-        ['dao', createEntity([0, 1, 2])]         
+      [s1, new Map([
+        [toEntityId('bob'), createEntity([s1])],               
+        [toEntityId('hub'), createEntity([s1])],               
+        [toEntityId('dao'), createEntity([s0, s1, s2])]         
       ])],
-      [2, new Map([
-        ['carol', createEntity([2])],           
-        ['dao', createEntity([0, 1, 2])]         
+      [s2, new Map([
+        [toEntityId('carol'), createEntity([s2])],           
+        [toEntityId('dao'), createEntity([s0, s1, s2])]         
       ])]
     ])
   };
@@ -793,12 +982,12 @@ export const recoverServer = async (storage: Storage): Promise<ServerState> => {
   
   // First replay registry updates from dedicated prefix (only those AFTER snapshot height)
   for await (const [key, value] of storage.wal.iterator({
-    gte: `wal:reg:${pad(server.height + 1)}:`,
+    gte: `wal:reg:${pad(Number(server.height) + 1)}:`,
     lt: 'wal:reg:\xff'
   })) {
     try {
       const data = JSON.parse(value as string);
-      if (data.type === 'registry_update' && data.height > server.height) {
+      if (data.type === 'registry_update' && data.height > Number(server.height)) {
         server.registry = registerEntity(server.registry, data.id, data.quorum, data.proposer);
       }
     } catch (err) {
@@ -810,19 +999,24 @@ export const recoverServer = async (storage: Storage): Promise<ServerState> => {
   const walEntries: Array<{height: number, tx: ServerTx}> = [];
   
   for await (const [key, value] of storage.wal.iterator({
-    gte: keys.wal(server.height + 1, 0, '')
+    gte: keys.wal(toBlockHeight(Number(server.height) + 1), toSignerIdx(0), toEntityId(''))
   })) {
     try {
       // Extract height from WAL key
       const keyParts = (key as string).split(':');
       if (keyParts.length >= 4) {
         const walHeight = parseInt(keyParts[1]);
-        if (!isNaN(walHeight) && walHeight > server.height) {
-          const tx = JSON.parse(value as string) as ServerTx;
+        if (!isNaN(walHeight) && walHeight > Number(server.height)) {
+          const rawTx = JSON.parse(value as string);
+          const tx: ServerTx = {
+            signer: signerIdxFromAny(rawTx.signer),
+            entityId: parseEntityId(rawTx.entityId),
+            input: rawTx.input
+          };
           
           // Check if this entity has already processed this height
           const entity = server.signers.get(tx.signer)?.get(tx.entityId);
-          if (!entity || !entity.lastProcessedHeight || walHeight > entity.lastProcessedHeight) {
+          if (!entity || !entity.lastProcessedHeight || walHeight > Number(entity.lastProcessedHeight)) {
             walEntries.push({ height: walHeight, tx });
           }
         }
@@ -855,7 +1049,8 @@ const replayBlocksFromTo = async (
   
   for (let h = fromHeight; h <= toHeight; h++) {
     try {
-      const blockData = await storage.blocks.get(keys.block(h)) as string;
+      const blockHeight = toBlockHeight(h);
+      const blockData = await storage.blocks.get(keys.block(blockHeight)) as string;
       const decoded = RLP.decode(Buffer.from(blockData, 'hex')) as any;
       
       // Validate block format
@@ -865,8 +1060,8 @@ const replayBlocksFromTo = async (
       }
       
       const blockTxs = decoded[3].map((txData: any) => ({
-        signer: txData[0],
-        entityId: txData[1],
+        signer: signerIdxFromAny(txData[0]),
+        entityId: parseEntityId(txData[1]),
         input: txData[2]
       }));
       
@@ -874,8 +1069,13 @@ const replayBlocksFromTo = async (
       for (const tx of blockTxs) {
         current.mempool.push(tx);
       }
-      const [processed] = await processMempool(current, undefined, h);
-      current = { ...processed, height: h, mempool: [] };
+      const processingResult = await processMempool(current, undefined, blockHeight);
+      if (!processingResult.ok) {
+        console.error(`Failed to replay block ${h}:`, processingResult.errors.format());
+        break;
+      }
+      const [processed] = processingResult.value;
+      current = { ...processed, height: blockHeight, mempool: [] };
     } catch (err) {
       console.warn(`Failed to replay block ${h}:`, err);
       break;

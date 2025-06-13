@@ -1,0 +1,68 @@
+flowchart TD
+  %% =========  LEGEND / CLUSTERS  =========
+  subgraph Simulation Loop
+    direction LR
+    S1[Generate scenario‑specific<br/>ServerTx list] -->|push| Mempool
+    Mempool -. consumes .-> ProcessBlock
+  end
+
+  subgraph ProcessBlock
+    direction TB
+    PB1[processMempool<br/>write-ahead log] --> PB2[processServerTx<br/>for each tx]
+    PB2 --> PB3[update lastProcessedHeight]
+    PB3 --> PB4[store block record<br/>LevelDB blocks]
+    PB4 --> PB5[maybe archiveSnapshot<br/>LevelDB archive & refs]
+    PB5 --> PB6[routeMessages to new ServerTx]
+    PB6 --> PB7[autoProposeSingleSigners to new ServerTx]
+    PB7 -->|push| Mempool
+  end
+
+  subgraph processServerTx
+    direction TB
+    ST1[isSignerAuthorized?] --> ST2[get entity+meta]
+    ST2 --> ST3[processEntityInput]
+    ST3 --> ST4[update signers map<br/>& collect OutboxMsg array]
+  end
+
+  %% =========  processEntityInput cases =========
+  subgraph processEntityInput
+    direction TB
+    IE_add[add_tx<br/>→ append to entity.mempool]:::green
+    IE_prop[propose_block<br/>single‑signer → apply<br/>multi‑signer → broadcast]:::yellow
+    IE_app[approve_block<br/>→ track quorum,<br/>maybe enqueue commit]:::yellow
+    IE_comm[commit_block<br/>→ apply txs,<br/>generate transfer msgs]:::green
+  end
+
+  %% =========  Storage subsystem =========
+  subgraph Storage LevelDB namespaces
+    direction LR
+    STstate[(state)]:::store
+    STwal[(wal)]:::store
+    STblocks[(blocks)]:::store
+    STarchive[(archive)]:::store
+    STrefs[(refs)]:::store
+  end
+
+  %% =========  Data flow edges =========
+  ProcessBlock -->|WAL put/get| STwal
+  ProcessBlock -->|block put/get| STblocks
+  ProcessBlock -->|archive put/get| STarchive
+  ProcessBlock -->|ref HEAD| STrefs
+  saveSnapshot --> STstate
+  recoverServer --> STstate
+  recoverServer --> STwal
+  recoverServer --> STarchive
+  recoverServer --> STrefs
+
+  %% =========  Start‑up / Recovery =========
+  subgraph Startup / Recovery
+    direction TB
+    R1[initializeServer OR<br/>loadSnapshot] --> R2[replay registry WAL]
+    R2 --> R3[replay tx WAL → mempool]
+    R3 -->|if mempool not empty| ProcessBlock
+  end
+
+  %% =========  Styles =========
+  classDef store fill:#e7f1ff,stroke:#2f72d6;
+  classDef green fill:#d4f4dd,stroke:#20882d;
+  classDef yellow fill:#fff8dc,stroke:#b58900;

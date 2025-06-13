@@ -1,5 +1,6 @@
 import type { EntityTx, ServerState, ServerTx } from './server';
 import { createStorage, initializeServer, loadSnapshot, processBlock, saveSnapshot } from './server';
+import { parseSignerIdx, parseEntityId } from './typeHelpers';
 import { createHash } from 'crypto';
 import RLP from 'rlp';
 
@@ -117,16 +118,16 @@ const generateBasicTransactions = (block: number): ServerTx[] => {
   
   if (block % 3 === 0) {
     txs.push({
-      signer: 0,
-      entityId: 'alice',
+      signer: parseSignerIdx(0),
+      entityId: parseEntityId('alice'),
       input: { type: 'add_tx', tx: generateMintTx(getRandomAmount('active')) }
     });
   }
   
   if (block % 5 === 0) {
     txs.push({
-      signer: 1, 
-      entityId: 'bob',
+      signer: parseSignerIdx(1), 
+      entityId: parseEntityId('bob'),
       input: { type: 'add_tx', tx: generateMintTx(getRandomAmount('conservative')) }
     });
   }
@@ -135,8 +136,8 @@ const generateBasicTransactions = (block: number): ServerTx[] => {
   if (block % 7 === 0) {
     const to = selectRandomEntity('alice');
     txs.push({
-      signer: 0,
-      entityId: 'alice', 
+      signer: parseSignerIdx(0),
+      entityId: parseEntityId('alice'), 
       input: { type: 'add_tx', tx: generateTransferTx(to, getRandomAmount('active')) }
     });
   }
@@ -144,7 +145,7 @@ const generateBasicTransactions = (block: number): ServerTx[] => {
   return txs;
 };
 
-const generateStressTest = (block: number): ServerTx[] => {
+const generateStressTest = (_block: number): ServerTx[] => {
   const txs: ServerTx[] = [];
   
   
@@ -171,8 +172,8 @@ const generateStressTest = (block: number): ServerTx[] => {
     }
     
     txs.push({
-      signer: profile.signer,
-      entityId: profile.id,
+      signer: parseSignerIdx(profile.signer),
+      entityId: parseEntityId(profile.id),
       input: { type: 'add_tx', tx }
     });
   });
@@ -188,56 +189,36 @@ const generateDaoGovernance = (block: number, server?: ServerState): ServerTx[] 
     // Add a transaction to the DAO's mempool
     const daoTx = generateMintTx(getRandomAmount('whale'));
     txs.push({
-      signer: 0,
-      entityId: 'dao',
+      signer: parseSignerIdx(0),
+      entityId: parseEntityId('dao'),
       input: { type: 'add_tx', tx: daoTx }
     });
   }
   
   // Propose the block in the next cycle after adding transactions
   if (block % 20 === 1 && server) {
-    const daoEntity = server.signers.get(0)?.get('dao');
+    const daoEntity = server.signers.get(parseSignerIdx(0))?.get(parseEntityId('dao'));
     if (daoEntity && daoEntity.mempool.length > 0) {
       const proposalTxs = daoEntity.mempool;
       const proposalHash = hash([daoEntity.height + 1, proposalTxs]);
       
       txs.push({
-        signer: 0,
-        entityId: 'dao',
+        signer: parseSignerIdx(0),
+        entityId: parseEntityId('dao'),
         input: { type: 'propose_block', txs: proposalTxs, hash: proposalHash }
       });
     }
   }
   
-  // Voting phases - signers approve the proposed block
-  // The server automatically sends approve messages when a proposal is made,
-  // so they should already be in the mempool, but we can check
-  if (server && (block % 20 === 2 || block % 20 === 3 || block % 20 === 4)) {
-    // Check any signer's view for the proposed state
-    const daoEntity = server.signers.get(0)?.get('dao');
-    if (daoEntity?.proposed && daoEntity.status === 'Proposed') {
-      const actualHash = daoEntity.proposed.hash;
-      
-      // Additional manual approvals if needed
-      if (block % 20 === 3) {
-        // Ensure signer 1 approves
-        txs.push({
-          signer: 1,
-          entityId: 'dao',
-          input: { type: 'approve_block', hash: actualHash }
-        });
-      }
-      
-      if (block % 20 === 4) {
-        // Ensure signer 2 approves
-        txs.push({
-          signer: 2,
-          entityId: 'dao',
-          input: { type: 'approve_block', hash: actualHash }
-        });
-      }
-    }
-  }
+  // Important: We need to wait for the approve messages to be routed and processed
+  // The flow is:
+  // Block N: add_tx
+  // Block N+1: propose_block (creates approve messages in outbox)
+  // Block N+2: approve messages get routed and processed
+  // Block N+3+: Additional approvals can be sent if needed
+  
+  // No additional logic needed here - the server handles the consensus flow
+  // The approve messages are automatically generated and routed
   
   return txs;
 };
@@ -253,16 +234,16 @@ const generatePaymentHub = (block: number): ServerTx[] => {
     
     
     txs.push({
-      signer: entityProfiles.find(p => p.id === sender)!.signer,
-      entityId: sender,
+      signer: parseSignerIdx(entityProfiles.find(p => p.id === sender)!.signer),
+      entityId: parseEntityId(sender),
       input: { type: 'add_tx', tx: generateTransferTx('hub', getRandomAmount('active')) }
     });
     
     
     if (block % 8 === 6) {
       txs.push({
-        signer: 1,
-        entityId: 'hub',
+        signer: parseSignerIdx(1),
+        entityId: parseEntityId('hub'),
         input: { type: 'add_tx', tx: generateTransferTx(recipient, getRandomAmount('hub')) }
       });
     }
@@ -288,8 +269,8 @@ const generateEconomicModel = (block: number): ServerTx[] => {
         : getRandomAmount(profile.behavior) * 0.8;
       
       txs.push({
-        signer: profile.signer,
-        entityId: profile.id,
+        signer: parseSignerIdx(profile.signer),
+        entityId: parseEntityId(profile.id),
         input: { type: 'add_tx', tx: generateMintTx(Math.floor(amount)) }
       });
     }
@@ -326,7 +307,7 @@ const logSimulationState = (server: ServerState, _block: number, config: Simulat
   
   for (const [signer, entities] of server.signers) {
     for (const [id, entity] of entities) {
-      if (entity.state.balance > 0n || id === 'dao') {
+      if (entity.state.balance > 0n || id === parseEntityId('dao')) {
         let status = '';
         if (entity.status === 'Proposed' && entity.proposed) {
           const approvals = entity.proposed.approves.size;
@@ -345,6 +326,14 @@ const logSimulationState = (server: ServerState, _block: number, config: Simulat
   
   console.log(`  📈 Total: ${totalBalance.toLocaleString()} across ${totalEntities} entities`);
   console.log(`  📋 Mempool: ${server.mempool.length} pending`);
+  
+  // Debug: Show mempool transactions for DAO scenario
+  if (config.scenario === 'dao_governance' && server.mempool.length > 0) {
+    console.log(`  🔍 Mempool transactions:`);
+    server.mempool.forEach((tx, i) => {
+      console.log(`    ${i}: ${tx.entityId} <- ${tx.input.type} from signer ${tx.signer}`);
+    });
+  }
 };
 
 export const runSimulation = async (config: SimulationConfig = defaultConfig): Promise<void> => {
@@ -405,7 +394,7 @@ export const runSimulation = async (config: SimulationConfig = defaultConfig): P
 export const presets = {
   quick: { ...defaultConfig, blocks: 10, scenario: 'basic' as const },
   stress: { ...defaultConfig, blocks: 100, scenario: 'stress_test' as const },
-  governance: { ...defaultConfig, blocks: 60, scenario: 'dao_governance' as const },
+  governance: { ...defaultConfig, blocks: 60, scenario: 'dao_governance' as const, logInterval: 1 },
   hub: { ...defaultConfig, blocks: 40, scenario: 'payment_hub' as const },
   economy: { ...defaultConfig, blocks: 120, scenario: 'economic_model' as const }
 }; 

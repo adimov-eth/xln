@@ -1,0 +1,25 @@
+sequenceDiagram
+  participant Proposer as Signer P (in quorum)
+  participant CoSigner as Signer Q (in quorum)
+  participant Server
+  participant Entity
+
+  Note over Proposer,Entity: Entity status = Idle<br/>Entity.mempool ≠ ∅
+  
+  Proposer->>Server: add_tx
+  Server-->>Entity: tx appended
+  
+  Proposer->>Server: propose_block(hash, txs)
+  Server-->>Entity: status → Proposed approves ← {P}outbox = broadcast to Q
+  
+  Server-->>CoSigner: Outbox propose_block
+  
+  CoSigner->>Server: approve_block(hash, from=Q)
+  Server-->>Entity: approves ∪= {Q} if 2/3 reached → enqueue commit_block to proposer
+  
+  Server-->>Proposer: Outbox commit_block
+  
+  Proposer->>Server: commit_block(hash)
+  Server-->>Entity: apply txs status → Idle height +1 generate transfer msgs
+  
+  Note over Server,Entity: transfer msgs routed<br/>as new ServerTx→mempool
