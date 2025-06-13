@@ -10,7 +10,7 @@ sequenceDiagram
   Server-->>Entity: tx appended
   
   Proposer->>Server: propose_block(hash, txs)
-  Server-->>Entity: status → Proposed approves ← {P}outbox = broadcast to ALL signers
+  Server-->>Entity: status → Proposed approves ← {P}outbox = broadcast to remaining signers
   
   Server-->>CoSigner: Outbox propose_block
   Note over CoSigner: Receives proposal,<br/>immediately approves it

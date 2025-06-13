@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
-import { ServerState, ServerTx, createStorage, initializeServer, processBlock } from './server';
-import { parseSignerIdx, parseEntityId } from './typeHelpers';
+import { ServerTx, createStorage, initializeServer, processBlock } from './server';
+import { parseEntityId, parseSignerIdx } from './typeHelpers';
 
 // Test critical error handling
 const testCriticalError = async () => {
@@ -26,7 +26,7 @@ const testCriticalError = async () => {
   try {
     server = await processBlock(server, storage);
   } catch (error) {
-    console.log('✅ Caught expected error:', error.message);
+    console.log('✅ Caught expected error:', error instanceof Error ? error.message : String(error));
   }
   
   console.log(`\nFinal server height: ${server.height} (should be 0 - block failed)`);

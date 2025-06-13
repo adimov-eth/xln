@@ -11,7 +11,7 @@ flowchart TD
     PB1[processMempool<br/>write-ahead log<br/>+ error collection] --> PB2[processServerTx<br/>for each tx]
     PB2 --> PB3[update lastProcessedHeight]
     PB3 --> PB4[store block record<br/>LevelDB blocks]
-    PB4 --> PB5[maybe archiveSnapshot<br/>LevelDB archive & refs]
+    PB4 --> PB5[archiveSnapshot every N blocks<br/>LevelDB archive & refs]
     PB5 --> PB6[routeMessages to new ServerTx]
     PB6 --> PB7[autoProposeSingleSigners to new ServerTx]
     PB7 -->|push| Mempool
