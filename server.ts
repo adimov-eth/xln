@@ -69,6 +69,7 @@ export type EntityState = {
   };
   quorumHash: string;
   status: 'Idle' | 'Proposed';
+  lastProcessedHeight?: number;  // Track last processed server height to prevent replays
 };
 
 export type ServerState = {
@@ -275,9 +276,8 @@ export const processServerTx = (
   const entity = signerMap.get(tx.entityId);
   if (!entity) return [server, []];
   
+  // Remove the problematic replay check - it prevented multiple txs per entity per block
   const [newEntity, msgs] = processEntityInput(entity, tx.input, tx.signer, meta, server.registry);
-  
-  // All transfer messages are now handled within processEntityInput
   
   const newSignerMap = new Map(signerMap);
   newSignerMap.set(tx.entityId, newEntity);
@@ -287,12 +287,15 @@ export const processServerTx = (
 
 export const processMempool = async (
   server: ServerState,
-  storage?: Storage
+  storage?: Storage,
+  targetHeight?: number  // Pass the target height for WAL logging
 ): Promise<[ServerState, OutboxMsg[]]> => {
+  const walHeight = targetHeight || server.height + 1;
+  
   if (storage && server.mempool.length > 0) {
     const batch = storage.wal.batch();
     server.mempool.forEach(tx => {
-      batch.put(keys.wal(server.height, tx.signer, tx.entityId), JSON.stringify(tx));
+      batch.put(keys.wal(walHeight, tx.signer, tx.entityId), JSON.stringify(tx));
     });
     await batch.write();
   }
@@ -365,33 +368,204 @@ const autoProposeSingleSigners = (
   };
 };
 
+// --- Content-Addressed Storage ---
+export type ArchiveEntry = {
+  height: number;
+  timestamp: number;
+  stateRoot: string;
+  parentHash?: string;  // Previous archive hash
+  signers: Record<number, Record<string, any>>;
+  registry: [string, EntityMeta][];
+};
+
+// Helper to convert Map to object for serialization
+const mapToObject = <K extends string | number, V, R>(
+  map: Map<K, V>,
+  valueTransform: (v: V) => R
+): Record<K, R> => {
+  const obj: Record<K, R> = {} as any;
+  for (const [key, value] of map) {
+    obj[key] = valueTransform(value);
+  }
+  return obj;
+};
+
+// Serialize entity for archiving (without double JSON conversion)
+const serializeEntityForArchive = (entity: EntityState): any => ({
+  ...entity,
+  state: { ...entity.state, balance: entity.state.balance.toString() },
+  proposed: entity.proposed ? {
+    ...entity.proposed,
+    approves: Array.from(entity.proposed.approves)
+  } : undefined,
+  lastProcessedHeight: entity.lastProcessedHeight
+});
+
+export const archiveSnapshot = async (
+  server: ServerState, 
+  storage: Storage,
+  parentHash?: string
+): Promise<string> => {
+  // Create immutable snapshot
+  const entry: ArchiveEntry = {
+    height: server.height,
+    timestamp: Date.now(),
+    stateRoot: computeStateHash(server.signers),
+    parentHash,
+    signers: mapToObject(server.signers, (entities) => 
+      mapToObject(entities, serializeEntityForArchive)
+    ),
+    registry: [...server.registry]
+  };
+  
+  // Store by content hash
+  const contentHash = hash(entry);
+  await storage.archive.put(contentHash, JSON.stringify(entry));
+  
+  // Update mutable reference
+  await storage.refs.put('HEAD', contentHash);
+  
+  // Keep mutable snapshot for fast access
+  await saveSnapshot(server, storage);
+  
+  return contentHash;
+};
+
+// --- Enhanced Recovery ---
+export const recoverFromArchive = async (
+  storage: Storage, 
+  hashOrRef: string = 'HEAD'
+): Promise<ServerState | null> => {
+  try {
+    // Resolve reference if needed
+    let targetHash = hashOrRef;
+    try {
+      targetHash = await storage.refs.get(hashOrRef) as string;
+    } catch (err) {
+      // Not a ref, assume it's a direct hash
+      console.debug(`Not a ref, treating as hash: ${hashOrRef}`, err);
+    }
+    
+    // Load immutable snapshot
+    const data = await storage.archive.get(targetHash) as string;
+    const entry: ArchiveEntry = JSON.parse(data);
+    
+    // Reconstruct server state
+    const signers = new Map<number, Map<string, EntityState>>();
+    for (const [signerIdx, entities] of Object.entries(entry.signers)) {
+      const entityMap = new Map<string, EntityState>();
+      for (const [entityId, entityData] of Object.entries(entities)) {
+        // entityData is already deserialized from JSON, just need to convert BigInt
+        const entity = {
+          ...entityData,
+          state: { ...entityData.state, balance: BigInt(entityData.state.balance) },
+          proposed: entityData.proposed ? {
+            ...entityData.proposed,
+            approves: new Set(entityData.proposed.approves)
+          } : undefined,
+          lastProcessedHeight: entityData.lastProcessedHeight
+        } as EntityState;
+        entityMap.set(entityId, entity);
+      }
+      signers.set(Number(signerIdx), entityMap);
+    }
+    
+    return {
+      height: entry.height,
+      registry: new Map(entry.registry),
+      signers,
+      mempool: []
+    };
+  } catch (err) {
+    console.debug(`Failed to load archive ${hashOrRef}:`, err);
+    return null;
+  }
+};
+
+// --- History Traversal ---
+export const getHistory = async function* (
+  storage: Storage,
+  startHash: string,
+  maxDepth = 100
+): AsyncGenerator<ArchiveEntry> {
+  let currentHash = startHash;
+  let depth = 0;
+  
+  while (currentHash && depth < maxDepth) {
+    try {
+      const data = await storage.archive.get(currentHash) as string;
+      const entry: ArchiveEntry = JSON.parse(data);
+      yield entry;
+      
+      currentHash = entry.parentHash || '';
+      depth++;
+    } catch (err) {
+      console.debug(`Failed to traverse history at ${currentHash}:`, err);
+      break;
+    }
+  }
+};
+
 export const processBlock = async (
   server: ServerState,
-  storage?: Storage
+  storage?: Storage,
+  archiveInterval = 100  // Archive every N blocks
 ): Promise<ServerState> => {
+  const targetHeight = server.height + 1;
   const blockTxs = server.mempool;
-  const [afterApply, msgs] = await processMempool(server, storage);
-
-  const nextHeight = server.height + 1;
   
-  // Save block with original transactions (if any)
-  if (storage && blockTxs.length > 0) {
-    const stateHash = computeStateHash(afterApply.signers);
-    const payload = [
-      nextHeight,
-      Date.now(),
-      stateHash,
-      blockTxs.map(tx => [tx.signer, tx.entityId, toRlpData(tx.input)])
-    ];
-    const data = Buffer.from(RLP.encode(payload)).toString('hex');
-    await storage.blocks.put(keys.block(nextHeight), data);
+  // Track which entities were touched in this block
+  const touchedEntities = new Set<string>();
+  blockTxs.forEach(tx => touchedEntities.add(`${tx.signer}:${tx.entityId}`));
+  
+  // Process mempool with target height for WAL
+  const [afterApply, msgs] = await processMempool(server, storage, targetHeight);
+  
+  // Update lastProcessedHeight for all touched entities
+  const updatedSigners = new Map(afterApply.signers);
+  for (const [signerIdx, entities] of updatedSigners) {
+    const updatedEntities = new Map(entities);
+    for (const [entityId, entity] of updatedEntities) {
+      if (touchedEntities.has(`${signerIdx}:${entityId}`)) {
+        updatedEntities.set(entityId, { ...entity, lastProcessedHeight: targetHeight });
+      }
+    }
+    updatedSigners.set(signerIdx, updatedEntities);
   }
-
-  // Route messages and add auto-propose transactions
-  const routed = routeMessages({ ...afterApply, mempool: [] }, msgs);
+  
+  const afterUpdate = { ...afterApply, signers: updatedSigners };
+  
+  if (storage) {
+    // Regular block storage
+    if (blockTxs.length > 0) {
+      const stateHash = computeStateHash(afterUpdate.signers);
+      const payload = [
+        targetHeight,
+        Date.now(),
+        stateHash,
+        blockTxs.map(tx => [tx.signer, tx.entityId, toRlpData(tx.input)])
+      ];
+      await storage.blocks.put(
+        keys.block(targetHeight), 
+        Buffer.from(RLP.encode(payload)).toString('hex')
+      );
+    }
+    
+    // Create immutable archive at intervals
+    if (targetHeight % archiveInterval === 0) {
+      const parentHash = await storage.refs.get('HEAD').catch(() => undefined);
+      await archiveSnapshot(
+        { ...afterUpdate, height: targetHeight }, 
+        storage, 
+        parentHash as string
+      );
+    }
+  }
+  
+  const routed = routeMessages({ ...afterUpdate, mempool: [] }, msgs);
   const withAutoPropose = autoProposeSingleSigners(routed);
   
-  return { ...withAutoPropose, height: nextHeight };
+  return { ...withAutoPropose, height: targetHeight };
 };
 
 // Helper function to trigger proposals for multi-signer entities
@@ -414,15 +588,19 @@ export const proposeBlock = (server: ServerState, signer: number, entityId: stri
 };
 
 type Storage = {
-  state: Level;
-  wal: Level;
-  blocks: Level;
+  state: Level;      // Mutable current state
+  wal: Level;        // Write-ahead log
+  blocks: Level;     // Blocks by height
+  archive: Level;    // Immutable snapshots by hash
+  refs: Level;       // Named references (like git refs)
 };
 
 export const createStorage = (path = './data'): Storage => ({
   state: new Level(`${path}/state`),
   wal: new Level(`${path}/wal`),
-  blocks: new Level(`${path}/blocks`)
+  blocks: new Level(`${path}/blocks`),
+  archive: new Level(`${path}/archive`),
+  refs: new Level(`${path}/refs`)
 });
 
 // Register entity with WAL logging
@@ -433,16 +611,19 @@ export const registerEntityWithLog = async (
   quorum: number[],
   proposer = 0
 ): Promise<ServerState> => {
+  // Use next height for WAL logging to ensure proper ordering
+  const targetHeight = server.height + 1;
+  
   // 1) Log to WAL as system transaction with type marker
   const entry = JSON.stringify({ 
     type: 'registry_update',
     id, 
     quorum, 
     proposer, 
-    height: server.height 
+    height: targetHeight 
   });
   await storage.wal.put(
-    keys.walRegistry(server.height, id),
+    keys.walRegistry(targetHeight, id),
     entry
   );
 
@@ -458,7 +639,8 @@ const serializeEntity = (entity: EntityState) => JSON.stringify({
   proposed: entity.proposed ? {
     ...entity.proposed,
     approves: Array.from(entity.proposed.approves)
-  } : undefined
+  } : undefined,
+  lastProcessedHeight: entity.lastProcessedHeight
 });
 
 const deserializeEntity = (data: string): EntityState => {
@@ -469,7 +651,8 @@ const deserializeEntity = (data: string): EntityState => {
     proposed: parsed.proposed ? {
       ...parsed.proposed,
       approves: new Set(parsed.proposed.approves)
-    } : undefined
+    } : undefined,
+    lastProcessedHeight: parsed.lastProcessedHeight
   };
 };
 
@@ -529,11 +712,18 @@ export const loadSnapshot = async (storage: Storage): Promise<ServerState | null
     for await (const [key, value] of storage.state.iterator()) {
       if (key === keys.meta() || key === keys.registry()) continue;
       
-      const parts = (key as string).split(':');
+      // Only parse keys that match the pattern: <number>:<entityId>
+      const keyStr = key as string;
+      if (!/^\d+:/.test(keyStr)) continue;
+      
+      const parts = keyStr.split(':');
       if (parts.length !== 2) continue;
       
       const signerIdx = parseInt(parts[0]);
       const entityId = parts[1];
+      
+      // Validate signerIdx is a valid number
+      if (isNaN(signerIdx)) continue;
       
       if (!signers.has(signerIdx)) {
         signers.set(signerIdx, new Map());
@@ -586,32 +776,50 @@ export const recoverServer = async (storage: Storage): Promise<ServerState> => {
   // Load snapshot (or initialize)
   let server = await loadSnapshot(storage) || initializeServer();
   
-  // First replay registry updates from dedicated prefix (starting from snapshot height)
-  for await (const [, value] of storage.wal.iterator({
-    gte: `wal:reg:${pad(server.height)}:`,
-    lt: 'wal:reg:\xff'  // All registry keys from snapshot height onwards
+  // First replay registry updates from dedicated prefix (only those AFTER snapshot height)
+  for await (const [key, value] of storage.wal.iterator({
+    gte: `wal:reg:${pad(server.height + 1)}:`,
+    lt: 'wal:reg:\xff'
   })) {
     try {
       const data = JSON.parse(value as string);
-      if (data.type === 'registry_update') {
+      if (data.type === 'registry_update' && data.height > server.height) {
         server.registry = registerEntity(server.registry, data.id, data.quorum, data.proposer);
       }
-    } catch {
-      // Not a registry update, skip
+    } catch (err) {
+      console.debug(`Failed to parse registry WAL entry ${key}:`, err);
     }
   }
   
-  // Then replay regular WAL entries
-  for await (const [, value] of storage.wal.iterator({
-    gte: keys.wal(server.height, 0, '')
+  // Then replay regular WAL entries (only those AFTER snapshot height)
+  const walEntries: Array<{height: number, tx: ServerTx}> = [];
+  
+  for await (const [key, value] of storage.wal.iterator({
+    gte: keys.wal(server.height + 1, 0, '')
   })) {
     try {
-      const tx = JSON.parse(value as string) as ServerTx;
-      server = { ...server, mempool: [...server.mempool, tx] };
-    } catch {
-      // Not a ServerTx, skip
+      // Extract height from WAL key
+      const keyParts = (key as string).split(':');
+      if (keyParts.length >= 4) {
+        const walHeight = parseInt(keyParts[1]);
+        if (!isNaN(walHeight) && walHeight > server.height) {
+          const tx = JSON.parse(value as string) as ServerTx;
+          
+          // Check if this entity has already processed this height
+          const entity = server.signers.get(tx.signer)?.get(tx.entityId);
+          if (!entity || !entity.lastProcessedHeight || walHeight > entity.lastProcessedHeight) {
+            walEntries.push({ height: walHeight, tx });
+          }
+        }
+      }
+    } catch (err) {
+      console.debug(`Failed to parse WAL entry ${key}:`, err);
     }
   }
+  
+  // Sort by height and add to mempool
+  walEntries.sort((a, b) => a.height - b.height);
+  server = { ...server, mempool: walEntries.map(e => e.tx) };
   
   // Process any pending transactions
   if (server.mempool.length > 0) {
@@ -619,4 +827,75 @@ export const recoverServer = async (storage: Storage): Promise<ServerState> => {
   }
   
   return server;
+};
+
+// --- Block Replay ---
+const replayBlocksFromTo = async (
+  state: ServerState,
+  storage: Storage,
+  fromHeight: number,
+  toHeight: number
+): Promise<ServerState> => {
+  let current = state;
+  
+  for (let h = fromHeight; h <= toHeight; h++) {
+    try {
+      const blockData = await storage.blocks.get(keys.block(h)) as string;
+      const decoded = RLP.decode(Buffer.from(blockData, 'hex')) as any;
+      
+      // Validate block format
+      if (!Array.isArray(decoded) || decoded.length < 4) {
+        console.warn(`Invalid block format at height ${h}`);
+        break;
+      }
+      
+      const blockTxs = decoded[3].map((txData: any) => ({
+        signer: txData[0],
+        entityId: txData[1],
+        input: txData[2]
+      }));
+      
+      // Apply block transactions
+      for (const tx of blockTxs) {
+        current.mempool.push(tx);
+      }
+      const [processed] = await processMempool(current, undefined, h);
+      current = { ...processed, height: h, mempool: [] };
+    } catch (err) {
+      console.warn(`Failed to replay block ${h}:`, err);
+      break;
+    }
+  }
+  
+  return current;
+};
+
+// --- Time Travel Queries ---
+export const getStateAtHeight = async (
+  storage: Storage,
+  targetHeight: number
+): Promise<ServerState | null> => {
+  // Search through archive for matching height
+  const head = await storage.refs.get('HEAD').catch(() => undefined) as string;
+  if (!head) {
+    console.debug('No HEAD reference found in archive');
+    return null;
+  }
+  
+  for await (const entry of getHistory(storage, head)) {
+    if (entry.height <= targetHeight) {
+      // Found closest archive point
+      const state = await recoverFromArchive(storage, hash(entry));
+      
+      if (state && entry.height < targetHeight) {
+        // Replay blocks from archive point to target
+        return replayBlocksFromTo(state, storage, entry.height + 1, targetHeight);
+      }
+      
+      return state;
+    }
+  }
+  
+  console.debug(`No archive found for height ${targetHeight}`);
+  return null;
 };

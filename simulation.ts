@@ -357,6 +357,8 @@ export const runSimulation = async (config: SimulationConfig = defaultConfig): P
   await storage.state.close();
   await storage.wal.close();
   await storage.blocks.close();
+  await storage.archive.close();
+  await storage.refs.close();
 };
 
 
