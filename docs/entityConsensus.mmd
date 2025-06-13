@@ -10,11 +10,13 @@ sequenceDiagram
   Server-->>Entity: tx appended
   
   Proposer->>Server: propose_block(hash, txs)
-  Server-->>Entity: status → Proposed approves ← {P}outbox = broadcast to Q
+  Server-->>Entity: status → Proposed approves ← {P}outbox = broadcast to ALL signers
   
   Server-->>CoSigner: Outbox propose_block
+  Note over CoSigner: Receives proposal,<br/>immediately approves it
   
   CoSigner->>Server: approve_block(hash, from=Q)
+  Note over CoSigner: Sends approval to ALL signers<br/>including proposer
   Server-->>Entity: approves ∪= {Q} if 2/3 reached → enqueue commit_block to proposer
   
   Server-->>Proposer: Outbox commit_block

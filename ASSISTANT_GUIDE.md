@@ -65,27 +65,25 @@ This is a minimalist actor-based blockchain framework implementing hierarchical 
 
 ## Known Issues & TODOs
 
-### 1. DAO Governance in Simulation
-The DAO voting simulation gets stuck with only 1 approval. This is because:
-- The server automatically sends approve messages when proposal is made
-- These messages need to be processed in subsequent blocks
-- The simulation timing might need adjustment
+### ✅ 1. DAO Governance in Simulation (FIXED)
+The DAO voting simulation was getting stuck with only 1 approval.
+**Solution**: Modified message flow to broadcast propose_block to ALL signers, who then send approve_block messages to everyone. The consensus flow now works correctly.
 
-### 2. Type Conversions
-Many places still have manual type conversions that could be cleaner:
-```typescript
-// Current
-const signerIdx = toSignerIdx(Number(signerIdxStr));
+### ✅ 2. Type Conversions (COMPLETED)
+Manual type conversions have been cleaned up.
+**Solution**: Created `typeHelpers.ts` with validated conversion functions:
+- `parseSignerIdx()`, `parseBlockHeight()`, `parseEntityId()`
+- `incrementBlockHeight()`, `nextBlockHeight()`
+- `mapToSignerIdx()`, `signerIdxFromAny()`
 
-// Could have helper
-const parseSignerIdx = (s: string): SignerIdx => toSignerIdx(parseInt(s));
-```
-
-### 3. Error Recovery
-While we return Result types, some errors are just logged and processing continues. Consider:
-- Collecting all errors and returning them
-- Having a error severity system
-- Better error aggregation in batch operations
+### ✅ 3. Error Recovery (COMPLETED)
+Improved error handling with collection and severity system.
+**Solution**: Created `errorHandling.ts` with:
+- `ErrorCollector` class for aggregating errors
+- Severity levels: DEBUG, WARNING, ERROR, CRITICAL
+- Context tracking (entity, signer, operation, height)
+- `CollectedResult` type for batch operations
+- Critical errors stop processing, others allow continuation
 
 ### 4. Performance Considerations
 - The current functional approach in `processMempool` processes transactions sequentially
@@ -145,7 +143,7 @@ bun demo.ts all     # Run all scenarios
 
 ## Next Steps
 
-1. **Fix DAO Simulation**: Adjust timing for approval message processing
+1. ~~**Fix DAO Simulation**~~ ✅ Already fixed (see TODO #1)
 2. **Add Metrics**: Transaction throughput, block times, message routing stats
 3. **Optimize Storage**: Consider compression for archive entries
 4. **Network Layer**: Add P2P message routing between servers

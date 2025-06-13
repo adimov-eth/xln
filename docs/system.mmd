@@ -8,13 +8,15 @@ flowchart TD
 
   subgraph ProcessBlock
     direction TB
-    PB1[processMempool<br/>write-ahead log] --> PB2[processServerTx<br/>for each tx]
+    PB1[processMempool<br/>write-ahead log<br/>+ error collection] --> PB2[processServerTx<br/>for each tx]
     PB2 --> PB3[update lastProcessedHeight]
     PB3 --> PB4[store block record<br/>LevelDB blocks]
     PB4 --> PB5[maybe archiveSnapshot<br/>LevelDB archive & refs]
     PB5 --> PB6[routeMessages to new ServerTx]
     PB6 --> PB7[autoProposeSingleSigners to new ServerTx]
     PB7 -->|push| Mempool
+    PB1 -.->|CollectedResult| EC[ErrorCollector<br/>tracks severity & context]
+    EC -.->|critical errors| STOP[Stop Processing]
   end
 
   subgraph processServerTx
@@ -22,6 +24,7 @@ flowchart TD
     ST1[isSignerAuthorized?] --> ST2[get entity+meta]
     ST2 --> ST3[processEntityInput]
     ST3 --> ST4[update signers map<br/>& collect OutboxMsg array]
+    ST3 -.->|Result<T,E>| ST5[Error handling<br/>with ProcessingError]
   end
 
   %% =========  processEntityInput cases =========
@@ -60,6 +63,13 @@ flowchart TD
     R1[initializeServer OR<br/>loadSnapshot] --> R2[replay registry WAL]
     R2 --> R3[replay tx WAL → mempool]
     R3 -->|if mempool not empty| ProcessBlock
+  end
+
+  %% =========  Type Safety =========
+  subgraph Type System
+    direction LR
+    TS1[Branded Types<br/>EntityId, SignerIdx, etc] --> TS2[Type Helpers<br/>parseSignerIdx, etc]
+    TS2 --> TS3[Result Types<br/>Ok/Err handling]
   end
 
   %% =========  Styles =========
