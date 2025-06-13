@@ -2,24 +2,29 @@ import { createHash } from 'crypto';
 import { Level } from 'level';
 import RLP from 'rlp';
 
+// --- Types & Registry ---
 export type EntityMeta = {
   id: string;
-  quorum: number[];  // Signer indices that participate
+  quorum: number[];    // participating signers
+  proposer: number;    // default signer index
 };
 
-export type Registry = Map<string, EntityMeta>;  // entityId → metadata
-
+export type Registry = Map<string, EntityMeta>;
 export const createRegistry = (): Registry => new Map();
 
+// Register entity (pure function)
 export const registerEntity = (
-  registry: Registry, 
-  id: string, 
-  quorum: number[]
+  registry: Registry,
+  id: string,
+  quorum: number[],
+  proposer = 0
 ): Registry => {
   const newRegistry = new Map(registry);
-  newRegistry.set(id, { id, quorum });
+  newRegistry.set(id, { id, quorum, proposer });
   return newRegistry;
 };
+
+// Register entity (pure function)
 
 export const isSignerAuthorized = (
   registry: Registry,
@@ -30,15 +35,14 @@ export const isSignerAuthorized = (
   return meta ? meta.quorum.includes(signer) : false;
 };
 
-export type EntityTx = {
-  op: string;    
-  data: any;
-};
+// --- Core Types ---
+export type EntityTx = { op: string; data: any };
 
-export type EntityInput = 
+export type EntityInput =
   | { type: 'add_tx'; tx: EntityTx }
   | { type: 'propose'; txs: EntityTx[]; hash: string }
-  | { type: 'approve'; hash: string };
+  | { type: 'approve'; hash: string }
+  | { type: 'commit'; hash: string };
 
 export type ServerTx = {
   signer: number;
@@ -53,37 +57,41 @@ export type OutboxMsg = {
   input: EntityInput;
 };
 
+// --- State ---
 export type EntityState = {
   height: number;
-  state: any;                    
+  state: any;
   mempool: EntityTx[];
   proposed?: {
     txs: EntityTx[];
     hash: string;
     approves: Set<number>;
   };
-  quorumHash: string;            
+  quorumHash: string;
   status: 'Idle' | 'Proposed';
 };
 
 export type ServerState = {
   height: number;
-  registry: Registry;                               // NEW: Fast lookup index
-  signers: Map<number, Map<string, EntityState>>;  // UNCHANGED: Keep signer views
+  registry: Registry;
+  signers: Map<number, Map<string, EntityState>>;
   mempool: ServerTx[];
 };
 
+// --- Storage Keys with padded height ---
+const pad = (n: number) => n.toString().padStart(10, '0');
 const keys = {
   state: (signer: number, entityId: string) => `${signer}:${entityId}`,
-  registry: () => 'registry',  // NEW
-  wal: (height: number, signer: number, entityId: string) => `${height}:${signer}:${entityId}`,
-  block: (height: number) => `block:${height}`,
+  registry: () => 'registry',
+  wal: (height: number, signer: number, entityId: string) => `wal:${pad(height)}:${signer}:${entityId}`,
+  block: (height: number) => `block:${pad(height)}`,
   meta: () => 'meta:height'
 };
 
+// --- RLP & Hashing ---
 const toRlpData = (obj: any): any => {
-  if (obj === null || obj === undefined) return '';
-  if (typeof obj === 'string' || typeof obj === 'number') return obj;
+  if (obj == null) return '';
+  if (['string', 'number', 'boolean'].includes(typeof obj)) return obj;
   if (typeof obj === 'bigint') return obj.toString();
   if (Array.isArray(obj)) return obj.map(toRlpData);
   if (typeof obj === 'object') {
@@ -99,6 +107,37 @@ const hash = (data: any): string => {
   return createHash('sha256').update(RLP.encode(rlpData)).digest('hex');
 };
 
+// Compute integrity hash of the entire state tree
+const computeStateHash = (signers: Map<number, Map<string, EntityState>>): string => {
+  const stateData: any[] = [];
+  
+  // Sort signers by index
+  const sortedSigners = Array.from(signers.entries()).sort((a, b) => a[0] - b[0]);
+  
+  for (const [signerIdx, entities] of sortedSigners) {
+    const entityData: any[] = [];
+    
+    // Sort entities by ID
+    const sortedEntities = Array.from(entities.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    
+    for (const [entityId, entity] of sortedEntities) {
+      entityData.push([
+        entityId,
+        entity.height,
+        toRlpData(entity.state),
+        entity.mempool.map(tx => toRlpData(tx)),
+        entity.status,
+        entity.proposed ? [entity.proposed.hash, Array.from(entity.proposed.approves).sort()] : null
+      ]);
+    }
+    
+    stateData.push([signerIdx, entityData]);
+  }
+  
+  return hash(stateData);
+};
+
+// --- Entity Logic ---
 const createEntity = (quorum: number[]): EntityState => ({
   height: 0,
   state: { balance: 0n },
@@ -116,15 +155,18 @@ const applyEntityTx = (state: any, tx: EntityTx): any => {
   }
 };
 
-const generateTransferMessages = (txs: EntityTx[], fromEntityId: string): OutboxMsg[] => {
+const generateTransferMessages = (txs: EntityTx[], fromEntityId: string, registry: Registry): OutboxMsg[] => {
   const messages: OutboxMsg[] = [];
   
   txs.forEach(tx => {
     if (tx.op === 'transfer') {
+      const targetMeta = registry.get(tx.data.to);
+      if (!targetMeta) return; // Skip if target entity doesn't exist
+      
       messages.push({
         from: fromEntityId,
         toEntity: tx.data.to,
-        toSigner: 0, // Will be routed properly by server
+        toSigner: targetMeta.proposer, // Use the target's proposer
         input: { 
           type: 'add_tx', 
           tx: { op: 'mint', data: { amount: tx.data.amount } } 
@@ -136,178 +178,192 @@ const generateTransferMessages = (txs: EntityTx[], fromEntityId: string): Outbox
   return messages;
 };
 
-const processEntityInput = (entity: EntityState, input: EntityInput, signer: number, meta: EntityMeta): [EntityState, OutboxMsg[]] => {
+export const processEntityInput = (
+  entity: EntityState,
+  input:  EntityInput,
+  signer: number,
+  meta:   EntityMeta
+): [EntityState, OutboxMsg[]] => {
   const outbox: OutboxMsg[] = [];
-
   switch (input.type) {
     case 'add_tx':
       if (entity.status === 'Idle') {
         return [{ ...entity, mempool: [...entity.mempool, input.tx] }, []];
       }
       return [entity, []];
-    
+
     case 'propose':
-      if (entity.status === 'Idle') {
-        const newEntity = {
-          ...entity,
-          proposed: {
-            txs: input.txs,
-            hash: input.hash,
-            approves: new Set([signer])
-          },
-          status: 'Proposed' as const
-        };
-        
-        // For single-signer entities, immediately commit
-        if (meta.quorum.length === 1) {
-          const newState = input.txs.reduce(applyEntityTx, entity.state);
-          
-          return [{
-            ...entity,
-            height: entity.height + 1,
-            state: newState,
-            mempool: [],
-            proposed: undefined,
-            status: 'Idle'
-          }, []];
-        }
-        
-        // For multi-signer entities, broadcast approves
-        for (const peer of meta.quorum) {
-          if (peer !== signer) {
-            outbox.push({
-              from: meta.id,
-              toEntity: meta.id,
-              toSigner: peer,
-              input: { type: 'approve', hash: input.hash }
-            });
-          }
-        }
-        
-        return [newEntity, outbox];
+      if (entity.status !== 'Idle') return [entity, []];
+      const block = { txs: input.txs, hash: input.hash };
+      const proposed = { ...block, approves: new Set([signer]) };
+      
+      // Single-signer entity: immediate commit
+      if (meta.quorum.length === 1) {
+        outbox.push({
+          from: meta.id,
+          toEntity: meta.id,
+          toSigner: meta.proposer,
+          input: { type: 'commit' as const, hash: input.hash }
+        });
+        return [{ ...entity, proposed, status: 'Proposed' as const }, outbox];
       }
-      return [entity, []];
-    
+      
+      // Multi-signer entity: broadcast approve to committee
+      return [{ ...entity, proposed, status: 'Proposed' as const },
+        meta.quorum.filter(p => p !== signer).map(p => ({
+          from: meta.id,
+          toEntity: meta.id,
+          toSigner: p,
+          input: { type: 'approve' as const, hash: input.hash }
+        }))
+      ];
+
     case 'approve':
-      if (entity.status === 'Proposed' && 
-          entity.proposed?.hash === input.hash && 
-          meta.quorum.includes(signer)) {
-        
-        const newapproves = new Set(entity.proposed.approves);
-        newapproves.add(signer);
-        
-        // Check if we have ≥ 2/3 of committee
-        // TODO: consensus threshold might be configurable
-        if (newapproves.size * 3 >= meta.quorum.length * 2) {
-          // Commit the block
-          const newState = entity.proposed.txs.reduce(applyEntityTx, entity.state);
-          const transferMessages = generateTransferMessages(entity.proposed.txs, meta.id);
-          
-          return [{
-            ...entity,
-            height: entity.height + 1,
-            state: newState,
-            mempool: [],
-            proposed: undefined,
-            status: 'Idle'
-          }, transferMessages];
-        } else {
-          // Just update approves
-          return [{
-            ...entity,
-            proposed: {
-              ...entity.proposed,
-              approves: newapproves
-            }
-          }, []];
-        }
+      if (entity.status !== 'Proposed' || entity.proposed?.hash !== input.hash || !meta.quorum.includes(signer)) {
+        return [entity, []];
       }
-      return [entity, []];
-    
+      const approves = new Set(entity.proposed.approves).add(signer);
+      // if quorum reached, proposer issues commit
+      if (approves.size * 3 >= meta.quorum.length * 2) {
+        // only proposer commits
+        outbox.push({
+          from: meta.id,
+          toEntity: meta.id,
+          toSigner: meta.proposer,
+          input: { type: 'commit' as const, hash: input.hash }
+        });
+        return [{ ...entity, proposed: { ...entity.proposed, approves } }, outbox];
+      }
+      return [{ ...entity, proposed: { ...entity.proposed, approves } }, []];
+
+    case 'commit':
+      if (entity.status !== 'Proposed' || entity.proposed?.hash !== input.hash || signer !== meta.proposer) {
+        return [entity, []];
+      }
+      // final apply
+      const nextState = entity.proposed.txs.reduce(applyEntityTx, entity.state);
+      // Transfer messages are now handled in processServerTx
+      return [{
+        ...entity,
+        height: entity.height + 1,
+        state: nextState,
+        mempool: [],
+        proposed: undefined,
+        status: 'Idle' as const
+      }, []];
+
     default:
       return [entity, []];
   }
 };
 
-const processServerTx = (server: ServerState, tx: ServerTx): [ServerState, OutboxMsg[]] => {
-  // Use registry for fast authorization check
-  if (!isSignerAuthorized(server.registry, tx.entityId, tx.signer)) {
-    return [server, []];
-  }
-  
-  const signerEntities = server.signers.get(tx.signer);
-  if (!signerEntities) return [server, []];
-  
-  const entity = signerEntities.get(tx.entityId);
+// --- Server Processing ---
+export const processServerTx = (
+  server: ServerState,
+  tx:     ServerTx
+): [ServerState, OutboxMsg[]] => {
+  if (!isSignerAuthorized(server.registry, tx.entityId, tx.signer)) return [server, []];
+  const signerMap = server.signers.get(tx.signer);
+  const meta      = server.registry.get(tx.entityId);
+  if (!signerMap || !meta) return [server, []];
+
+  const entity = signerMap.get(tx.entityId);
   if (!entity) return [server, []];
   
-  const meta = server.registry.get(tx.entityId);
-  if (!meta) return [server, []];
+  const [newEntity, msgs] = processEntityInput(entity, tx.input, tx.signer, meta);
   
-  const [newEntity, messages] = processEntityInput(entity, tx.input, tx.signer, meta);
+  // Handle transfer messages for commit
+  let allMsgs = msgs;
+  if (tx.input.type === 'commit' && entity.status === 'Proposed' && entity.proposed?.hash === tx.input.hash && tx.signer === meta.proposer) {
+    const transferMessages = generateTransferMessages(entity.proposed.txs, meta.id, server.registry);
+    allMsgs = [...msgs, ...transferMessages];
+  }
   
-  return [{
-    ...server,
-    signers: new Map(server.signers).set(
-      tx.signer,
-      new Map(signerEntities).set(tx.entityId, newEntity)
-    )
-  }, messages];
+  const newSignerMap = new Map(signerMap);
+  newSignerMap.set(tx.entityId, newEntity);
+  
+  return [{ ...server, signers: new Map(server.signers).set(tx.signer, newSignerMap) }, allMsgs];
 };
 
-const processMempool = async (server: ServerState, storage?: Storage): Promise<[ServerState, OutboxMsg[]]> => {
-  // Log transactions before processing if storage is provided
+export const processMempool = async (
+  server: ServerState,
+  storage?: Storage
+): Promise<[ServerState, OutboxMsg[]]> => {
   if (storage && server.mempool.length > 0) {
-    const walBatch = storage.wal.batch();
-    server.mempool.forEach((tx) => {
-      walBatch.put(keys.wal(server.height, tx.signer, tx.entityId), JSON.stringify(tx));
+    const batch = storage.wal.batch();
+    server.mempool.forEach(tx => {
+      batch.put(keys.wal(server.height, tx.signer, tx.entityId), JSON.stringify(tx));
     });
-    await walBatch.write();
+    await batch.write();
   }
-
-  let currentServer = server;
-  const allMessages: OutboxMsg[] = [];
-  
+  let cur = server; const all: OutboxMsg[] = [];
   for (const tx of server.mempool) {
-    const [newServer, messages] = processServerTx(currentServer, tx);
-    currentServer = newServer;
-    allMessages.push(...messages);
+    const [next, msgs] = processServerTx(cur, tx);
+    cur = next; all.push(...msgs);
   }
-  
-  return [{ ...currentServer, mempool: [] }, allMessages];
+  return [{ ...cur, mempool: [] }, all];
 };
 
-const routeMessages = (server: ServerState, messages: OutboxMsg[]): ServerState => {
-  const newMempool: ServerTx[] = [];
-  
-  for (const msg of messages) {
-    // Use registry for fast lookup
-    const meta = server.registry.get(msg.toEntity);
-    if (!meta) continue;
-    
-    const targetSigner = msg.toSigner && meta.quorum.includes(msg.toSigner) 
-      ? msg.toSigner 
-      : meta.quorum[0];
-    
-    newMempool.push({
-      signer: targetSigner,
-      entityId: msg.toEntity,
-      input: msg.input
-    });
-  }
-  
-  return { ...server, mempool: [...server.mempool, ...newMempool] };
+export const routeMessages = (server: ServerState, msgs: OutboxMsg[]): ServerState => {
+  const next = msgs.map(m => ({ signer: m.toSigner, entityId: m.toEntity, input: m.input }));
+  return { ...server, mempool: [...server.mempool, ...next] };
 };
 
-export const processBlock = async (server: ServerState, storage?: Storage): Promise<ServerState> => {
-  // Process current mempool
-  const [afterMempool, messages] = await processMempool(server, storage);
+export const processBlock = async (
+  server: ServerState,
+  storage?: Storage
+): Promise<ServerState> => {
+  // 1) Save original mempool for block serialization
+  const blockTxs = server.mempool;
   
-  // Route generated messages back to mempool
-  const newServerState = routeMessages(afterMempool, messages);
-
+  // 2) Process mempool and get outbox messages
+  const [afterApply, msgs] = await processMempool(server, storage);
   
-  return { ...newServerState, height: server.height + 1 };
+  // 3) Serialize and save the original block with metadata
+  if (storage && blockTxs.length > 0) {
+    // Compute integrity hash of the entire state tree
+    const stateHash = computeStateHash(afterApply.signers);
+    
+    const blockPayload = [
+      server.height,
+      Date.now(),
+      stateHash,
+      blockTxs.map(tx => [tx.signer, tx.entityId, toRlpData(tx.input)])
+    ];
+    
+    const blockData = Buffer.from(RLP.encode(blockPayload));
+    await storage.blocks.put(keys.block(server.height), blockData.toString('hex'));
+  }
+  
+  // 4) Clear mempool (it was already processed)
+  afterApply.mempool = [];
+  
+  // 5) Route outbox messages to create new mempool
+  const routed = routeMessages(afterApply, msgs);
+  
+  // 6) Auto-propose for single-signer entities with pending transactions
+  let s = routed;
+  for (const [signerIdx, entities] of s.signers) {
+    for (const [entityId, entity] of entities) {
+      if (entity.mempool.length > 0 && entity.status === 'Idle') {
+        const meta = s.registry.get(entityId);
+        if (meta && meta.quorum.length === 1) {
+          const txs = entity.mempool;
+          const blockHash = hash([entity.height + 1, txs]);
+          
+          const [updatedServer] = processServerTx(s, {
+            signer: signerIdx,
+            entityId,
+            input: { type: 'propose', txs, hash: blockHash }
+          });
+          
+          s = updatedServer;
+        }
+      }
+    }
+  }
+  
+  return { ...s, height: server.height + 1 };
 };
 
 // Helper function to trigger proposals for multi-signer entities
@@ -341,6 +397,33 @@ export const createStorage = (path = './data'): Storage => ({
   blocks: new Level(`${path}/blocks`)
 });
 
+// Register entity with WAL logging
+export const registerEntityWithLog = async (
+  server: ServerState,
+  storage: Storage,
+  id: string,
+  quorum: number[],
+  proposer = 0
+): Promise<ServerState> => {
+  const newRegistry = registerEntity(server.registry, id, quorum, proposer);
+  
+  // Log registry mutation to WAL
+  const registryTx = {
+    type: 'registry_update',
+    id,
+    quorum,
+    proposer,
+    height: server.height
+  };
+  
+  await storage.wal.put(
+    keys.wal(server.height, -1, `registry_${id}`), // -1 for system transactions
+    JSON.stringify(registryTx)
+  );
+  
+  return { ...server, registry: newRegistry };
+};
+
 const serializeEntity = (entity: EntityState) => JSON.stringify({
   ...entity,
   state: { ...entity.state, balance: entity.state.balance.toString() },
@@ -365,7 +448,7 @@ const deserializeEntity = (data: string): EntityState => {
 export const saveSnapshot = async (server: ServerState, storage: Storage) => {
   const batch = storage.state.batch();
   
-  // Save registry
+  // Save registry for fast recovery
   batch.put(keys.registry(), JSON.stringify([...server.registry]));
   
   for (const [signerIdx, entities] of server.signers) {
@@ -391,7 +474,7 @@ export const loadSnapshot = async (storage: Storage): Promise<ServerState | null
   try {
     const height = parseInt(await storage.state.get(keys.meta()) as string);
     
-    // Load registry
+    // Load registry from snapshot
     let registry: Registry;
     try {
       const registryData = await storage.state.get(keys.registry()) as string;
@@ -429,12 +512,12 @@ export const loadSnapshot = async (storage: Storage): Promise<ServerState | null
 export const initializeServer = (): ServerState => {
   let registry = createRegistry();
   
-  // Register all entities
-  registry = registerEntity(registry, 'alice', [0]);
-  registry = registerEntity(registry, 'bob', [1]);
-  registry = registerEntity(registry, 'carol', [2]);
-  registry = registerEntity(registry, 'hub', [1]);
-  registry = registerEntity(registry, 'dao', [0, 1, 2]);
+  // Register all entities with their proposers
+  registry = registerEntity(registry, 'alice', [0], 0);
+  registry = registerEntity(registry, 'bob', [1], 1);
+  registry = registerEntity(registry, 'carol', [2], 2);
+  registry = registerEntity(registry, 'hub', [1], 1);
+  registry = registerEntity(registry, 'dao', [0, 1, 2], 0);  // signer 0 is the default proposer
   
   return {
     height: 0,
@@ -462,12 +545,30 @@ export const recoverServer = async (storage: Storage): Promise<ServerState> => {
   // Load snapshot (or initialize)
   let server = await loadSnapshot(storage) || initializeServer();
   
-  // Replay WAL entries after snapshot
+  // First replay registry updates (using a broader range to catch -1 signer)
+  for await (const [key, value] of storage.wal.iterator({
+    gte: `wal:${pad(server.height)}:`
+  })) {
+    try {
+      const data = JSON.parse(value as string);
+      if (data.type === 'registry_update') {
+        server.registry = registerEntity(server.registry, data.id, data.quorum, data.proposer);
+      }
+    } catch {
+      // Not a registry update, skip
+    }
+  }
+  
+  // Then replay regular WAL entries
   for await (const [, value] of storage.wal.iterator({
     gte: keys.wal(server.height, 0, '')
   })) {
-    const tx = JSON.parse(value as string) as ServerTx;
-    server = { ...server, mempool: [...server.mempool, tx] };
+    try {
+      const tx = JSON.parse(value as string) as ServerTx;
+      server = { ...server, mempool: [...server.mempool, tx] };
+    } catch {
+      // Not a ServerTx, skip
+    }
   }
   
   // Process any pending transactions
