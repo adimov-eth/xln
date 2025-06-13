@@ -259,9 +259,7 @@ export const processBlock = (server: ServerState): ServerState => {
   
   const [afterMempool, messages] = processMempool(server);
   
-  
   const afterRouting = routeMessages(afterMempool, messages);
-  
   
   let finalServer = afterRouting;
   for (const [signerIdx, entities] of finalServer.signers) {
@@ -288,8 +286,6 @@ export const processBlock = (server: ServerState): ServerState => {
   
   return { ...finalServer, height: server.height + 1 };
 };
-
-
 
 
 
@@ -362,8 +358,6 @@ export const loadSnapshot = async (storage: Storage): Promise<ServerState | null
     return null;
   }
 };
-
-
 
 
 
