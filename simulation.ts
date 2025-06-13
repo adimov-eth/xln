@@ -328,7 +328,7 @@ export const runSimulation = async (config: SimulationConfig = defaultConfig): P
     server.mempool.push(...newTxs);
     
     
-    server = processBlock(server);
+    server = await processBlock(server, storage);
     
     
     if (server.height % config.logInterval === 0) {
