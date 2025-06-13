@@ -1,5 +1,26 @@
 import type { EntityTx, ServerState, ServerTx } from './server';
 import { createStorage, initializeServer, loadSnapshot, processBlock, saveSnapshot } from './server';
+import { createHash } from 'crypto';
+import RLP from 'rlp';
+
+// Helper function to match server's hash implementation
+const toRlpData = (obj: any): any => {
+  if (obj == null) return '';
+  if (['string', 'number', 'boolean'].includes(typeof obj)) return obj;
+  if (typeof obj === 'bigint') return obj.toString();
+  if (Array.isArray(obj)) return obj.map(toRlpData);
+  if (typeof obj === 'object') {
+    return Object.keys(obj)
+      .sort()
+      .map(key => [key, toRlpData(obj[key])]);
+  }
+  return obj.toString();
+};
+
+const hash = (data: any): string => {
+  const rlpData = toRlpData(data);
+  return createHash('sha256').update(RLP.encode(rlpData)).digest('hex');
+};
 
 
 
@@ -164,40 +185,55 @@ const generateDaoGovernance = (block: number, server?: ServerState): ServerTx[] 
   
   // DAO proposal cycle every 20 blocks
   if (block % 20 === 0) {
-    // Add transaction and propose
+    // Add a transaction to the DAO's mempool
+    const daoTx = generateMintTx(getRandomAmount('whale'));
     txs.push({
       signer: 0,
       entityId: 'dao',
-      input: { type: 'add_tx', tx: generateMintTx(getRandomAmount('whale')) }
-    });
-    txs.push({
-      signer: 0,
-      entityId: 'dao', 
-      input: { type: 'propose_block' }
+      input: { type: 'add_tx', tx: daoTx }
     });
   }
   
-  // Voting phases - need to get the actual proposed hash
-  if (server && (block % 20 === 1 || block % 20 === 2)) {
+  // Propose the block in the next cycle after adding transactions
+  if (block % 20 === 1 && server) {
     const daoEntity = server.signers.get(0)?.get('dao');
-    if (daoEntity?.proposed && daoEntity.status === 'proposed') {
+    if (daoEntity && daoEntity.mempool.length > 0) {
+      const proposalTxs = daoEntity.mempool;
+      const proposalHash = hash([daoEntity.height + 1, proposalTxs]);
+      
+      txs.push({
+        signer: 0,
+        entityId: 'dao',
+        input: { type: 'propose_block', txs: proposalTxs, hash: proposalHash }
+      });
+    }
+  }
+  
+  // Voting phases - signers approve the proposed block
+  // The server automatically sends approve messages when a proposal is made,
+  // so they should already be in the mempool, but we can check
+  if (server && (block % 20 === 2 || block % 20 === 3 || block % 20 === 4)) {
+    // Check any signer's view for the proposed state
+    const daoEntity = server.signers.get(0)?.get('dao');
+    if (daoEntity?.proposed && daoEntity.status === 'Proposed') {
       const actualHash = daoEntity.proposed.hash;
       
-      // Signer 1 votes
-      if (block % 20 === 1) {
+      // Additional manual approvals if needed
+      if (block % 20 === 3) {
+        // Ensure signer 1 approves
         txs.push({
           signer: 1,
           entityId: 'dao',
-          input: { type: 'commit_block', blockHash: actualHash }
+          input: { type: 'approve_block', hash: actualHash }
         });
       }
       
-      // Signer 2 votes  
-      if (block % 20 === 2) {
+      if (block % 20 === 4) {
+        // Ensure signer 2 approves
         txs.push({
           signer: 2,
           entityId: 'dao',
-          input: { type: 'commit_block', blockHash: actualHash }
+          input: { type: 'approve_block', hash: actualHash }
         });
       }
     }
@@ -282,7 +318,7 @@ const generateTransactions = (block: number, scenario: SimulationScenario, serve
   }
 };
 
-const logSimulationState = (server: ServerState, block: number, config: SimulationConfig): void => {
+const logSimulationState = (server: ServerState, _block: number, config: SimulationConfig): void => {
   console.log(`\n📊 Block ${server.height} [${config.scenario}]:`);
   
   let totalBalance = 0n;
@@ -292,10 +328,12 @@ const logSimulationState = (server: ServerState, block: number, config: Simulati
     for (const [id, entity] of entities) {
       if (entity.state.balance > 0n || id === 'dao') {
         let status = '';
-        if (entity.status === 'proposed') {
-          const votes = entity.proposed?.votes?.length || 0;
-          const required = Math.ceil(entity.quorum.length * 2 / 3);
-          status = ` 🗳️ [PROPOSED: ${entity.proposed?.hash.slice(0, 8)}, votes: ${votes}/${required}]`;
+        if (entity.status === 'Proposed' && entity.proposed) {
+          const approvals = entity.proposed.approves.size;
+          // Get the entity's quorum from registry
+          const meta = server.registry.get(id);
+          const required = meta ? Math.ceil(meta.quorum.length * 2 / 3) : 0;
+          status = ` 🗳️ [PROPOSED: ${entity.proposed.hash.slice(0, 8)}, approvals: ${approvals}/${required}]`;
         }
         
         console.log(`  💰 ${id}[${signer}]: ${entity.state.balance.toLocaleString()} (h:${entity.height})${status}`);
@@ -318,7 +356,6 @@ export const runSimulation = async (config: SimulationConfig = defaultConfig): P
   console.log(`📝 Config: ${config.blocks} blocks, ${config.tickMs}ms ticks`);
   
   const startTime = Date.now();
-  const finalHeight = server.height + config.blocks;
   
   for (let i = 0; i < config.blocks; i++) {
     const currentBlock = server.height;

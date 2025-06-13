@@ -53,7 +53,7 @@ export type ServerTx = {
 export type OutboxMsg = {
   from: string;
   toEntity: string;
-  toSigner: number;
+  toSigner?: number;  // Optional - let server figure it out if not specified
   input: EntityInput;
 };
 
@@ -157,18 +157,15 @@ const applyEntityTx = (state: any, tx: EntityTx): any => {
   }
 };
 
-const generateTransferMessages = (txs: EntityTx[], fromEntityId: string, registry: Registry): OutboxMsg[] => {
+const generateTransferMessages = (txs: EntityTx[], fromEntityId: string): OutboxMsg[] => {
   const messages: OutboxMsg[] = [];
   
   txs.forEach(tx => {
     if (tx.op === 'transfer') {
-      const targetMeta = registry.get(tx.data.to);
-      if (!targetMeta) return; // Skip if target entity doesn't exist
-      
       messages.push({
         from: fromEntityId,
         toEntity: tx.data.to,
-        toSigner: targetMeta.proposer, // Use the target's proposer
+        // No toSigner - let the server figure out routing
         input: { 
           type: 'add_tx', 
           tx: { op: 'mint', data: { amount: tx.data.amount } } 
@@ -184,8 +181,7 @@ export const processEntityInput = (
   entity: EntityState,
   input:  EntityInput,
   signer: number,
-  meta:   EntityMeta,
-  registry?: Registry  // Optional registry for transfer message generation
+  meta:   EntityMeta
 ): [EntityState, OutboxMsg[]] => {
   const outbox: OutboxMsg[] = [];
   switch (input.type) {
@@ -203,7 +199,7 @@ export const processEntityInput = (
       // Single-signer entity: immediate apply with transfer messages
       if (meta.quorum.length === 1) {
         const newState = input.txs.reduce(applyEntityTx, entity.state);
-        const transferMessages = registry ? generateTransferMessages(input.txs, meta.id, registry) : [];
+        const transferMessages = generateTransferMessages(input.txs, meta.id);
         return [{
           ...entity,
           height: entity.height + 1,
@@ -248,7 +244,7 @@ export const processEntityInput = (
       }
       // final apply with transfer messages
       const nextState = entity.proposed.txs.reduce(applyEntityTx, entity.state);
-      const transferMessages = registry ? generateTransferMessages(entity.proposed.txs, meta.id, registry) : [];
+      const transferMessages = generateTransferMessages(entity.proposed.txs, meta.id);
       return [{
         ...entity,
         height: entity.height + 1,
@@ -277,7 +273,7 @@ export const processServerTx = (
   if (!entity) return [server, []];
   
   // Remove the problematic replay check - it prevented multiple txs per entity per block
-  const [newEntity, msgs] = processEntityInput(entity, tx.input, tx.signer, meta, server.registry);
+  const [newEntity, msgs] = processEntityInput(entity, tx.input, tx.signer, meta);
   
   const newSignerMap = new Map(signerMap);
   newSignerMap.set(tx.entityId, newEntity);
@@ -308,8 +304,27 @@ export const processMempool = async (
 };
 
 export const routeMessages = (server: ServerState, msgs: OutboxMsg[]): ServerState => {
-  const next = msgs.map(m => ({ signer: m.toSigner, entityId: m.toEntity, input: m.input }));
-  return { ...server, mempool: [...server.mempool, ...next] };
+  const routed = msgs.map(msg => {
+    // If toSigner is specified, use it; otherwise look up in registry
+    if (msg.toSigner !== undefined) {
+      return { signer: msg.toSigner, entityId: msg.toEntity, input: msg.input };
+    }
+    
+    // Server knows which signer controls each entity
+    const meta = server.registry.get(msg.toEntity);
+    if (!meta) {
+      console.debug(`Dropping message to unknown entity: ${msg.toEntity}`);
+      return null;  // Drop if target doesn't exist
+    }
+    
+    return {
+      signer: meta.proposer,  // Server does the lookup
+      entityId: msg.toEntity,
+      input: msg.input
+    };
+  }).filter(Boolean) as ServerTx[];
+  
+  return { ...server, mempool: [...server.mempool, ...routed] };
 };
 
 // --- Auto-Propose Logic ---
