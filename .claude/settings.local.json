@@ -5,7 +5,9 @@
       "Bash(grep:*)",
       "Bash(bun:*)",
       "mcp__ide__getDiagnostics",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "Bash(mkdir:*)",
+      "Bash(ls:*)"
     ],
     "deny": []
   }

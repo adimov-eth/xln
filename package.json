@@ -1,25 +1,11 @@
 {
   "name": "minimalist-actor-model",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
   "scripts": {
-    "start": "bun demo.ts",
-    "dev": "bun --watch server.ts",
-    "demo": "bun demo.ts",
-    "demo:basic": "bun demo.ts basic",
-    "demo:stress": "bun demo.ts stress",
-    "demo:dao": "bun demo.ts dao",
-    "demo:hub": "bun demo.ts hub",
-    "demo:economy": "bun demo.ts economy",
-    "demo:all": "bun demo.ts all",
-    "sim:basic": "bun demo.ts basic",
-    "sim:stress": "bun demo.ts stress",
-    "sim:dao": "bun demo.ts dao",
-    "sim:hub": "bun demo.ts hub", 
-    "sim:economy": "bun demo.ts economy",
-    "sim:all": "bun demo.ts all",
-    "clean": "rm -rf data",
-    "fresh": "rm -rf data && bun demo.ts basic"
+    "test": "bun test",
+    "test:watch": "bun test --watch",
+    "clean": "rm -rf data"
   },
   "dependencies": {
     "ethers": "^6.14.3",
