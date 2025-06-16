@@ -32,17 +32,17 @@ import {
     Err,
     ErrorSeverity,
     Ok,
-    toBlockHash,
     toBlockHeight,
     toEntityId
 } from '../types';
 
 // Utils
 import { computeHash, computeStateHash } from '../utils/hash';
-import { createPipeline, ErrorCollectorImpl } from '../utils/pipeline';
+import { createPipeline } from '../utils/pipeline';
+import { ErrorCollectorAdapter } from '../utils/errorCollectorAdapter';
 
 // Core
-import { computeEntityBlockHash, transitionEntity, formatError } from './entity';
+import { transitionEntity, formatError, validateCmd, applyCmd } from './entity';
 
 // Registry operations
 export const createRegistry = (): Registry => new Map();
@@ -425,13 +425,11 @@ export const autoProposeStep: PipelineStep<BlockContextData> = async (ctx) => {
                 if (proposer !== signerIdx) continue;
                 
                 const txs = entity.mempool;
-                // Use same hash computation as entity.ts
-                const blockHash = toBlockHash(computeEntityBlockHash(txs, entity.height, entityId));
 
                 candidates.push({
                     signer: signerIdx,
                     entityId: entityId,
-                    input: { type: 'propose_block', txs, hash: blockHash }
+                    input: { type: 'propose_block', txs }
                 });
             }
         }
@@ -486,7 +484,7 @@ export async function processBlock(
         touchedEntities: new Set(),
         targetHeight,
         blockTxs,
-        errors: new ErrorCollectorImpl()
+        errors: new ErrorCollectorAdapter()
     };
     
     const result = await pipeline(initialContext);
@@ -631,7 +629,7 @@ export const validateTransactions = (
         
         // Special validation for propose_block
         if (tx.input.type === 'propose_block') {
-            const currentProposer = getCurrentProposer(meta, server.height);
+            const currentProposer = getCurrentProposer(meta, state.height);
             if (currentProposer !== tx.signer) {
                 invalid.push({ tx, reason: 'Not the current proposer' });
                 continue;
@@ -644,47 +642,6 @@ export const validateTransactions = (
     return { valid, invalid };
 };
 
-// Apply transactions and compute new state - pure function
-export const applyTransactions = (
-    server: ServerState,
-    validTxs: ServerTx[]
-): Result<{ server: ServerState; outbox: OutboxMsg[] }, string> => {
-    let currentServer = server;
-    const outbox: OutboxMsg[] = [];
-    
-    for (const tx of validTxs) {
-        const state = getEntityState(currentServer, tx.entityId);
-        const meta = currentServer.registry.get(tx.entityId);
-        if (!state || !meta) continue;
-        
-        const result = transitionEntity(state, tx.input, tx.signer, meta);
-        if (!result.ok) {
-            return Err(`Failed to apply transaction: ${formatError(result.error)}`);
-        }
-        
-        const [newState, messages] = result.value;
-        
-        // Update state
-        currentServer = updateEntityState(currentServer, tx.entityId, newState);
-        
-        // Collect outbox messages
-        outbox.push(...messages);
-    }
-    
-    // Convert outbox to new transactions
-    const newTxs = outbox
-        .filter(msg => msg.toSigner !== undefined)
-        .map(msg => ({
-            signer: msg.toSigner!,
-            entityId: msg.toEntity,
-            input: msg.input
-        }));
-    
-    return Ok({
-        server: { ...currentServer, mempool: newTxs },
-        outbox
-    });
-};
 
 // Simplified block processing - just 3 steps: validate → apply → persist
 export const processBlockSimplified = async (
@@ -709,17 +666,47 @@ export const processBlockSimplified = async (
         return Ok(newState);
     }
     
-    // 2. APPLY
-    const applyResult = applyTransactions(server, valid);
-    if (!applyResult.ok) {
-        return Err(applyResult.error);
+    // 2. APPLY - use the two-phase validateCmd/applyCmd logic
+    let intermediate = server;
+    let outbox: OutboxMsg[] = [];
+    const reInvalid: Array<{ tx: ServerTx; reason: string }> = [];
+
+    for (const tx of valid) {
+        const meta = intermediate.registry.get(tx.entityId)!;
+        const prior = getEntityState(intermediate, tx.entityId)!;
+
+        // 1) validation
+        const v = validateCmd(prior, tx.input, tx.signer, meta);
+        if (!v.ok) {
+            reInvalid.push({ tx, reason: formatError(v.error) });
+            continue;
+        }
+
+        // 2) apply
+        const [nextState, msgs] = applyCmd(prior, v.value, meta);
+        intermediate = updateEntityState(intermediate, tx.entityId, nextState);
+        outbox.push(...msgs);
     }
-    
+
+    if (reInvalid.length > 0) {
+        console.warn('Some transactions failed validation/apply:', reInvalid);
+    }
+
+    // Convert outbox messages to server transactions
+    const newTxs = outbox
+        .filter(msg => msg.toSigner !== undefined)
+        .map(msg => ({
+            signer: msg.toSigner!,
+            entityId: msg.toEntity,
+            input: msg.input
+        }));
+
     const newState = {
-        ...applyResult.value.server,
-        height: nextHeight
+        ...intermediate,
+        height: nextHeight,
+        mempool: newTxs
     };
-    
+
     // 3. PERSIST
     if (storage) {
         try {

@@ -1,261 +1,259 @@
-import type { ArchiveStorage, BlockHeight, BlockStorage, KV, Registry, ServerState, ServerTx, StateStorage, Storage, WalStorage } from '../types';
+import type {
+  ArchiveStorage,
+  BlockStorage,
+  KV,
+  Registry,
+  ServerState,
+  ServerTx,
+  StateStorage,
+  Storage as StorageInterface,
+  WalStorage,
+  BlockHeight,
+  EntityId,
+  SignerIdx
+} from '../types';
 import { toBlockHeight, toEntityId, toSignerIdx } from '../types';
+import { keys, keyPrefixes } from './keys';
 
-// Storage interfaces using the KV abstraction
-
-
-
-// Key helpers
-const pad = (n: number | BlockHeight) => n.toString().padStart(10, '0');
-
-export const keys = {
-  state: (signer: number, entityId: string) => `state:${signer}:${entityId}`,
-  registry: () => 'state:registry',
-  meta: () => 'state:meta',
-  wal: (height: BlockHeight, signer: number, entityId: string) => 
-    `wal:${pad(height)}:${signer}:${entityId}`,
-  walRegistry: (height: BlockHeight, id: string) => 
-    `wal:reg:${pad(height)}:${id}`,
-  block: (height: BlockHeight) => `block:${pad(height)}`,
-  archive: (hash: string) => `archive:${hash}`,
-};
-
-
-
-// State storage implementation
-export class StateStorageImpl implements StateStorage {
-  constructor(private kv: KV) {}
-  
-  async save(state: ServerState): Promise<void> {
-    const batch: { type: 'put' | 'del'; key: string; value?: string }[] = [];
-    
-    // Save registry
-    batch.push({
-      type: 'put',
-      key: keys.registry(),
-      value: JSON.stringify([...state.registry])
-    });
-    
-    // Save entities
-    for (const [signerIdx, entities] of state.signers) {
-      for (const [entityId, entity] of entities) {
-        batch.push({
-          type: 'put',
-          key: keys.state(Number(signerIdx), entityId),
-          value: JSON.stringify({
-            ...entity,
-            ...(entity.tag !== 'Faulted' && entity.state && {
-              state: { ...entity.state, balance: entity.state?.balance?.toString() }
+/**
+ * Factory for state storage
+ */
+export function createStateStorage(kv: KV): StateStorage {
+  return {
+    async save(state: ServerState) {
+      const batch: Array<{ type: 'put' | 'del'; key: string; value?: string }> = [];
+      
+      // Save registry
+      batch.push({
+        type: 'put',
+        key: keys.registry(),
+        value: JSON.stringify([...state.registry])
+      });
+      
+      // Save entities
+      for (const [signerIdx, entities] of state.signers) {
+        for (const [entityId, entity] of entities) {
+          batch.push({
+            type: 'put',
+            key: keys.state(signerIdx, entityId),
+            value: JSON.stringify({
+              ...entity,
+              ...(entity.tag !== 'Faulted' && entity.state && {
+                state: { ...entity.state, balance: entity.state.balance.toString() }
+              })
             })
-          })
-        });
+          });
+        }
       }
-    }
-    
-    // Save metadata
-    batch.push({
-      type: 'put',
-      key: keys.meta(),
-      value: state.height.toString()
-    });
-    
-    await this.kv.batch(batch);
-  }
-  
-  async load(): Promise<ServerState | null> {
-    try {
-      const heightStr = await this.kv.get(keys.meta());
+      
+      // Save metadata
+      batch.push({
+        type: 'put',
+        key: keys.meta(),
+        value: state.height.toString()
+      });
+      
+      await kv.batch(batch);
+    },
+
+    async load() {
+      const heightStr = await kv.get(keys.meta());
       if (!heightStr) return null;
       
-      const height = toBlockHeight(parseInt(heightStr));
+      const height = toBlockHeight(parseInt(heightStr, 10));
       
       // Load registry
-      const registryData = await this.kv.get(keys.registry());
-      const registry: Registry = new Map(JSON.parse(registryData || '[]').map(([id, meta]: [string, any]) => [
-        toEntityId(id),
-        { id: toEntityId(id), quorum: meta.quorum.map(toSignerIdx), timeoutMs: meta.timeoutMs }
-      ]));
+      const registryData = await kv.get(keys.registry()) || '[]';
+      const registry: Registry = new Map(
+        JSON.parse(registryData).map(([id, meta]: [string, any]) => [
+          toEntityId(id),
+          { 
+            id: toEntityId(id), 
+            quorum: meta.quorum.map(toSignerIdx), 
+            timeoutMs: meta.timeoutMs 
+          }
+        ])
+      );
       
       // Load entities
-      const signers = new Map();
+      const signers = new Map<SignerIdx, Map<EntityId, any>>();
       
-      for await (const [key, value] of this.kv.iterator({ gte: 'state:', lt: 'state:\\xff' })) {
+      for await (const [key, value] of kv.iterator({ 
+        gte: keyPrefixes.state, 
+        lt: keyPrefixes.state + '\xff' 
+      })) {
         if (key === keys.registry() || key === keys.meta()) continue;
         
-        const parts = key.split(':');
-        if (parts.length !== 3) continue;
+        const [, signerStr, entityId] = key.split(':');
+        if (!signerStr || !entityId) continue;
         
-        const signerIdx = toSignerIdx(parseInt(parts[1]!));
-        const entityId = toEntityId(parts[2]!);
+        const signerIdx = toSignerIdx(parseInt(signerStr, 10));
         
         if (!signers.has(signerIdx)) {
           signers.set(signerIdx, new Map());
         }
         
-        const entityData = JSON.parse(value);
+        const data = JSON.parse(value);
         const entity = {
-          ...entityData,
-          state: entityData.state ? {
-            ...entityData.state,
-            balance: entityData.state.balance ? BigInt(entityData.state.balance) : 0n
-          } : undefined
+          ...data,
+          state: data.state
+            ? { ...data.state, balance: BigInt(data.state.balance) }
+            : undefined
         };
         
-        signers.get(signerIdx)!.set(entityId, entity);
+        signers.get(signerIdx)!.set(toEntityId(entityId), entity);
       }
       
       return { height, registry, signers, mempool: [] };
-    } catch (err) {
-      return null;
     }
-  }
+  };
 }
 
-// WAL storage implementation
-export class WalStorageImpl implements WalStorage {
-  constructor(private kv: KV) {}
-  
-  async append(height: BlockHeight, txs: ServerTx[]): Promise<void> {
-    const batch: { type: 'put'; key: string; value: string }[] = [];
-    
-    for (const tx of txs) {
-      batch.push({
-        type: 'put',
-        key: keys.wal(height, Number(tx.signer), tx.entityId),
-        value: JSON.stringify(tx)
-      });
-    }
-    
-    await this.kv.batch(batch);
-  }
-  
-  async getFromHeight(height: BlockHeight): Promise<ServerTx[]> {
-    const txs: ServerTx[] = [];
-    const pad = (n: number) => n.toString().padStart(10, '0');
-    
-    for await (const [key, value] of this.kv.iterator({
-      gte: `wal:${pad(Number(height))}:`,
-      lt: 'wal:\\xff'
-    })) {
-      try {
-        const tx = JSON.parse(value);
+/**
+ * Factory for WAL storage
+ */
+export function createWalStorage(kv: KV): WalStorage {
+  return {
+    async append(height, txs) {
+      const batch: Array<{ type: 'put'; key: string; value: string }> = [];
+      
+      for (const tx of txs) {
+        batch.push({
+          type: 'put',
+          key: keys.wal(height, tx.signer, tx.entityId),
+          value: JSON.stringify(tx)
+        });
+      }
+      
+      await kv.batch(batch);
+    },
+
+    async getFromHeight(height) {
+      const txs: ServerTx[] = [];
+      const startKey = keys.wal(height, toSignerIdx(0), toEntityId(''));
+      const prefix = startKey.substring(0, startKey.lastIndexOf(':') + 1);
+      
+      for await (const [key, val] of kv.iterator({ 
+        gte: prefix, 
+        lt: keyPrefixes.wal + '\xff' 
+      })) {
+        const tx = JSON.parse(val);
         txs.push({
           signer: toSignerIdx(tx.signer),
           entityId: toEntityId(tx.entityId),
           input: tx.input
         });
-      } catch (err) {
-        console.debug(`Failed to parse WAL entry ${key}:`, err);
       }
+      
+      return txs;
+    },
+
+    async truncateBefore(height) {
+      const batch: Array<{ type: 'del'; key: string }> = [];
+      const endKey = keys.wal(height, toSignerIdx(0), toEntityId(''));
+      const prefix = endKey.substring(0, endKey.lastIndexOf(':') + 1);
+      
+      for await (const [key] of kv.iterator({ 
+        gte: keyPrefixes.wal, 
+        lt: prefix 
+      })) {
+        batch.push({ type: 'del', key });
+      }
+      
+      await kv.batch(batch);
     }
-    
-    return txs;
-  }
-  
-  async truncateBefore(height: BlockHeight): Promise<void> {
-    const batch: { type: 'del'; key: string }[] = [];
-    const pad = (n: number) => n.toString().padStart(10, '0');
-    
-    for await (const [key] of this.kv.iterator({
-      gte: 'wal:',
-      lt: `wal:${pad(Number(height))}:`
-    })) {
-      batch.push({ type: 'del', key });
-    }
-    
-    await this.kv.batch(batch);
-  }
-}
-
-// Block storage implementation
-export class BlockStorageImpl implements BlockStorage {
-  constructor(private kv: KV) {}
-  
-  async save(height: BlockHeight, data: any): Promise<void> {
-    await this.kv.put(keys.block(height), JSON.stringify(data));
-  }
-  
-  async get(height: BlockHeight): Promise<any> {
-    const data = await this.kv.get(keys.block(height));
-    return data ? JSON.parse(data) : null;
-  }
-}
-
-// Archive storage implementation
-export class ArchiveStorageImpl implements ArchiveStorage {
-  constructor(private kv: KV) {}
-  
-  async save(hash: string, snapshot: any): Promise<void> {
-    await this.kv.put(keys.archive(hash), JSON.stringify(snapshot));
-  }
-  
-  async get(hash: string): Promise<any> {
-    const data = await this.kv.get(keys.archive(hash));
-    return data ? JSON.parse(data) : null;
-  }
-}
-
-// Create storage instance
-export function createStorage(kv: KV): Storage {
-  return {
-    state: new StateStorageImpl(kv),
-    wal: new WalStorageImpl(kv),
-    blocks: new BlockStorageImpl(kv),
-    archive: new ArchiveStorageImpl(kv),
-    refs: kv
   };
 }
 
+/**
+ * Factory for block storage
+ */
+export function createBlockStorage(kv: KV): BlockStorage {
+  return {
+    async save(height, data) {
+      await kv.put(keys.block(height), JSON.stringify(data));
+    },
+    
+    async get(height) {
+      const raw = await kv.get(keys.block(height));
+      return raw ? JSON.parse(raw) : null;
+    }
+  };
+}
 
-// In-memory key-value store for testing
+/**
+ * Factory for archive storage
+ */
+export function createArchiveStorage(kv: KV): ArchiveStorage {
+  return {
+    async save(hash, snapshot) {
+      await kv.put(keys.archive(hash), JSON.stringify(snapshot));
+    },
+    
+    async get(hash) {
+      const raw = await kv.get(keys.archive(hash));
+      return raw ? JSON.parse(raw) : null;
+    }
+  };
+}
 
-  
-  export class MemoryKV implements KV {
-    private store: Map<string, string> = new Map();
+/**
+ * Factory for reference storage (simple KV wrapper with ref: prefix)
+ */
+export function createRefStorage(kv: KV): KV {
+  return {
+    async get(name) {
+      return kv.get(keys.ref(name));
+    },
     
-    async get(key: string): Promise<string | undefined> {
-      return this.store.get(key);
-    }
+    async put(name, value) {
+      await kv.put(keys.ref(name), value);
+    },
     
-    async put(key: string, val: string): Promise<void> {
-      this.store.set(key, val);
-    }
+    async del(name) {
+      await kv.del(keys.ref(name));
+    },
     
-    async del(key: string): Promise<void> {
-      this.store.delete(key);
-    }
+    async batch(ops) {
+      const prefixedOps = ops.map(op => ({
+        ...op,
+        key: keys.ref(op.key)
+      }));
+      await kv.batch(prefixedOps);
+    },
     
-    async batch(ops: { type: 'put' | 'del'; key: string; value?: string }[]): Promise<void> {
-      for (const op of ops) {
-        if (op.type === 'put' && op.value !== undefined) {
-          this.store.set(op.key, op.value);
-        } else if (op.type === 'del') {
-          this.store.delete(op.key);
-        }
-      }
-    }
-    
-    async *iterator(options?: { gte?: string; lt?: string }): AsyncIterable<[string, string]> {
-      const entries = Array.from(this.store.entries())
-        .sort(([a], [b]) => a.localeCompare(b));
+    async *iterator(options) {
+      const prefixedOptions = options ? {
+        gte: options.gte ? keys.ref(options.gte) : keyPrefixes.ref,
+        lt: options.lt ? keys.ref(options.lt) : keyPrefixes.ref + '\xff'
+      } : {
+        gte: keyPrefixes.ref,
+        lt: keyPrefixes.ref + '\xff'
+      };
       
-      for (const [key, value] of entries) {
-        if (options?.gte && key < options.gte) continue;
-        if (options?.lt && key >= options.lt) break;
-        yield [key, value];
+      for await (const [key, value] of kv.iterator(prefixedOptions)) {
+        // Strip ref: prefix
+        yield [key.substring(4), value];
       }
     }
-    
-    // Helper methods for testing
-    clear(): void {
-      this.store.clear();
-    }
-    
-    size(): number {
-      return this.store.size;
-    }
-    
-    entries(): [string, string][] {
-      return Array.from(this.store.entries());
-    }
-  }
+  };
+}
+
+/**
+ * Assemble the full Storage interface
+ */
+export function createStorage(kv: KV): StorageInterface {
+  return {
+    state: createStateStorage(kv),
+    wal: createWalStorage(kv),
+    blocks: createBlockStorage(kv),
+    archive: createArchiveStorage(kv),
+    refs: createRefStorage(kv)
+  };
+}
+
+// Export the MemoryKV implementation separately
+export { MemoryKV } from './memory';
+
+// Re-export keys for convenience
+export { keys, keyPrefixes } from './keys';
