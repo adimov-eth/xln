@@ -6,12 +6,12 @@
 // Export all key types
 export type { BlockHash, BlockHeight, EntityId, SignerIdx } from './src/types/primitives.js';
 
-export type { CommandResult, Result } from './src/types/result.js';
+export type { Result } from './src/types/result.js';
 
 export type { EntityCommand, EntityState, OutboxMsg, ServerState, ServerTx } from './src/types/state.js';
 
 export type {
-    Protocol, ProtocolRegistry
+  Protocol, ProtocolRegistry
 } from './src/types/protocol.js';
 
 // Export utilities

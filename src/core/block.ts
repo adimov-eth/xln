@@ -4,9 +4,9 @@
 
 import { height } from '../types/primitives.js';
 import type { ProtocolRegistry } from '../types/protocol.js';
-import type { CommandResult, Result } from '../types/result.js';
+import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
-import type { EntityMeta, OutboxMsg, ServerState, ServerTx } from '../types/state.js';
+import type { CommandResult, EntityMeta, OutboxMsg, ServerState, ServerTx } from '../types/state.js';
 import { computeStateHash } from '../utils/hash.js';
 import { assoc } from '../utils/immutable.js';
 import { processEntityCommand } from './entity/commands.js';
