@@ -202,11 +202,14 @@ export const processBlockPure = (ctx: BlockContext): Result<ProcessedBlock> => {
     mempool: [...routedTxs, ...autoProposeTxs]
   };
   
+  // P-3 FIX: Only include successfully applied transactions
+  const appliedTxs = validationResult.value.map(entry => entry.tx);
+  
   return Ok({
     server: finalServer,
     stateHash: computeStateHash(finalServer),
-    appliedTxs: server.mempool,
-    failedTxs: [],
+    appliedTxs: appliedTxs,
+    failedTxs: [], // Currently no transactions fail in validation
     messages: allMessages
   });
 }; 

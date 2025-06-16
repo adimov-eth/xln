@@ -160,12 +160,18 @@ console.log('Alice balance:', scenario.getEntity('alice')?.data.balance);
 
 ## 🆕 v2.2 Improvements
 
-Two critical security fixes have been implemented:
+Critical security fixes and polish improvements have been implemented:
 
+**Security Fixes:**
 - **N-1: WAL Double-Append Prevention**: Fixed recovery process to prevent duplicate WAL entries during crash recovery
 - **N-2: Credit Validation Hardening**: Direct credit submissions are now properly rejected; only system-generated credits from transfers are allowed
 
-These fixes ensure the ledger is production-ready for single-node or trusted-peer deployments.
+**Polish Improvements:**
+- **P-2: Consistent BigInt Parsing**: `validateInternalCredit` now uses the `parseBigInt` helper for consistent parsing
+- **P-3: Accurate Applied Transactions**: `processBlockPure` now correctly reports only successfully applied transactions
+- **P-4: Precise Queue Guard**: Mutex queue guard now uses `>=` to prevent overflow exactly at the limit
+
+These fixes ensure the ledger is production-ready for single-node or trusted-peer deployments with improved code consistency.
 
 ## 🔧 Architecture Highlights
 
@@ -246,5 +252,6 @@ After replay attempt:
 ✅ **Testing Infrastructure**: Scenario-based testing with fluent API  
 ✅ **Performance Optimized**: Copy-on-write and caching optimizations  
 ✅ **Security Hardened**: v2.2 fixes prevent WAL corruption and credit forgery  
+✅ **Code Consistency**: Polish improvements ensure uniform parsing and accurate reporting  
 
-This implementation demonstrates enterprise-grade software engineering practices while maintaining the elegant simplicity of functional programming. The v2.2 release is production-ready for single-node or trusted-peer deployments! 🚀
+This implementation demonstrates enterprise-grade software engineering practices while maintaining the elegant simplicity of functional programming. The v2.2 release is production-ready for single-node or trusted-peer deployments with enhanced code quality! 🚀

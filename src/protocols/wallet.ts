@@ -61,7 +61,16 @@ const validateInternalCredit = (tx: EntityTx): Result<WalletOp> => {
     return Err('Invalid internal credit');
   }
   
-  const amount = typeof tx.data.amount === 'string' ? BigInt(tx.data.amount) : tx.data.amount;
+  // P-2 FIX: Use parseBigInt helper for consistent parsing
+  const parseBigInt = (value: any): bigint => {
+    if (typeof value === 'bigint') return value;
+    if (typeof value === 'string' || typeof value === 'number') {
+      return BigInt(value);
+    }
+    return 0n;
+  };
+  
+  const amount = parseBigInt(tx.data.amount);
   if (amount <= 0n) return Err('Amount must be positive');
   
   return Ok({ 
