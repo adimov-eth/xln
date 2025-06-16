@@ -13,6 +13,7 @@ export function isNonced(state: unknown): state is Nonced {
         typeof state === 'object' &&
         state !== null &&
         'nonce' in state &&
-        typeof (state as any).nonce === 'number'
+        typeof (state as any).nonce === 'number' &&
+        Number.isSafeInteger((state as any).nonce)
     );
 }

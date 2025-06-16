@@ -64,12 +64,25 @@ export const computeStateHash = (entities: Map<EntityId, EntityState>): string =
 // Registry management
 export const createRegistry = (): Registry => new Map();
 
+// Maximum allowed quorum size to prevent performance issues
+const MAX_QUORUM_SIZE = 1_000_000;
+
 export const registerEntity = (
     registry: Registry,
     id: string,
     signers: SignerIdx[],
     timeoutMs?: number
 ): Registry => {
+    // Validate quorum size to prevent performance issues
+    if (signers.length > MAX_QUORUM_SIZE) {
+        throw new Error(`Quorum size ${signers.length} exceeds maximum allowed size of ${MAX_QUORUM_SIZE}`);
+    }
+    
+    // Validate quorum has at least one signer
+    if (signers.length === 0) {
+        throw new Error('Quorum must have at least one signer');
+    }
+    
     const newRegistry = new Map(registry);
     newRegistry.set(toEntityId(id), {
         id: toEntityId(id),
@@ -99,6 +112,15 @@ export const addEntityToServer = (
     meta: EntityMeta,
     entity: EntityState
 ): ServerState => {
+    // Validate quorum size before adding
+    if (meta.quorum.length > MAX_QUORUM_SIZE) {
+        throw new Error(`Quorum size ${meta.quorum.length} exceeds maximum allowed size of ${MAX_QUORUM_SIZE}`);
+    }
+    
+    if (meta.quorum.length === 0) {
+        throw new Error('Quorum must have at least one signer');
+    }
+    
     const newEntities = new Map(server.entities);
     const newRegistry = new Map(server.registry);
     
@@ -192,10 +214,11 @@ export const validateTransactions = (
 };
 
 /**
- * Process a block of transactions through 3 clear phases:
+ * Process a block of transactions through 4 clear phases:
  * 1. Validate - Check authorization and business rules
- * 2. Apply - Update entity states and collect messages
- * 3. Persist - Save state and route messages
+ * 2. Write-Ahead Log - Persist valid transactions before processing
+ * 3. Apply - Update entity states and collect messages
+ * 4. Persist - Save state and route messages
  */
 export const processBlock = async (
     server: ServerState,
@@ -212,14 +235,41 @@ export const processBlock = async (
     
     if (valid.length === 0) {
         // Just increment height if no valid transactions
-        const newState = { ...server, height: nextHeight, mempool: [] };
+        // But we need to update entity heights too for consistent state hash
+        const newEntities = new Map(server.entities);
+        for (const [entityId, entity] of newEntities) {
+            // Only update height for entities in Idle state
+            if (entity.tag === 'Idle') {
+                newEntities.set(entityId, {
+                    ...entity,
+                    height: nextHeight
+                });
+            }
+        }
+        
+        const newState = { 
+            ...server, 
+            height: nextHeight, 
+            mempool: [],
+            entities: newEntities
+        };
+        
         if (storage) {
             await persistState(storage, nextHeight, newState);
         }
         return Ok(newState);
     }
     
-    // 2. APPLY - use the two-phase validateCmd/applyCmd logic
+    // 2. WRITE AHEAD LOG - persist valid transactions before processing
+    if (storage && 'wal' in storage && valid.length > 0) {
+        try {
+            await storage.wal.append(nextHeight, valid);
+        } catch (error) {
+            return Err(`Failed to write WAL: ${error}`);
+        }
+    }
+
+    // 3. APPLY - use the two-phase validateCmd/applyCmd logic
     let intermediate = server;
     let outbox: OutboxMsg[] = [];
     const processed: ServerTx[] = [];
@@ -254,7 +304,7 @@ export const processBlock = async (
         mempool: [...routedMessages, ...autoProposals]
     };
 
-    // 3. PERSIST
+    // 4. PERSIST
     if (storage) {
         await persistState(storage, nextHeight, newState, processed);
     }
@@ -353,10 +403,7 @@ const persistState = async (
     } else {
         // Full Storage interface
         try {
-            // Write WAL if we have transactions
-            if (transactions && transactions.length > 0) {
-                await storage.wal.append(height, transactions);
-            }
+            // Note: WAL has already been written in processBlock before state processing
             
             // Save block data
             const blockData = {

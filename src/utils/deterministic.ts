@@ -4,10 +4,17 @@ export const toDeterministicJson = (value: unknown): unknown => {
   if (['string','number','boolean'].includes(typeof value)) return value;
   
   if (Array.isArray(value)) {
-    // Sort arrays by their JSON representation to ensure deterministic hashing
-    return value
-      .map(toDeterministicJson)
-      .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+    // Pre-compute canonical form and JSON representation for each element
+    const items = value.map(item => {
+      const canonical = toDeterministicJson(item);
+      return { canonical, json: JSON.stringify(canonical) };
+    });
+    
+    // Sort by pre-computed JSON representation
+    items.sort((a, b) => a.json.localeCompare(b.json));
+    
+    // Return just the canonical forms
+    return items.map(item => item.canonical);
   }
   if (value instanceof Set) return Array.from(value).sort().map(toDeterministicJson);
   if (value instanceof Map) return Array.from(value.entries())

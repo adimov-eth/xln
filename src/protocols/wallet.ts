@@ -61,7 +61,7 @@ const applyWalletOp = (state: WalletState, op: WalletOp): Result<WalletState, st
     case 'credit':
       return Ok({
         balance: state.balance + op.amount,
-        nonce: state.nonce + 1
+        nonce: state.nonce  // Don't increment nonce on passive receipt
       });
     
     case 'burn':

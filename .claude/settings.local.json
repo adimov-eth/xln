@@ -11,7 +11,8 @@
       "Bash(bun test:*)",
       "Bash(tree:*)",
       "Bash(bunx madge:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(rg:*)"
     ],
     "deny": []
   }

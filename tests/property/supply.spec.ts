@@ -19,7 +19,7 @@ const arbInitialState = () =>
     balance: fc.bigInt(0n, 1000000000000n)
   });
 
-const arbServerWithEntities = fc.tuple(fc.integer({ min: 2, max: 5 }), arbSignerIdx()).chain(([numEntities, numSigners]) => {
+const arbServerWithEntities = fc.tuple(fc.integer({ min: 2, max: 5 }), fc.integer({ min: 1, max: 10 })).chain(([numEntities, numSigners]) => {
     return fc.record({
       entityIds: fc.array(arbEntityId(), { minLength: numEntities, maxLength: numEntities }),
       signers: fc.array(arbSignerIdx(), { minLength: numSigners, maxLength: numSigners }),
