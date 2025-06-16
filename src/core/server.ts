@@ -372,11 +372,12 @@ export const autoProposeStep: PipelineStep<BlockContextData> = async (ctx) => {
                 
                 const txs = entity.mempool;
                 // Use same hash computation as entity.ts
-                const blockHash = computeEntityBlockHash(txs, entity.height, entityId);
+                const blockHash = toBlockHash(computeEntityBlockHash(txs, entity.height, entityId));
+
                 candidates.push({
                     signer: signerIdx,
                     entityId: entityId,
-                    input: { type: 'propose_block', txs, hash: toBlockHash(blockHash) }
+                    input: { type: 'propose_block', txs, hash: blockHash }
                 });
             }
         }
