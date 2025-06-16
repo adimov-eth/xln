@@ -35,7 +35,7 @@ export class ErrorCollector {
   
   format(): string {
     return this.errors.map(({ error, severity, context }) => 
-      `[${ErrorSeverity[severity]}] ${error?.message || error} ${context ? JSON.stringify(context) : ''}`
+      `[${severity}] ${error?.message || error} ${context ? JSON.stringify(context) : ''}`
     ).join('\n');
   }
   
@@ -45,10 +45,10 @@ export class ErrorCollector {
 }
 
 export enum ErrorSeverity {
-  DEBUG = 0,
-  WARNING = 1,
-  ERROR = 2,
-  CRITICAL = 3
+  DEBUG = 'DEBUG',
+  WARNING = 'WARNING',
+  ERROR = 'ERROR',
+  CRITICAL = 'CRITICAL'
 }
 
 export function createPipeline<T>(...steps: PipelineStep<T>[]): PipelineStep<T> {

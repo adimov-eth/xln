@@ -1,5 +1,5 @@
-import { ServerTx, BlockHeight, ServerState, toBlockHeight, toEntityId, toSignerIdx } from '../core/types/primitives';
-import { StateStorage, WalStorage, BlockStorage, ArchiveStorage, Storage, keys } from './interfaces';
+import { BlockHeight, Registry, ServerState, ServerTx, toBlockHeight, toEntityId, toSignerIdx } from '../core/types/primitives';
+import { ArchiveStorage, BlockStorage, StateStorage, Storage, WalStorage, keys } from './interfaces';
 import { KV } from './kvMemory';
 
 // State storage implementation
@@ -24,7 +24,9 @@ export class StateStorageImpl implements StateStorage {
           key: keys.state(Number(signerIdx), entityId),
           value: JSON.stringify({
             ...entity,
-            state: { ...entity.state, balance: entity.state?.balance?.toString() }
+            ...(entity.tag !== 'Faulted' && entity.state && {
+              state: { ...entity.state, balance: entity.state?.balance?.toString() }
+            })
           })
         });
       }
@@ -49,7 +51,7 @@ export class StateStorageImpl implements StateStorage {
       
       // Load registry
       const registryData = await this.kv.get(keys.registry());
-      const registry = new Map(JSON.parse(registryData || '[]').map(([id, meta]: [string, any]) => [
+      const registry: Registry = new Map(JSON.parse(registryData || '[]').map(([id, meta]: [string, any]) => [
         toEntityId(id),
         { ...meta, id: toEntityId(id), quorum: meta.quorum.map(toSignerIdx), proposer: toSignerIdx(meta.proposer) }
       ]));

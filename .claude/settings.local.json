@@ -7,7 +7,8 @@
       "mcp__ide__getDiagnostics",
       "Bash(rg:*)",
       "Bash(mkdir:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": []
   }

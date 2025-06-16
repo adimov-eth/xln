@@ -1,6 +1,7 @@
 import {
   EntityState, EntityInput, EntityTx, OutboxMsg, EntityMeta, SignerIdx,
-  Result, Ok, Err, ProcessingError, toBlockHash, toBlockHeight
+  EntityId, BlockHeight, Result, Ok, Err, ProcessingError, 
+  toEntityId, toBlockHash, toBlockHeight
 } from '../types/primitives';
 
 // Pure function to apply entity transaction to state
@@ -277,6 +278,3 @@ function handleCommittingState(
       }, transferMessages]);
   }
 }
-
-// Helper to fix missing import
-import { EntityId, toEntityId } from '../types/primitives';

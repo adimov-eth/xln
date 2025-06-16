@@ -29,10 +29,10 @@ export const Err = <E>(error: E): Err<E> => ({ ok: false, error });
 
 // Entity state discriminated union
 export type EntityState =
-  | { tag: 'Idle'; height: BlockHeight; state: any; mempool: EntityTx[]; lastBlockHash?: BlockHash }
-  | { tag: 'Proposed'; height: BlockHeight; state: any; mempool: EntityTx[]; proposal: ProposedBlock; lastBlockHash?: BlockHash }
-  | { tag: 'Committing'; height: BlockHeight; state: any; mempool: EntityTx[]; proposal: ProposedBlock; lastBlockHash?: BlockHash }
-  | { tag: 'Faulted'; reason: string; height: BlockHeight };
+  | { tag: 'Idle'; height: BlockHeight; state: any; mempool: EntityTx[]; lastBlockHash?: BlockHash; lastProcessedHeight?: BlockHeight }
+  | { tag: 'Proposed'; height: BlockHeight; state: any; mempool: EntityTx[]; proposal: ProposedBlock; lastBlockHash?: BlockHash; lastProcessedHeight?: BlockHeight }
+  | { tag: 'Committing'; height: BlockHeight; state: any; mempool: EntityTx[]; proposal: ProposedBlock; lastBlockHash?: BlockHash; lastProcessedHeight?: BlockHeight }
+  | { tag: 'Faulted'; reason: string; height: BlockHeight; lastProcessedHeight?: BlockHeight };
 
 // Entity transaction type
 export type EntityTx = { op: string; data: any };

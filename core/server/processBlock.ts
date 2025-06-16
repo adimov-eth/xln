@@ -8,9 +8,10 @@ import {
   PipelineContext, PipelineStep, ErrorCollector, ErrorSeverity, 
   createPipeline 
 } from '../../utils/pipeline';
+import { computeStateHash, computeHash } from '../../utils/hash';
 
-// Pipeline context type
-type BlockContext = {
+// Pipeline context base type (without errors field)
+type BlockContextBase = {
   server: ServerState;
   messages: OutboxMsg[];
   touchedEntities: Set<string>;
@@ -21,11 +22,19 @@ type BlockContext = {
   stateChanges?: Map<string, any>;
 };
 
+// Full context type with errors from PipelineContext
+type BlockContext = PipelineContext<BlockContextBase>;
+
 // Phase 0: Pure validation
-const validateTransactionsStep: PipelineStep<BlockContext> = async (ctx) => {
+const validateTransactionsStep: PipelineStep<BlockContextBase> = async (ctx) => {
   const { server, blockTxs, errors } = ctx;
   const validatedTxs: ServerTx[] = [];
   const stateChanges = new Map<string, any>();
+  
+  // If no transactions, nothing to validate
+  if (blockTxs.length === 0) {
+    return { ...ctx, validatedTxs: [], stateChanges: new Map() };
+  }
   
   // Create a copy of server state for validation
   const tempSigners = new Map(server.signers);
@@ -82,7 +91,7 @@ const validateTransactionsStep: PipelineStep<BlockContext> = async (ctx) => {
 };
 
 // Phase 1: WAL write (atomic)
-const writeWalStep = (storage?: Storage): PipelineStep<BlockContext> => 
+const writeWalStep = (storage?: Storage): PipelineStep<BlockContextBase> => 
   async (ctx) => {
     if (!storage || !ctx.validatedTxs || ctx.validatedTxs.length === 0) {
       return ctx;
@@ -101,7 +110,7 @@ const writeWalStep = (storage?: Storage): PipelineStep<BlockContext> =>
   };
 
 // Phase 2: Apply validated changes
-const applyChangesStep: PipelineStep<BlockContext> = async (ctx) => {
+const applyChangesStep: PipelineStep<BlockContextBase> = async (ctx) => {
   if (ctx.errors.hasCritical() || !ctx.stateChanges) {
     return ctx;
   }
@@ -132,7 +141,7 @@ const applyChangesStep: PipelineStep<BlockContext> = async (ctx) => {
 };
 
 // Update lastProcessedHeight for touched entities
-const updateProcessedHeightStep: PipelineStep<BlockContext> = async (ctx) => {
+const updateProcessedHeightStep: PipelineStep<BlockContextBase> = async (ctx) => {
   if (ctx.errors.hasCritical()) return ctx;
   
   const updatedSigners = new Map(ctx.server.signers);
@@ -157,7 +166,7 @@ const updateProcessedHeightStep: PipelineStep<BlockContext> = async (ctx) => {
 };
 
 // Store block data
-const storeBlockStep = (storage?: Storage): PipelineStep<BlockContext> =>
+const storeBlockStep = (storage?: Storage): PipelineStep<BlockContextBase> =>
   async (ctx) => {
     if (!storage || ctx.errors.hasCritical() || ctx.blockTxs.length === 0) {
       return ctx;
@@ -183,7 +192,7 @@ const storeBlockStep = (storage?: Storage): PipelineStep<BlockContext> =>
   };
 
 // Archive snapshot at intervals
-const archiveSnapshotStep = (storage?: Storage, interval = 100): PipelineStep<BlockContext> =>
+const archiveSnapshotStep = (storage?: Storage, interval = 100): PipelineStep<BlockContextBase> =>
   async (ctx) => {
     if (!storage || ctx.errors.hasCritical()) {
       return ctx;
@@ -212,7 +221,7 @@ const archiveSnapshotStep = (storage?: Storage, interval = 100): PipelineStep<Bl
   };
 
 // Route messages
-const routeMessagesStep: PipelineStep<BlockContext> = async (ctx) => {
+const routeMessagesStep: PipelineStep<BlockContextBase> = async (ctx) => {
   const routed: ServerTx[] = ctx.messages.map(msg => {
     // If toSigner is specified, use it; otherwise look up in registry
     if (msg.toSigner !== undefined) {
@@ -243,7 +252,7 @@ const routeMessagesStep: PipelineStep<BlockContext> = async (ctx) => {
 };
 
 // Auto-propose for single signers
-const autoProposeStep: PipelineStep<BlockContext> = async (ctx) => {
+const autoProposeStep: PipelineStep<BlockContextBase> = async (ctx) => {
   const candidates: ServerTx[] = [];
   
   for (const [signerIdx, entities] of ctx.server.signers) {
@@ -255,7 +264,7 @@ const autoProposeStep: PipelineStep<BlockContext> = async (ctx) => {
           entity.mempool.length > 0 && 
           meta.quorum.length === 1) {
         const txs = entity.mempool;
-        const blockHash = computeHash([entity.height + 1, txs]);
+        const blockHash = computeHash([Number(entity.height) + 1, txs]);
         
         candidates.push({
           signer: signerIdx,
@@ -276,7 +285,7 @@ const autoProposeStep: PipelineStep<BlockContext> = async (ctx) => {
 };
 
 // Update height
-const updateHeightStep: PipelineStep<BlockContext> = async (ctx) => {
+const updateHeightStep: PipelineStep<BlockContextBase> = async (ctx) => {
   return {
     ...ctx,
     server: { ...ctx.server, height: ctx.targetHeight }
@@ -292,7 +301,12 @@ export async function processBlock(
   const targetHeight = toBlockHeight(Number(server.height) + 1);
   const blockTxs = server.mempool;
   
-  const pipeline = createPipeline<BlockContext>(
+  // If no transactions and no storage, just increment height
+  if (blockTxs.length === 0 && !storage) {
+    return Ok({ ...server, height: targetHeight });
+  }
+  
+  const pipeline = createPipeline<BlockContextBase>(
     validateTransactionsStep,
     writeWalStep(storage),
     applyChangesStep,
@@ -304,7 +318,7 @@ export async function processBlock(
     updateHeightStep
   );
   
-  const initialContext: PipelineContext<BlockContext> = {
+  const initialContext: BlockContext = {
     server,
     messages: [],
     touchedEntities: new Set(),
@@ -327,17 +341,7 @@ export async function processBlock(
   return Ok(result.server);
 }
 
-// Helper functions (stubs for now - should import from utils)
-function computeStateHash(signers: any): string {
-  // TODO: Implement proper state hash computation
-  return 'state-hash-stub';
-}
-
-function computeHash(data: any): string {
-  // TODO: Implement proper hash computation
-  return 'hash-stub';
-}
-
+// Helper function to create archive snapshot
 function createArchiveSnapshot(server: ServerState, height: BlockHeight, parentHash?: string): any {
   return {
     height,
