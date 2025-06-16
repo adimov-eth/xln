@@ -25,6 +25,7 @@ export type UnauthorizedError = {
   type: 'unauthorized';
   signer: SignerIdx;
   entity: EntityId;
+  message?: string;
 };
 
 export type ProcessingError = ValidationError | NotFoundError | UnauthorizedError;
