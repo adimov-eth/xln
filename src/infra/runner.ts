@@ -34,7 +34,7 @@ export const createBlockRunner = (config: RunnerConfig) => {
   
   // Create the runner object
   const runner = {
-    processBlock: async (server: ServerState): Promise<Result<ServerState>> => {
+    processBlock: async (server: ServerState, skipWal = false): Promise<Result<ServerState>> => {
       const nextHeight = height(Number(server.height) + 1);
       
       // 1. Process block (pure computation)
@@ -45,8 +45,8 @@ export const createBlockRunner = (config: RunnerConfig) => {
       
       const processed = blockResult.value;
       
-      // Write to WAL AFTER processing (idempotent)
-      if (server.mempool.length > 0) {
+      // N-1 FIX: Skip WAL write during recovery to prevent double-append
+      if (!skipWal && server.mempool.length > 0) {
         const walResult = await storage.wal.append(nextHeight, server.mempool);
         if (!walResult.ok) {
           return Err(`WAL write failed: ${walResult.error}`);
@@ -126,9 +126,9 @@ export const createBlockRunner = (config: RunnerConfig) => {
       
       logger.info(`Replaying ${walTxs.length} WAL transactions`);
       
-      // 3. Replay transactions
+      // 3. Replay transactions - use skipWal to prevent double-append
       server = { ...server, mempool: walTxs };
-      const processResult = await runner.processBlock(server);
+      const processResult = await runner.processBlock(server, true);
       if (!processResult.ok) {
         return Err(`Recovery replay failed: ${processResult.error}`);
       }

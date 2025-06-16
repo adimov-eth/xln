@@ -1,5 +1,5 @@
 // ============================================================================
-// XLN v2.1 - Production-Ready Distributed Ledger
+// XLN v2.2 - Production-Ready Distributed Ledger
 // Main entry point for the modular implementation
 // ============================================================================
 

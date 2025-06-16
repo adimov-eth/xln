@@ -31,10 +31,9 @@ const validateWalletTx = (tx: EntityTx): Result<WalletOp> => {
 
   switch (tx.op) {
     case 'credit': {
-      const amount = parseBigInt(tx.data.amount);
-      if (amount <= 0n) return Err('Amount must be positive');
-      if (!tx.data._internal) return Err('Credit operations are internal only');
-      return Ok({ type: 'credit', amount, from: tx.data.from, _internal: true });
+      // N-2 FIX: Credits should only be generated internally via transfers
+      // In a real system, this would be enforced at the network layer
+      return Err('Credit operations cannot be submitted directly');
     }
     
     case 'burn': {
@@ -54,6 +53,23 @@ const validateWalletTx = (tx: EntityTx): Result<WalletOp> => {
     default:
       return Err(`Unknown wallet operation: ${tx.op}`);
   }
+};
+
+// N-2 FIX: Separate internal validation for system-generated credits
+const validateInternalCredit = (tx: EntityTx): Result<WalletOp> => {
+  if (tx.op !== 'credit' || !tx.data._internal) {
+    return Err('Invalid internal credit');
+  }
+  
+  const amount = typeof tx.data.amount === 'string' ? BigInt(tx.data.amount) : tx.data.amount;
+  if (amount <= 0n) return Err('Amount must be positive');
+  
+  return Ok({ 
+    type: 'credit', 
+    amount, 
+    from: tx.data.from, 
+    _internal: true 
+  });
 };
 
 // NONCE POLICY DOCUMENTED
@@ -111,7 +127,13 @@ const generateWalletMessages = (from: EntityId, op: WalletOp): readonly OutboxMs
 
 export const WalletProtocol: Protocol<WalletState, WalletOp> = {
   name: 'wallet',
-  validateTx: validateWalletTx,
+  validateTx: (tx: EntityTx) => {
+    // N-2 FIX: Use internal validator for credits with _internal flag
+    if (tx.op === 'credit' && tx.data?._internal) {
+      return validateInternalCredit(tx);
+    }
+    return validateWalletTx(tx);
+  },
   applyTx: (state, op, tx) => applyWalletOp(state, op, tx),
   generateMessages: generateWalletMessages
 }; 

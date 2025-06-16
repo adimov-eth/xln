@@ -11,7 +11,7 @@ import { id } from './types/primitives.js';
 import { createInitialState } from './utils/serialization.js';
 
 export async function runExample() {
-  console.log('=== XLN v2.1 Example ===\n');
+  console.log('=== XLN v2.2 Example ===\n');
   
   // Create infrastructure
   const storage = new MemoryStorage();
@@ -44,7 +44,7 @@ export async function runExample() {
     tx: { op: 'transfer', data: { to: 'bob', amount: '100' }, nonce: 1 }
   });
   
-  let result = await runner.processBlock(server);
+  let result = await runner.processBlock(server, false);
   if (!result.ok) throw new Error(result.error);
   server = result.value;
   
@@ -54,7 +54,7 @@ export async function runExample() {
   
   // Process auto-propose and commit
   for (let i = 0; i < 3; i++) {
-    result = await runner.processBlock(server);
+    result = await runner.processBlock(server, false);
     if (!result.ok) throw new Error(result.error);
     server = result.value;
   }
@@ -74,7 +74,7 @@ export async function runExample() {
     tx: { op: 'transfer', data: { to: 'alice', amount: '1000' }, nonce: 1 }
   });
   
-  result = await runner.processBlock(server);
+  result = await runner.processBlock(server, false);
   if (!result.ok) throw new Error(result.error);
   server = result.value;
   
@@ -82,7 +82,7 @@ export async function runExample() {
   
   // Process through multi-sig flow
   for (let i = 0; i < 5; i++) {
-    result = await runner.processBlock(server);
+    result = await runner.processBlock(server, false);
     if (!result.ok) throw new Error(result.error);
     server = result.value;
     
@@ -121,13 +121,13 @@ export async function runExample() {
     tx: { op: 'transfer', data: { to: 'bob', amount: '50' }, nonce: 1 } // Old nonce!
   });
   
-  result = await runner.processBlock(server);
+  result = await runner.processBlock(server, false);
   if (!result.ok) throw new Error(result.error);
   server = result.value;
   
   // Process through the pipeline
   for (let i = 0; i < 3; i++) {
-    result = await runner.processBlock(server);
+    result = await runner.processBlock(server, false);
     if (!result.ok) throw new Error(result.error);
     server = result.value;
   }

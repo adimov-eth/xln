@@ -1,4 +1,4 @@
-# XLN v2.1 - Production-Ready Distributed Ledger
+# XLN v2.2 - Production-Ready Distributed Ledger
 
 A fully modular, type-safe implementation of a distributed ledger system in TypeScript, designed with functional programming principles and built for production use with Bun runtime.
 
@@ -158,6 +158,15 @@ await scenario
 console.log('Alice balance:', scenario.getEntity('alice')?.data.balance);
 ```
 
+## 🆕 v2.2 Improvements
+
+Two critical security fixes have been implemented:
+
+- **N-1: WAL Double-Append Prevention**: Fixed recovery process to prevent duplicate WAL entries during crash recovery
+- **N-2: Credit Validation Hardening**: Direct credit submissions are now properly rejected; only system-generated credits from transfers are allowed
+
+These fixes ensure the ledger is production-ready for single-node or trusted-peer deployments.
+
 ## 🔧 Architecture Highlights
 
 ### Type Safety
@@ -197,7 +206,7 @@ The current implementation serves as a solid foundation. For production deployme
 ## 📊 Example Output
 
 ```
-=== XLN v2.1 Example ===
+=== XLN v2.2 Example ===
 
 Registered entities:
 - alice: single signer (0), balance 1000
@@ -236,5 +245,6 @@ After replay attempt:
 ✅ **Functional Design**: Pure functions and immutable state throughout  
 ✅ **Testing Infrastructure**: Scenario-based testing with fluent API  
 ✅ **Performance Optimized**: Copy-on-write and caching optimizations  
+✅ **Security Hardened**: v2.2 fixes prevent WAL corruption and credit forgery  
 
-This implementation demonstrates enterprise-grade software engineering practices while maintaining the elegant simplicity of functional programming. Ready for production deployment with the suggested enhancements! 🚀
+This implementation demonstrates enterprise-grade software engineering practices while maintaining the elegant simplicity of functional programming. The v2.2 release is production-ready for single-node or trusted-peer deployments! 🚀

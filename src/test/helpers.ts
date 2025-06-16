@@ -54,7 +54,7 @@ export class TestScenario {
   // When methods
   async transaction(signerIdx: number, entityId: string, command: EntityCommand): Promise<this> {
     this.server = submitTransaction(this.server, signerIdx, entityId, command);
-    const result = await this.runner.processBlock(this.server);
+    const result = await this.runner.processBlock(this.server, false);
     if (result.ok) {
       this.server = result.value;
     } else {
@@ -64,7 +64,7 @@ export class TestScenario {
   }
   
   async processBlock(): Promise<this> {
-    const result = await this.runner.processBlock(this.server);
+    const result = await this.runner.processBlock(this.server, false);
     if (result.ok) {
       this.server = result.value;
     } else {
