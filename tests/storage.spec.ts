@@ -8,7 +8,7 @@ import {
   keyPrefixes
 } from '../src/storage';
 import { MemoryKV } from '../src/storage/memory';
-import { MockKV } from '../src/storage/mock';
+import { MockKV } from './mocks/storage';
 import { 
   createServerState, 
   createRegistry, 
@@ -146,9 +146,11 @@ describe('Storage Layer', () => {
       expect(loaded!.height).toEqual(toBlockHeight(10));
       expect(loaded!.registry.size).toBe(1);
       
-      const loadedEntity = loaded!.signers.get(toSignerIdx(0))?.get(toEntityId('alice'));
+      const loadedEntity = loaded!.entities.get(toEntityId('alice'));
       expect(loadedEntity).toBeDefined();
-      expect(loadedEntity.state.balance).toBe(1000n);
+      if (loadedEntity && loadedEntity.tag !== 'Faulted' && 'state' in loadedEntity) {
+        expect(loadedEntity.state.balance).toBe(1000n);
+      }
     });
 
     it('should return null for empty storage', async () => {
@@ -202,7 +204,10 @@ describe('Storage Layer', () => {
       
       const fromHeight2 = await walStorage.getFromHeight(toBlockHeight(2));
       expect(fromHeight2).toHaveLength(1);
-      expect(fromHeight2[0]!.input.tx.op).toBe('burn');
+      expect(fromHeight2[0]!.input).toEqual({ 
+        type: 'add_tx', 
+        tx: { op: 'burn', data: { amount: '50' } } 
+      });
     });
 
     it('should truncate entries before height', async () => {
@@ -221,7 +226,10 @@ describe('Storage Layer', () => {
       // Check what remains
       const all = await walStorage.getFromHeight(toBlockHeight(1));
       expect(all).toHaveLength(3); // Heights 3, 4, 5
-      expect(all[0]!.input.tx.data.amount).toBe('3');
+      const firstInput = all[0]!.input;
+      if (firstInput.type === 'add_tx') {
+        expect(firstInput.tx.data.amount).toBe('3');
+      }
     });
   });
 

@@ -8,12 +8,36 @@ import type {
   StateStorage,
   Storage as StorageInterface,
   WalStorage,
-  BlockHeight,
-  EntityId,
-  SignerIdx
+  EntityId
 } from '../types';
 import { toBlockHeight, toEntityId, toSignerIdx } from '../types';
 import { keys, keyPrefixes } from './keys';
+
+// Helper to serialize BigInt values as strings
+function serializeBigInts(obj: any): any {
+  if (typeof obj === 'bigint') {
+    return obj.toString();
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(serializeBigInts);
+  }
+  if (obj !== null && typeof obj === 'object') {
+    const result: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      result[key] = serializeBigInts(value);
+    }
+    return result;
+  }
+  return obj;
+}
+
+// Helper to deserialize string values back to BigInt
+function deserializeBigInts(obj: any, schema: any): any {
+  if (schema && typeof schema.balance === 'bigint' && typeof obj.balance === 'string') {
+    return { ...obj, balance: BigInt(obj.balance) };
+  }
+  return obj;
+}
 
 /**
  * Factory for state storage
@@ -31,19 +55,20 @@ export function createStateStorage(kv: KV): StateStorage {
       });
       
       // Save entities
-      for (const [signerIdx, entities] of state.signers) {
-        for (const [entityId, entity] of entities) {
-          batch.push({
-            type: 'put',
-            key: keys.state(signerIdx, entityId),
-            value: JSON.stringify({
-              ...entity,
-              ...(entity.tag !== 'Faulted' && entity.state && {
-                state: { ...entity.state, balance: entity.state.balance.toString() }
-              })
-            })
-          });
-        }
+      for (const [entityId, entity] of state.entities) {
+        // Convert BigInt values to strings for serialization
+        const serializable = {
+          ...entity,
+          ...(entity.tag !== 'Faulted' && entity.state && {
+            state: serializeBigInts(entity.state)
+          })
+        };
+        
+        batch.push({
+          type: 'put',
+          key: keys.entity(entityId),
+          value: JSON.stringify(serializable)
+        });
       }
       
       // Save metadata
@@ -76,35 +101,27 @@ export function createStateStorage(kv: KV): StateStorage {
       );
       
       // Load entities
-      const signers = new Map<SignerIdx, Map<EntityId, any>>();
+      const entities = new Map<EntityId, any>();
       
       for await (const [key, value] of kv.iterator({ 
-        gte: keyPrefixes.state, 
-        lt: keyPrefixes.state + '\xff' 
+        gte: 'entity:', 
+        lt: 'entity:\xff' 
       })) {
-        if (key === keys.registry() || key === keys.meta()) continue;
-        
-        const [, signerStr, entityId] = key.split(':');
-        if (!signerStr || !entityId) continue;
-        
-        const signerIdx = toSignerIdx(parseInt(signerStr, 10));
-        
-        if (!signers.has(signerIdx)) {
-          signers.set(signerIdx, new Map());
-        }
+        const [, entityId] = key.split(':');
+        if (!entityId) continue;
         
         const data = JSON.parse(value);
         const entity = {
           ...data,
-          state: data.state
-            ? { ...data.state, balance: BigInt(data.state.balance) }
-            : undefined
+          state: data.state && data.state.balance !== undefined
+            ? deserializeBigInts(data.state, { balance: 0n })
+            : data.state
         };
         
-        signers.get(signerIdx)!.set(toEntityId(entityId), entity);
+        entities.set(toEntityId(entityId), entity);
       }
       
-      return { height, registry, signers, mempool: [] };
+      return { height, registry, entities, mempool: [] };
     }
   };
 }
@@ -133,7 +150,7 @@ export function createWalStorage(kv: KV): WalStorage {
       const startKey = keys.wal(height, toSignerIdx(0), toEntityId(''));
       const prefix = startKey.substring(0, startKey.lastIndexOf(':') + 1);
       
-      for await (const [key, val] of kv.iterator({ 
+      for await (const [, val] of kv.iterator({ 
         gte: prefix, 
         lt: keyPrefixes.wal + '\xff' 
       })) {
@@ -171,7 +188,9 @@ export function createWalStorage(kv: KV): WalStorage {
 export function createBlockStorage(kv: KV): BlockStorage {
   return {
     async save(height, data) {
-      await kv.put(keys.block(height), JSON.stringify(data));
+      // Serialize BigInts in the data before saving
+      const serializable = serializeBigInts(data);
+      await kv.put(keys.block(height), JSON.stringify(serializable));
     },
     
     async get(height) {
@@ -257,3 +276,6 @@ export { MemoryKV } from './memory';
 
 // Re-export keys for convenience
 export { keys, keyPrefixes } from './keys';
+
+// Re-export Storage type
+export type { Storage } from '../types';

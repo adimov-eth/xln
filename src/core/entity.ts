@@ -9,12 +9,12 @@ import type {
   Result,
   SignerIdx,
   BlockHeight,
-  ProposedBlock,
   EntityId
 } from '../types';
-import { Err, Ok, toBlockHeight, toEntityId } from '../types';
+import { Err, Ok, toEntityId } from '../types';
 import { computeHash } from '../utils/hash';
-import { proposer, hasQuorum } from './quorum';
+import { proposer } from './quorum';
+import { entityReducer } from './entityReducers';
 
 // Re-export quorum utilities for backward compatibility
 export { proposer as getProposer, hasQuorum } from './quorum';
@@ -279,7 +279,26 @@ export function validateCmd<T>(
 }
 
 /**
- * Phase 2: Given a validated command, produce new state + outgoing messages
+ * Phase 2: Apply a validated command to mutate entity state.
+ * 
+ * This function performs the actual state transitions and generates
+ * any necessary outbox messages. It assumes the command has already
+ * been validated by validateCmd.
+ * 
+ * Key behaviors:
+ * - Handles timeout transitions before applying commands
+ * - Delegates to modular reducers for each command type
+ * - Generates consensus messages (approve_block, commit_block)
+ * - Routes transfers through the messaging system
+ * 
+ * The function is deterministic - the same inputs always produce
+ * the same outputs, which is critical for consensus.
+ * 
+ * @param state - Current entity state
+ * @param cmd - Pre-validated command from validateCmd
+ * @param meta - Entity metadata
+ * @param now - Current timestamp for timeout checks
+ * @returns Tuple of [newState, outboxMessages]
  */
 export function applyCmd<T extends { balance: bigint }>(
   state: EntityState<T>,
@@ -287,175 +306,43 @@ export function applyCmd<T extends { balance: bigint }>(
   meta: EntityMeta,
   now: number = Date.now()
 ): [EntityState<T>, OutboxMsg[]] {
-  // Handle timeout transitions first
-  if (state.tag === 'Proposed' && meta.timeoutMs) {
-    if (isTimedOut(state.proposal.timestamp, meta.timeoutMs)) {
-      // Transition back to Idle, re-queue all transactions
-      const requeuedTxs = [...state.proposal.txs, ...state.mempool];
-      const idleState: EntityState<T> = {
-        tag: 'Idle',
-        height: state.height,
-        state: state.state,
-        mempool: requeuedTxs,
-        lastBlockHash: state.lastBlockHash,
-        lastProcessedHeight: state.lastProcessedHeight
-      };
-      // Now apply the command to the idle state
-      return applyCmd(idleState, cmd, meta, now);
-    }
-  }
+  // Use the new reducer for most logic
+  const [baseState, messages] = entityReducer(state, cmd, meta, now);
+  
+  // Special handling for CommitBlock to apply transactions
+  // This is kept here for backward compatibility but should eventually move to protocol layer
+  if (cmd.type === 'CommitBlock' && state.tag === 'Committing') {
+    let newInnerState = state.state;
+    const failedTxs: EntityTx[] = [];
 
-  switch (cmd.type) {
-    case 'AddTx': {
-      if (state.tag === 'Faulted') {
-        return [state, []];
+    for (const tx of state.proposal.txs) {
+      const result = applyEntityTx(newInnerState, tx);
+      if (result.ok) {
+        newInnerState = result.value;
+      } else {
+        failedTxs.push(tx);
       }
-      return [
-        { ...state, mempool: [...state.mempool, cmd.tx] },
-        []
-      ];
     }
 
-    case 'ProposeBlock': {
-      if (state.tag === 'Faulted') {
-        return [state, []];
-      }
-      
-      const proposedBlock: ProposedBlock = {
-        txs: cmd.txs,
-        hash: cmd.hash,
-        approves: new Set([cmd.proposer]),
-        timestamp: now,
-        proposer: cmd.proposer
-      };
+    // Generate transfer messages
+    const transferMsgs = generateTransferMessages(state.proposal.txs, meta.id);
 
-      // Single signer fast path
-      if (meta.quorum.length === 1) {
-        // Directly transition to Committing
-        const committingState: EntityState<T> = {
-          tag: 'Committing',
-          height: state.height,
-          state: state.state,
-          mempool: state.mempool,
-          proposal: proposedBlock,
-          lastBlockHash: state.lastBlockHash,
-          lastProcessedHeight: state.lastProcessedHeight
-        };
-        
-        // Auto-commit for single signer
-        const commitMsg: OutboxMsg = {
-          from: meta.id,
-          toEntity: meta.id,
-          toSigner: cmd.proposer,
-          input: { type: 'commit_block', hash: cmd.hash }
-        };
-        
-        return [committingState, [commitMsg]];
-      }
-
-      // Multi-signer: transition to Proposed
-      const proposedState: EntityState<T> = {
-        tag: 'Proposed',
-        height: state.height,
-        state: state.state,
-        mempool: state.mempool,
-        proposal: proposedBlock,
-        lastBlockHash: state.lastBlockHash,
-        lastProcessedHeight: state.lastProcessedHeight
-      };
-
-      // Broadcast approval requests
-      const approvalMsgs: OutboxMsg[] = meta.quorum
-        .filter(signer => signer !== cmd.proposer)
-        .map(signer => ({
-          from: meta.id,
-          toEntity: meta.id,
-          toSigner: signer,
-          input: { type: 'approve_block', hash: cmd.hash }
-        }));
-
-      return [proposedState, approvalMsgs];
-    }
-
-    case 'ApproveBlock': {
-      if (state.tag !== 'Proposed') {
-        // Should not happen due to validation, but be defensive
-        return [state, []];
-      }
-
-      const approves = new Set(state.proposal.approves);
-      approves.add(cmd.approver);
-      const updatedProposal = { ...state.proposal, approves };
-
-      // Check if quorum reached
-      if (hasQuorum(approves, meta.quorum)) {
-        // Transition to Committing
-        const committingState: EntityState<T> = {
-          tag: 'Committing',
-          height: state.height,
-          state: state.state,
-          mempool: state.mempool,
-          proposal: updatedProposal,
-          lastBlockHash: state.lastBlockHash,
-          lastProcessedHeight: state.lastProcessedHeight
-        };
-
-        // Send commit to original proposer
-        const commitMsg: OutboxMsg = {
-          from: meta.id,
-          toEntity: meta.id,
-          toSigner: state.proposal.proposer,
-          input: { type: 'commit_block', hash: cmd.hash }
-        };
-
-        return [committingState, [commitMsg]];
-      }
-
-      // Not enough approvals yet
+    // Update the state from reducer with applied transactions
+    // baseState should be Idle at this point after CommitBlock
+    if (baseState.tag === 'Idle') {
       const updatedState: EntityState<T> = {
-        ...state,
-        proposal: updatedProposal
-      };
-
-      return [updatedState, []];
-    }
-
-    case 'CommitBlock': {
-      if (state.tag !== 'Committing') {
-        // Should not happen due to validation, but be defensive
-        return [state, []];
-      }
-
-      // Apply all transactions
-      let newInnerState = state.state;
-      const failedTxs: EntityTx[] = [];
-
-      for (const tx of state.proposal.txs) {
-        const result = applyEntityTx(newInnerState, tx);
-        if (result.ok) {
-          newInnerState = result.value;
-        } else {
-          failedTxs.push(tx);
-        }
-      }
-
-      // Generate transfer messages
-      const transferMsgs = generateTransferMessages(state.proposal.txs, meta.id);
-
-      // Transition to Idle with updated state
-      const nextHeight = toBlockHeight(Number(state.height) + 1);
-      const idleState: EntityState<T> = {
-        tag: 'Idle',
-        height: nextHeight,
+        ...baseState,
         state: newInnerState,
-        mempool: [...failedTxs, ...state.mempool], // Re-queue failed txs
-        lastBlockHash: cmd.hash,
-        lastProcessedHeight: state.lastProcessedHeight
+        mempool: [...failedTxs, ...baseState.mempool]
       };
-
-      return [idleState, transferMsgs];
+      return [updatedState, [...messages, ...transferMsgs]];
     }
+    
+    // Fallback - should not happen
+    return [baseState as EntityState<T>, [...messages, ...transferMsgs]];
   }
+  
+  return [baseState as EntityState<T>, messages];
 }
 
 /**

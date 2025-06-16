@@ -10,6 +10,9 @@ export const keys = {
   state: (signer: SignerIdx, entityId: EntityId) => 
     `state:${Number(signer)}:${entityId}`,
   
+  entity: (entityId: EntityId) =>
+    `entity:${entityId}`,
+  
   registry: () => 'state:registry',
   
   meta: () => 'state:meta',

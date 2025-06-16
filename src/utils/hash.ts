@@ -17,38 +17,28 @@ export const computeHash = (data: unknown): string => {
 export const computeBlockHash = (data: unknown): BlockHash =>
   toBlockHash(computeHash(data));
 
-export const computeStateHash = (signers: Map<any, Map<any, any>>): string => {
+export const computeStateHash = (entities: Map<any, any>): string => {
     const stateData: any[] = [];
     
-    // Sort signers by index
-    const sortedSigners = Array.from(signers.entries())
-      .sort((a, b) => Number(a[0]) - Number(b[0]));
+    // Sort entities by ID for deterministic ordering
+    const sortedEntities = Array.from(entities.entries())
+      .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
     
-    for (const [signerIdx, entities] of sortedSigners) {
-      const entityData: any[] = [];
-      
-      // Sort entities by ID
-      const sortedEntities = Array.from(entities.entries())
-        .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
-      
-      for (const [entityId, entity] of sortedEntities) {
-        // Include all entity fields that affect state
-        entityData.push([
-          entityId,
-          entity.height,
-          entity.tag,
-          toDeterministicJson(entity.state),
-          entity.mempool?.map((tx: any) => toDeterministicJson(tx)) || [],
-          entity.proposal ? [
-            entity.proposal?.hash,
-            Array.from(entity.proposal?.approves || [])
-              .sort((a, b) => Number(a) - Number(b))
-          ] : null,
-          entity.lastBlockHash || ''
-        ]);
-      }
-      
-      stateData.push([signerIdx, entityData]);
+    for (const [entityId, entity] of sortedEntities) {
+      // Include all entity fields that affect state
+      stateData.push([
+        entityId,
+        entity.height,
+        entity.tag,
+        toDeterministicJson(entity.state),
+        entity.mempool?.map((tx: any) => toDeterministicJson(tx)) || [],
+        entity.proposal ? [
+          entity.proposal?.hash,
+          Array.from(entity.proposal?.approves || [])
+            .sort((a, b) => Number(a) - Number(b))
+        ] : null,
+        entity.lastBlockHash || ''
+      ]);
     }
     
     return computeHash(stateData);

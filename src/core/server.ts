@@ -1,505 +1,382 @@
-/**
- * Server module - manages entity registry and transaction processing
- * 
- * Architecture notes:
- * - Registry stores entity metadata (quorum, timeout)
- * - Signers map stores entity states indexed by signer for efficient access
- * - Helper functions ensure consistency between registry and signers
- * 
- * Two pipeline approaches available:
- * 1. Full pipeline (processBlock) - 9 steps with storage integration
- * 2. Simplified pipeline (processBlockSimplified) - 3 steps: validate → apply → persist
- */
-
-import type {
-    BlockContextData,
-    BlockHeight,
-    EntityId,
-    EntityMeta,
+import { 
+    validateCmd,
+    applyCmd,
+    formatError
+} from './entity';
+import { proposer as getCurrentProposer } from './quorum';
+import { computeHash } from '../utils/hash';
+import { Err, Ok, type Result } from '../types/result';
+import type { 
+    ServerState, 
+    ServerTx, 
     EntityState,
-    OutboxMsg,
-    PipelineContext,
-    PipelineStep,
+    EntityMeta,
     Registry,
-    Result,
-    ServerState,
-    ServerTx,
-    SignerIdx,
-    Storage
+    OutboxMsg
 } from '../types';
-
-import {
-    Err,
-    ErrorSeverity,
-    Ok,
-    toBlockHeight,
-    toEntityId
+import { 
+    toBlockHeight, 
+    toEntityId, 
+    type BlockHeight, 
+    type EntityId, 
+    type SignerIdx 
 } from '../types';
+import type { Storage } from '../storage';
 
-// Utils
-import { computeHash, computeStateHash } from '../utils/hash';
-import { createPipeline } from '../utils/pipeline';
-import { ErrorCollectorAdapter } from '../utils/errorCollectorAdapter';
+// Server state management
+export const createServerState = (
+    height: BlockHeight,
+    registry: Registry = new Map()
+): ServerState => ({
+    height,
+    registry,
+    entities: new Map(),
+    mempool: [],
+    lastBlockHash: undefined
+});
 
-// Core
-import { transitionEntity, formatError, validateCmd, applyCmd } from './entity';
+// Helper for backward compatibility - get entities for a signer
+export const entitiesForSigner = (
+    server: ServerState,
+    signer: SignerIdx
+): Map<EntityId, EntityState> => {
+    const result = new Map<EntityId, EntityState>();
+    
+    for (const [entityId, entity] of server.entities) {
+        const meta = server.registry.get(entityId);
+        if (meta && meta.quorum.includes(signer)) {
+            result.set(entityId, entity);
+        }
+    }
+    
+    return result;
+};
 
-// Registry operations
+// Compute state hash from all entities
+export const computeStateHash = (entities: Map<EntityId, EntityState>): string => {
+    const sorted = Array.from(entities.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([id, state]) => `${id}:${JSON.stringify(state)}`);
+    
+    return computeHash(sorted.join('|'));
+};
+
+// Registry management
 export const createRegistry = (): Registry => new Map();
 
 export const registerEntity = (
     registry: Registry,
     id: string,
-    quorum: SignerIdx[],
+    signers: SignerIdx[],
     timeoutMs?: number
 ): Registry => {
     const newRegistry = new Map(registry);
-    newRegistry.set(toEntityId(id), { 
-        id: toEntityId(id), 
-        quorum,
-        timeoutMs: timeoutMs || 30000 // Default 30s timeout
+    newRegistry.set(toEntityId(id), {
+        id: toEntityId(id),
+        quorum: signers,
+        timeoutMs
     });
     return newRegistry;
 };
 
-export const isSignerAuthorized = (
-    registry: Registry,
-    entityId: EntityId,
-    signer: SignerIdx
-): boolean => {
-    const meta = registry.get(entityId);
-    return meta ? meta.quorum.includes(signer) : false;
-};
-
-// Get current proposer for entity based on height
-export const getCurrentProposer = (
-    meta: EntityMeta,
-    height: BlockHeight
-): SignerIdx | undefined => {
-    if (meta.quorum.length === 0) return undefined;
-    return meta.quorum[Number(height) % meta.quorum.length];
-};
-
-// Initialize server state
-export const createServerState = (
+// Create an entity in Idle state
+export const createEntity = <T = any>(
     height: BlockHeight,
-    registry: Registry
-): ServerState => ({
-    height,
-    registry,
-    signers: new Map(),
-    mempool: []
-});
-
-// Create entity instance
-export const createEntity = <T = { balance: bigint }>(
-    height: BlockHeight,
-    initialState: T = { balance: 0n } as T
-): EntityState<T> => ({
+    initialState: T
+): EntityState => ({
     tag: 'Idle',
     height,
     state: initialState,
-    mempool: []
+    mempool: [],
+    lastBlockHash: undefined,
+    lastProcessedHeight: undefined
 });
 
-// Add entity to server
-// NOTE: This function properly updates both registry and signers to maintain consistency
+// Entity management
 export const addEntityToServer = (
     server: ServerState,
     entityId: EntityId,
     meta: EntityMeta,
     entity: EntityState
 ): ServerState => {
-    const newSigners = new Map(server.signers);
+    const newEntities = new Map(server.entities);
     const newRegistry = new Map(server.registry);
     
-    // Ensure entity is in registry
+    // Add to registry and entities (single source of truth)
     newRegistry.set(entityId, meta);
-    
-    // Add entity to each signer in quorum
-    for (const signerIdx of meta.quorum) {
-        const signerEntities = new Map(newSigners.get(signerIdx) || []);
-        signerEntities.set(entityId, entity);
-        newSigners.set(signerIdx, signerEntities);
-    }
+    newEntities.set(entityId, entity);
     
     return { 
         ...server, 
         registry: newRegistry,
-        signers: newSigners 
+        entities: newEntities 
     };
 };
 
-// Helper to get entity state from any signer (for consistency checking)
+// Helper to get entity state
 export const getEntityState = (
     server: ServerState,
     entityId: EntityId
 ): EntityState | undefined => {
-    const meta = server.registry.get(entityId);
-    if (!meta || meta.quorum.length === 0) return undefined;
-    
-    // Get from first available signer
-    const firstSigner = meta.quorum[0];
-    if (firstSigner === undefined) return undefined;
-    
-    const signerEntities = server.signers.get(firstSigner);
-    return signerEntities?.get(entityId);
+    return server.entities.get(entityId);
 };
 
-// Helper to update entity state consistently across all signers
+// Helper to update entity state
 export const updateEntityState = (
     server: ServerState,
     entityId: EntityId,
     newState: EntityState
 ): ServerState => {
-    const meta = server.registry.get(entityId);
-    if (!meta) return server;
-    
-    const newSigners = new Map(server.signers);
-    
-    // Update entity state for all signers in quorum
-    for (const signerIdx of meta.quorum) {
-        const signerEntities = newSigners.get(signerIdx);
-        if (signerEntities && signerEntities.has(entityId)) {
-            const updatedEntities = new Map(signerEntities);
-            updatedEntities.set(entityId, newState);
-            newSigners.set(signerIdx, updatedEntities);
-        }
-    }
-    
-    return { ...server, signers: newSigners };
+    const newEntities = new Map(server.entities);
+    newEntities.set(entityId, newState);
+    return { ...server, entities: newEntities };
 };
 
-// Server pipeline steps
+// ===============================
+// Block Processing
+// ===============================
 
-export const validateTransactionsStep: PipelineStep<BlockContextData> = async (ctx) => {
-    const { server, blockTxs, errors } = ctx;
-    const validatedTxs: ServerTx[] = [];
-    const stateChanges = new Map<string, any>();
+// Simple storage interface that hides implementation details
+export type SimpleStorage = {
+    persist: (height: BlockHeight, state: ServerState) => Promise<void>;
+    recover: (fromHeight: BlockHeight) => Promise<ServerState | undefined>;
+};
+
+// Core validation function - pure, no side effects
+export const validateTransactions = (
+    server: ServerState,
+    transactions: ServerTx[]
+): { valid: ServerTx[]; invalid: Array<{ tx: ServerTx; reason: string }> } => {
+    const valid: ServerTx[] = [];
+    const invalid: Array<{ tx: ServerTx; reason: string }> = [];
     
-    // If no transactions, nothing to validate
-    if (blockTxs.length === 0) {
-        return { ...ctx, validatedTxs: [], stateChanges: new Map() };
-    }
-    
-    // Create a copy of server state for validation
-    const tempSigners = new Map(server.signers);
-    
-    for (const tx of blockTxs) {
-        const key = `${tx.signer}:${tx.entityId}`;
-        
-        // Check authorization
+    for (const tx of transactions) {
+        // Check entity exists
         const meta = server.registry.get(tx.entityId);
-        if (!meta || !meta.quorum.includes(tx.signer)) {
-            errors.addError({ 
-                type: 'unauthorized', 
-                signer: tx.signer, 
-                entity: tx.entityId 
-            }, {
-                operation: 'validate',
-                tx
-            });
+        if (!meta) {
+            invalid.push({ tx, reason: 'Entity not found' });
+            continue;
+        }
+        
+        // Check signer authorization
+        if (!meta.quorum.includes(tx.signer)) {
+            invalid.push({ tx, reason: 'Signer not authorized' });
             continue;
         }
         
         // Get entity state
-        const signerMap = tempSigners.get(tx.signer);
-        const entity = signerMap?.get(tx.entityId);
-        if (!entity) {
-            errors.addError({ 
-                type: 'not_found', 
-                resource: 'entity_state', 
-                id: tx.entityId 
-            }, { signer: tx.signer });
+        const state = getEntityState(server, tx.entityId);
+        if (!state) {
+            invalid.push({ tx, reason: 'Entity state not found' });
             continue;
         }
         
-        // Validate transition with current time for timeout checks
-        const result = transitionEntity(entity, tx.input, tx.signer, meta, Date.now());
-        if (!result.ok) {
-            const severity = result.error.type === 'validation' 
-                ? ErrorSeverity.WARNING 
-                : ErrorSeverity.ERROR;
-            errors.add(result.error, severity, { entityId: tx.entityId, signer: tx.signer });
+        if (state.tag === 'Faulted') {
+            invalid.push({ tx, reason: 'Entity is faulted' });
             continue;
         }
         
-        const [newEntity, msgs] = result.value;
-        
-        // Track state change
-        stateChanges.set(key, { signerIdx: tx.signer, entityId: tx.entityId, newEntity, msgs });
-        
-        // Update temp state for next validations
-        const newSignerMap = new Map(signerMap);
-        newSignerMap.set(tx.entityId, newEntity);
-        tempSigners.set(tx.signer, newSignerMap);
-        
-        validatedTxs.push(tx);
-    }
-    
-    return { ...ctx, validatedTxs, stateChanges };
-};
-
-// Phase 1: WAL write (atomic)
-export const writeWalStep = (storage?: Storage): PipelineStep<BlockContextData> => 
-    async (ctx) => {
-        if (!storage || !ctx.validatedTxs || ctx.validatedTxs.length === 0) {
-            return ctx;
-        }
-        
-        try {
-            await storage.wal.append(ctx.targetHeight, ctx.validatedTxs);
-            return ctx;
-        } catch (error) {
-            ctx.errors.addCritical(error, { 
-                operation: 'wal.append', 
-                height: ctx.targetHeight 
-            });
-            return ctx;
-        }
-    };
-
-// Phase 2: Apply validated changes
-export const applyChangesStep: PipelineStep<BlockContextData> = async (ctx) => {
-    if (ctx.errors.hasCritical() || !ctx.stateChanges) {
-        return ctx;
-    }
-    
-    const newSigners = new Map(ctx.server.signers);
-    const allMessages: OutboxMsg[] = [];
-    
-    for (const [key, change] of ctx.stateChanges) {
-        const { signerIdx, entityId, newEntity, msgs } = change;
-        
-        // Apply state change
-        const signerMap = new Map(newSigners.get(signerIdx)!);
-        signerMap.set(entityId, newEntity);
-        newSigners.set(signerIdx, signerMap);
-        
-        // Collect messages
-        allMessages.push(...msgs);
-        
-        // Track touched entity
-        ctx.touchedEntities.add(key);
-    }
-    
-    return {
-        ...ctx,
-        server: { ...ctx.server, signers: newSigners, mempool: [] },
-        messages: allMessages
-    };
-};
-
-// Update lastProcessedHeight for touched entities
-export const updateProcessedHeightStep: PipelineStep<BlockContextData> = async (ctx) => {
-    if (ctx.errors.hasCritical()) return ctx;
-    
-    const updatedSigners = new Map(ctx.server.signers);
-    
-    for (const [signerIdx, entities] of updatedSigners) {
-        const updatedEntities = new Map(entities);
-        for (const [entityId, entity] of updatedEntities) {
-            if (ctx.touchedEntities.has(`${signerIdx}:${entityId}`)) {
-                updatedEntities.set(entityId, { 
-                    ...entity, 
-                    lastProcessedHeight: ctx.targetHeight 
-                });
-            }
-        }
-        updatedSigners.set(signerIdx, updatedEntities);
-    }
-    
-    return {
-        ...ctx,
-        server: { ...ctx.server, signers: updatedSigners }
-    };
-};
-
-// Store block data
-export const storeBlockStep = (storage?: Storage): PipelineStep<BlockContextData> =>
-    async (ctx) => {
-        if (!storage || ctx.errors.hasCritical() || ctx.blockTxs.length === 0) {
-            return ctx;
-        }
-        
-        try {
-            const blockData = {
-                height: ctx.targetHeight,
-                timestamp: Date.now(),
-                transactions: ctx.blockTxs,
-                stateHash: computeStateHash(ctx.server.signers),
-                messages: ctx.messages // Store for debugging
-            };
-            
-            await storage.blocks.save(ctx.targetHeight, blockData);
-        } catch (error) {
-            ctx.errors.addWarning(error, { 
-                operation: 'block.save', 
-                height: ctx.targetHeight 
-            });
-        }
-        
-        return ctx;
-    };
-
-// Archive snapshot at intervals
-export const archiveSnapshotStep = (storage?: Storage, interval = 100): PipelineStep<BlockContextData> =>
-    async (ctx) => {
-        if (!storage || ctx.errors.hasCritical()) {
-            return ctx;
-        }
-        
-        if (Number(ctx.targetHeight) % interval === 0) {
-            try {
-                const parentHash = await storage.refs.get('HEAD').catch(() => undefined);
-                const snapshot = createArchiveSnapshot(ctx.server, ctx.targetHeight, parentHash);
-                const hash = computeHash(snapshot);
-                
-                await storage.archive.save(hash, snapshot);
-                await storage.refs.put('HEAD', hash);
-                
-                // Also save mutable state for fast access
-                await storage.state.save(ctx.server);
-            } catch (error) {
-                ctx.errors.addWarning(error, { 
-                    operation: 'archive.snapshot', 
-                    height: ctx.targetHeight 
-                });
+        // Special validation for propose_block
+        if (tx.input.type === 'propose_block') {
+            const currentProposer = getCurrentProposer(state.height, meta.quorum);
+            if (currentProposer !== tx.signer) {
+                invalid.push({ tx, reason: 'Not the current proposer' });
+                continue;
             }
         }
         
-        return ctx;
-    };
-
-// Route messages
-export const routeMessagesStep: PipelineStep<BlockContextData> = async (ctx) => {
-    const routed: ServerTx[] = ctx.messages.map(msg => {
-        // If toSigner is specified, use it
-        if (msg.toSigner !== undefined) {
-            return { signer: msg.toSigner, entityId: msg.toEntity, input: msg.input };
-        }
-        
-        // Otherwise, route based on input type and entity state
-        const meta = ctx.server.registry.get(msg.toEntity);
-        if (!meta) {
-            ctx.errors.addWarning(
-                { type: 'not_found', resource: 'entity', id: msg.toEntity },
-                { operation: 'route_message' }
-            );
-            return null;
-        }
-        
-        // For most messages, route to all quorum members
-        // They'll handle authorization internally
-        return meta.quorum.map(signer => ({
-            signer,
-            entityId: msg.toEntity,
-            input: msg.input
-        }));
-    })
-    .flat()
-    .filter(Boolean) as ServerTx[];
-    
-    return {
-        ...ctx,
-        server: { ...ctx.server, mempool: [...ctx.server.mempool, ...routed] }
-    };
-};
-
-// Auto-propose for single signers
-export const autoProposeStep: PipelineStep<BlockContextData> = async (ctx) => {
-    const candidates: ServerTx[] = [];
-    
-    for (const [signerIdx, entities] of ctx.server.signers) {
-        for (const [entityId, entity] of entities) {
-            const meta = ctx.server.registry.get(entityId);
-            if (!meta) continue;
-            
-            // Only auto-propose for single-signer entities
-            if (entity.tag === 'Idle' && 
-                entity.mempool.length > 0 && 
-                meta.quorum.length === 1) {
-                
-                // Get current proposer (will be the single signer)
-                const proposer = getCurrentProposer(meta, entity.height);
-                if (proposer !== signerIdx) continue;
-                
-                const txs = entity.mempool;
-
-                candidates.push({
-                    signer: signerIdx,
-                    entityId: entityId,
-                    input: { type: 'propose_block', txs }
-                });
-            }
-        }
+        valid.push(tx);
     }
     
-    return {
-        ...ctx,
-        server: { 
-            ...ctx.server, 
-            mempool: [...ctx.server.mempool, ...candidates] 
-        }
-    };
+    return { valid, invalid };
 };
 
-// Update height
-export const updateHeightStep: PipelineStep<BlockContextData> = async (ctx) => {
-    return {
-        ...ctx,
-        server: { ...ctx.server, height: ctx.targetHeight }
-    };
-};
-
-// Main block processing
-export async function processBlock(
+/**
+ * Process a block of transactions through 3 clear phases:
+ * 1. Validate - Check authorization and business rules
+ * 2. Apply - Update entity states and collect messages
+ * 3. Persist - Save state and route messages
+ */
+export const processBlock = async (
     server: ServerState,
-    storage?: Storage,
-    archiveInterval = 100
-): Promise<Result<ServerState, string>> {
-    const targetHeight = toBlockHeight(Number(server.height) + 1);
-    const blockTxs = server.mempool;
+    storage?: SimpleStorage | Storage
+): Promise<Result<ServerState, string>> => {
+    const nextHeight = toBlockHeight(Number(server.height) + 1);
     
-    // If no transactions and no storage, just increment height
-    if (blockTxs.length === 0 && !storage) {
-        return Ok({ ...server, height: targetHeight });
+    // 1. VALIDATE
+    const { valid, invalid } = validateTransactions(server, server.mempool);
+    
+    if (invalid.length > 0) {
+        console.warn('Invalid transactions:', invalid);
     }
     
-    const pipeline = createPipeline<BlockContextData>(
-        validateTransactionsStep,
-        writeWalStep(storage),
-        applyChangesStep,
-        updateProcessedHeightStep,
-        storeBlockStep(storage),
-        archiveSnapshotStep(storage, archiveInterval),
-        routeMessagesStep,
-        autoProposeStep,
-        updateHeightStep
-    );
+    if (valid.length === 0) {
+        // Just increment height if no valid transactions
+        const newState = { ...server, height: nextHeight, mempool: [] };
+        if (storage) {
+            await persistState(storage, nextHeight, newState);
+        }
+        return Ok(newState);
+    }
     
-    const initialContext: PipelineContext<BlockContextData> = {
-        server,
-        messages: [],
-        touchedEntities: new Set(),
-        targetHeight,
-        blockTxs,
-        errors: new ErrorCollectorAdapter()
+    // 2. APPLY - use the two-phase validateCmd/applyCmd logic
+    let intermediate = server;
+    let outbox: OutboxMsg[] = [];
+    const processed: ServerTx[] = [];
+
+    for (const tx of valid) {
+        const meta = intermediate.registry.get(tx.entityId)!;
+        const prior = getEntityState(intermediate, tx.entityId)!;
+
+        // Phase 1: validation
+        const v = validateCmd(prior, tx.input, tx.signer, meta);
+        if (!v.ok) {
+            console.warn(`Transaction validation failed: ${formatError(v.error)}`);
+            continue;
+        }
+
+        // Phase 2: apply
+        const [nextState, msgs] = applyCmd(prior, v.value, meta);
+        intermediate = updateEntityState(intermediate, tx.entityId, nextState);
+        outbox.push(...msgs);
+        processed.push(tx);
+    }
+
+    // Route outbox messages to signers
+    const routedMessages = routeMessages(outbox, intermediate.registry);
+    
+    // Auto-propose for single-signer entities  
+    const autoProposals = generateAutoProposals(intermediate);
+
+    const newState = {
+        ...intermediate,
+        height: nextHeight,
+        mempool: [...routedMessages, ...autoProposals]
     };
-    
-    const result = await pipeline(initialContext);
-    
-    if (result.errors.hasCritical()) {
-        return Err(result.errors.format());
+
+    // 3. PERSIST
+    if (storage) {
+        await persistState(storage, nextHeight, newState, processed);
     }
     
-    // Log warnings if any
-    if (result.errors.hasErrors()) {
-        console.warn(`Block ${targetHeight} processed with warnings:`, result.errors.format());
+    return Ok(newState);
+};
+
+/**
+ * Route outbox messages to appropriate signers.
+ * 
+ * Messages can be targeted to:
+ * - A specific signer (when toSigner is set) - used for directed messages like commit_block
+ * - All quorum members (when toSigner is undefined) - used for broadcasts like approve_block
+ * 
+ * This routing logic is critical for BFT consensus as it ensures all necessary
+ * parties receive the messages they need to participate in the protocol.
+ * 
+ * @param messages - Outbox messages from entity state transitions
+ * @param registry - Entity registry for looking up quorum members
+ * @returns Array of server transactions to be added to mempool
+ */
+const routeMessages = (messages: OutboxMsg[], registry: Registry): ServerTx[] => {
+    const routed: ServerTx[] = [];
+    
+    for (const msg of messages) {
+        const meta = registry.get(msg.toEntity);
+        if (!meta) continue;
+        
+        const signers = msg.toSigner !== undefined ? [msg.toSigner] : meta.quorum;
+        
+        for (const signer of signers) {
+            routed.push({
+                signer,
+                entityId: msg.toEntity,
+                input: msg.input
+            });
+        }
     }
     
-    return Ok(result.server);
-}
+    return routed;
+};
+
+/**
+ * Generate automatic block proposals for single-signer entities.
+ * 
+ * Single-signer entities can skip the proposal/approval phases and move
+ * directly to committing blocks. This function detects such entities
+ * that have pending transactions and automatically generates propose_block
+ * commands for them.
+ * 
+ * This optimization significantly improves throughput for single-signer
+ * scenarios while maintaining the same security guarantees.
+ * 
+ * @param server - Current server state
+ * @returns Array of propose_block transactions for eligible entities
+ */
+const generateAutoProposals = (server: ServerState): ServerTx[] => {
+    const proposals: ServerTx[] = [];
+    
+    for (const [entityId, entity] of server.entities) {
+        const meta = server.registry.get(entityId);
+        if (!meta) continue;
+        
+        // Only auto-propose for single-signer entities in Idle state with pending txs
+        if (entity.tag === 'Idle' && 
+            entity.mempool.length > 0 && 
+            meta.quorum.length === 1) {
+            
+            const proposer = getCurrentProposer(entity.height, meta.quorum);
+            if (proposer !== undefined) {
+                proposals.push({
+                    signer: proposer,
+                    entityId,
+                    input: {
+                        type: 'propose_block',
+                        txs: entity.mempool
+                    }
+                });
+            }
+        }
+    }
+    
+    return proposals;
+};
+
+// Persist state to storage (handles both SimpleStorage and full Storage)
+const persistState = async (
+    storage: SimpleStorage | Storage,
+    height: BlockHeight,
+    state: ServerState,
+    transactions?: ServerTx[]
+): Promise<void> => {
+    if ('persist' in storage) {
+        // SimpleStorage interface
+        await storage.persist(height, state);
+    } else {
+        // Full Storage interface
+        try {
+            // Write WAL if we have transactions
+            if (transactions && transactions.length > 0) {
+                await storage.wal.append(height, transactions);
+            }
+            
+            // Save block data
+            const blockData = {
+                height,
+                timestamp: Date.now(),
+                transactions: transactions || [],
+                stateHash: computeStateHash(state.entities)
+            };
+            await storage.blocks.save(height, blockData);
+            
+            // Periodic snapshots
+            if (Number(height) % 100 === 0) {
+                await storage.state.save(state);
+                await storage.wal.truncateBefore(height);
+            }
+        } catch (error) {
+            throw new Error(`Storage error: ${error}`);
+        }
+    }
+};
 
 // Archive snapshot creation
 export const createArchiveSnapshot = (
@@ -510,14 +387,11 @@ export const createArchiveSnapshot = (
     return {
         height,
         timestamp: Date.now(),
-        stateRoot: computeStateHash(server.signers),
+        stateRoot: computeStateHash(server.entities),
         parentHash,
-        signers: Array.from(server.signers.entries()).map(([idx, entities]) => ({
-            index: idx,
-            entities: Array.from(entities.entries()).map(([id, state]) => ({
-                id,
-                state
-            }))
+        entities: Array.from(server.entities.entries()).map(([id, state]) => ({
+            id,
+            state
         })),
         registry: Array.from(server.registry.entries())
     };
@@ -581,140 +455,4 @@ export const replayBlocksFromTo = async (
     }
     
     return Ok(current);
-};
-
-// ===============================
-// Simplified Pipeline Alternative
-// ===============================
-
-// Simplified storage interface that hides implementation details
-export type SimplifiedStorage = {
-    persist: (height: BlockHeight, state: ServerState) => Promise<void>;
-    recover: (fromHeight: BlockHeight) => Promise<ServerState | undefined>;
-};
-
-// Core validation function - pure, no side effects
-export const validateTransactions = (
-    server: ServerState,
-    transactions: ServerTx[]
-): { valid: ServerTx[]; invalid: Array<{ tx: ServerTx; reason: string }> } => {
-    const valid: ServerTx[] = [];
-    const invalid: Array<{ tx: ServerTx; reason: string }> = [];
-    
-    for (const tx of transactions) {
-        // Check entity exists
-        const meta = server.registry.get(tx.entityId);
-        if (!meta) {
-            invalid.push({ tx, reason: 'Entity not found' });
-            continue;
-        }
-        
-        // Check signer authorization
-        if (!meta.quorum.includes(tx.signer)) {
-            invalid.push({ tx, reason: 'Signer not authorized' });
-            continue;
-        }
-        
-        // Get entity state
-        const state = getEntityState(server, tx.entityId);
-        if (!state) {
-            invalid.push({ tx, reason: 'Entity state not found' });
-            continue;
-        }
-        
-        if (state.tag === 'Faulted') {
-            invalid.push({ tx, reason: 'Entity is faulted' });
-            continue;
-        }
-        
-        // Special validation for propose_block
-        if (tx.input.type === 'propose_block') {
-            const currentProposer = getCurrentProposer(meta, state.height);
-            if (currentProposer !== tx.signer) {
-                invalid.push({ tx, reason: 'Not the current proposer' });
-                continue;
-            }
-        }
-        
-        valid.push(tx);
-    }
-    
-    return { valid, invalid };
-};
-
-
-// Simplified block processing - just 3 steps: validate → apply → persist
-export const processBlockSimplified = async (
-    server: ServerState,
-    storage?: SimplifiedStorage
-): Promise<Result<ServerState, string>> => {
-    const nextHeight = toBlockHeight(Number(server.height) + 1);
-    
-    // 1. VALIDATE
-    const { valid, invalid } = validateTransactions(server, server.mempool);
-    
-    if (invalid.length > 0) {
-        console.warn('Invalid transactions:', invalid);
-    }
-    
-    if (valid.length === 0) {
-        // Just increment height if no valid transactions
-        const newState = { ...server, height: nextHeight, mempool: [] };
-        if (storage) {
-            await storage.persist(nextHeight, newState);
-        }
-        return Ok(newState);
-    }
-    
-    // 2. APPLY - use the two-phase validateCmd/applyCmd logic
-    let intermediate = server;
-    let outbox: OutboxMsg[] = [];
-    const reInvalid: Array<{ tx: ServerTx; reason: string }> = [];
-
-    for (const tx of valid) {
-        const meta = intermediate.registry.get(tx.entityId)!;
-        const prior = getEntityState(intermediate, tx.entityId)!;
-
-        // 1) validation
-        const v = validateCmd(prior, tx.input, tx.signer, meta);
-        if (!v.ok) {
-            reInvalid.push({ tx, reason: formatError(v.error) });
-            continue;
-        }
-
-        // 2) apply
-        const [nextState, msgs] = applyCmd(prior, v.value, meta);
-        intermediate = updateEntityState(intermediate, tx.entityId, nextState);
-        outbox.push(...msgs);
-    }
-
-    if (reInvalid.length > 0) {
-        console.warn('Some transactions failed validation/apply:', reInvalid);
-    }
-
-    // Convert outbox messages to server transactions
-    const newTxs = outbox
-        .filter(msg => msg.toSigner !== undefined)
-        .map(msg => ({
-            signer: msg.toSigner!,
-            entityId: msg.toEntity,
-            input: msg.input
-        }));
-
-    const newState = {
-        ...intermediate,
-        height: nextHeight,
-        mempool: newTxs
-    };
-
-    // 3. PERSIST
-    if (storage) {
-        try {
-            await storage.persist(nextHeight, newState);
-        } catch (error) {
-            return Err(`Failed to persist state: ${error}`);
-        }
-    }
-    
-    return Ok(newState);
 };

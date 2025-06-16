@@ -1,5 +1,5 @@
-import type { KV } from '../types';
-import { MemoryKV } from './memory';
+import type { KV } from '../../src/types';
+import { MemoryKV } from '../../src/storage/memory';
 
 /**
  * Mock KV store that can simulate failures

@@ -1,11 +1,13 @@
 import type { BlockHash, BlockHeight, EntityId, SignerIdx } from './primitives';
 import type { EntityStage } from '../core/quorum';
 
-// Entity transaction type
-export type EntityTx = { 
-  readonly op: string; 
-  readonly data: any;
-};
+// Entity transaction type - strongly typed with discriminated union
+export type EntityTx = 
+  | { readonly op: 'mint'; readonly data: { readonly amount: string; readonly from?: string } }  // Deprecated: use 'credit' instead
+  | { readonly op: 'credit'; readonly data: { readonly amount: string; readonly from?: string } }
+  | { readonly op: 'burn'; readonly data: { readonly amount: string } }
+  | { readonly op: 'transfer'; readonly data: { readonly amount: string; readonly to: string } }
+  | { readonly op: 'custom'; readonly data: any };  // Escape hatch for extensibility
 
 // Entity input discriminated union
 export type ProposedBlock = {
@@ -68,7 +70,7 @@ export type OutboxMsg = {
 export type ServerState = {
   readonly height: BlockHeight;
   readonly registry: Registry;
-  readonly signers: Map<SignerIdx, Map<EntityId, EntityState>>;
+  readonly entities: Map<EntityId, EntityState>;  // Single source of truth
   readonly mempool: ServerTx[];
   readonly lastBlockHash?: BlockHash;
 };
