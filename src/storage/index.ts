@@ -73,7 +73,7 @@ export class StateStorageImpl implements StateStorage {
       const registryData = await this.kv.get(keys.registry());
       const registry: Registry = new Map(JSON.parse(registryData || '[]').map(([id, meta]: [string, any]) => [
         toEntityId(id),
-        { ...meta, id: toEntityId(id), quorum: meta.quorum.map(toSignerIdx), proposer: toSignerIdx(meta.proposer) }
+        { id: toEntityId(id), quorum: meta.quorum.map(toSignerIdx), timeoutMs: meta.timeoutMs }
       ]));
       
       // Load entities

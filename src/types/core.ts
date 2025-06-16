@@ -30,9 +30,9 @@ export type EntityMeta = {
 // Update EntityInput to not require hash for propose_block
 export type EntityInput =
   | { readonly type: 'add_tx'; readonly tx: EntityTx }
-  | { readonly type: 'propose_block'; readonly txs?: EntityTx[]; readonly hash: string } // hash computed, not input
-  | { readonly type: 'approve_block'; readonly hash: string; readonly from?: SignerIdx }
-  | { readonly type: 'commit_block'; readonly hash: string };
+  | { readonly type: 'propose_block'; readonly txs: EntityTx[]; readonly hash: BlockHash }
+  | { readonly type: 'approve_block'; readonly hash: BlockHash; readonly from?: SignerIdx }
+  | { readonly type: 'commit_block'; readonly hash: BlockHash };
 
 // Registry type
 export type Registry = Map<EntityId, EntityMeta>;

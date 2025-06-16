@@ -10,7 +10,7 @@ import type {
   Result,
   SignerIdx
 } from '../types';
-import { Err, Ok, toBlockHash, toBlockHeight, toEntityId } from '../types';
+import { Err, Ok, toBlockHeight, toEntityId } from '../types';
 import { computeHash } from '../utils/hash';
 
 // Compute deterministic hash for a block
@@ -200,8 +200,8 @@ function handleIdleState<T extends { balance: bigint }>(
         });
       }
       
-      // Use provided txs or mempool
-      const txs = input.txs && input.txs.length > 0 ? input.txs : entity.mempool;
+      // txs is now always required
+      const txs = input.txs;
       if (txs.length === 0) {
         return Err({ 
           type: 'validation', 
@@ -212,8 +212,6 @@ function handleIdleState<T extends { balance: bigint }>(
       
       // Compute expected hash and validate against provided hash
       const computedHash = computeEntityBlockHash(txs, entity.height, meta.id);
-      const providedHash = toBlockHash(input.hash);
-      
       if (computedHash !== input.hash) {
         return Err({
           type: 'validation',
@@ -224,7 +222,7 @@ function handleIdleState<T extends { balance: bigint }>(
       
       const proposal = { 
         txs, 
-        hash: providedHash, 
+        hash: input.hash, 
         approves: new Set([signer]),
         timestamp: currentTime,
         proposer: signer
@@ -250,7 +248,7 @@ function handleIdleState<T extends { balance: bigint }>(
           height: newHeight,
           state: newState,
           mempool: entity.mempool.filter(tx => !txs.includes(tx)), // Remove committed txs
-          lastBlockHash: providedHash,
+          lastBlockHash: input.hash,
           lastProcessedHeight: entity.lastProcessedHeight
         }, transferMessages]);
       }
@@ -262,7 +260,7 @@ function handleIdleState<T extends { balance: bigint }>(
           from: meta.id,
           toEntity: meta.id,
           toSigner: q,
-          input: { type: 'propose_block' as const, txs, hash: input.hash }
+          input: { type: 'propose_block', txs, hash: input.hash }
         }));
       
       return Ok([
@@ -303,10 +301,9 @@ function handleProposedState<T extends { balance: bigint }>(
       ]);
     
     case 'propose_block': {
-      const proposedHash = toBlockHash(input.hash);
-      
+      // input.hash is already BlockHash
       // Validate the provided hash matches computed hash
-      const computedHash = computeEntityBlockHash(input.txs || [], entity.height, meta.id);
+      const computedHash = computeEntityBlockHash(input.txs, entity.height, meta.id);
       if (computedHash !== input.hash) {
         return Err({
           type: 'validation',
@@ -316,7 +313,7 @@ function handleProposedState<T extends { balance: bigint }>(
       }
       
       // If this is the same proposal we already have
-      if (proposedHash === entity.proposal.hash) {
+      if (input.hash === entity.proposal.hash) {
         // Add our approval if we haven't already
         if (!entity.proposal.approves.has(signer)) {
           const approves = new Set(entity.proposal.approves).add(signer);
@@ -327,7 +324,7 @@ function handleProposedState<T extends { balance: bigint }>(
             from: meta.id,
             toEntity: meta.id,
             toSigner: s,
-            input: { type: 'approve_block' as const, hash: input.hash, from: signer }
+            input: { type: 'approve_block', hash: input.hash, from: signer }
           }));
           
           return Ok([
@@ -348,7 +345,7 @@ function handleProposedState<T extends { balance: bigint }>(
     }
     
     case 'approve_block': {
-      if (entity.proposal.hash !== toBlockHash(input.hash)) {
+      if (entity.proposal.hash !== input.hash) {
         return Err({ 
           type: 'validation', 
           field: 'hash', 
@@ -376,7 +373,7 @@ function handleProposedState<T extends { balance: bigint }>(
           from: meta.id,
           toEntity: meta.id,
           toSigner: entity.proposal.proposer,
-          input: { type: 'commit_block' as const, hash: input.hash }
+          input: { type: 'commit_block', hash: input.hash }
         };
         
         return Ok([
@@ -422,7 +419,7 @@ function handleCommittingState<T extends { balance: bigint }>(
       return Ok([entity, []]);
     
     case 'commit_block': {
-      if (entity.proposal.hash !== toBlockHash(input.hash)) {
+      if (entity.proposal.hash !== input.hash) {
         return Err({ 
           type: 'validation', 
           field: 'hash', 
