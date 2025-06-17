@@ -42,7 +42,7 @@ export const createBlockRunner = (config: RunnerConfig) => {
     // Convert new engine result to old format
     return Ok({
       server: result.value.server,
-      stateHash: computeStateHash(result.value.server),
+      stateHash: result.value.stateHash,
       appliedTxs: result.value.appliedCommands,
       failedTxs: result.value.failedCommands.map((f: any) => f.command),
       messages: result.value.generatedMessages

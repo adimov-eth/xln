@@ -1,13 +1,10 @@
-// ============================================================================
-// test/fluent-api.ts - Fluent test API that reads like English
-// ============================================================================
 
 import { expect } from 'bun:test';
 import { createServer, importEntity, query, registerEntity, submitCommand } from '../engine/server.js';
 import { SilentLogger } from '../infra/deps.js';
 import { createBlockRunner } from '../infra/runner.js';
 import { MemoryStorage } from '../storage/memory.js';
-import { id } from '../types/primitives.js';
+import { id, signer } from '../types/primitives.js';
 import type { ProtocolRegistry } from '../types/protocol.js';
 import type { EntityCommand, ServerState } from '../types/state.js';
 
@@ -31,7 +28,7 @@ export class TestScenario {
   withEntity(entityId: string, config: { protocol: string; signers: number[]; initialState?: any; timeoutMs?: number; }): this {
     this.server = registerEntity(this.server, entityId, { quorum: config.signers, protocol: config.protocol, timeoutMs: config.timeoutMs });
     for (const signerId of config.signers) {
-      this.server = importEntity(this.server, signerId, entityId, config.initialState);
+      this.server = importEntity(this.server, signer(signerId), entityId, config.initialState);
     }
     return this;
   }
@@ -55,13 +52,16 @@ export class TestScenario {
   }
   
   sendCommand(from: number, to: string, command: EntityCommand): this {
-    this.server = submitCommand(this.server, from, to, command);
+    this.server = submitCommand(this.server, signer(from), to, command);
     return this;
   }
   
   sendTransaction(from: number, to: string, tx: any): this {
-    const nextNonce = this.getNextNonce(to);
-    if (tx.nonce === undefined) {
+    // Only auto-increment nonce for operations that don't require it
+    // This helps catch bugs where nonce is forgotten for transfer/burn
+    const requiresNonce = tx.op === 'transfer' || tx.op === 'burn';
+    if (!requiresNonce && tx.nonce === undefined) {
+      const nextNonce = this.getNextNonce(to);
       tx.nonce = nextNonce;
     }
     return this.sendCommand(from, to, { type: 'addTx', tx });
@@ -123,14 +123,14 @@ export class TestScenario {
   
   private findEntity(entityId: string, atSigner?: number): any {
     if (atSigner !== undefined) {
-      const entity = query.getEntity(this.server, atSigner, entityId);
+      const entity = query.getEntity(this.server, signer(atSigner), entityId);
       if (!entity) throw new Error(`Entity "${entityId}" not found at signer ${atSigner}`);
       return entity;
     }
     const meta = this.server.registry.get(id(entityId));
     if (!meta) throw new Error(`Entity "${entityId}" not registered`);
-    for (const signer of meta.quorum) {
-      const entity = query.getEntity(this.server, signer, entityId);
+    for (const signerIdx of meta.quorum) {
+      const entity = query.getEntity(this.server, signerIdx, entityId);
       if (entity) return entity;
     }
     throw new Error(`Entity "${entityId}" not found at any signer`);

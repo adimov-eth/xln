@@ -1,9 +1,6 @@
-// ============================================================================
-// protocols/dao.ts - DAO protocol that reads like English
-// ============================================================================
 
-import { daoActions, walletActions } from '../entity/actions.js';
-import type { DaoState, Initiative } from '../entity/actions.js';
+import type { DaoState } from '../entity/actions.js';
+import { daoActions } from '../entity/actions.js';
 import type { EntityId, SignerIdx } from '../types/primitives.js';
 import { signer } from '../types/primitives.js';
 import type { Protocol } from '../types/protocol.js';
@@ -13,7 +10,7 @@ import type { EntityTx, OutboxMsg } from '../types/state.js';
 import type { WalletOp } from './wallet.js';
 import { WalletProtocol } from './wallet.js';
 
-export type { Initiative, DaoState } from '../entity/actions.js';
+export type { DaoState, Initiative } from '../entity/actions.js';
 
 // ============================================================================
 // DAO Operations

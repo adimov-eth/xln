@@ -1,6 +1,3 @@
-// ============================================================================
-// utils/hash.ts - Deterministic hashing
-// ============================================================================
 
 import { createHash } from 'crypto';
 import type { BlockHash, BlockHeight, EntityId } from '../types/primitives.js';

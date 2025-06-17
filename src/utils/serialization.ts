@@ -1,6 +1,3 @@
-// ============================================================================
-// utils/serialization.ts - JSON serialization with BigInt support
-// ============================================================================
 
 import { height } from '../types/primitives.js';
 import type { ServerState } from '../types/state.js';

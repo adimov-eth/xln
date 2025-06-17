@@ -1,6 +1,3 @@
-// ============================================================================
-// utils/immutable.ts - Efficient immutable operations
-// ============================================================================
 
 export const assoc = <K, V>(map: ReadonlyMap<K, V>, key: K, value: V): ReadonlyMap<K, V> => {
   if (map.get(key) === value) return map;

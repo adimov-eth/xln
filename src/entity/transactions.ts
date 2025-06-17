@@ -1,6 +1,3 @@
-// ============================================================================
-// entity/transactions.ts - Business operations that read like English
-// ============================================================================
 
 import type { EntityId } from '../types/primitives.js';
 import type { EntityTx } from '../types/state.js';

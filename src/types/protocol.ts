@@ -1,6 +1,3 @@
-// ============================================================================
-// types/protocol.ts - Protocol system types
-// ============================================================================
 
 import type { EntityId } from './primitives.js';
 import type { Result } from './result.js';

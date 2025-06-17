@@ -1,15 +1,11 @@
-// ============================================================================
-// engine/server.ts - Server state management that reads like English
-// ============================================================================
-
 import { height, id, signer } from '../types/primitives.js';
-import type { 
-  EntityCommand, 
-  EntityMeta, 
-  EntityState, 
-  ServerState, 
-  ServerTx, 
-  SignerIdx 
+import type {
+  EntityCommand,
+  EntityMeta,
+  EntityState,
+  ServerState,
+  ServerTx,
+  SignerIdx
 } from '../types/state.js';
 import { assoc } from '../utils/immutable.js';
 
@@ -62,19 +58,18 @@ export const registerEntity = (
 
 export const importEntity = (
   server: ServerState,
-  signerId: number,
+  signerId: SignerIdx,
   entityId: string,
   initialState?: any
 ): ServerState => {
   const meta = server.registry.get(id(entityId));
   if (!meta) throw new Error(`Cannot import entity "${entityId}" - it is not registered`);
   
-  const signerIdx = signer(signerId);
-  if (!signerIsInQuorum(signerIdx, meta)) throw new Error(`Signer ${signerId} is not authorized for entity "${entityId}"`);
-  if (entityAlreadyImported(server, signerIdx, entityId)) return server;
+  if (!signerIsInQuorum(signerId, meta)) throw new Error(`Signer ${signerId} is not authorized for entity "${entityId}"`);
+  if (entityAlreadyImported(server, signerId, entityId)) return server;
   
   const entity = createEntityState(entityId, initialState ?? getDefaultState(meta.protocol));
-  return addEntityToSigner(server, signerIdx, entity);
+  return addEntityToSigner(server, signerId, entity);
 };
 
 // ============================================================================
@@ -83,11 +78,11 @@ export const importEntity = (
 
 export const submitCommand = (
   server: ServerState,
-  fromSigner: number,
+  fromSigner: SignerIdx,
   toEntity: string,
   command: EntityCommand
 ): ServerState => {
-  const serverTx: ServerTx = { signer: signer(fromSigner), entityId: id(toEntity), command };
+  const serverTx: ServerTx = { signer: fromSigner, entityId: id(toEntity), command };
   return { ...server, mempool: [...server.mempool, serverTx] };
 };
 
@@ -96,11 +91,11 @@ export const submitCommand = (
 // ============================================================================
 
 export const query = {
-  getEntity: (server: ServerState, signerId: number, entityId: string): EntityState | undefined => server.signers.get(signer(signerId))?.get(id(entityId)),
+  getEntity: (server: ServerState, signerId: SignerIdx, entityId: string): EntityState | undefined => server.signers.get(signerId)?.get(id(entityId)),
   getMetadata: (server: ServerState, entityId: string): EntityMeta | undefined => server.registry.get(id(entityId)),
-  hasEntity: (server: ServerState, signerId: number, entityId: string): boolean => query.getEntity(server, signerId, entityId) !== undefined,
+  hasEntity: (server: ServerState, signerId: SignerIdx, entityId: string): boolean => query.getEntity(server, signerId, entityId) !== undefined,
   pendingCommandCount: (server: ServerState): number => server.mempool.length,
-  getSignerEntities: (server: ServerState, signerId: number): readonly EntityState[] => Array.from(server.signers.get(signer(signerId))?.values() ?? [])
+  getSignerEntities: (server: ServerState, signerId: SignerIdx): readonly EntityState[] => Array.from(server.signers.get(signerId)?.values() ?? [])
 };
 
 // ============================================================================

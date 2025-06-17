@@ -1,10 +1,7 @@
-// ============================================================================
-// entity/actions.ts - Pure state mutations that read like English
-// ============================================================================
 
+import type { EntityId, SignerIdx } from '../types/primitives.js';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
-import type { EntityId, SignerIdx } from '../types/primitives.js';
 import type { EntityTx, OutboxMsg } from '../types/state.js';
 
 // ============================================================================

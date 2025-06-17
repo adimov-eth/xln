@@ -1,4 +1,4 @@
-# XLN v2.2 - Production-Ready Distributed Ledger
+# XLN v4 - Production-Ready Distributed Ledger
 
 A fully modular, type-safe implementation of a distributed ledger system in TypeScript, designed with functional programming principles and built for production use with Bun runtime.
 

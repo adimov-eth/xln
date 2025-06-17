@@ -1,6 +1,3 @@
-// ============================================================================
-// entity/blocks.ts - Block creation and consensus that reads like English
-// ============================================================================
 
 import type { BlockHash, BlockHeight, EntityId, SignerIdx } from '../types/primitives.js';
 import { height } from '../types/primitives.js';
@@ -8,7 +5,7 @@ import type { Protocol } from '../types/protocol.js';
 import { isNonced } from '../types/protocol.js';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
-import type { EntityState, EntityTx, ProposedBlock, OutboxMsg } from '../types/state.js';
+import type { EntityState, EntityTx, OutboxMsg, ProposedBlock } from '../types/state.js';
 import { computeBlockHash } from '../utils/hash.js';
 import { describe } from './transactions.js';
 
@@ -81,11 +78,11 @@ export const block = {
 // ============================================================================
 
 export const execute = {
-  block: (
-    currentState: any,
+  block: <T extends { nonce?: number } = any>(
+    currentState: T,
     block: ProposedBlock,
     entityId: EntityId,
-    protocol: Protocol<any, any>
+    protocol: Protocol<T, any>
   ): BlockExecutionResult => {
     let state = currentState;
     const executed: ExecutedTransaction[] = [];
@@ -114,12 +111,12 @@ export const execute = {
     };
   },
   
-  transaction: (
-    state: any,
+  transaction: <T extends { nonce?: number } = any>(
+    state: T,
     transaction: EntityTx,
-    protocol: Protocol<any, any>,
+    protocol: Protocol<T, any>,
     entityId: EntityId
-  ): Result<{ newState: any; messages?: readonly OutboxMsg[] }> => {
+  ): Result<{ newState: T; messages?: readonly OutboxMsg[] }> => {
     if (transactionRequiresNonce(transaction) && stateHasNonce(state)) {
       const expectedNonce = state.nonce + 1;
       if (transaction.nonce !== expectedNonce) {

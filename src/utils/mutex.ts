@@ -1,7 +1,3 @@
-// ============================================================================
-// utils/mutex.ts - Simple async mutex for memory storage
-// ============================================================================
-
 export class Mutex {
   private queue: (() => void)[] = [];
   private locked = false;

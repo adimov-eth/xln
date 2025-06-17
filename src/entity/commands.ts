@@ -1,7 +1,3 @@
-// ============================================================================
-// entity/commands.ts - Entity command processing that reads like English
-// ============================================================================
-
 import type { BlockHash, BlockHeight, EntityId, SignerIdx } from '../types/primitives.js';
 import { hash as blockHash } from '../types/primitives.js';
 import type { Result } from '../types/result.js';
@@ -20,6 +16,14 @@ import { computeBlockHash } from '../utils/hash.js';
 // Consensus Utilities
 // ============================================================================
 
+export const calcRequiredApprovals = (quorumSize: number, thresholdPercent: number = 66): number => {
+  if (quorumSize > 1_000_000) {
+    throw new Error('Quorum size exceeds maximum allowed (1M signers)');
+  }
+  // Using ceiling to ensure we always require at least the threshold
+  return Math.ceil((quorumSize * thresholdPercent) / 100);
+};
+
 const getProposer = (h: BlockHeight, quorum: readonly SignerIdx[]): SignerIdx => {
   if (quorum.length === 0) throw new Error('Empty quorum');
   const index = Number(h) % quorum.length;
@@ -30,15 +34,11 @@ const getProposer = (h: BlockHeight, quorum: readonly SignerIdx[]): SignerIdx =>
 
 const hasQuorum = (
   approvals: Set<SignerIdx>, 
-  quorum: readonly SignerIdx[]
+  quorum: readonly SignerIdx[],
+  thresholdPercent: number = 66
 ): boolean => {
-  if (quorum.length > 1_000_000) {
-    throw new Error('Quorum size exceeds maximum allowed (1M signers)');
-  }
-  
-  const a = BigInt(approvals.size);
-  const q = BigInt(quorum.length);
-  return a * 3n >= q * 2n;
+  const required = calcRequiredApprovals(quorum.length, thresholdPercent);
+  return approvals.size >= required;
 };
 
 const isTimedOut = (timestamp: number, timeoutMs: number): boolean => {
@@ -72,16 +72,17 @@ export const processEntityCommand = (context: CommandContext): Result<CommandRes
   if (!signerIsAuthorized(signer, meta)) return Err(`Signer ${signer} is not authorized for this entity`);
   if (entityIsFaulted(entity)) return Err(`Entity is faulted: ${entity.faultReason}`);
   
-  if (proposalHasTimedOut(entity, now, meta.timeoutMs)) {
-    return processEntityCommand({ ...context, entity: recoverFromTimeout(entity) });
-  }
+  // Pre-flight timeout recovery to avoid double validation
+  const activeEntity = proposalHasTimedOut(entity, now, meta.timeoutMs) 
+    ? recoverFromTimeout(entity) 
+    : entity;
   
   switch (command.type) {
-    case 'addTx': return addTransactionToMempool(entity, command.tx);
-    case 'proposeBlock': return createBlockProposal(entity, signer, meta, now);
-    case 'shareProposal': return receiveSharedProposal(entity, command.proposal, signer, meta);
-    case 'approveBlock': return addApprovalToBlock(entity, command, signer, meta);
-    case 'commitBlock': return finalizeAndCommitBlock(entity, command.hash, signer, meta);
+    case 'addTx': return addTransactionToMempool(activeEntity, command.tx);
+    case 'proposeBlock': return createBlockProposal(activeEntity, signer, meta, now);
+    case 'shareProposal': return receiveSharedProposal(activeEntity, command.proposal, signer, meta);
+    case 'approveBlock': return addApprovalToBlock(activeEntity, command, signer, meta);
+    case 'commitBlock': return finalizeAndCommitBlock(activeEntity, command.hash, signer, meta);
     default: return Err('Unknown command type');
   }
 };
@@ -144,7 +145,15 @@ const finalizeAndCommitBlock = (entity: EntityState, blockHash: BlockHash, signe
   if (entityAlreadyCommittedThisBlock(entity, blockHash)) return Ok({ entity, messages: [] });
   if (!canCommitBlock(entity)) return Err('Can only commit when in committing or proposed state');
   if (!entity.proposal || entity.proposal.hash !== blockHash) return Err('Block hash does not match current proposal');
-  if (entity.stage === 'committing' && signer !== entity.proposal.proposer) return Err('Only the proposer can commit when in committing state');
+  
+  // Critical: Check quorum in proposed stage to prevent early commits
+  if (entity.stage === 'proposed' && !hasQuorum(new Set(entity.proposal.approvals), meta.quorum)) {
+    return Err('Cannot commit block: quorum not reached');
+  }
+  
+  if (entity.stage === 'committing' && signer !== entity.proposal.proposer) {
+    return Err('Only the proposer can commit when in committing state');
+  }
   
   // NOTE: Block execution is now handled by the engine/processor.
   // This command handler's job is to prepare the state for execution.

@@ -1,6 +1,3 @@
-// ============================================================================
-// types/result.ts - Result type for error handling
-// ============================================================================
 
 export type Result<T, E = string> = 
   | { readonly ok: true; readonly value: T }

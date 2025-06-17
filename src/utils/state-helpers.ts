@@ -1,7 +1,3 @@
-// ============================================================================
-// utils/state-helpers.ts - Helper functions for working with hierarchical state
-// ============================================================================
-
 import type { EntityId, EntityState, ServerState, SignerIdx } from '../types/state.js';
 
 export const getEntityAcrossSigners = (server: ServerState, entityId: EntityId): ReadonlyMap<SignerIdx, EntityState> => {

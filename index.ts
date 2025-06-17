@@ -1,6 +1,3 @@
-// ============================================================================
-// XLN v3 - Main entry point
-// ============================================================================
 
 // Export all key types
 export type { DaoOp, DaoState, Initiative } from './src/protocols/dao.js';

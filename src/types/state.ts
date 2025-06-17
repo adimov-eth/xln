@@ -1,7 +1,3 @@
-// ============================================================================
-// types/state.ts - Core state types
-// ============================================================================
-
 import type { BlockHash, BlockHeight, EntityId, SignerIdx } from './primitives.js';
 
 export type EntityStage = 'idle' | 'proposed' | 'committing' | 'faulted';

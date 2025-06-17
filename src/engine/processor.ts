@@ -1,11 +1,8 @@
-// ============================================================================
-// engine/processor.ts - Main processing loop that reads like English
-// ============================================================================
-
 import { execute, transition } from '../entity/blocks.js';
 import type { CommandResult } from '../entity/commands.js';
 import { processEntityCommand } from '../entity/commands.js';
 import type { EntityId, SignerIdx } from '../types/primitives.js';
+import { height } from '../types/primitives.js';
 import type { ProtocolRegistry } from '../types/protocol.js';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
@@ -16,6 +13,7 @@ import type {
   ServerTx
 } from '../types/state.js';
 import { assoc } from '../utils/immutable.js';
+import { computeStateHash } from '../utils/hash.js';
 import { router } from './router.js';
 
 // ============================================================================
@@ -24,6 +22,7 @@ import { router } from './router.js';
 
 export type ProcessingResult = {
   readonly server: ServerState;
+  readonly stateHash: string;
   readonly appliedCommands: readonly ServerTx[];
   readonly failedCommands: readonly FailedCommand[];
   readonly generatedMessages: readonly OutboxMsg[];
@@ -65,12 +64,15 @@ export const processServerTick = (
   
   const finalServer: ServerState = {
     ...updatedServer,
-    height: updatedServer.height + 1 as any,
+    height: height(Number(updatedServer.height) + 1),
     mempool: [...routingResult.routedCommands, ...autoProposals]
   };
   
+  const stateHash = computeStateHash(finalServer);
+  
   return Ok({
     server: finalServer,
+    stateHash,
     appliedCommands: applied,
     failedCommands: failed,
     generatedMessages: messages

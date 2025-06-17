@@ -1,18 +1,3 @@
-I understand the clarifications:
-
-1. **DAO Architecture** - Yes, the terminology separation is perfect:
-   - **Consensus Layer**: Proposal/Approve/Commit (for blocks)
-   - **Governance Layer**: Initiative/Vote/Execute (for DAO decisions)
-   - This avoids the overloaded "proposal" term and makes the architecture cleaner.
-
-2. **GitHub Code** - I cannot directly access GitHub repositories. Could you paste the current implementation here so I can review it against the spec?
-
-3. **Channels/Accounts** - Understood, these are future work and should be excluded from the current spec.
-
-4. **Networking** - Will keep the single-server simulation approach but ensure message structures are network-ready.
-
-Let me create the unified spec with these constraints:
-
 # XLN Protocol Specification v3.2 (Unified)
 
 ## Table of Contents

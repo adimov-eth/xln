@@ -79,13 +79,13 @@ Mastery: Advanced TypeScript, Modern Fullstack Architectures.
 - Use readonly and as consxt for unchanging values.
 
 ### Runtime & Dependencies
-- Use Bun runtime for backend; manage dependencies with pnpm only for frontend
+- Use Bun runtime and package manager for everything
 - Never edit package.json directly.
 - Suggest edge cases and improvements post-implementation.
 
 ## ALWAYS
-- Use pnpm (never npm).
-- For server use Bun as runtime
+- Use bun (never npm/yarn/pnpm).
+- Use Bun as both runtime and package manager
 - Verify every step against these rules to ensure consistency.
 
 **Objective**: Provide *COMPLETE*, *comprehensive*, concise, verified, high-quality code following strict rules.
@@ -117,65 +117,225 @@ End with actionable next steps whenever possible. Success is measured by shippin
 
 ## Project Overview
 
-This is a TypeScript project using Bun as the runtime and package manager. The project was initialized with `bun init` and uses modern TypeScript features with strict type checking enabled.
+XLN v4 is a production-ready distributed ledger implementation written in TypeScript, using Bun as the runtime. It features a modular architecture with support for multiple protocols, multi-signature transactions, and Byzantine fault tolerant consensus.
+
+## Development Commands
+
+### Core Development
+```bash
+# Install dependencies
+bun install
+
+# Run the main example
+bun run index.ts
+
+# Run all tests
+bun test
+
+# Run specific test by pattern
+bun test --test-name-pattern "single signer"
+
+# Type check without running
+bun --bun tsc --noEmit
+
+# Generate test coverage
+bun test --coverage
+```
+
+### Package Management
+```bash
+# Add runtime dependency
+bun add <package>
+
+# Add dev dependency
+bun add -d <package>
+
+# Remove dependency
+bun remove <package>
+```
+
+## Architecture Overview
+
+### Core Components
+
+1. **Engine** (`src/engine/`)
+   - `processor.ts`: Main transaction processing logic
+   - `router.ts`: Message routing between entities
+   - `server.ts`: Server state management and entity registration
+
+2. **Entity System** (`src/entity/`)
+   - `commands.ts`: Entity command processing and validation
+   - `transactions.ts`: Transaction creation utilities
+   - `blocks.ts`: Block-level state transitions
+   - `actions.ts`: Protocol-specific action handlers
+
+3. **Protocols** (`src/protocols/`)
+   - `wallet.ts`: Basic wallet functionality (transfers, burns)
+   - `dao.ts`: DAO governance with initiatives and voting
+   - `registry.ts`: Protocol registration system
+
+4. **Type System** (`src/types/`)
+   - `brand.ts`: Branded type utilities for type safety
+   - `primitives.ts`: Core types (EntityId, BlockHeight, etc.)
+   - `state.ts`: Server and entity state definitions
+   - `result.ts`: Result<T,E> type for error handling
+   - `protocol.ts`: Protocol interface definitions
+
+5. **Infrastructure** (`src/infra/`)
+   - `runner.ts`: Block runner with storage integration
+   - `deps.ts`: External dependencies (logger, clock)
+
+6. **Storage** (`src/storage/`)
+   - `interface.ts`: Storage abstraction layer
+   - `memory.ts`: In-memory storage implementation
+
+7. **Utilities** (`src/utils/`)
+   - `hash.ts`: Deterministic hashing functions
+   - `immutable.ts`: Copy-on-write utilities
+   - `serialization.ts`: BigInt-aware JSON handling
+   - `mutex.ts`: Async mutex for concurrency control
+   - `state-helpers.ts`: State query utilities
+
+8. **Testing** (`src/test/`)
+   - `fluent-api.ts`: Fluent testing API
+   - `dao-fluent.test.ts`: DAO protocol tests
 
 ## Development Commands
 
 ### Package Management
-- **Install dependencies**: `bun install`
-- **Add a dependency**: `bun add <package>`
-- **Add a dev dependency**: `bun add -d <package>`
-- **Remove a dependency**: `bun remove <package>`
+```bash
+bun install              # Install dependencies
+bun add <package>        # Add production dependency
+bun add -d <package>     # Add dev dependency
+bun remove <package>     # Remove dependency
+```
 
-### Running Code
-- **Execute the main script**: `bun run index.ts`
-- **Run any TypeScript file directly**: `bun <filename.ts>`
+### Development Workflow
+```bash
+bun run index.ts          # Run main example
+bun test                  # Run all tests
+bun test <pattern>        # Run specific tests
+bun --bun tsc --noEmit   # Type check without emit
+```
 
-### TypeScript
-- **Type check without running**: `bun --bun tsc --noEmit`
-- Note: Bun handles TypeScript execution directly without a separate build step
+### Testing
+```bash
+bun test                          # Run all tests
+bun test --test-name-pattern dao  # Run tests matching pattern
+bun test --coverage              # Generate coverage report
+bun test --update-snapshots      # Update test snapshots
+```
 
-## Code Architecture
+## Key Features
 
-### Technology Stack
-- **Runtime**: Bun (fast all-in-one JavaScript runtime)
-- **Language**: TypeScript 5.x with strict mode
-- **Module System**: ESNext modules with bundler resolution
-- **Package Manager**: Bun (replaces npm/yarn/pnpm)
+- **Functional Architecture**: Pure functions, immutable state, Result types
+- **Multi-Signature Support**: Byzantine fault tolerant consensus for entities
+- **Protocol System**: Pluggable protocols (Wallet, DAO, custom)
+- **Type Safety**: Branded types prevent mixing IDs, heights, etc.
+- **Testing Infrastructure**: Fluent API for scenario-based testing
+- **Error Handling**: Explicit Result<T,E> types, no exceptions
+- **Deterministic**: Consistent hashing and ordering for consensus
 
-### TypeScript Configuration
-The project enforces strict TypeScript settings:
-- Strict mode is enabled (all strict checks)
-- Target and lib set to ESNext (latest JavaScript features)
-- Module resolution set to "bundler" with import extensions allowed
-- No fallthrough cases in switch statements
-- No unchecked indexed access
-- JSX support configured for React
+## Code Architecture Principles
 
-### Project Structure
-- `index.ts`: Main entry point
-- `tsconfig.json`: TypeScript compiler configuration
-- `bun.lock`: Lockfile for reproducible installs
+### Functional Design
+- Pure functions wherever possible
+- Immutable data structures with copy-on-write
+- Result<T,E> for explicit error handling
+- Small, composable functions (<30 lines)
+- Early returns for clarity
 
-## Development Guidelines
+### Type Safety
+- Branded types for domain primitives
+- Strict TypeScript configuration
+- No `any` types allowed
+- Exhaustive pattern matching
 
-### Bun-Specific Practices
-- Always use `bun` commands instead of `npm`, `yarn`, or `pnpm`
-- TypeScript files can be executed directly without compilation
-- Bun has built-in TypeScript support, so no build step is needed for development
-- Use `bun test` for running tests (when tests are added)
+### Module Organization
+- Single responsibility per module
+- Clear dependency hierarchy
+- Explicit exports in index.ts
+- .js extensions for ESM compatibility
+
+## Testing Patterns
+
+### Fluent API Testing
+```typescript
+const s = scenario('test name')
+  .withProtocols(defaultRegistry)
+  .withWallet('alice', [0], 1000n)
+  .withDao('dao', [0, 1, 2]);
+
+s.sendTransaction(0, 'alice', transaction.transfer('bob', '100', 1));
+await s.processUntilIdle();
+s.expectBalance('alice', 900n);
+```
+
+### Property-Based Testing
+- Uses fast-check for generative testing
+- Test invariants rather than specific cases
+- Especially useful for consensus properties
+
+## Protocol Development
+
+To add a new protocol:
+
+1. Define state and operations in `src/protocols/`
+2. Implement the Protocol interface
+3. Register in `src/protocols/registry.ts`
+4. Add tests using the fluent API
+
+## Performance Considerations
+
+- **Bun Runtime**: Optimized for startup and execution speed
+- **Direct TS Execution**: No build step overhead
+- **Copy-on-Write**: Efficient immutable updates
+- **Weak Caching**: State hash caching with WeakMap
+- **Lazy Evaluation**: Deferred computation where possible
+
+# Important Instruction Reminders
+
+## Core Principles
+- Do what has been asked; nothing more, nothing less
+- NEVER create files unless they're absolutely necessary for achieving your goal
+- ALWAYS prefer editing an existing file to creating a new one
+- NEVER proactively create documentation files (*.md) or README files. Only create documentation files if explicitly requested by the User
+- Follow the functional/declarative paradigm strictly
+- Keep functions small (<30 lines) and files focused (<300 lines)
+- Use Result<T,E> for error handling, never throw exceptions
+- Maintain immutability - use copy-on-write for state updates
+
+## Project-Specific Guidelines
+
+### Runtime & Dependencies
+- Use Bun as runtime AND package manager (NOT Node.js, npm, yarn, or pnpm)
+- Never edit package.json directly - use bun commands
+- All imports must use .js extension for ESM compatibility
+
+### Testing
+- Use Bun's built-in test runner
+- Prefer the fluent API for scenario-based tests
+- Test files go in src/test/ and end with .test.ts
+- Run tests with `bun test`
 
 ### Code Style
-- Maintain strict type safety - avoid using `any` type
-- Use modern JavaScript/TypeScript features (ESNext)
-- Import statements should use proper extensions when needed
-- Follow the existing TypeScript configuration's strict rules
+- Use camelCase for variables/functions
+- Use PascalCase for types/interfaces
+- Prefer functional iteration (map/filter/reduce) over loops
+- Use early returns for clarity
+- Use const by default, never use var
+- Use readonly for immutable properties
 
-### Performance Considerations
-- Bun is optimized for startup speed and runtime performance
-- The TypeScript config skips library checking for faster type checking
-- Direct execution of TypeScript files eliminates build overhead
+### Architecture Rules
+- Entity state is immutable - always return new state
+- Commands flow: Server → Entity → Protocol → Actions
+- Messages are one-way: sender → receiver
+- All cross-entity communication via OutboxMsg
+- Consensus requires 2/3+ approval for multi-sig entities
 
-- Progress added to this repository: Continuing to develop and refine the project structure and development guidelines.
-
-- added summary
+### Common Pitfalls to Avoid
+- Don't mutate state directly - use immutable utilities
+- Don't use async in core logic - keep it pure
+- Don't mix entity IDs - use branded types
+- Don't skip validation - every command must be validated
+- Don't assume ordering - be explicit about dependencies

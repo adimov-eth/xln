@@ -1,9 +1,6 @@
-// ============================================================================
-// protocols/wallet.ts - Wallet protocol that reads like English
-// ============================================================================
 
-import { walletActions } from '../entity/actions.js';
 import type { WalletState } from '../entity/actions.js';
+import { walletActions } from '../entity/actions.js';
 import type { EntityId } from '../types/primitives.js';
 import { id } from '../types/primitives.js';
 import type { Protocol } from '../types/protocol.js';
