@@ -13,14 +13,13 @@ export class MemoryStorage implements Storage {
   private walEntries = new Map<string, ServerTx[]>();
   private blockStore = new Map<BlockHeight, BlockData>();
   private latestSnapshot: any = null;
-  private mutex = new Mutex(); // Prevent concurrent access
+  private mutex = new Mutex();
   
   readonly wal = {
     append: async (h: BlockHeight, txs: readonly ServerTx[]): Promise<Result<void>> => {
       const release = await this.mutex.acquire();
       try {
         const key = `wal:${Number(h).toString().padStart(10, '0')}`;
-        // Append to existing array instead of overwriting
         const existing = this.walEntries.get(key) || [];
         this.walEntries.set(key, [...existing, ...txs]);
         return Ok(undefined);
@@ -34,21 +33,14 @@ export class MemoryStorage implements Storage {
     readFromHeight: async (h: BlockHeight): Promise<Result<readonly ServerTx[]>> => {
       try {
         const result: ServerTx[] = [];
-        const prefix = 'wal:';
-        const startKey = `${prefix}${Number(h).toString().padStart(10, '0')}`;
-        
-        // Sort keys to ensure deterministic ordering
+        const startKey = `wal:${Number(h).toString().padStart(10, '0')}`;
         const sortedKeys = Array.from(this.walEntries.keys()).sort();
         
         for (const key of sortedKeys) {
           if (key >= startKey) {
-            const txs = this.walEntries.get(key);
-            if (txs) {
-              result.push(...txs);
-            }
+            result.push(...(this.walEntries.get(key) ?? []));
           }
         }
-        
         return Ok(result);
       } catch (e) {
         return Err(`WAL read failed: ${e}`);
@@ -57,15 +49,12 @@ export class MemoryStorage implements Storage {
     
     truncateBefore: async (h: BlockHeight): Promise<Result<void>> => {
       try {
-        const prefix = 'wal:';
-        const endKey = `${prefix}${Number(h).toString().padStart(10, '0')}`;
-        
+        const endKey = `wal:${Number(h).toString().padStart(10, '0')}`;
         for (const key of this.walEntries.keys()) {
           if (key < endKey) {
             this.walEntries.delete(key);
           }
         }
-        
         return Ok(undefined);
       } catch (e) {
         return Err(`WAL truncate failed: ${e}`);
@@ -75,53 +64,17 @@ export class MemoryStorage implements Storage {
   
   readonly blocks = {
     save: async (h: BlockHeight, block: BlockData): Promise<Result<void>> => {
-      try {
-        this.blockStore.set(h, block);
-        return Ok(undefined);
-      } catch (e) {
-        return Err(`Block save failed: ${e}`);
-      }
+      this.blockStore.set(h, block);
+      return Ok(undefined);
     },
-    
-    get: async (h: BlockHeight): Promise<Result<BlockData | null>> => {
-      try {
-        return Ok(this.blockStore.get(h) || null);
-      } catch (e) {
-        return Err(`Block get failed: ${e}`);
-      }
-    }
+    get: async (h: BlockHeight): Promise<Result<BlockData | null>> => Ok(this.blockStore.get(h) || null)
   };
   
   readonly snapshots = {
     save: async (state: ServerState): Promise<Result<void>> => {
       try {
-        // Serialize to JSON string with BigInt support
-        const serialized = serializeWithBigInt({
-          height: state.height,
-          signers: Array.from(state.signers.entries()).map(([signerId, entities]) => [
-            signerId,
-            Array.from(entities.entries()).map(([k, v]) => [
-              k, 
-              {
-                ...v,
-                mempool: [...v.mempool],
-                proposal: v.proposal ? {
-                  ...v.proposal,
-                  txs: [...v.proposal.txs],
-                  approvals: Array.from(v.proposal.approvals)
-                } : undefined
-              }
-            ])
-          ]),
-          registry: Array.from(state.registry.entries()).map(([k, v]) => [
-            k, 
-            { ...v, quorum: [...v.quorum] }
-          ]),
-          mempool: [...state.mempool]
-        });
-        
-        // Store as string (simulating database storage)
-        this.latestSnapshot = deserializeWithBigInt(serialized);
+        const serialized = serializeWithBigInt(state);
+        this.latestSnapshot = deserializeWithBigInt(serialized); // Simulate DB roundtrip
         return Ok(undefined);
       } catch (e) {
         return Err(`Snapshot save failed: ${e}`);
@@ -131,39 +84,7 @@ export class MemoryStorage implements Storage {
     loadLatest: async (): Promise<Result<ServerState | null>> => {
       try {
         if (!this.latestSnapshot) return Ok(null);
-        
-        // Reconstruct proper types from deserialized data
-        const state: ServerState = {
-          height: this.latestSnapshot.height,
-          signers: new Map(
-            this.latestSnapshot.signers.map(([signerId, entities]: [string, any]) => [
-              signerId,
-              new Map(
-                entities.map(([k, v]: [string, any]) => [
-                  k,
-                  {
-                    ...v,
-                    mempool: [...v.mempool],
-                    proposal: v.proposal ? {
-                      ...v.proposal,
-                      txs: [...v.proposal.txs],
-                      approvals: new Set(v.proposal.approvals)
-                    } : undefined
-                  }
-                ])
-              )
-            ])
-          ),
-          registry: new Map(
-            this.latestSnapshot.registry.map(([k, v]: [string, any]) => [
-              k,
-              { ...v, quorum: [...v.quorum] }
-            ])
-          ),
-          mempool: [...this.latestSnapshot.mempool]
-        };
-        
-        return Ok(state);
+        return Ok(deserializeWithBigInt(serializeWithBigInt(this.latestSnapshot)));
       } catch (e) {
         return Err(`Snapshot load failed: ${e}`);
       }
@@ -175,13 +96,4 @@ export class MemoryStorage implements Storage {
     this.blockStore.clear();
     this.latestSnapshot = null;
   }
-  
-  // Debug helpers
-  getWalSize(): number {
-    return this.walEntries.size;
-  }
-  
-  getBlockCount(): number {
-    return this.blockStore.size;
-  }
-} 
+}

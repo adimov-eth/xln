@@ -10,7 +10,7 @@ import { Err, Ok } from '../types/result.js';
 import type { CommandResult, EntityMeta, OutboxMsg, ServerState, ServerTx, SignerEntities } from '../types/state.js';
 import { computeStateHash } from '../utils/hash.js';
 import { assoc } from '../utils/immutable.js';
-import { processEntityCommand } from './entity/commands.js';
+import { processEntityCommand } from '../entity/commands.js';
 
 export type Clock = {
   readonly now: () => number;
@@ -45,14 +45,14 @@ const validateTransactions = (
   const results: ValidationEntry[] = [];
   
   // Create a temporary copy of signers map for validation
-  const tempSigners = new Map<string, Map<string, any>>();
+  const tempSigners = new Map<SignerIdx, Map<string, any>>();
   for (const [signerId, entities] of server.signers) {
-    tempSigners.set(String(signerId), new Map(entities));
+    tempSigners.set(signerId, new Map(entities));
   }
   
   for (const tx of transactions) {
     // Get entity from the specific signer
-    const signerEntities = tempSigners.get(String(tx.signer));
+    const signerEntities = tempSigners.get(tx.signer);
     if (!signerEntities) {
       return Err(`Signer ${tx.signer} not found`);
     }
@@ -69,7 +69,6 @@ const validateTransactions = (
       command: tx.command,
       signer: tx.signer,
       meta,
-      protocols,
       now
     });
     
@@ -231,7 +230,6 @@ export const processBlockPure = (ctx: BlockContext): Result<ProcessedBlock> => {
     mempool: [...routedTxs, ...autoProposeTxs]
   };
   
-  // P-3 FIX: Only include successfully applied transactions
   const appliedTxs = validationResult.value.map(entry => entry.tx);
   
   return Ok({
@@ -241,4 +239,4 @@ export const processBlockPure = (ctx: BlockContext): Result<ProcessedBlock> => {
     failedTxs: [], // Currently no transactions fail in validation
     messages: allMessages
   });
-}; 
+};

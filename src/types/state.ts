@@ -5,14 +5,12 @@
 import type { BlockHash, BlockHeight, EntityId, SignerIdx } from './primitives.js';
 
 export type EntityStage = 'idle' | 'proposed' | 'committing' | 'faulted';
-
-// Each signer maintains its own entity replicas
 export type SignerEntities = ReadonlyMap<EntityId, EntityState>;
 
 export type EntityTx = {
   readonly op: string;
   readonly data: any;
-  readonly nonce?: number;
+  nonce?: number;
 };
 
 export type ProposedBlock = {
@@ -20,7 +18,7 @@ export type ProposedBlock = {
   readonly hash: BlockHash;
   readonly height: BlockHeight;
   readonly proposer: SignerIdx;
-  readonly approvals: Set<SignerIdx>;
+  readonly approvals: ReadonlySet<SignerIdx>;
   readonly timestamp: number;
 };
 
@@ -64,11 +62,10 @@ export type OutboxMsg = {
 
 export type ServerState = {
   readonly height: BlockHeight;
-  readonly signers: ReadonlyMap<SignerIdx, SignerEntities>;  // NEW: hierarchical structure
+  readonly signers: ReadonlyMap<SignerIdx, SignerEntities>;
   readonly registry: ReadonlyMap<EntityId, EntityMeta>;
   readonly mempool: readonly ServerTx[];
-  // Temporary for migration - will be removed
-  readonly entities?: ReadonlyMap<EntityId, EntityState>;
+  readonly entities?: ReadonlyMap<EntityId, EntityState>; // For migration
 };
 
 export type BlockData = {
@@ -79,11 +76,9 @@ export type BlockData = {
   readonly parentHash?: string;
 };
 
-// Command result type (moved here to avoid circular imports)
 export type CommandResult = {
   readonly entity: EntityState;
   readonly messages: readonly OutboxMsg[];
 };
 
-// Re-export from primitives for convenience
 export type { BlockHash, BlockHeight, EntityId, SignerIdx } from './primitives.js';

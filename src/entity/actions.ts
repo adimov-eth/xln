@@ -4,9 +4,8 @@
 
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
-import type { OutboxMsg } from '../types/state.js';
-import type { EntityId } from '../types/primitives.js';
-import { id } from '../types/primitives.js';
+import type { EntityId, SignerIdx } from '../types/primitives.js';
+import type { EntityTx, OutboxMsg } from '../types/state.js';
 
 // ============================================================================
 // Action Types - Clear intent and side effects
@@ -16,7 +15,7 @@ export type Action<TState, TParams> = {
   name: string;
   validate: (state: TState, params: TParams) => Result<TParams>;
   execute: (state: TState, params: TParams) => TState;
-  generateMessages?: (entityId: string, params: TParams) => OutboxMsg[];
+  generateMessages?: (entityId: EntityId, params: TParams) => OutboxMsg[];
 };
 
 export type ActionResult<TState> = {
@@ -29,23 +28,22 @@ export type ActionResult<TState> = {
 // ============================================================================
 
 export type WalletState = {
-  balance: bigint;
-  nonce: number;
+  readonly balance: bigint;
+  readonly nonce: number;
 };
 
 export type TransferParams = {
-  to: string;
-  amount: bigint;
-  from?: string;
+  readonly to: EntityId;
+  readonly amount: bigint;
 };
 
 export type BurnParams = {
-  amount: bigint;
+  readonly amount: bigint;
 };
 
 export type CreditParams = {
-  amount: bigint;
-  from: string;
+  readonly amount: bigint;
+  readonly from: EntityId;
 };
 
 export const walletActions = {
@@ -53,15 +51,9 @@ export const walletActions = {
     name: 'transfer',
     
     validate: (state: WalletState, params: TransferParams): Result<TransferParams> => {
-      if (params.amount <= 0n) {
-        return Err('Transfer amount must be positive');
-      }
-      if (state.balance < params.amount) {
-        return Err('Insufficient balance for transfer');
-      }
-      if (!params.to) {
-        return Err('Transfer requires a recipient');
-      }
+      if (params.amount <= 0n) return Err('Transfer amount must be positive');
+      if (state.balance < params.amount) return Err('Insufficient balance for transfer');
+      if (!params.to) return Err('Transfer requires a recipient');
       return Ok(params);
     },
     
@@ -72,14 +64,14 @@ export const walletActions = {
     
     generateMessages: (entityId: EntityId, params: TransferParams): OutboxMsg[] => [{
       from: entityId,
-      to: id(params.to),
+      to: params.to,
       command: {
         type: 'addTx',
         tx: {
           op: 'credit',
           data: {
             amount: params.amount.toString(),
-            from: entityId.toString(),
+            from: entityId,
             _internal: true
           }
         }
@@ -91,12 +83,8 @@ export const walletActions = {
     name: 'burn',
     
     validate: (state: WalletState, params: BurnParams): Result<BurnParams> => {
-      if (params.amount <= 0n) {
-        return Err('Burn amount must be positive');
-      }
-      if (state.balance < params.amount) {
-        return Err('Insufficient balance to burn');
-      }
+      if (params.amount <= 0n) return Err('Burn amount must be positive');
+      if (state.balance < params.amount) return Err('Insufficient balance to burn');
       return Ok(params);
     },
     
@@ -110,12 +98,8 @@ export const walletActions = {
     name: 'credit',
     
     validate: (state: WalletState, params: CreditParams): Result<CreditParams> => {
-      if (params.amount <= 0n) {
-        return Err('Credit amount must be positive');
-      }
-      if (!params.from) {
-        return Err('Credit requires a source');
-      }
+      if (params.amount <= 0n) return Err('Credit amount must be positive');
+      if (!params.from) return Err('Credit requires a source');
       return Ok(params);
     },
     
@@ -131,39 +115,39 @@ export const walletActions = {
 // ============================================================================
 
 export type Initiative = {
-  id: string;
-  title: string;
-  description: string;
-  author: number;
-  actions: any[];
-  votes: Map<number, boolean>;
-  status: 'active' | 'passed' | 'rejected' | 'executed';
-  createdAt: number;
-  executedAt?: number;
+  readonly id: string;
+  readonly title: string;
+  readonly description: string;
+  readonly author: SignerIdx;
+  readonly actions: readonly EntityTx[];
+  readonly votes: ReadonlyMap<SignerIdx, boolean>;
+  readonly status: 'active' | 'passed' | 'rejected' | 'executed';
+  readonly createdAt: number;
+  readonly executedAt?: number;
 };
 
 export type DaoState = WalletState & {
-  initiatives: Map<string, Initiative>;
-  memberCount: number;
-  voteThreshold: number;
+  readonly initiatives: ReadonlyMap<string, Initiative>;
+  readonly memberCount: number;
+  readonly voteThreshold: number; // Percentage
 };
 
 export type CreateInitiativeParams = {
-  title: string;
-  description: string;
-  author: number;
-  actions: any[];
+  readonly title: string;
+  readonly description: string;
+  readonly author: SignerIdx;
+  readonly actions: readonly EntityTx[];
 };
 
 export type VoteParams = {
-  initiativeId: string;
-  support: boolean;
-  voter: number;
+  readonly initiativeId: string;
+  readonly support: boolean;
+  readonly voter: SignerIdx;
 };
 
 export type ExecuteInitiativeParams = {
-  initiativeId: string;
-  actions: any[];
+  readonly initiativeId: string;
+  readonly actions: readonly EntityTx[];
 };
 
 export const daoActions = {
@@ -171,15 +155,9 @@ export const daoActions = {
     name: 'createInitiative',
     
     validate: (state: DaoState, params: CreateInitiativeParams): Result<CreateInitiativeParams> => {
-      if (!params.title) {
-        return Err('Initiative requires a title');
-      }
-      if (!params.description) {
-        return Err('Initiative requires a description');
-      }
-      if (!params.actions || params.actions.length === 0) {
-        return Err('Initiative requires at least one action');
-      }
+      if (!params.title) return Err('Initiative requires a title');
+      if (!params.description) return Err('Initiative requires a description');
+      if (!params.actions || params.actions.length === 0) return Err('Initiative requires at least one action');
       return Ok(params);
     },
     
@@ -187,10 +165,7 @@ export const daoActions = {
       const initiativeId = generateInitiativeId(state);
       const initiative: Initiative = {
         id: initiativeId,
-        title: params.title,
-        description: params.description,
-        author: params.author,
-        actions: params.actions,
+        ...params,
         votes: new Map(),
         status: 'active',
         createdAt: Date.now()
@@ -212,17 +187,9 @@ export const daoActions = {
     
     validate: (state: DaoState, params: VoteParams): Result<VoteParams> => {
       const initiative = state.initiatives.get(params.initiativeId);
-      
-      if (!initiative) {
-        return Err('Initiative not found');
-      }
-      if (initiative.status !== 'active') {
-        return Err('Can only vote on active initiatives');
-      }
-      if (initiative.votes.has(params.voter)) {
-        return Err('Already voted on this initiative');
-      }
-      
+      if (!initiative) return Err('Initiative not found');
+      if (initiative.status !== 'active') return Err('Can only vote on active initiatives');
+      if (initiative.votes.has(params.voter)) return Err('Already voted on this initiative');
       return Ok(params);
     },
     
@@ -230,26 +197,17 @@ export const daoActions = {
       const initiatives = new Map(state.initiatives);
       const initiative = initiatives.get(params.initiativeId)!;
       
-      // Add the vote
       const newVotes = new Map(initiative.votes);
       newVotes.set(params.voter, params.support);
       
-      // Check if initiative passes
-      const updatedInitiative = {
-        ...initiative,
-        votes: newVotes,
-        status: checkIfInitiativePasses(newVotes, state.memberCount, state.voteThreshold)
-          ? 'passed' as const
-          : initiative.status
-      };
-      
+      const newStatus = checkIfInitiativePasses(newVotes, state.memberCount, state.voteThreshold)
+        ? 'passed' as const
+        : 'active' as const;
+        
+      const updatedInitiative: Initiative = { ...initiative, votes: newVotes, status: newStatus };
       initiatives.set(params.initiativeId, updatedInitiative);
       
-      return {
-        ...state,
-        initiatives
-        // Note: Voting doesn't increment nonce in this implementation
-      };
+      return { ...state, initiatives };
     }
   },
   
@@ -258,14 +216,8 @@ export const daoActions = {
     
     validate: (state: DaoState, params: ExecuteInitiativeParams): Result<ExecuteInitiativeParams> => {
       const initiative = state.initiatives.get(params.initiativeId);
-      
-      if (!initiative) {
-        return Err('Initiative not found');
-      }
-      if (initiative.status !== 'passed') {
-        return Err('Initiative has not passed');
-      }
-      
+      if (!initiative) return Err('Initiative not found');
+      if (initiative.status !== 'passed') return Err('Initiative has not passed');
       return Ok(params);
     },
     
@@ -273,30 +225,17 @@ export const daoActions = {
       const initiatives = new Map(state.initiatives);
       const initiative = initiatives.get(params.initiativeId)!;
       
-      const executedInitiative = {
-        ...initiative,
-        status: 'executed' as const,
-        executedAt: Date.now()
-      };
-      
+      const executedInitiative: Initiative = { ...initiative, status: 'executed', executedAt: Date.now() };
       initiatives.set(params.initiativeId, executedInitiative);
       
-      return {
-        ...state,
-        initiatives,
-        nonce: state.nonce + 1
-      };
+      return { ...state, initiatives, nonce: state.nonce + 1 };
     },
     
     generateMessages: (entityId: EntityId, params: ExecuteInitiativeParams): OutboxMsg[] => {
-      // Queue the initiative's actions for execution
-      return params.actions.map(action => ({
+      return params.actions.map(tx => ({
         from: entityId,
         to: entityId,
-        command: {
-          type: 'addTx' as const,
-          tx: action
-        }
+        command: { type: 'addTx', tx }
       }));
     }
   }
@@ -306,43 +245,15 @@ export const daoActions = {
 // Helper Functions
 // ============================================================================
 
-const generateInitiativeId = (state: DaoState): string => {
-  return `init-${state.initiatives.size + 1}`;
-};
+const generateInitiativeId = (state: DaoState): string => `init-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 
 const checkIfInitiativePasses = (
-  votes: Map<number, boolean>,
+  votes: ReadonlyMap<SignerIdx, boolean>,
   memberCount: number,
   threshold: number
 ): boolean => {
   const supportVotes = Array.from(votes.values()).filter(v => v).length;
+  if (memberCount === 0) return false;
   const supportPercentage = (supportVotes / memberCount) * 100;
   return supportPercentage >= threshold;
-};
-
-// ============================================================================
-// Action Execution Helper
-// ============================================================================
-
-export const executeAction = <TState, TParams>(
-  action: Action<TState, TParams>,
-  state: TState,
-  params: TParams,
-  entityId: EntityId
-): Result<ActionResult<TState>> => {
-  // Validate parameters
-  const validation = action.validate(state, params);
-  if (!validation.ok) {
-    return Err(validation.error);
-  }
-  
-  // Execute the action
-  const newState = action.execute(state, validation.value);
-  
-  // Generate any messages
-  const messages = action.generateMessages
-    ? action.generateMessages(entityId, validation.value)
-    : [];
-  
-  return Ok({ newState, messages });
 };

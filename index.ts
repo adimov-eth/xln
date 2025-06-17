@@ -1,39 +1,28 @@
 // ============================================================================
-// XLN v2.2 - Production-Ready Distributed Ledger
-// Main entry point for the modular implementation
+// XLN v3 - Main entry point
 // ============================================================================
 
 // Export all key types
 export type { BlockHash, BlockHeight, EntityId, SignerIdx } from './src/types/primitives.js';
-
 export type { Result } from './src/types/result.js';
-
 export type { EntityCommand, EntityState, OutboxMsg, ServerState, ServerTx, SignerEntities } from './src/types/state.js';
-
-export type {
-  Protocol, ProtocolRegistry
-} from './src/types/protocol.js';
-
-// Export utilities
-export { hash, height, id, signer } from './src/types/primitives.js';
-export { Err, Ok } from './src/types/result.js';
+export type { Protocol, ProtocolRegistry } from './src/types/protocol.js';
+export type { DaoState, Initiative, DaoOp, WalletState, WalletOp } from './src/protocols/dao.js';
 
 // Export core functionality
 export { processBlockPure } from './src/core/block.js';
-export { processEntityCommand } from './src/core/entity/commands.js';
-export { importEntity, registerEntity, submitTransaction } from './src/core/server.js';
+export { processEntityCommand } from './src/entity/commands.js';
+export { importEntity, registerEntity, submitCommand } from './src/engine/server.js';
+export { transaction } from './src/entity/transactions.js';
 
 // Export protocols
 export { createProtocolRegistry, defaultRegistry } from './src/protocols/registry.js';
 export { WalletProtocol } from './src/protocols/wallet.js';
 export { DaoProtocol, createDaoState } from './src/protocols/dao.js';
-export type { DaoState, Initiative, DaoOp } from './src/protocols/dao.js';
 
-// Export storage
+// Export storage and infrastructure
 export type { Storage } from './src/storage/interface.js';
 export { MemoryStorage } from './src/storage/memory.js';
-
-// Export infrastructure
 export { ConsoleLogger, SilentLogger, SystemClock } from './src/infra/deps.js';
 export { createBlockRunner } from './src/infra/runner.js';
 
@@ -43,12 +32,11 @@ export { createInitialState } from './src/utils/serialization.js';
 export { getCanonicalEntity, getEntityAcrossSigners, getEntityFromSigner } from './src/utils/state-helpers.js';
 
 // Export testing utilities
-export { createTestScenario } from './src/test/helpers.js';
+export { scenario, patterns } from './src/test/fluent-api.js';
 
 // Export examples
 export { runExample } from './src/examples.js';
 
-// Run example if this is the main module
 async function main() {
   try {
     const { runExample } = await import('./src/examples.js');
@@ -59,18 +47,6 @@ async function main() {
   }
 }
 
-// Check if this is the main module (for both CommonJS and ESM)
-if (typeof require !== 'undefined' && require.main === module) {
-  // CommonJS
+if (import.meta.main) {
   main();
-} else if (typeof import.meta !== 'undefined' && import.meta.url) {
-  // ESM - check if this file is the main module
-  const scriptPath = process.argv[1];
-  if (scriptPath) {
-    import('url').then(({ pathToFileURL }) => {
-      if (import.meta.url === pathToFileURL(scriptPath).href) {
-        main();
-      }
-    });
-  }
 }

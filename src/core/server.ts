@@ -6,7 +6,6 @@ import { height, id, signer } from '../types/primitives.js';
 import type { EntityCommand, EntityMeta, EntityState, ServerState, ServerTx, SignerIdx } from '../types/state.js';
 import { assoc } from '../utils/immutable.js';
 
-// Add constant for max quorum size
 const MAX_QUORUM_SIZE = 1_000_000;
 
 /**
@@ -21,7 +20,6 @@ export const registerEntity = (
   protocol = 'wallet',
   timeoutMs = 30000
 ): ServerState => {
-  // Validate quorum size on registration
   if (quorum.length === 0) {
     throw new Error('Quorum cannot be empty');
   }
@@ -37,7 +35,6 @@ export const registerEntity = (
     protocol
   };
   
-  // Only update registry - no replicas created
   return {
     ...server,
     registry: assoc(server.registry, id(entityId), meta)
@@ -64,15 +61,12 @@ export const importEntity = (
     throw new Error(`Signer ${signerId} not in quorum for entity ${entityId}`);
   }
   
-  // Get or create signer's entity map
   const signerEntities = server.signers.get(signerId) ?? new Map();
   
-  // Check if already imported
   if (signerEntities.has(id(entityId))) {
     return server; // Already imported, no-op
   }
   
-  // Create entity state
   const entity: EntityState = {
     id: id(entityId),
     height: height(0),
@@ -81,7 +75,6 @@ export const importEntity = (
     mempool: []
   };
   
-  // Update signer's entities
   const updatedSignerEntities = assoc(signerEntities, id(entityId), entity);
   
   return {
@@ -120,4 +113,4 @@ export const submitTransaction = (
     ...server,
     mempool: [...server.mempool, tx]
   };
-}; 
+};

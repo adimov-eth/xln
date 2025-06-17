@@ -4,7 +4,7 @@
 
 import type { BlockHash, BlockHeight, EntityId, SignerIdx } from '../types/primitives.js';
 import { height } from '../types/primitives.js';
-import type { ProtocolRegistry } from '../types/protocol.js';
+import type { Protocol } from '../types/protocol.js';
 import { isNonced } from '../types/protocol.js';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
@@ -17,25 +17,25 @@ import { describe } from './transactions.js';
 // ============================================================================
 
 export type BlockExecutionResult = {
-  newState: any;
-  executedTransactions: ExecutedTransaction[];
-  failedTransactions: FailedTransaction[];
-  messages: OutboxMsg[];
+  readonly newState: any;
+  readonly executedTransactions: readonly ExecutedTransaction[];
+  readonly failedTransactions: readonly FailedTransaction[];
+  readonly messages: readonly OutboxMsg[];
 };
 
 export type ExecutedTransaction = {
-  transaction: EntityTx;
-  result: any;
+  readonly transaction: EntityTx;
+  readonly result: any;
 };
 
 export type FailedTransaction = {
-  transaction: EntityTx;
-  error: string;
+  readonly transaction: EntityTx;
+  readonly error: string;
 };
 
 export type Quorum = {
-  members: readonly SignerIdx[];
-  threshold: number; // As percentage (e.g., 66 for 2/3)
+  readonly members: readonly SignerIdx[];
+  readonly threshold: number; // As percentage (e.g., 66 for 2/3)
 };
 
 // ============================================================================
@@ -43,7 +43,6 @@ export type Quorum = {
 // ============================================================================
 
 export const block = {
-  // Create a new block proposal from pending transactions
   create: (
     entity: EntityState,
     proposer: SignerIdx,
@@ -57,25 +56,21 @@ export const block = {
     timestamp
   }),
   
-  // Add an approval to the block
   approve: (block: ProposedBlock, signer: SignerIdx): ProposedBlock => ({
     ...block,
     approvals: new Set([...block.approvals, signer])
   }),
   
-  // Check if block has enough approvals for consensus
   hasConsensus: (block: ProposedBlock, quorum: Quorum): boolean => {
     const approvalCount = block.approvals.size;
     const requiredApprovals = calculateRequiredApprovals(quorum);
     return approvalCount >= requiredApprovals;
   },
   
-  // Check if a specific signer has approved
   hasApprovalFrom: (block: ProposedBlock, signer: SignerIdx): boolean => {
     return block.approvals.has(signer);
   },
   
-  // Get the next block height
   nextHeight: (current: BlockHeight): BlockHeight => {
     return height(Number(current) + 1);
   }
@@ -86,12 +81,11 @@ export const block = {
 // ============================================================================
 
 export const execute = {
-  // Execute all transactions in a block
   block: (
     currentState: any,
     block: ProposedBlock,
     entityId: EntityId,
-    protocol: any // Will be properly typed with protocol
+    protocol: Protocol<any, any>
   ): BlockExecutionResult => {
     let state = currentState;
     const executed: ExecutedTransaction[] = [];
@@ -103,20 +97,12 @@ export const execute = {
       
       if (result.ok) {
         state = result.value.newState;
-        executed.push({
-          transaction,
-          result: result.value
-        });
-        
-        // Collect any messages generated
+        executed.push({ transaction, result: result.value });
         if (result.value.messages) {
           messages.push(...result.value.messages);
         }
       } else {
-        failed.push({
-          transaction,
-          error: result.error
-        });
+        failed.push({ transaction, error: result.error });
       }
     }
     
@@ -128,14 +114,12 @@ export const execute = {
     };
   },
   
-  // Execute a single transaction
   transaction: (
     state: any,
     transaction: EntityTx,
-    protocol: any,
+    protocol: Protocol<any, any>,
     entityId: EntityId
-  ): Result<{ newState: any; messages?: OutboxMsg[] }> => {
-    // Check nonce if applicable
+  ): Result<{ newState: any; messages?: readonly OutboxMsg[] }> => {
     if (transactionRequiresNonce(transaction) && stateHasNonce(state)) {
       const expectedNonce = state.nonce + 1;
       if (transaction.nonce !== expectedNonce) {
@@ -143,27 +127,17 @@ export const execute = {
       }
     }
     
-    // Validate transaction format
     const validation = protocol.validateTx(transaction);
-    if (!validation.ok) {
-      return Err(validation.error);
-    }
+    if (!validation.ok) return Err(validation.error);
     
-    // Apply transaction to state
     const application = protocol.applyTx(state, validation.value, transaction);
-    if (!application.ok) {
-      return Err(application.error);
-    }
+    if (!application.ok) return Err(application.error);
     
-    // Generate any follow-up messages
     const messages = protocol.generateMessages
       ? protocol.generateMessages(entityId, validation.value)
       : [];
     
-    return Ok({
-      newState: application.value,
-      messages
-    });
+    return Ok({ newState: application.value, messages });
   }
 };
 
@@ -172,23 +146,19 @@ export const execute = {
 // ============================================================================
 
 export const validate = {
-  // Check if block height is sequential
   heightIsSequential: (block: ProposedBlock, currentHeight: BlockHeight): boolean => {
     return Number(block.height) === Number(currentHeight);
   },
   
-  // Check if block hash matches content
   hashMatchesContent: (block: ProposedBlock, entityId: EntityId, state: any): boolean => {
     const computedHash = computeBlockHash(entityId, block.height, state, block.txs);
     return computedHash === block.hash;
   },
   
-  // Check if proposer is valid for this height
   proposerIsValid: (block: ProposedBlock, expectedProposer: SignerIdx): boolean => {
     return block.proposer === expectedProposer;
   },
   
-  // Check if block has expired
   hasExpired: (block: ProposedBlock, currentTime: number, timeoutMs: number): boolean => {
     return (currentTime - block.timestamp) > timeoutMs;
   }
@@ -199,27 +169,24 @@ export const validate = {
 // ============================================================================
 
 export const transition = {
-  // Move entity to proposed state with block
   toProposed: (entity: EntityState, block: ProposedBlock): EntityState => ({
     ...entity,
     stage: 'proposed',
     proposal: block,
-    mempool: [] // Clear mempool as transactions are now in proposal
+    mempool: []
   }),
   
-  // Move entity to committing state
   toCommitting: (entity: EntityState, block: ProposedBlock): EntityState => ({
     ...entity,
     stage: 'committing',
     proposal: block
   }),
   
-  // Finalize block and return to idle
   toIdle: (
     entity: EntityState,
     newState: any,
     blockHash: BlockHash,
-    failedTransactions: EntityTx[]
+    failedTransactions: readonly EntityTx[]
   ): EntityState => ({
     ...entity,
     stage: 'idle',
@@ -227,10 +194,9 @@ export const transition = {
     height: block.nextHeight(entity.height),
     proposal: undefined,
     lastBlockHash: blockHash,
-    mempool: failedTransactions // Re-queue failed transactions
+    mempool: failedTransactions
   }),
   
-  // Recover from timeout
   fromTimeout: (entity: EntityState): EntityState => ({
     ...entity,
     stage: 'idle',
@@ -249,34 +215,16 @@ const calculateRequiredApprovals = (quorum: Quorum): number => {
   return Math.ceil(quorum.members.length * quorum.threshold / 100);
 };
 
-const transactionRequiresNonce = (tx: EntityTx): boolean => {
-  return tx.nonce !== undefined;
-};
-
-const stateHasNonce = (state: any): state is { nonce: number } => {
-  return isNonced(state);
-};
+const transactionRequiresNonce = (tx: EntityTx): boolean => tx.nonce !== undefined;
+const stateHasNonce = (state: any): state is { nonce: number } => isNonced(state);
 
 // ============================================================================
 // Block Description Helpers
 // ============================================================================
 
 export const describeBlock = {
-  summary: (block: ProposedBlock): string => {
-    return `Block #${block.height} with ${block.txs.length} transactions`;
-  },
-  
-  approvals: (block: ProposedBlock): string => {
-    return `${block.approvals.size} approvals from signers: ${Array.from(block.approvals).join(', ')}`;
-  },
-  
-  transactions: (block: ProposedBlock): string[] => {
-    return block.txs.map(tx => describe.transaction(tx));
-  },
-  
-  executionResult: (result: BlockExecutionResult): string => {
-    return `Executed ${result.executedTransactions.length} transactions, ` +
-           `${result.failedTransactions.length} failed, ` +
-           `${result.messages.length} messages generated`;
-  }
+  summary: (block: ProposedBlock): string => `Block #${block.height} with ${block.txs.length} transactions`,
+  approvals: (block: ProposedBlock): string => `${block.approvals.size} approvals from signers: ${Array.from(block.approvals).join(', ')}`,
+  transactions: (block: ProposedBlock): string[] => block.txs.map(tx => describe.transaction(tx)),
+  executionResult: (result: BlockExecutionResult): string => `Executed ${result.executedTransactions.length} txs, ${result.failedTransactions.length} failed, ${result.messages.length} messages generated`
 };

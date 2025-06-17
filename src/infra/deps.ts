@@ -24,4 +24,4 @@ export const SilentLogger: Logger = {
   info: () => {},
   warn: () => {},
   error: () => {}
-}; 
+};

@@ -2,4 +2,4 @@
 // types/brand.ts - Branded type utilities
 // ============================================================================
 
-export type Brand<T, B> = T & { readonly _brand: B }; 
+export type Brand<T, B> = T & { readonly _brand: B };

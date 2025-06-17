@@ -15,4 +15,4 @@ export const createProtocolRegistry = (
 export const defaultRegistry = createProtocolRegistry(
   WalletProtocol,
   DaoProtocol
-); 
+);

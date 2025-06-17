@@ -16,12 +16,10 @@ export const hasQuorum = (
   approvals: Set<SignerIdx>, 
   quorum: readonly SignerIdx[]
 ): boolean => {
-  // This check is now redundant since registerEntity validates
   if (quorum.length > 1_000_000) {
     throw new Error('Quorum size exceeds maximum allowed (1M signers)');
   }
   
-  // Use BigInt to prevent integer overflow
   const a = BigInt(approvals.size);
   const q = BigInt(quorum.length);
   return a * 3n >= q * 2n;
@@ -29,4 +27,4 @@ export const hasQuorum = (
 
 export const isTimedOut = (timestamp: number, timeoutMs: number): boolean => {
   return Date.now() - timestamp > timeoutMs;
-}; 
+};
