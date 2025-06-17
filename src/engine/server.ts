@@ -3,13 +3,13 @@
 // ============================================================================
 
 import { height, id, signer } from '../types/primitives.js';
-import type { 
-  EntityCommand, 
-  EntityMeta, 
-  EntityState, 
-  ServerState, 
-  ServerTx, 
-  SignerIdx 
+import type {
+  EntityCommand,
+  EntityMeta,
+  EntityState,
+  ServerState,
+  ServerTx,
+  SignerIdx
 } from '../types/state.js';
 import { assoc } from '../utils/immutable.js';
 
@@ -92,7 +92,7 @@ export const importEntity = (
   }
   
   // Create the entity state
-  const entity = createEntityState(entityId, initialState ?? getDefaultState(meta.protocol));
+  const entity = createEntityState(entityId, initialState ?? getDefaultState(meta.protocol, meta));
   
   // Add to signer's entities
   return addEntityToSigner(server, signerIdx, entity);
@@ -220,7 +220,7 @@ const addEntityToSigner = (
   };
 };
 
-const getDefaultState = (protocol: string): any => {
+const getDefaultState = (protocol: string, meta?: EntityMeta): any => {
   switch (protocol) {
     case 'wallet':
       return { balance: 0n, nonce: 0 };
@@ -229,7 +229,7 @@ const getDefaultState = (protocol: string): any => {
         balance: 0n, 
         nonce: 0, 
         initiatives: new Map(), 
-        memberCount: 0, 
+        memberCount: meta?.quorum.length ?? 0, 
         voteThreshold: 66 
       };
     default:

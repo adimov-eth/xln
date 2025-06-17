@@ -2,10 +2,10 @@
 // protocols/dao.ts - DAO protocol that reads like English
 // ============================================================================
 
-import { daoActions, walletActions } from '../entity/actions.js';
 import type { DaoState } from '../entity/actions.js';
+import { daoActions } from '../entity/actions.js';
 import type { EntityId, SignerIdx } from '../types/primitives.js';
-import { id, signer } from '../types/primitives.js';
+import { signer } from '../types/primitives.js';
 import type { Protocol } from '../types/protocol.js';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
@@ -14,7 +14,7 @@ import type { WalletOp } from './wallet.js';
 import { WalletProtocol } from './wallet.js';
 
 // Re-export types from actions
-export type { Initiative, DaoState } from '../entity/actions.js';
+export type { DaoState, Initiative } from '../entity/actions.js';
 
 // ============================================================================
 // DAO Operations
@@ -30,6 +30,8 @@ export type DaoOp = WalletOp
 // ============================================================================
 
 const parseTransaction = (tx: EntityTx): Result<DaoOp> => {
+  console.log('[DEBUG] DAO parseTransaction:', { op: tx.op, data: tx.data });
+  
   // First check if it's a wallet operation
   const walletResult = WalletProtocol.validateTx(tx);
   if (walletResult.ok) {
@@ -42,6 +44,7 @@ const parseTransaction = (tx: EntityTx): Result<DaoOp> => {
       return parseCreateInitiative(tx);
       
     case 'voteInitiative':
+      console.log('[DEBUG] Parsing vote transaction');
       return parseVote(tx);
       
     case 'executeInitiative':
@@ -141,15 +144,27 @@ const applyOperation = (state: DaoState, op: DaoOp, tx?: EntityTx): Result<DaoSt
     }
 
     case 'voteInitiative': {
+      console.log('[DEBUG] DAO applyOperation: voteInitiative', {
+        initiativeId: op.initiativeId,
+        support: op.support,
+        voter: op.voter
+      });
+      
       const result = daoActions.vote.validate(state, {
         initiativeId: op.initiativeId,
         support: op.support,
         voter: op.voter
       });
       
-      if (!result.ok) return result;
+      if (!result.ok) {
+        console.log('[DEBUG] Vote validation failed:', result.error);
+        return result;
+      }
       
-      return Ok(daoActions.vote.execute(state, result.value));
+      const newState = daoActions.vote.execute(state, result.value);
+      console.log('[DEBUG] After vote execution, initiative count:', newState.initiatives.size);
+      
+      return Ok(newState);
     }
 
     case 'executeInitiative': {

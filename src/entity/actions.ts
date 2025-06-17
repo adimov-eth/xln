@@ -2,11 +2,11 @@
 // entity/actions.ts - Pure state mutations that read like English
 // ============================================================================
 
+import type { EntityId } from '../types/primitives.js';
+import { id } from '../types/primitives.js';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
 import type { OutboxMsg } from '../types/state.js';
-import type { EntityId } from '../types/primitives.js';
-import { id } from '../types/primitives.js';
 
 // ============================================================================
 // Action Types - Clear intent and side effects
@@ -227,23 +227,49 @@ export const daoActions = {
     },
     
     execute: (state: DaoState, params: VoteParams): DaoState => {
+      console.log('[DEBUG] vote.execute called with params:', {
+        initiativeId: params.initiativeId,
+        voter: params.voter,
+        support: params.support
+      });
+      
       const initiatives = new Map(state.initiatives);
       const initiative = initiatives.get(params.initiativeId)!;
+      
+      console.log('[DEBUG] Current initiative state:', {
+        id: params.initiativeId,
+        status: initiative.status,
+        existingVotes: Array.from(initiative.votes.entries()),
+        voteCount: initiative.votes.size
+      });
       
       // Add the vote
       const newVotes = new Map(initiative.votes);
       newVotes.set(params.voter, params.support);
       
+      console.log('[DEBUG] After adding vote:', {
+        newVoteCount: newVotes.size,
+        allVotes: Array.from(newVotes.entries())
+      });
+      
       // Check if initiative passes
+      const passes = checkIfInitiativePasses(newVotes, state.memberCount, state.voteThreshold);
+      console.log('[DEBUG] Initiative passes check:', {
+        passes,
+        memberCount: state.memberCount,
+        voteThreshold: state.voteThreshold,
+        supportVotes: Array.from(newVotes.values()).filter(v => v).length
+      });
+      
       const updatedInitiative = {
         ...initiative,
         votes: newVotes,
-        status: checkIfInitiativePasses(newVotes, state.memberCount, state.voteThreshold)
-          ? 'passed' as const
-          : initiative.status
+        status: passes ? 'passed' as const : initiative.status
       };
       
       initiatives.set(params.initiativeId, updatedInitiative);
+      
+      console.log('[DEBUG] Updated initiative status:', updatedInitiative.status);
       
       return {
         ...state,

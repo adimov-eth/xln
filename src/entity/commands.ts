@@ -2,20 +2,20 @@
 // entity/commands.ts - Entity command processing that reads like English
 // ============================================================================
 
-import type { SignerIdx, BlockHash, EntityId } from '../types/primitives.js';
-import { hash as blockHash, id } from '../types/primitives.js';
+import { getProposer, hasQuorum } from '../engine/consensus.js';
+import type { BlockHash, EntityId, SignerIdx } from '../types/primitives.js';
+import { hash as blockHash } from '../types/primitives.js';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
-import type { 
-  EntityCommand, 
-  EntityState, 
-  EntityMeta, 
+import type {
+  EntityCommand,
+  EntityMeta,
+  EntityState,
+  EntityTx,
   OutboxMsg,
-  ProposedBlock,
-  EntityTx
+  ProposedBlock
 } from '../types/state.js';
 import { computeBlockHash } from '../utils/hash.js';
-import { getProposer, hasQuorum } from '../core/consensus.js';
 
 // ============================================================================
 // Command Processing Context

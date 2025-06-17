@@ -2,15 +2,15 @@
 // test/fluent-api.ts - Fluent test API that reads like English
 // ============================================================================
 
+import { expect } from 'bun:test';
+import { createServer, importEntity, query, registerEntity, submitCommand } from '../engine/server.js';
+import { transaction } from '../entity/transactions.js';
+import { SilentLogger } from '../infra/deps.js';
 import { createBlockRunner } from '../infra/runner.js';
 import { MemoryStorage } from '../storage/memory.js';
-import { SilentLogger } from '../infra/deps.js';
-import { createServer, registerEntity, importEntity, submitCommand, query } from '../engine/server.js';
 import { id } from '../types/primitives.js';
-import { transaction } from '../entity/transactions.js';
 import type { ProtocolRegistry } from '../types/protocol.js';
 import type { EntityCommand, ServerState } from '../types/state.js';
-import { expect } from 'bun:test';
 
 // ============================================================================
 // Test Scenario Builder
@@ -29,8 +29,7 @@ export class TestScenario {
     this.runner = createBlockRunner({
       storage: new MemoryStorage(),
       protocols,
-      logger: SilentLogger,
-      useNewEngine: true
+      logger: SilentLogger
     });
   }
   
@@ -99,6 +98,11 @@ export class TestScenario {
   }
   
   sendTransaction(from: number, to: string, tx: any): this {
+    console.log('[DEBUG] TestScenario.sendTransaction:', {
+      from,
+      to,
+      tx
+    });
     return this.sendCommand(from, to, { type: 'addTx', tx });
   }
   
@@ -121,6 +125,13 @@ export class TestScenario {
   }
   
   proposeBlock(proposer: number, entity: string): this {
+    console.log('[DEBUG] proposeBlock:', { proposer, entity });
+    const entityState = this.findEntity(entity);
+    console.log('[DEBUG] Entity state before propose:', {
+      stage: entityState.stage,
+      height: entityState.height,
+      mempool: entityState.mempool.length
+    });
     return this.sendCommand(proposer, entity, { type: 'proposeBlock' });
   }
   
@@ -141,6 +152,22 @@ export class TestScenario {
     for (let i = 0; i < count; i++) {
       await this.tick();
     }
+    return this;
+  }
+  
+  async processMultiSigBlock(): Promise<this> {
+    console.log('[DEBUG] processMultiSigBlock starting, mempool size:', this.server.mempool.length);
+    // For multi-sig: process propose, share, approve, commit
+    await this.tick();  // Process commands
+    console.log('[DEBUG] After process commands, mempool size:', this.server.mempool.length);
+    await this.tick();  // Share proposal
+    console.log('[DEBUG] After share proposal, mempool size:', this.server.mempool.length);
+    await this.tick();  // Receive approvals
+    console.log('[DEBUG] After receive approvals, mempool size:', this.server.mempool.length);
+    await this.tick();  // Commit
+    console.log('[DEBUG] After commit, mempool size:', this.server.mempool.length);
+    await this.processUntilIdle();  // Sync all signers
+    console.log('[DEBUG] After processUntilIdle, mempool size:', this.server.mempool.length);
     return this;
   }
   
@@ -196,6 +223,7 @@ export class TestScenario {
   
   expectInitiativeStatus(entity: string, initiativeId: string | number, expectedStatus: string): this {
     const state = this.findEntityState(entity);
+    console.log('[DEBUG] expectInitiativeStatus checking state at first signer');
     
     // If number provided, get the nth initiative
     let initiative;
@@ -204,6 +232,17 @@ export class TestScenario {
       initiative = initiatives[initiativeId];
     } else {
       initiative = state.initiatives?.get(initiativeId);
+    }
+    
+    if (initiative) {
+      console.log('[DEBUG] Initiative found:', {
+        id: typeof initiativeId === 'string' ? initiativeId : `index-${initiativeId}`,
+        status: initiative.status,
+        voteCount: initiative.votes?.size ?? 0,
+        votes: Array.from(initiative.votes?.entries() ?? [])
+      });
+    } else {
+      console.log('[DEBUG] Initiative not found!');
     }
     
     expect(initiative).toBeDefined();
@@ -237,6 +276,12 @@ export class TestScenario {
       throw new Error('Entity does not have initiatives');
     }
     const initiatives = Array.from(state.initiatives.keys());
+    console.log('[DEBUG] getInitiativeId:', {
+      entity,
+      index,
+      initiativeCount: initiatives.length,
+      initiativeIds: initiatives
+    });
     if (index >= initiatives.length) {
       throw new Error(`Initiative at index ${index} not found`);
     }
@@ -272,7 +317,20 @@ export class TestScenario {
   }
   
   private findEntityState(entityId: string): any {
-    return this.findEntity(entityId).data;
+    const entity = this.findEntity(entityId);
+    console.log('[DEBUG] findEntityState for', entityId, 'found at signer', this.getEntitySigner(entityId));
+    return entity.data;
+  }
+  
+  private getEntitySigner(entityId: string): number {
+    const meta = this.server.registry.get(id(entityId));
+    if (!meta) return -1;
+    
+    for (const signer of meta.quorum) {
+      const entity = query.getEntity(this.server, Number(signer), entityId);
+      if (entity) return Number(signer);
+    }
+    return -1;
   }
   
   private getNextNonce(entityId: string): number {

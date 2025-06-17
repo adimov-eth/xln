@@ -2,10 +2,10 @@
 // test/dao-fluent.test.ts - DAO tests using fluent API
 // ============================================================================
 
-import { describe, expect, test } from 'bun:test';
-import { scenario, patterns } from '../test/fluent-api.js';
+import { describe, test } from 'bun:test';
 import { transaction } from '../entity/transactions.js';
 import { defaultRegistry } from '../protocols/registry.js';
+import { patterns, scenario } from '../test/fluent-api.js';
 
 describe('DAO Protocol with Fluent API', () => {
   test('single signer DAO creates and executes initiative', async () => {
@@ -61,22 +61,23 @@ describe('DAO Protocol with Fluent API', () => {
       // Proposer creates block
       .proposeBlock(0, 'dao');
       
-    await s.processUntilIdle();
+    // Process the multi-sig consensus flow
+    await s.processMultiSigBlock();
     s.expectInitiativeCount('dao', 1);
     
     // Get the initiative ID
     const initiativeId = s.getInitiativeId('dao', 0);
     
     // First vote (not enough)
-    s.sendTransaction(0, 'dao', transaction.voteOnInitiative(initiativeId, true, 0))
-      .proposeBlock(0, 'dao');
-    await s.processUntilIdle();
+    s.sendTransaction(0, 'dao', transaction.vote(initiativeId, true, 0))
+      .proposeBlock(1, 'dao');  // Height 1 would use signer 1 as proposer
+    await s.processMultiSigBlock();
     s.expectInitiativeStatus('dao', 0, 'active');
       
     // Second vote (reaches 2/3 threshold)
-    s.sendTransaction(1, 'dao', transaction.voteOnInitiative(initiativeId, true, 1))
-      .proposeBlock(1, 'dao');
-    await s.processUntilIdle();
+    s.sendTransaction(1, 'dao', transaction.vote(initiativeId, true, 1))
+      .proposeBlock(2, 'dao');  // Height 2 would use signer 2 as proposer
+    await s.processMultiSigBlock();
     s.expectInitiativeStatus('dao', 0, 'passed');
   });
   
@@ -105,9 +106,10 @@ describe('DAO Protocol with Fluent API', () => {
     await s.processBlocks(6);
       
     // Execute the initiative
-    s.sendTransaction(0, 'dao', transaction.executeInitiative(initiativeId, [
-      transaction.transfer('treasury', '200', 2)
-    ]));
+    s.sendTransaction(0, 'dao', transaction.executeInitiative({
+      initiativeId,
+      actions: [transaction.transfer('treasury', '200', 2)]
+    }));
     await s.processUntilIdle();
       
     // Check final balances
