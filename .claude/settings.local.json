@@ -4,7 +4,8 @@
       "Bash(bun run:*)",
       "Bash(bun test:*)",
       "Bash(grep:*)",
-      "Bash(bun:*)"
+      "Bash(bun:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }

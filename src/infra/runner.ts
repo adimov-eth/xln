@@ -4,6 +4,7 @@
 
 import type { Clock } from '../core/block.js';
 import { processBlockPure } from '../core/block.js';
+import { processServerTick } from '../engine/processor.js';
 import type { Storage } from '../storage/interface.js';
 import { height } from '../types/primitives.js';
 import type { ProtocolRegistry } from '../types/protocol.js';
@@ -21,6 +22,7 @@ export type RunnerConfig = {
   readonly clock?: Clock;
   readonly logger?: Logger;
   readonly snapshotInterval?: number;
+  readonly useNewEngine?: boolean;
 };
 
 export const createBlockRunner = (config: RunnerConfig) => {
@@ -29,7 +31,8 @@ export const createBlockRunner = (config: RunnerConfig) => {
     protocols, 
     clock = SystemClock, 
     logger = ConsoleLogger,
-    snapshotInterval = 100 
+    snapshotInterval = 100,
+    useNewEngine = false 
   } = config;
   
   // Create the runner object
@@ -38,12 +41,31 @@ export const createBlockRunner = (config: RunnerConfig) => {
       const nextHeight = height(Number(server.height) + 1);
       
       // 1. Process block (pure computation)
-      const blockResult = processBlockPure({ server, protocols, clock });
-      if (!blockResult.ok) {
-        return blockResult;
-      }
+      let processed;
       
-      const processed = blockResult.value;
+      if (useNewEngine) {
+        // Use new engine
+        const result = processServerTick(server, protocols, clock.now());
+        if (!result.ok) {
+          return Err(result.error);
+        }
+        
+        // Convert to old format for compatibility
+        processed = {
+          server: result.value.server,
+          stateHash: computeStateHash(result.value.server),
+          appliedTxs: result.value.appliedCommands,
+          failedTxs: result.value.failedCommands.map(f => f.command),
+          messages: result.value.generatedMessages
+        };
+      } else {
+        // Use old engine
+        const blockResult = processBlockPure({ server, protocols, clock });
+        if (!blockResult.ok) {
+          return blockResult;
+        }
+        processed = blockResult.value;
+      }
       
       // N-1 FIX: Skip WAL write during recovery to prevent double-append
       if (!skipWal && server.mempool.length > 0) {
