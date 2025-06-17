@@ -18,6 +18,7 @@ export * from './protocols/wallet.js';
 // Storage
 export * from './storage/interface.js';
 export * from './storage/memory.js';
+export * from './storage/leveldb.js';
 
 // Infrastructure
 export * from './infra/deps.js';
@@ -34,8 +35,10 @@ export * from './types/result.js';
 export * from './types/state.js';
 
 // Utilities
+export * from './utils/encoding.js';
 export * from './utils/hash.js';
 export * from './utils/immutable.js';
+export * from './utils/merkle.js';
 export * from './utils/mutex.js';
 export * from './utils/serialization.js';
 export * from './utils/state-helpers.js';

@@ -13,6 +13,7 @@ import { computeStateHash } from '../utils/hash.js';
 import { createInitialState } from '../utils/serialization.js';
 import type { Logger } from './deps.js';
 import { ConsoleLogger, SystemClock } from './deps.js';
+import { encode } from '../utils/encoding.js';
 
 export type RunnerConfig = {
   readonly storage: Storage;
@@ -67,12 +68,17 @@ export const createBlockRunner = (config: RunnerConfig) => {
         }
       }
       
-      const blockData: BlockData = {
+      const blockContent = {
         height: nextHeight,
         timestamp: clock.now(),
         transactions: server.mempool,
         stateHash: processed.stateHash,
-        parentHash: Number(server.height) > 0 ? computeStateHash(server) : undefined
+        parentHash: Number(server.height) > 0 ? computeStateHash(server) : undefined,
+      };
+      
+      const blockData: BlockData = {
+        ...blockContent,
+        encodedData: encode.blockData(blockContent),
       };
       
       const saveResult = await storage.blocks.save(nextHeight, blockData);

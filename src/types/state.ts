@@ -69,6 +69,7 @@ export type BlockData = {
   readonly transactions: readonly ServerTx[];
   readonly stateHash: string;
   readonly parentHash?: string;
+  readonly encodedData?: Buffer;
 };
 
 export type CommandResult = {
