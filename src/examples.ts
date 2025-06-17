@@ -2,13 +2,14 @@
 // examples.ts - Usage examples
 // ============================================================================
 
-import { registerEntity, submitTransaction } from './core/server.js';
+import { importEntity, registerEntity, submitTransaction } from './core/server.js';
 import { ConsoleLogger } from './infra/deps.js';
 import { createBlockRunner } from './infra/runner.js';
 import { defaultRegistry } from './protocols/registry.js';
 import { MemoryStorage } from './storage/memory.js';
-import { id } from './types/primitives.js';
+import { id, signer } from './types/primitives.js';
 import { createInitialState } from './utils/serialization.js';
+import { getCanonicalEntity } from './utils/state-helpers.js';
 
 export async function runExample() {
   console.log('=== XLN v2.2 Example ===\n');
@@ -31,6 +32,14 @@ export async function runExample() {
   server = registerEntity(server, 'bob', [1], { balance: 500n, nonce: 0 });
   server = registerEntity(server, 'dao', [0, 1, 2], { balance: 10000n, nonce: 0 });
   
+  // Import entities to their signers
+  server = importEntity(server, signer(0), 'alice', { balance: 1000n, nonce: 0 });
+  server = importEntity(server, signer(1), 'bob', { balance: 500n, nonce: 0 });
+  // For multi-sig, import to all signers
+  server = importEntity(server, signer(0), 'dao', { balance: 10000n, nonce: 0 });
+  server = importEntity(server, signer(1), 'dao', { balance: 10000n, nonce: 0 });
+  server = importEntity(server, signer(2), 'dao', { balance: 10000n, nonce: 0 });
+  
   console.log('Registered entities:');
   console.log('- alice: single signer (0), balance 1000');
   console.log('- bob: single signer (1), balance 500');
@@ -50,7 +59,8 @@ export async function runExample() {
   
   console.log(`After block ${server.height}:`);
   console.log(`- Mempool size: ${server.mempool.length}`);
-  console.log(`- Alice mempool: ${server.entities.get(id('alice'))?.mempool.length}`);
+  const alice = getCanonicalEntity(server, id('alice'));
+  console.log(`- Alice mempool: ${alice?.mempool.length}`);
   
   // Process auto-propose and commit
   for (let i = 0; i < 3; i++) {
@@ -60,11 +70,13 @@ export async function runExample() {
   }
   
   console.log(`\nFinal state after transfer:`);
-  console.log(`- Alice balance: ${server.entities.get(id('alice'))?.data.balance}`);
-  console.log(`- Alice nonce: ${server.entities.get(id('alice'))?.data.nonce}`);
-  console.log(`- Bob balance: ${server.entities.get(id('bob'))?.data.balance}`);
-  console.log(`- Bob nonce: ${server.entities.get(id('bob'))?.data.nonce} (incremented by credit)`);
-  console.log(`- Bob mempool: ${server.entities.get(id('bob'))?.mempool.length} pending\n`);
+  const finalAlice = getCanonicalEntity(server, id('alice'));
+  const finalBob = getCanonicalEntity(server, id('bob'));
+  console.log(`- Alice balance: ${finalAlice?.data.balance}`);
+  console.log(`- Alice nonce: ${finalAlice?.data.nonce}`);
+  console.log(`- Bob balance: ${finalBob?.data.balance}`);
+  console.log(`- Bob nonce: ${finalBob?.data.nonce} (incremented by credit)`);
+  console.log(`- Bob mempool: ${finalBob?.mempool.length} pending\n`);
   
   // Example 2: Multi-sig transaction
   console.log('=== Example 2: Multi-Sig Transaction ===');
@@ -86,7 +98,7 @@ export async function runExample() {
     if (!result.ok) throw new Error(result.error);
     server = result.value;
     
-    const dao = server.entities.get(id('dao'));
+    const dao = getCanonicalEntity(server, id('dao'));
     const meta = server.registry.get(id('dao'))!;
     console.log(`Block ${server.height}: DAO stage = ${dao?.stage}`);
     
@@ -95,7 +107,8 @@ export async function runExample() {
     }
   }
   
-  console.log(`\nFinal DAO balance: ${server.entities.get(id('dao'))?.data.balance}`);
+  const finalDao = getCanonicalEntity(server, id('dao'));
+  console.log(`\nFinal DAO balance: ${finalDao?.data.balance}`);
   
   // Example 3: Recovery
   console.log('\n=== Example 3: Recovery Test ===');
@@ -109,8 +122,9 @@ export async function runExample() {
   
   const recovered = recoveryResult.value;
   console.log(`Height after recovery: ${recovered.height}`);
-  console.log(`Entities recovered: ${recovered.entities.size}`);
-  console.log(`Alice balance after recovery: ${recovered.entities.get(id('alice'))?.data.balance}`);
+  console.log(`Signers recovered: ${recovered.signers.size}`);
+  const recoveredAlice = getCanonicalEntity(recovered, id('alice'));
+  console.log(`Alice balance after recovery: ${recoveredAlice?.data.balance}`);
   
   // Example 4: Replay protection test
   console.log('\n=== Example 4: Replay Protection ===');
@@ -133,7 +147,8 @@ export async function runExample() {
   }
   
   console.log(`After replay attempt:`);
-  console.log(`- Alice balance: ${server.entities.get(id('alice'))?.data.balance} (should be unchanged)`);
-  console.log(`- Alice nonce: ${server.entities.get(id('alice'))?.data.nonce}`);
+  const replayAlice = getCanonicalEntity(server, id('alice'));
+  console.log(`- Alice balance: ${replayAlice?.data.balance} (should be unchanged)`);
+  console.log(`- Alice nonce: ${replayAlice?.data.nonce}`);
   console.log(`- Transaction was rejected due to invalid nonce`);
 } 

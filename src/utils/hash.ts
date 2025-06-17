@@ -66,33 +66,41 @@ export const computeStateHash = (server: ServerState): string => {
     cacheHits = 0;
   }
   
-  // Build array of entity hashes, using cache for unchanged entities
-  const entityHashes: [string, string][] = [];
+  // Build hierarchical hash structure: signer -> entities
+  const signerHashes: [string, [string, string][]][] = [];
   
-  for (const [id, entity] of server.entities) {
-    let entityHash = stateHashCache.get(entity);
+  for (const [signerId, entities] of server.signers) {
+    const entityHashes: [string, string][] = [];
     
-    if (!entityHash) {
-      // Compute hash for new/changed entity
-      entityHash = deterministicHash({
-        height: entity.height,
-        stage: entity.stage,
-        data: entity.data,
-        lastBlockHash: entity.lastBlockHash
-      });
-      stateHashCache.set(entity, entityHash);
+    for (const [entityId, entity] of entities) {
+      let entityHash = stateHashCache.get(entity);
+      
+      if (!entityHash) {
+        // Compute hash for new/changed entity
+        entityHash = deterministicHash({
+          height: entity.height,
+          stage: entity.stage,
+          data: entity.data,
+          lastBlockHash: entity.lastBlockHash
+        });
+        stateHashCache.set(entity, entityHash);
+      }
+      
+      entityHashes.push([entityId, entityHash]);
     }
     
-    entityHashes.push([id, entityHash]);
+    // Sort entities within signer for determinism
+    entityHashes.sort(([a], [b]) => a.localeCompare(b));
+    signerHashes.push([String(signerId), entityHashes]);
   }
   
-  // Sort for determinism
-  entityHashes.sort(([a], [b]) => a.localeCompare(b));
+  // Sort signers for determinism
+  signerHashes.sort(([a], [b]) => a.localeCompare(b));
   
   // Hash the overall state
   const stateData = {
     height: server.height,
-    entities: entityHashes,
+    signers: signerHashes,
     registry: Array.from(server.registry.entries())
       .sort(([a], [b]) => a.localeCompare(b))
   };

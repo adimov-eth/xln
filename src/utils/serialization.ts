@@ -27,7 +27,7 @@ export const deserializeWithBigInt = (text: string): any => {
 
 export const createInitialState = (): ServerState => ({
   height: height(0),
-  entities: new Map(),
+  signers: new Map(),
   registry: new Map(),
   mempool: []
 }); 

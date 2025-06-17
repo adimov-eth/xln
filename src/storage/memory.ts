@@ -98,17 +98,20 @@ export class MemoryStorage implements Storage {
         // Serialize to JSON string with BigInt support
         const serialized = serializeWithBigInt({
           height: state.height,
-          entities: Array.from(state.entities.entries()).map(([k, v]) => [
-            k, 
-            {
-              ...v,
-              mempool: [...v.mempool],
-              proposal: v.proposal ? {
-                ...v.proposal,
-                txs: [...v.proposal.txs],
-                approvals: Array.from(v.proposal.approvals)
-              } : undefined
-            }
+          signers: Array.from(state.signers.entries()).map(([signerId, entities]) => [
+            signerId,
+            Array.from(entities.entries()).map(([k, v]) => [
+              k, 
+              {
+                ...v,
+                mempool: [...v.mempool],
+                proposal: v.proposal ? {
+                  ...v.proposal,
+                  txs: [...v.proposal.txs],
+                  approvals: Array.from(v.proposal.approvals)
+                } : undefined
+              }
+            ])
           ]),
           registry: Array.from(state.registry.entries()).map(([k, v]) => [
             k, 
@@ -132,18 +135,23 @@ export class MemoryStorage implements Storage {
         // Reconstruct proper types from deserialized data
         const state: ServerState = {
           height: this.latestSnapshot.height,
-          entities: new Map(
-            this.latestSnapshot.entities.map(([k, v]: [string, any]) => [
-              k,
-              {
-                ...v,
-                mempool: [...v.mempool],
-                proposal: v.proposal ? {
-                  ...v.proposal,
-                  txs: [...v.proposal.txs],
-                  approvals: new Set(v.proposal.approvals)
-                } : undefined
-              }
+          signers: new Map(
+            this.latestSnapshot.signers.map(([signerId, entities]: [string, any]) => [
+              signerId,
+              new Map(
+                entities.map(([k, v]: [string, any]) => [
+                  k,
+                  {
+                    ...v,
+                    mempool: [...v.mempool],
+                    proposal: v.proposal ? {
+                      ...v.proposal,
+                      txs: [...v.proposal.txs],
+                      approvals: new Set(v.proposal.approvals)
+                    } : undefined
+                  }
+                ])
+              )
             ])
           ),
           registry: new Map(

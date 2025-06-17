@@ -98,22 +98,71 @@ const handleProposeBlock = (ctx: CommandContext): Result<CommandResult> => {
     mempool: []
   };
   
-  const approvalMessages: readonly OutboxMsg[] = meta.quorum
+  // First share the proposal with other signers
+  const shareMessages: OutboxMsg[] = meta.quorum
     .filter(s => s !== signer)
     .map(s => ({
       from: meta.id,
       to: meta.id,
       toSigner: s,
-      command: { type: 'approveBlock' as const, hash: blockHash }
+      command: { type: 'shareProposal' as const, proposal }
     }));
   
-  return Ok({ entity: proposedEntity, messages: approvalMessages });
+  return Ok({ entity: proposedEntity, messages: shareMessages });
+};
+
+const handleShareProposal = (ctx: CommandContext): Result<CommandResult> => {
+  const { entity, command, signer, meta } = ctx;
+  
+  if (entity.stage !== 'idle') {
+    return Err('Can only receive proposal when idle');
+  }
+  
+  if (command.type !== 'shareProposal') {
+    return Err('Invalid command type');
+  }
+  
+  if (!command.proposal) {
+    return Err('No proposal to share');
+  }
+  
+  // Verify the proposal is from a valid proposer
+  const expectedProposer = getProposer(entity.height, meta.quorum);
+  if (command.proposal.proposer !== expectedProposer) {
+    return Err(`Invalid proposer: ${command.proposal.proposer}, expected: ${expectedProposer}`);
+  }
+  
+  // Update to proposed state with the shared proposal
+  const proposedEntity: EntityState = {
+    ...entity,
+    stage: 'proposed',
+    proposal: command.proposal,
+    mempool: []
+  };
+  
+  // Send approval message back
+  const approvalMsg: OutboxMsg = {
+    from: meta.id,
+    to: meta.id,
+    toSigner: command.proposal.proposer,
+    command: { 
+      type: 'approveBlock', 
+      hash: command.proposal.hash,
+      from: signer
+    }
+  };
+  
+  return Ok({ entity: proposedEntity, messages: [approvalMsg] });
 };
 
 const handleApproveBlock = (ctx: CommandContext): Result<CommandResult> => {
   const { entity, command, signer, meta } = ctx;
   
   if (entity.stage !== 'proposed') {
+    // If already committing, this is a late approval - just ignore it
+    if (entity.stage === 'committing') {
+      return Ok({ entity, messages: [] });
+    }
     return Err('Can only approve when proposed');
   }
   
@@ -132,6 +181,11 @@ const handleApproveBlock = (ctx: CommandContext): Result<CommandResult> => {
   const approver = command.from ?? signer;
   if (!meta.quorum.includes(approver)) {
     return Err(`Approver ${approver} not in quorum`);
+  }
+  
+  // Check if already approved
+  if (entity.proposal.approvals.has(approver)) {
+    return Err(`Signer ${approver} already approved`);
   }
   
   const newApprovals = new Set(entity.proposal.approvals);
@@ -251,6 +305,7 @@ type CommandHandler = (ctx: CommandContext) => Result<CommandResult>;
 const commandHandlers: Record<EntityCommand['type'], CommandHandler> = {
   addTx: handleAddTx,
   proposeBlock: handleProposeBlock,
+  shareProposal: handleShareProposal,
   approveBlock: handleApproveBlock,
   commitBlock: handleCommitBlock
 };

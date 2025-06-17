@@ -3,12 +3,16 @@
 // ============================================================================
 
 import { height, id, signer } from '../types/primitives.js';
-import type { EntityCommand, EntityMeta, EntityState, ServerState, ServerTx } from '../types/state.js';
+import type { EntityCommand, EntityMeta, EntityState, ServerState, ServerTx, SignerIdx } from '../types/state.js';
 import { assoc } from '../utils/immutable.js';
 
 // Add constant for max quorum size
 const MAX_QUORUM_SIZE = 1_000_000;
 
+/**
+ * Register an entity in the registry only.
+ * Does NOT create replicas - signers must explicitly import.
+ */
 export const registerEntity = (
   server: ServerState,
   entityId: string,
@@ -33,19 +37,69 @@ export const registerEntity = (
     protocol
   };
   
+  // Only update registry - no replicas created
+  return {
+    ...server,
+    registry: assoc(server.registry, id(entityId), meta)
+  };
+};
+
+/**
+ * Import an entity to a specific signer.
+ * Signer must be in the entity's quorum.
+ * This creates the actual replica.
+ */
+export const importEntity = (
+  server: ServerState,
+  signerId: SignerIdx,
+  entityId: string,
+  initialState?: any
+): ServerState => {
+  const meta = server.registry.get(id(entityId));
+  if (!meta) {
+    throw new Error(`Entity ${entityId} not registered`);
+  }
+  
+  if (!meta.quorum.includes(signerId)) {
+    throw new Error(`Signer ${signerId} not in quorum for entity ${entityId}`);
+  }
+  
+  // Get or create signer's entity map
+  const signerEntities = server.signers.get(signerId) ?? new Map();
+  
+  // Check if already imported
+  if (signerEntities.has(id(entityId))) {
+    return server; // Already imported, no-op
+  }
+  
+  // Create entity state
   const entity: EntityState = {
     id: id(entityId),
     height: height(0),
     stage: 'idle',
-    data: initialState,
+    data: initialState ?? getDefaultProtocolState(meta.protocol),
     mempool: []
   };
   
+  // Update signer's entities
+  const updatedSignerEntities = assoc(signerEntities, id(entityId), entity);
+  
   return {
     ...server,
-    registry: assoc(server.registry, id(entityId), meta),
-    entities: assoc(server.entities, id(entityId), entity)
+    signers: assoc(server.signers, signerId, updatedSignerEntities)
   };
+};
+
+/**
+ * Helper to get default state for a protocol
+ */
+const getDefaultProtocolState = (protocol: string): any => {
+  switch (protocol) {
+    case 'wallet':
+      return { balance: 0n, nonce: 0 };
+    default:
+      return {};
+  }
 };
 
 export const submitTransaction = (

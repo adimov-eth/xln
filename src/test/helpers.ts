@@ -2,15 +2,16 @@
 // test/helpers.ts - Testing utilities
 // ============================================================================
 
-import { registerEntity, submitTransaction } from '../core/server.js';
+import { importEntity, registerEntity, submitTransaction } from '../core/server.js';
 import { SilentLogger } from '../infra/deps.js';
 import { createBlockRunner } from '../infra/runner.js';
 import { defaultRegistry } from '../protocols/registry.js';
 import { MemoryStorage } from '../storage/memory.js';
 import type { BlockHeight } from '../types/primitives.js';
-import { id } from '../types/primitives.js';
+import { id, signer } from '../types/primitives.js';
 import type { EntityCommand, EntityState, ServerState, ServerTx } from '../types/state.js';
 import { createInitialState } from '../utils/serialization.js';
+import { getCanonicalEntity } from '../utils/state-helpers.js';
 
 export class TestScenario {
   private server: ServerState;
@@ -30,16 +31,29 @@ export class TestScenario {
   
   // Given methods
   entity(entityId: string, signers: number[], initialBalance = 1000n): this {
+    // Register entity in registry
     this.server = registerEntity(
       this.server, 
       entityId, 
       signers, 
       { balance: initialBalance, nonce: 0 }
     );
+    
+    // Import entity to each signer in quorum
+    for (const signerIdx of signers) {
+      this.server = importEntity(
+        this.server,
+        signer(signerIdx),
+        entityId,
+        { balance: initialBalance, nonce: 0 }
+      );
+    }
+    
     return this;
   }
   
   multiSigEntity(entityId: string, signers: number[], initialBalance = 10000n): this {
+    // Register entity in registry
     this.server = registerEntity(
       this.server,
       entityId,
@@ -48,6 +62,17 @@ export class TestScenario {
       'wallet',
       5000 // 5 second timeout for tests
     );
+    
+    // Import entity to each signer in quorum
+    for (const signerIdx of signers) {
+      this.server = importEntity(
+        this.server,
+        signer(signerIdx),
+        entityId,
+        { balance: initialBalance, nonce: 0 }
+      );
+    }
+    
     return this;
   }
   
@@ -85,7 +110,8 @@ export class TestScenario {
   
   // Then methods (getters)
   getEntity(entityId: string): EntityState | undefined {
-    return this.server.entities.get(id(entityId));
+    // Get canonical entity (highest block height) across all signers
+    return getCanonicalEntity(this.server, id(entityId));
   }
   
   getHeight(): BlockHeight {

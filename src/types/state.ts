@@ -6,6 +6,9 @@ import type { BlockHash, BlockHeight, EntityId, SignerIdx } from './primitives.j
 
 export type EntityStage = 'idle' | 'proposed' | 'committing' | 'faulted';
 
+// Each signer maintains its own entity replicas
+export type SignerEntities = ReadonlyMap<EntityId, EntityState>;
+
 export type EntityTx = {
   readonly op: string;
   readonly data: any;
@@ -42,6 +45,7 @@ export type EntityMeta = {
 export type EntityCommand = 
   | { readonly type: 'addTx'; readonly tx: EntityTx }
   | { readonly type: 'proposeBlock' }
+  | { readonly type: 'shareProposal'; readonly proposal: ProposedBlock }
   | { readonly type: 'approveBlock'; readonly hash: BlockHash; readonly from?: SignerIdx }
   | { readonly type: 'commitBlock'; readonly hash: BlockHash };
 
@@ -60,9 +64,11 @@ export type OutboxMsg = {
 
 export type ServerState = {
   readonly height: BlockHeight;
-  readonly entities: ReadonlyMap<EntityId, EntityState>;
+  readonly signers: ReadonlyMap<SignerIdx, SignerEntities>;  // NEW: hierarchical structure
   readonly registry: ReadonlyMap<EntityId, EntityMeta>;
   readonly mempool: readonly ServerTx[];
+  // Temporary for migration - will be removed
+  readonly entities?: ReadonlyMap<EntityId, EntityState>;
 };
 
 export type BlockData = {
