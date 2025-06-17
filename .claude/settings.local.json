@@ -5,8 +5,7 @@
       "Bash(bun test:*)",
       "Bash(grep:*)",
       "Bash(bun:*)",
-      "Bash(mkdir:*)",
-      "Bash(chmod:*)"
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }

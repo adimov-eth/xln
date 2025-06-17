@@ -29,52 +29,108 @@ export class TestScenario {
     });
   }
   
+  // Given methods
   entity(entityId: string, signers: number[], initialBalance = 1000n): this {
-    this.server = registerEntity(this.server, entityId, signers, { balance: initialBalance, nonce: 0 });
+    // Register entity in registry
+    this.server = registerEntity(
+      this.server, 
+      entityId, 
+      signers, 
+      { balance: initialBalance, nonce: 0 }
+    );
+    
+    // Import entity to each signer in quorum
     for (const signerIdx of signers) {
-      this.server = importEntity(this.server, signer(signerIdx), entityId, { balance: initialBalance, nonce: 0 });
+      this.server = importEntity(
+        this.server,
+        signer(signerIdx),
+        entityId,
+        { balance: initialBalance, nonce: 0 }
+      );
     }
+    
     return this;
   }
   
   multiSigEntity(entityId: string, signers: number[], initialBalance = 10000n): this {
-    this.server = registerEntity(this.server, entityId, signers, { balance: initialBalance, nonce: 0 }, 'wallet', 5000);
+    // Register entity in registry
+    this.server = registerEntity(
+      this.server,
+      entityId,
+      signers,
+      { balance: initialBalance, nonce: 0 },
+      'wallet',
+      5000 // 5 second timeout for tests
+    );
+    
+    // Import entity to each signer in quorum
     for (const signerIdx of signers) {
-      this.server = importEntity(this.server, signer(signerIdx), entityId, { balance: initialBalance, nonce: 0 });
+      this.server = importEntity(
+        this.server,
+        signer(signerIdx),
+        entityId,
+        { balance: initialBalance, nonce: 0 }
+      );
     }
+    
     return this;
   }
   
+  // When methods
   async transaction(signerIdx: number, entityId: string, command: EntityCommand): Promise<this> {
     this.server = submitTransaction(this.server, signerIdx, entityId, command);
     const result = await this.runner.processBlock(this.server, false);
-    if (result.ok) this.server = result.value;
-    else throw new Error(result.error);
+    if (result.ok) {
+      this.server = result.value;
+    } else {
+      throw new Error(result.error);
+    }
     return this;
   }
   
   async processBlock(): Promise<this> {
     const result = await this.runner.processBlock(this.server, false);
-    if (result.ok) this.server = result.value;
-    else throw new Error(result.error);
+    if (result.ok) {
+      this.server = result.value;
+    } else {
+      throw new Error(result.error);
+    }
     return this;
   }
   
   async recover(): Promise<this> {
     const result = await this.runner.recover();
-    if (result.ok) this.server = result.value;
-    else throw new Error(result.error);
+    if (result.ok) {
+      this.server = result.value;
+    } else {
+      throw new Error(result.error);
+    }
     return this;
   }
   
+  // Then methods (getters)
   getEntity(entityId: string): EntityState | undefined {
+    // Get canonical entity (highest block height) across all signers
     return getCanonicalEntity(this.server, id(entityId));
   }
   
-  getHeight(): BlockHeight { return this.server.height; }
-  getMempool(): readonly ServerTx[] { return this.server.mempool; }
-  getStorage(): MemoryStorage { return this.storage; }
-  getState(): ServerState { return this.server; }
+  getHeight(): BlockHeight {
+    return this.server.height;
+  }
+  
+  getMempool(): readonly ServerTx[] {
+    return this.server.mempool;
+  }
+  
+  getStorage(): MemoryStorage {
+    return this.storage;
+  }
+  
+  getState(): ServerState {
+    return this.server;
+  }
 }
 
-export const createTestScenario = (name: string): TestScenario => new TestScenario(name);
+export const createTestScenario = (name: string): TestScenario => {
+  return new TestScenario(name);
+}; 

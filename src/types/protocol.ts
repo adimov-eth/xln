@@ -15,13 +15,15 @@ export type Protocol<TState, TData> = {
 
 export type ProtocolRegistry = ReadonlyMap<string, Protocol<any, any>>;
 
+// Nonce interface for replay protection
 export interface Nonced {
   readonly nonce: number;
 }
 
+// Type guard for nonce checking
 export const isNonced = (state: any): state is Nonced => {
   return state !== null && 
          typeof state === 'object' && 
          'nonce' in state && 
          Number.isSafeInteger(state.nonce);
-};
+}; 

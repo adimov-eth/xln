@@ -19,7 +19,7 @@ test('debug: full multi-signer flow', async () => {
     title: 'Test initiative',
     description: 'Testing multi-sig',
     author: 0,
-    actions: []
+    actions: [transaction.burn('1', 1)]
   }));
   
   // Step 2: Signer 0 proposes

@@ -7,6 +7,7 @@ export class Mutex {
   private locked = false;
   
   async acquire(): Promise<() => void> {
+    // P-4 FIX: Use >= to prevent queue from reaching 10,001
     if (this.queue.length >= 10_000) {
       throw new Error('Mutex queue overflow - possible deadlock');
     }
@@ -29,4 +30,4 @@ export class Mutex {
       this.locked = false;
     }
   }
-}
+} 

@@ -5,16 +5,24 @@
 import { height } from '../types/primitives.js';
 import type { ServerState } from '../types/state.js';
 
+// Serialize with BigInt support
 export const serializeWithBigInt = (obj: any): string => {
-  return JSON.stringify(obj, (_, value) => 
-    typeof value === 'bigint' ? { _type: 'bigint', value: value.toString() } : value
-  );
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'bigint') {
+      return { _type: 'bigint', value: value.toString() };
+    }
+    return value;
+  });
 };
 
+// Deserialize with BigInt support
 export const deserializeWithBigInt = (text: string): any => {
-  return JSON.parse(text, (_, value) => 
-    value && typeof value === 'object' && value._type === 'bigint' ? BigInt(value.value) : value
-  );
+  return JSON.parse(text, (key, value) => {
+    if (value && typeof value === 'object' && value._type === 'bigint') {
+      return BigInt(value.value);
+    }
+    return value;
+  });
 };
 
 export const createInitialState = (): ServerState => ({
@@ -22,4 +30,4 @@ export const createInitialState = (): ServerState => ({
   signers: new Map(),
   registry: new Map(),
   mempool: []
-});
+}); 
