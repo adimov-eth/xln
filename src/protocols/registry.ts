@@ -3,6 +3,7 @@
 // ============================================================================
 
 import type { Protocol, ProtocolRegistry } from '../types/protocol.js';
+import { DaoProtocol } from './dao.js';
 import { WalletProtocol } from './wallet.js';
 
 export const createProtocolRegistry = (
@@ -11,4 +12,7 @@ export const createProtocolRegistry = (
   return new Map(protocols.map(p => [p.name, p]));
 };
 
-export const defaultRegistry = createProtocolRegistry(WalletProtocol); 
+export const defaultRegistry = createProtocolRegistry(
+  WalletProtocol,
+  DaoProtocol
+); 

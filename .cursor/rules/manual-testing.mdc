@@ -1,0 +1,32 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Testing Patterns (Manual)
+
+**Activate when writing tests**
+
+## Test Structure
+- TestScenario fluent API: @src/test/helpers.ts
+- Property-based testing for critical logic
+- Test after implementation, not before
+
+## XLN Testing
+```typescript
+const scenario = createTestScenario('test-name')
+  .entity('alice', [0], 1000n)
+  .multiSigEntity('dao', [0,1,2], 10000n);
+
+await scenario
+  .transaction(0, 'alice', { type: 'addTx', tx: {...} })
+  .processBlock();
+
+expect(scenario.getEntity('alice')?.data.balance).toBe(900n);
+```
+
+## Focus Areas
+- Edge cases: empty mempools, timeouts, offline signers
+- Consensus: quorum changes, Byzantine scenarios  
+- Storage: crash recovery, WAL replay
+- Swaps: partial fills, timeout edge cases

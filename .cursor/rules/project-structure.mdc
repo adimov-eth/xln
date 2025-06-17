@@ -1,0 +1,30 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Project Structure
+
+## Core Structure
+```
+src/
+├── types/          # Branded types, primitives
+├── core/           # Server, entities, consensus  
+├── protocols/      # Wallet, registry
+├── storage/        # LevelDB interface & memory impl
+├── utils/          # Immutable ops, hashing
+└── test/           # TestScenario helpers
+```
+
+## Key Files
+- [masterplan.md](mdc:masterplan.md) - Complete single-file implementation
+- [index.ts](mdc:index.ts) - Main entry point
+- [README.md](mdc:README.md) - Usage examples
+
+## Dependencies
+types → utils → protocols → core → storage → infra
+
+## Runtime
+- Bun (direct TypeScript execution)
+- pnpm for packages
+- ESNext modules

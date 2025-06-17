@@ -1,0 +1,41 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# XLN Architecture (Manual)
+
+**Activate when working on XLN protocol code**
+
+## Core Model
+```
+Server → Signer → Entity → Account
+```
+
+## Entity Types
+- Single-signer: Auto-approved blocks (instant)
+- Multi-signer: 2/3+ quorum required
+- Hub: Orderbook + cross-jurisdictional swaps
+
+## Key Concepts
+- No global consensus (entities independent)
+- 100ms block time per entity
+- HTLC for cross-chain swaps with 8-bit granulation
+- Credit lines > collateral deposits
+- State = consensus agreed, Storage = full machine data
+
+## Message Flow
+```
+Mempool → Block Creation → Consensus → Execution
+Outbox → Server routes → EntityInput → Apply
+```
+
+## Implementation Patterns
+- Server: @src/core/server.ts
+- Entity commands: @src/core/entity/commands.ts  
+- Consensus: @src/core/consensus.ts
+- Protocols: @src/protocols/wallet.ts
+- Storage: @src/storage/memory.ts
+
+## Swap Architecture
+Hub locks B-tokens first → Alice mirrors A-tokens → Simultaneous reveal

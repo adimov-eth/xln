@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(bun run:*)",
-      "Bash(bun test:*)"
+      "Bash(bun test:*)",
+      "Bash(grep:*)",
+      "Bash(bun:*)"
     ],
     "deny": []
   }

@@ -26,6 +26,8 @@ export { importEntity, registerEntity, submitTransaction } from './src/core/serv
 // Export protocols
 export { createProtocolRegistry, defaultRegistry } from './src/protocols/registry.js';
 export { WalletProtocol } from './src/protocols/wallet.js';
+export { DaoProtocol, createDaoState } from './src/protocols/dao.js';
+export type { DaoState, Initiative, DaoOp } from './src/protocols/dao.js';
 
 // Export storage
 export type { Storage } from './src/storage/interface.js';

@@ -97,6 +97,8 @@ const getDefaultProtocolState = (protocol: string): any => {
   switch (protocol) {
     case 'wallet':
       return { balance: 0n, nonce: 0 };
+    case 'dao':
+      return { balance: 0n, nonce: 0, initiatives: new Map(), memberCount: 0, voteThreshold: 66 };
     default:
       return {};
   }

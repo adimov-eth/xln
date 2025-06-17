@@ -226,8 +226,13 @@ const handleApproveBlock = (ctx: CommandContext): Result<CommandResult> => {
 const handleCommitBlock = (ctx: CommandContext): Result<CommandResult> => {
   const { entity, command, signer, meta, protocols } = ctx;
   
-  if (entity.stage !== 'committing') {
-    return Err('Can only commit when committing');
+  // Proposer commits from 'committing' state, others commit from 'proposed' state
+  if (entity.stage !== 'committing' && entity.stage !== 'proposed') {
+    // If already idle, just ignore the commit (idempotent)
+    if (entity.stage === 'idle' && command.type === 'commitBlock' && entity.lastBlockHash === command.hash) {
+      return Ok({ entity, messages: [] });
+    }
+    return Err('Can only commit when committing or proposed');
   }
   
   if (command.type !== 'commitBlock') {
@@ -242,14 +247,17 @@ const handleCommitBlock = (ctx: CommandContext): Result<CommandResult> => {
     return Err('Commit hash does not match proposal');
   }
   
-  if (signer !== entity.proposal.proposer) {
-    return Err('Only proposer can commit');
+  // Only proposer can commit from 'committing' state
+  // Other signers can commit from 'proposed' state when notified
+  if (entity.stage === 'committing' && signer !== entity.proposal.proposer) {
+    return Err('Only proposer can commit when in committing state');
   }
   
   const protocol = protocols.get(meta.protocol);
   if (!protocol) {
     return Err(`Unknown protocol: ${meta.protocol}`);
   }
+  
   
   // Apply transactions with centralized nonce checking
   let newData = entity.data;
@@ -296,7 +304,22 @@ const handleCommitBlock = (ctx: CommandContext): Result<CommandResult> => {
     lastBlockHash: command.hash
   };
   
-  return Ok({ entity: newEntity, messages });
+  // Only the proposer (committing from 'committing' state) should notify others
+  const commitNotifications: OutboxMsg[] = [];
+  if (entity.stage === 'committing') {
+    for (const quorumMember of meta.quorum) {
+      if (quorumMember !== signer) {
+        commitNotifications.push({
+          from: meta.id,
+          to: meta.id,
+          toSigner: quorumMember,
+          command: { type: 'commitBlock', hash: command.hash }
+        });
+      }
+    }
+  }
+  
+  return Ok({ entity: newEntity, messages: [...messages, ...commitNotifications] });
 };
 
 // Command handlers table for exhaustive dispatch

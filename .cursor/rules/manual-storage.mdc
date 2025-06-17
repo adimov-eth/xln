@@ -1,0 +1,32 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+# Storage Patterns (Manual)
+
+**Activate when working on persistence/database code**
+
+## LevelDB Strategy
+- Entity-specific databases (not monolithic)
+- Buffer encoding: `keyEncoding: 'buffer', valueEncoding: 'buffer'`
+- Hierarchical keys: `/server/`, `/entity/{id}/`, `/signer/{idx}/`
+
+## Recovery Pattern
+```typescript
+1. Load latest snapshot
+2. Read WAL entries since snapshot  
+3. Replay with skipWal flag
+4. Resume normal operation
+```
+
+## Implementation
+- WAL: @src/storage/interface.ts
+- Memory impl: @src/storage/memory.ts
+- Snapshots: Configurable interval (default 100 blocks)
+
+## Key Principles
+- Primary state in memory
+- Write-through to LevelDB
+- WAL before state changes
+- Batch operations for startup/shutdown

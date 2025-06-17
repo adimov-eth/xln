@@ -1,4 +1,19 @@
-# XLN Protocol Specification v2.2
+I understand the clarifications:
+
+1. **DAO Architecture** - Yes, the terminology separation is perfect:
+   - **Consensus Layer**: Proposal/Approve/Commit (for blocks)
+   - **Governance Layer**: Initiative/Vote/Execute (for DAO decisions)
+   - This avoids the overloaded "proposal" term and makes the architecture cleaner.
+
+2. **GitHub Code** - I cannot directly access GitHub repositories. Could you paste the current implementation here so I can review it against the spec?
+
+3. **Channels/Accounts** - Understood, these are future work and should be excluded from the current spec.
+
+4. **Networking** - Will keep the single-server simulation approach but ensure message structures are network-ready.
+
+Let me create the unified spec with these constraints:
+
+# XLN Protocol Specification v3.2 (Unified)
 
 ## Table of Contents
 
@@ -6,12 +21,13 @@
 2. [Core Architecture](#2-core-architecture)
 3. [State Machine Hierarchy](#3-state-machine-hierarchy)
 4. [Consensus Mechanisms](#4-consensus-mechanisms)
-5. [Storage Architecture](#5-storage-architecture)
-6. [Transaction Flow](#6-transaction-flow)
-7. [Cross-Jurisdictional Operations](#7-cross-jurisdictional-operations)
+5. [DAO Architecture](#5-dao-architecture)
+6. [Storage Architecture](#6-storage-architecture)
+7. [Transaction Flow](#7-transaction-flow)
 8. [Protocol Implementation](#8-protocol-implementation)
-9. [Network Communication](#9-network-communication)
-10. [Security Model](#10-security-model)
+9. [Security Model](#9-security-model)
+10. [Implementation Status](#10-implementation-status)
+11. [Known Issues & Improvements](#11-known-issues-improvements)
 
 ## 1. Overview
 
@@ -28,19 +44,28 @@ and security — doesn't require a sequencer.
 ### 1.2 Key Principles
 
 1. **No Global Consensus**: Each server maintains its own state independently
-2. **Hierarchical Trust**: Trust flows through Server → Signer → Entity → Channel layers
-3. **Credit Over Collateral**: Uses credit lines instead of locked liquidity
-4. **Local State Machines**: Each component is an isolated state machine with message passing
-5. **100ms Block Time**: Fast local consensus without waiting for global agreement
-6. **No Data Availability Layer**: Participants only store data they care about
+2. **Hierarchical Trust**: Trust flows through Server → Signer → Entity layers
+3. **Local State Machines**: Each component is an isolated state machine with message passing
+4. **100ms Block Time**: Fast local consensus without waiting for global agreement
+5. **No Data Availability Layer**: Participants only store data they care about
+6. **Replication as Security**: Security derives from multiple replicas, not consensus algorithms
+7. **Unified Flow**: Single-signer and multi-signer entities use the same transaction flow
 
-### 1.3 Comparison to Traditional Systems
+### 1.3 Mental Model
 
-Unlike rollups that attempt to compress more data into L1, XLN takes a radically different approach:
-- **No sequencers**: Each entity has its own consensus
-- **No global state**: Only local state matters to participants
-- **No forced data availability**: If no one cares about data, it doesn't need to exist
-- **No bridges in traditional sense**: Direct jurisdiction connections via depositories
+Think of XLN as a postal system:
+- **Server**: Postal station (routes mail, no decisions)
+- **Entity**: Company with directors (signers)
+- **Signer**: Board member with voting rights
+- **EntityInput**: Letter to the company
+- **EntityTx**: Specific action in the letter
+- **EntityBlock**: Meeting minutes (signed, immutable)
+- **ServerBlock**: Daily archive of all mail
+
+For DAOs specifically:
+- **Initiative**: A governance proposal (like a shareholder resolution)
+- **Vote**: Individual board member's decision
+- **Actions**: The actual operations to perform if initiative passes
 
 ## 2. Core Architecture
 
@@ -49,12 +74,14 @@ Unlike rollups that attempt to compress more data into L1, XLN takes a radically
 ```
 Server (Root Machine)
 ├── Signer[0]
-│   ├── Entity[0] 
-│   │   ├── Storage
-│   │   └── Channels
-│   └── Entity[1]
+│   ├── Entity[alice] (personal wallet)
+│   ├── Entity[dao] (DAO replica)
+│   └── Entity[hub] (hub replica)
 ├── Signer[1]
-    └── Entity[2]
+│   ├── Entity[bob] (personal wallet)
+│   └── Entity[dao] (DAO replica)
+└── Signer[2]
+    └── Entity[dao] (DAO replica)
 ```
 
 ### 2.2 Core Types
@@ -66,6 +93,29 @@ type SignerIdx = Brand<number, 'SignerIdx'>;
 type BlockHeight = Brand<number, 'BlockHeight'>;
 type BlockHash = Brand<string, 'BlockHash'>;
 
+// Hierarchical state structure
+type ServerState = {
+  height: BlockHeight;
+  signers: ReadonlyMap<SignerIdx, SignerEntities>;
+  registry: ReadonlyMap<EntityId, EntityMeta>;
+  mempool: readonly ServerTx[];
+};
+
+// Each signer maintains entity replicas
+type SignerEntities = ReadonlyMap<EntityId, EntityState>;
+
+// Entity state with consensus stages
+type EntityState<T = any> = {
+  id: EntityId;
+  height: BlockHeight;
+  stage: 'idle' | 'proposed' | 'committing' | 'faulted';
+  data: T;
+  mempool: readonly EntityTx[];
+  proposal?: ProposedBlock;
+  lastBlockHash?: BlockHash;
+  faultReason?: string;
+};
+
 // Transaction types
 type ServerTx = {
   signer: SignerIdx;
@@ -76,255 +126,320 @@ type ServerTx = {
 type EntityCommand = 
   | { type: 'addTx'; tx: EntityTx }
   | { type: 'proposeBlock' }
+  | { type: 'shareProposal'; proposal: ProposedBlock }
   | { type: 'approveBlock'; hash: BlockHash; from?: SignerIdx }
   | { type: 'commitBlock'; hash: BlockHash };
-
-type EntityTx = {
-  op: string;
-  data: any;
-  nonce?: number;
-};
 ```
 
-### 2.3 State Management
+### 2.3 Entity-Signer Relationship
 
-Each level maintains its own state:
-
-```typescript
-type ServerState = {
-  height: BlockHeight;
-  entities: ReadonlyMap<EntityId, EntityState>;
-  registry: ReadonlyMap<EntityId, EntityMeta>;
-  mempool: readonly ServerTx[];
-};
-
-type EntityState = {
-  id: EntityId;
-  height: BlockHeight;
-  stage: 'idle' | 'proposed' | 'committing' | 'faulted';
-  data: any; // Protocol-specific state
-  mempool: readonly EntityTx[];
-  proposal?: ProposedBlock;
-  lastBlockHash?: BlockHash;
-};
-```
+- **Entity**: Static identifier (like a domain name)
+- **Quorum**: Dynamic set of signers that control the entity (like IP addresses)
+- **Replicas**: Each signer in the quorum maintains a full replica of the entity state
+- **Registration vs Import**: Entities are registered globally but signers must explicitly import to create replicas
 
 ## 3. State Machine Hierarchy
 
 ### 3.1 Server Machine
 
-The root machine that coordinates signers. It:
+The root machine that coordinates signers:
 - Processes mempool every 100ms
-- Routes messages to appropriate signers
-- Maintains global state hash
-- Has no business logic of its own
+- Routes messages to appropriate signer-entity pairs
+- Maintains global state hash across all signers
+- Pure router with no business logic
 
-**Key Properties:**
-- Pure router, no internal state
-- Groups signers for simulation purposes
-- Computes root hash of all entities
+**Server Tick Model**:
+```typescript
+// Each 100ms tick:
+// 1. Current inbox = mempool
+const inbox = server.mempool;
+
+// 2. Clear for next tick  
+server.mempool = [];
+
+// 3. Process all messages
+for (const msg of inbox) {
+  // Process generates outbox messages
+}
+
+// 4. Outbox messages go to NEXT tick's mempool
+// No recursive processing in same tick
+```
 
 ### 3.2 Signer Machine
 
-Represents an external account or validator. It:
+Represents an external account or validator:
 - Owns multiple entity replicas
-- Signs blocks and transactions
 - Participates in entity consensus
-- Routes messages between entities
-
-**Implementation Note**: Signers are thin layers merged with server logic in current code.
+- Routes messages between its entities
+- Thin abstraction layer (currently merged with server logic)
 
 ### 3.3 Entity Machine
 
-The primary business logic container. It:
-- Maintains application state (wallets, DAOs, hubs)
-- Processes transactions through consensus
-- Manages channels with other entities
-- Can be single or multi-signer
+The primary business logic container with three types:
 
-**Entity Types:**
-1. **Personal Entity**: Single signer, instant finality
-2. **Multi-sig Entity**: Multiple signers, requires quorum
-3. **Hub Entity**: Special entity with order books for routing
+#### Personal Entity
+- Single signer, instant finality
+- Auto-propose enabled
+- Acts as personal wallet
+- No consensus overhead
 
-### 3.4 Channel Machine (Future)
+#### DAO Entity
+- Multi-signer with governance
+- Full state machine with blocks
+- Executes transactions via consensus
+- Supports Initiatives for governance
 
-Bilateral payment channels between entities:
-- 2-of-2 consensus between entities
-- Holds collateral and credit lines
-- Processes off-chain payments
-- Settles disputes on-chain if needed
+#### Hub Entity (Future)
+- Order matching and routing
+- Cross-jurisdictional liquidity
+- Atomic swap coordination
 
 ## 4. Consensus Mechanisms
 
-### 4.1 Entity Consensus
+### 4.1 Unified Entity Model
 
-**Single-Signer**: Instant finality, no consensus needed
+**Key Insight**: All entities use the same flow:
+```
+Mempool → Block Creation → Consensus → Execution
+```
 
-**Multi-Signer**: Simplified Tendermint-style consensus
-1. **Proposer Selection**: Round-robin based on block height
+The only difference is consensus requirements:
+- **Single-signer**: Auto-approved blocks (instant)
+- **Multi-signer**: Requires quorum approval (2/3+)
+
+### 4.2 Multi-Signer Consensus (Simplified Tendermint)
+
+1. **Proposer Selection**: 
    ```typescript
    proposer = quorum[height % quorum.length]
    ```
-2. **Block Proposal**: Proposer creates block from mempool
-3. **Approval Collection**: 2/3+ signatures required
-4. **Finalization**: Block committed when quorum reached
 
-**Quorum Structure**:
-```
-quorum = [(signer1, weight1), (signer2, weight2), ..., threshold]
-```
+2. **Block Creation Flow**:
+   - Any signer can add transactions to mempool
+   - Proposer creates block when ready
+   - Block contains ordered list of transactions
+   - No pre-vote phase (unlike full Tendermint)
 
-### 4.2 Channel Consensus
+3. **Consensus States**:
+   ```typescript
+   'idle'       → Can add txs, can propose
+   'proposed'   → Waiting for approvals
+   'committing' → Have quorum, executing
+   'faulted'    → Error state
+   ```
 
-Future 2-party consensus for channels:
-- Both parties must sign state updates
-- Hash-time locked contracts (HTLCs) for atomic swaps
-- Dispute resolution through on-chain depositories
+4. **Message Flow**:
+   ```
+   Proposer: proposeBlock → shareProposal → [wait for approvals] → commitBlock
+   Others:   [receive shareProposal] → approveBlock
+   ```
 
 ### 4.3 Timeout Handling
 
-Entities have configurable timeouts (default 30s) to prevent stuck proposals:
+- Default 30 second timeout for proposals
+- On timeout: revert to idle, return txs to mempool
+- Prevents stuck consensus states
+- Future: Add heartbeat for liveness
+
+### 4.4 Message Routing
+
+Outbox messages are routed based on target:
+- **Specific signer**: Route to that signer only
+- **No signer specified**: Route to ALL quorum members
+- Server doesn't distinguish self-routing (pure simulation)
+
+## 5. DAO Architecture
+
+### 5.1 Terminology Clarity
+
+Clear separation between consensus and governance:
+
+| Level | Term | Description |
+|-------|------|-------------|
+| **Consensus Layer** | Proposal | Block proposal containing transactions |
+| | Approve | Vote to accept a block proposal |
+| | Commit | Finalize block after quorum reached |
+| | Proposer | Designated signer who creates blocks |
+| **Governance Layer** | Initiative | Governance item that DAO members vote on |
+| | Vote | Member's support or opposition to an initiative |
+| | Execute | Apply passed initiative's transactions |
+| **Data Flow** | Input | Command routed to entity (EntityCommand) |
+| | Transaction | Atomic business operation (EntityTx) |
+| | Block | Durable batch of transactions with consensus |
+| | Action | Pure function that mutates state |
+
+### 5.2 Initiative Structure
+
 ```typescript
-if (entity.stage === 'proposed' && isTimedOut(proposal.timestamp, timeoutMs)) {
-  // Revert to idle, return transactions to mempool
+type Initiative = {
+  id: string;
+  title: string;
+  description: string;
+  author: SignerIdx;
+  actions: EntityTx[];        // Txs to execute if passed
+  votes: Map<SignerIdx, boolean>;
+  status: 'active' | 'passed' | 'rejected' | 'executed';
+  createdAt: number;
+  executedAt?: number;
 }
 ```
 
-## 5. Storage Architecture
+### 5.3 DAO Governance Flow
 
-### 5.1 Storage Layers
+```
+1. Member creates initiative
+   └─> { op: 'createInitiative', data: { initiative } }
+
+2. Members vote on initiative  
+   └─> { op: 'voteInitiative', data: { id, support } }
+
+3. Initiative passes (threshold met)
+   └─> Status changes to 'passed'
+
+4. Execute initiative
+   └─> { op: 'executeInitiative', data: { id } }
+   └─> Adds initiative's transactions to mempool
+
+5. Normal block consensus
+   └─> Transactions execute through standard flow
+```
+
+### 5.4 Why This Architecture?
+
+- **Simplicity**: Block consensus IS the approval mechanism
+- **Flexibility**: Initiatives separate governance from execution
+- **Auditability**: Complete history in blocks
+- **Efficiency**: No duplicate voting mechanisms
+- **Clarity**: Clean terminology separation
+
+## 6. Storage Architecture
+
+### 6.1 Storage Layers
 
 1. **In-Memory State**: Primary working state
+   - Full server state loaded on startup
+   - All operations work on memory
+   - Write-through to persistence
+
 2. **Write-Ahead Log (WAL)**: Transaction durability
+   - Append-only log of all server transactions
+   - Enables crash recovery
+   - Truncated after snapshots
+
 3. **Snapshots**: Periodic state checkpoints
-4. **Block History**: Optional historical data
+   - Full state serialization
+   - Configurable interval (default: 100 blocks)
+   - Enables fast recovery
 
-### 5.2 LevelDB Structure
+4. **Block History**: Optional audit trail
 
-```
-/entity_state/{entityId}      # Latest entity snapshots
-/entity_blocks/{entityId}/    # Historical blocks
-/server_blocks/{height}       # Server block history
-/wal/{height}                # Write-ahead log entries
-```
+### 6.2 Persistence Flow
 
-### 5.3 Persistence Strategy
-
-**Every 100ms (configurable)**:
+**Every 100ms**:
+```typescript
 1. Process mempool
-2. Create blocks for entities
+2. Create ServerBlock if non-empty
 3. Write to WAL
-4. Update in-memory state
-5. Periodically snapshot (every N blocks)
+4. Apply state changes
+5. Persist block
+6. Periodically snapshot (every N blocks)
+```
 
 **Recovery Process**:
-1. Load latest snapshot
-2. Replay WAL entries since snapshot
-3. Resume normal operation
-
-### 5.4 State Hashing
-
-Deterministic hashing ensures consensus:
 ```typescript
-// Canonical form for consistent hashing
-const toCanonical = (obj: any): any => {
-  if (obj instanceof Set) return Array.from(obj).sort();
-  if (obj instanceof Map) return sortedMapEntries(obj);
-  if (typeof obj === 'bigint') return obj.toString();
-  // ... handle all types deterministically
-};
+1. Load latest snapshot (or create initial state)
+2. Read WAL entries since snapshot
+3. Replay transactions with skipWal flag
+4. Resume normal operation
 ```
 
-## 6. Transaction Flow
+### 6.3 State Hashing
 
-### 6.1 Transaction Lifecycle
-
-1. **Submission**: Client submits ServerTx to server mempool
-2. **Routing**: Server routes to appropriate signer/entity
-3. **Validation**: Entity validates against current state
-4. **Proposal**: Proposer includes in block
-5. **Consensus**: Collect signatures (if multi-sig)
-6. **Execution**: Apply state changes
-7. **Finalization**: Update merkle root, persist
-
-### 6.2 Transaction Types
-
-**Wallet Protocol**:
-- `transfer`: Move funds between entities
-- `burn`: Destroy tokens
-- `credit`: Internal operation from transfers
-
-**Entity Operations**:
-- `addTx`: Add transaction to mempool
-- `proposeBlock`: Create new block
-- `approveBlock`: Vote on proposed block
-- `commitBlock`: Finalize approved block
-
-### 6.3 Message Flow
-
-Outbox pattern for inter-entity communication:
 ```typescript
-// Entity generates outbox messages during tx processing
-const messages: OutboxMsg[] = [];
+// Hierarchical deterministic hash
+ServerHash = hash({
+  height,
+  signers: [
+    [signer0, [[entity0, hash0], [entity1, hash1]]],
+    [signer1, [...]]
+  ],
+  registry
+})
+
+// Weak cache optimization for unchanged entities
+let stateHashCache = new WeakMap<EntityState, string>();
+```
+
+## 7. Transaction Flow
+
+### 7.1 Standard Transaction Flow
+
+```
+1. User submits Input
+   └─> ServerTx { signer, entityId, command }
+
+2. Server routes to Entity
+   └─> EntityCommand (addTx, proposeBlock, etc.)
+
+3. Entity processes command
+   └─> Transaction added to mempool
+
+4. Block proposed (single or multi-sig)
+   └─> ProposedBlock { txs, hash, approvals }
+
+5. Consensus reached
+   └─> Block committed
+
+6. Transactions execute
+   └─> Pure functions mutate state
+```
+
+### 7.2 DAO-Specific Flow
+
+For governance decisions:
+```
+1. Create Initiative (with multiple actions)
+2. Collect votes on Initiative
+3. When passed, execute Initiative
+4. Actions enter normal transaction flow
+5. Standard consensus applies actions
+```
+
+### 7.3 Message Generation
+
+Transactions can generate cross-entity messages:
+```typescript
+// Example: Transfer generating credit message
 if (op.type === 'transfer') {
-  messages.push({
+  return [{
     from: entityId,
     to: op.to,
     command: {
       type: 'addTx',
-      tx: { op: 'credit', data: { amount, from, _internal: true } }
+      tx: {
+        op: 'credit',
+        data: { amount: op.amount, from: entityId, _internal: true }
+      }
     }
-  });
+  }];
 }
 ```
 
-## 7. Cross-Jurisdictional Operations
-
-### 7.1 Architecture Overview
-
-```
-Jurisdiction-1                    Jurisdiction-2
-┌─────────┐                      ┌─────────┐
-│ Alice-1 │◄──── Channel ────►  │  Hub-2  │
-└─────────┘                      └─────────┘
-┌─────────┐                      ┌─────────┐
-│  Hub-1  │◄──── Channel ────►  │ Alice-2 │
-└─────────┘                      └─────────┘
-```
-
-### 7.2 HTLC-Based Swaps
-
-**Binary Granularity System**:
-- 8 independent hashlocks = 8 bits = 256 granules
-- Each bit represents 2^n granules
-- Allows partial execution with minimal on-chain data
-
-**Swap Protocol**:
-1. Hub creates recv-lock with 8 hashes in jurisdiction B
-2. Alice creates mirror send-lock in jurisdiction A  
-3. Hub reveals needed preimages for execution amount
-4. Alice claims equivalent in other jurisdiction
-
-**Timeout Structure**:
-```
-TA (Alice's lock) = now + 30 min
-TB (Hub's lock) = TA + 30 min
-```
-
-### 7.3 Zero On-Chain Transactions
-
-In happy path, swaps complete entirely off-chain:
-1. Channels pre-funded with collateral/credit
-2. Conditional payments added to channel state
-3. Secrets revealed to claim payments
-4. Only disputes go on-chain
-
 ## 8. Protocol Implementation
 
-### 8.1 Wallet Protocol
+### 8.1 Protocol System
 
-Core protocol for value transfer:
+```typescript
+type Protocol<TState, TData> = {
+  name: string;
+  validateTx: (tx: EntityTx) => Result<TData>;
+  applyTx: (state: TState, data: TData, tx?: EntityTx) => Result<TState>;
+  generateMessages?: (entityId: EntityId, data: TData) => OutboxMsg[];
+};
+```
+
+### 8.2 Wallet Protocol (Implemented)
 
 ```typescript
 type WalletState = {
@@ -333,118 +448,247 @@ type WalletState = {
 };
 
 type WalletOp = 
-  | { type: 'credit'; amount: bigint; from: EntityId }
+  | { type: 'credit'; amount: bigint; from: EntityId; _internal?: boolean }
   | { type: 'burn'; amount: bigint }
   | { type: 'transfer'; amount: bigint; to: EntityId };
 ```
 
-**Nonce Policy**: Credits increment receiver's nonce to prevent replay.
-
-### 8.2 Protocol Registry
-
-Extensible protocol system:
-```typescript
-type Protocol<TState, TOp> = {
-  name: string;
-  validateTx: (tx: EntityTx) => Result<TOp>;
-  applyTx: (state: TState, op: TOp) => Result<TState>;
-  generateMessages?: (from: EntityId, op: TOp) => OutboxMsg[];
-};
-```
+**Key Design Decisions**:
+- Credits increment receiver's nonce (prevents replay)
+- Direct credit submissions rejected (must come via transfer)
+- BigInt for all amounts
+- Internal flag for system-generated credits
 
 ### 8.3 Future Protocols
 
-- **Channel Protocol**: Bilateral payment channels
+- **DAO Protocol**: Extend wallet with initiatives
 - **Hub Protocol**: Order matching and routing
-- **DAO Protocol**: Governance and proposals
 - **Depository Protocol**: External chain bridges
 
-## 9. Network Communication
+## 9. Security Model
 
-### 9.1 Current Implementation
+### 9.1 Trust Assumptions
 
-Single-process simulation where all entities exist in one server:
-- Outbox messages loop back to inbox
-- No actual networking required
-- Pure functional message passing
+- **Intra-Entity**: 2/3+ honest signers (Byzantine fault tolerance)
+- **Inter-Entity**: No trust required (future: HTLC enforcement)
+- **Server Level**: Currently trusted environment
+- **Storage**: Crash-fault tolerant, not Byzantine-fault tolerant
 
-### 9.2 Future Architecture
+### 9.2 Current Security Features
 
-**P2P Layer** (libp2p or Signal Protocol):
-- Encrypted entity-to-entity messaging
-- Gossip protocol for entity directory
-- Direct connections between signers
+| Feature | Status | Description |
+|---------|--------|-------------|
+| Nonce Protection | ✅ | Prevents replay attacks |
+| WAL Recovery | ✅ | Survives crashes |
+| Snapshot Recovery | ✅ | Fast state restoration |
+| Quorum Consensus | ✅ | 2/3+ required |
+| State Hashing | ✅ | Deterministic verification |
+| Timeout Recovery | ✅ | Prevents stuck states |
 
-**Entity Directory**:
+### 9.3 Security Gaps
+
+| Gap | Impact | Mitigation (Future) |
+|-----|--------|-------------------|
+| No Signatures | High | Add Ed25519/BLS |
+| No Byzantine Detection | Medium | Gossip protocol |
+| Predictable Proposer | Low | VRF or hash-based |
+| Unbounded Mempool | Low | Size limits + fees |
+| No State Sync | Medium | Periodic reconciliation |
+
+## 10. Implementation Status
+
+### 10.1 Core Features ✅
+
+**Architecture**:
+- Hierarchical server-signer-entity structure
+- Entity registration and import separation
+- Message routing through outbox pattern
+- Pure functional state transitions
+
+**Consensus**:
+- Single-signer auto-propose
+- Multi-signer proposal/approval flow
+- Timeout handling
+- Proposer rotation
+
+**Storage**:
+- In-memory state management
+- WAL for durability
+- Snapshot persistence
+- Recovery from crash
+
+**Protocols**:
+- Wallet protocol with transfers
+- Nonce-based replay protection
+- Internal credit mechanism
+
+### 10.2 In Progress ⏳
+
+- DAO Initiative system
+- Vote tracking and thresholds
+- Initiative execution flow
+- Byzantine fault tolerance
+- State divergence detection
+
+### 10.3 Not Implemented ❌
+
+- Signature verification
+- P2P networking
+- External blockchain integration
+- Weighted voting
+- Custom quorum thresholds
+- Channel/account machines
+- Cross-jurisdictional swaps
+- Hub order matching
+- Credit line system
+
+## 11. Known Issues & Improvements
+
+### 11.1 Critical Issues
+
+1. **Stuck Proposal Recovery**
+   ```typescript
+   // If proposer crashes after sharing, consensus stalls
+   // Need: Heartbeat mechanism or view change protocol
+   ```
+
+2. **Missing Proposal Validation**
+   ```typescript
+   // shareProposal doesn't validate proposal content
+   // Need: Hash validation against expected state
+   ```
+
+3. **Race Condition in Proposal**
+   ```typescript
+   // Proposer advances to 'proposed' before others receive
+   // Need: Two-phase proposal or delayed transition
+   ```
+
+4. **No Byzantine Fault Detection**
+   ```typescript
+   // Malicious proposer could send different proposals
+   // Need: Gossip protocol for cross-validation
+   ```
+
+### 11.2 Quality Improvements
+
+1. **State Divergence Monitoring**
+   ```typescript
+   interface DivergenceDetector {
+     checkReplicas(entity: EntityId): DivergenceReport;
+     alertThreshold: number; // blocks behind
+   }
+   ```
+
+2. **Memory Management**
+   ```typescript
+   // Current: Cache clears after N hits
+   // Better: Time-based eviction
+   if (++cacheHits > 10_000 || Date.now() - lastClear > 60_000) {
+     stateHashCache = new WeakMap();
+   }
+   ```
+
+3. **Type Safety**
+   ```typescript
+   // Current: tx.op is string
+   // Better: Discriminated union
+   type EntityTx = 
+     | { op: 'transfer'; data: TransferData }
+     | { op: 'burn'; data: BurnData }
+     | { op: 'createInitiative'; data: InitiativeData }
+   ```
+
+### 11.3 Testing Gaps
+
+- Byzantine scenarios (conflicting proposals)
+- Network partition simulation
+- Concurrent proposal attempts
+- Large-scale replica testing
+- Initiative edge cases
+- WAL corruption recovery
+
+### 11.4 Architectural Enhancements
+
+**Short Term**:
+1. Add pull-based sync for missing blocks
+2. Implement proposal gossip protocol
+3. Add CLI for interactive testing
+4. Switch to RLP for deterministic encoding
+
+**Medium Term**:
+1. Vector clocks for causality tracking
+2. Transactional storage layer
+3. Signature verification
+4. State reconciliation protocol
+
+**Long Term**:
+1. Network layer (libp2p/WebSocket)
+2. Channel state machines
+3. Cross-jurisdictional operations
+4. Hub entities with order books
+
+## Appendix A: Command Reference
+
+### Server Commands
 ```typescript
-type EntityInfo = {
-  entityId: string;
-  quorum: string[];
-  proposer: SignerIdx;
-  jurisdiction: string;
-};
+type ServerTx = {
+  signer: SignerIdx;
+  entityId: EntityId;
+  command: EntityCommand;
+}
 ```
 
-## 10. Security Model
+### Entity Commands
+```typescript
+type EntityCommand = 
+  | { type: 'addTx'; tx: EntityTx }              // Add to mempool
+  | { type: 'proposeBlock' }                     // Create proposal
+  | { type: 'shareProposal'; proposal: ProposedBlock } // Distribute
+  | { type: 'approveBlock'; hash: BlockHash }    // Vote on block
+  | { type: 'commitBlock'; hash: BlockHash }     // Finalize
+```
 
-### 10.1 Trust Assumptions
+### Entity Transactions (Wallet Protocol)
+```typescript
+type EntityTx = {
+  op: 'transfer' | 'burn' | 'credit';
+  data: any;
+  nonce?: number;
+}
+```
 
-1. **Intra-Entity**: Trust quorum members (2/3+ honest)
-2. **Inter-Entity**: No trust required (HTLCs)
-3. **Jurisdictional**: Trust blockchain finality
-4. **Channel**: Trust bilateral counterparty or dispute mechanism
+### DAO Transactions (Future)
+```typescript
+type EntityTx = {
+  op: 'createInitiative' | 'voteInitiative' | 'executeInitiative';
+  data: any;
+  nonce?: number;
+}
+```
 
-### 10.2 Security Properties
+## Appendix B: Design Rationale
 
-- **No Double Spend**: Nonce-based replay protection
-- **No Fund Loss**: Timeout-based recovery
-- **Dispute Resolution**: On-chain depositories
-- **Quorum Changes**: Grace period for transitions
+**Why Unified Flow?**
+- Simplicity: One mental model for all entities
+- Consistency: Same code paths, easier to verify
+- Flexibility: Consensus requirements are just parameters
 
-### 10.3 Attack Vectors & Mitigations
+**Why Separate Initiatives from Blocks?**
+- Clarity: Block proposals ≠ governance proposals
+- Flexibility: Can have long-running initiatives
+- Auditability: Clear record of what was voted on
 
-1. **Proposer Censorship**: Timeout forces new round
-2. **Partial Revelation**: Binary masks hide amounts
-3. **Channel Griefing**: Credit limits cap exposure
-4. **State Availability**: Each party keeps own data
+**Why 100ms Ticks?**
+- Fast enough for responsive UX
+- Slow enough to batch operations
+- Matches human perception threshold
 
-## Appendix A: Implementation Status
+**Why No Signatures Yet?**
+- Focus on core consensus logic first
+- Signatures are well-understood, can add later
+- Simplifies testing and debugging
 
-### Implemented (v2.2)
-- ✅ Core server/entity state machines
-- ✅ Single-signer entity consensus  
-- ✅ Multi-signer quorum consensus
-- ✅ Wallet protocol with transfers
-- ✅ WAL and snapshot persistence
-- ✅ Nonce-based replay protection
-- ✅ Memory storage with LevelDB interface
+---
 
-### Not Yet Implemented
-- ❌ Channel state machines
-- ❌ Cross-jurisdictional swaps
-- ❌ Hub order matching
-- ❌ Credit line system
-- ❌ P2P networking
-- ❌ On-chain depositories
-- ❌ Merkle tree state proofs
-
-## Appendix B: Design Decisions
-
-### Why Not Classes?
-Pure functional approach chosen for financial system reliability:
-- Easier to test and verify
-- No hidden state mutations
-- Clear data flow
-- Better for formal verification
-
-### Why Local Consensus?
-- Scales infinitely (no global bottleneck)
-- Participants only process what they care about
-- Natural sharding by entity
-- No MEV or front-running
-
-### Why 100ms Blocks?
-- Human-perceivable as "instant"
-- Allows batching for efficiency
-- Provides regular checkpoints
-- Matches modern exchange latencies
+This specification represents XLN v3.2 with focus on the implemented core and clear paths forward. The architecture elegantly unifies single and multi-signer entities while maintaining clean separation between consensus and governance layers.
