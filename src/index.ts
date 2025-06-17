@@ -5,7 +5,7 @@
 // Entity module - Core business logic
 export * from './entity/actions.js';
 export * from './entity/blocks.js';
-export * from './entity/commands.js';
+export { processEntityCommand, type CommandContext, type CommandResult } from './entity/commands.js';
 export * from './entity/transactions.js';
 
 // Engine module - Processing engine
@@ -44,24 +44,18 @@ export * from './utils/serialization.js';
 export * from './utils/state-helpers.js';
 
 // Re-export commonly used types for convenience
-export type { 
-  ServerState,
-  EntityState,
-  EntityCommand,
-  EntityTx,
+export type {
+  EntityCommand, EntityState, EntityTx,
   OutboxMsg,
-  ProposedBlock
+  ProposedBlock, ServerState
 } from './types/state.js';
 
 export type {
-  SignerIdx,
-  EntityId,
   BlockHash,
-  BlockHeight
+  BlockHeight, EntityId, SignerIdx
 } from './types/primitives.js';
 
 export type {
-  WalletState,
   DaoState,
-  Initiative
+  Initiative, WalletState
 } from './entity/actions.js';

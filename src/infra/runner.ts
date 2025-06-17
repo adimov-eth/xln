@@ -2,14 +2,13 @@
 // infra/runner.ts - Block runner with effects
 // ============================================================================
 
-import type { Clock } from '../core/block.js';
-import { processBlockPure } from '../core/block.js';
+import { processServerTick } from '../engine/processor.js';
 import type { Storage } from '../storage/interface.js';
 import { height } from '../types/primitives.js';
 import type { ProtocolRegistry } from '../types/protocol.js';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
-import type { BlockData, ServerState } from '../types/state.js';
+import type { BlockData, Clock, ProcessedBlock, ServerState } from '../types/state.js';
 import { computeStateHash } from '../utils/hash.js';
 import { createInitialState } from '../utils/serialization.js';
 import type { Logger } from './deps.js';
@@ -31,6 +30,24 @@ export const createBlockRunner = (config: RunnerConfig) => {
     logger = ConsoleLogger,
     snapshotInterval = 100 
   } = config;
+  
+  // Compatibility wrapper to convert new engine result to old format
+  const processBlockPure = (ctx: { server: ServerState; protocols: ProtocolRegistry; clock: Clock }): Result<ProcessedBlock> => {
+    const result = processServerTick(ctx.server, ctx.protocols, ctx.clock.now());
+    
+    if (!result.ok) {
+      return Err(result.error);
+    }
+    
+    // Convert new engine result to old format
+    return Ok({
+      server: result.value.server,
+      stateHash: computeStateHash(result.value.server),
+      appliedTxs: result.value.appliedCommands,
+      failedTxs: result.value.failedCommands.map((f: any) => f.command),
+      messages: result.value.generatedMessages
+    });
+  };
   
   const runner = {
     processBlock: async (server: ServerState, skipWal = false): Promise<Result<ServerState>> => {

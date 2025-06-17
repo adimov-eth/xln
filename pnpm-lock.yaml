@@ -15,6 +15,9 @@ importers:
       '@types/bun':
         specifier: latest
         version: 1.2.16
+      bun-types:
+        specifier: ^1.2.16
+        version: 1.2.16
       fast-check:
         specifier: ^4.1.1
         version: 4.1.1

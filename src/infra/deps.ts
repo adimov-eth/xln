@@ -2,7 +2,7 @@
 // infra/deps.ts - External dependencies
 // ============================================================================
 
-import type { Clock } from '../core/block.js';
+import type { Clock } from '../types/state.js';
 
 export type Logger = {
   readonly info: (msg: string, data?: any) => void;

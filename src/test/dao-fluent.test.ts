@@ -5,6 +5,7 @@
 import { describe, test } from 'bun:test';
 import { transaction } from '../entity/transactions.js';
 import { defaultRegistry } from '../protocols/registry.js';
+import { id } from '../types/primitives.js';
 import { patterns, scenario } from './fluent-api.js';
 
 describe('DAO Protocol with Fluent API', () => {
@@ -69,7 +70,7 @@ describe('DAO Protocol with Fluent API', () => {
       .expectBalance('dao', 1000n)
       .expectBalance('treasury', 0n);
       
-    const transferAction = transaction.transfer('treasury', '200', 2);
+    const transferAction = transaction.transfer(id('treasury'), '200', 2);
     
     s.sendTransaction(0, 'dao', transaction.createInitiative({
       title: 'Fund treasury',

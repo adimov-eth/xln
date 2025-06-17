@@ -2,15 +2,14 @@
 // test/fluent-api.ts - Fluent test API that reads like English
 // ============================================================================
 
+import { expect } from 'bun:test';
+import { createServer, importEntity, query, registerEntity, submitCommand } from '../engine/server.js';
+import { SilentLogger } from '../infra/deps.js';
 import { createBlockRunner } from '../infra/runner.js';
 import { MemoryStorage } from '../storage/memory.js';
-import { SilentLogger } from '../infra/deps.js';
-import { createServer, registerEntity, importEntity, submitCommand, query } from '../engine/server.js';
-import { transaction } from '../entity/transactions.js';
+import { id } from '../types/primitives.js';
 import type { ProtocolRegistry } from '../types/protocol.js';
 import type { EntityCommand, ServerState } from '../types/state.js';
-import { expect } from 'bun:test';
-import { id } from '../types/primitives.js';
 
 // ============================================================================
 // Test Scenario Builder
@@ -119,7 +118,7 @@ export class TestScenario {
     const state = this.findEntityState(entity);
     const initiatives = Array.from(state.initiatives?.keys() ?? []);
     if (initiatives.length <= index) throw new Error(`Initiative at index ${index} not found`);
-    return initiatives[index]!;
+    return initiatives[index]! as string;
   }
   
   private findEntity(entityId: string, atSigner?: number): any {

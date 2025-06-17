@@ -2,20 +2,48 @@
 // entity/commands.ts - Entity command processing that reads like English
 // ============================================================================
 
-import type { SignerIdx, BlockHash, EntityId } from '../types/primitives.js';
+import type { BlockHash, BlockHeight, EntityId, SignerIdx } from '../types/primitives.js';
 import { hash as blockHash } from '../types/primitives.js';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
-import type { 
-  EntityCommand, 
-  EntityState, 
-  EntityMeta, 
+import type {
+  EntityCommand,
+  EntityMeta,
+  EntityState,
+  EntityTx,
   OutboxMsg,
-  ProposedBlock,
-  EntityTx
+  ProposedBlock
 } from '../types/state.js';
 import { computeBlockHash } from '../utils/hash.js';
-import { getProposer, hasQuorum, isTimedOut } from '../core/consensus.js';
+
+// ============================================================================
+// Consensus Utilities
+// ============================================================================
+
+const getProposer = (h: BlockHeight, quorum: readonly SignerIdx[]): SignerIdx => {
+  if (quorum.length === 0) throw new Error('Empty quorum');
+  const index = Number(h) % quorum.length;
+  const proposer = quorum[index];
+  if (proposer === undefined) throw new Error('Invalid proposer calculation');
+  return proposer;
+};
+
+const hasQuorum = (
+  approvals: Set<SignerIdx>, 
+  quorum: readonly SignerIdx[]
+): boolean => {
+  if (quorum.length > 1_000_000) {
+    throw new Error('Quorum size exceeds maximum allowed (1M signers)');
+  }
+  
+  const a = BigInt(approvals.size);
+  const q = BigInt(quorum.length);
+  return a * 3n >= q * 2n;
+};
+
+const isTimedOut = (timestamp: number, timeoutMs: number): boolean => {
+  return Date.now() - timestamp > timeoutMs;
+};
 
 // ============================================================================
 // Command Processing Context
@@ -105,14 +133,14 @@ const addApprovalToBlock = (entity: EntityState, command: { type: 'approveBlock'
   
   const updatedProposal = addApproval(entity.proposal, approver);
   
-  if (hasQuorum(updatedProposal.approvals, meta.quorum)) {
+  if (hasQuorum(new Set(updatedProposal.approvals), meta.quorum)) {
     return moveToCommittingWithConsensus(entity, updatedProposal, meta.id);
   }
   
   return Ok({ entity: { ...entity, proposal: updatedProposal }, messages: [] });
 };
 
-const finalizeAndCommitBlock = (entity: EntityState, blockHash: string, signer: SignerIdx, meta: EntityMeta): Result<CommandResult> => {
+const finalizeAndCommitBlock = (entity: EntityState, blockHash: BlockHash, signer: SignerIdx, meta: EntityMeta): Result<CommandResult> => {
   if (entityAlreadyCommittedThisBlock(entity, blockHash)) return Ok({ entity, messages: [] });
   if (!canCommitBlock(entity)) return Err('Can only commit when in committing or proposed state');
   if (!entity.proposal || entity.proposal.hash !== blockHash) return Err('Block hash does not match current proposal');
@@ -123,7 +151,7 @@ const finalizeAndCommitBlock = (entity: EntityState, blockHash: string, signer: 
   const committedEntity: EntityState = { ...entity, stage: 'committing' };
   
   const notifications = shouldNotifyOthers(entity, signer) 
-    ? createCommitNotifications(meta, signer, blockHash)
+    ? createCommitNotifications(meta, signer, blockHash as BlockHash)
     : [];
   
   return Ok({ entity: committedEntity, messages: notifications });

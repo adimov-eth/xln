@@ -2,41 +2,44 @@
 // examples.ts - Usage examples
 // ============================================================================
 
-import { importEntity, registerEntity, submitTransaction } from './core/server.js';
+import { importEntity, registerEntity, submitCommand } from './engine/server.js';
 import { ConsoleLogger } from './infra/deps.js';
 import { createBlockRunner } from './infra/runner.js';
 import { defaultRegistry } from './protocols/registry.js';
 import { MemoryStorage } from './storage/memory.js';
-import { id, signer } from './types/primitives.js';
+import { id } from './types/primitives.js';
 import { createInitialState } from './utils/serialization.js';
 import { getCanonicalEntity } from './utils/state-helpers.js';
 
 export async function runExample() {
-  console.log('=== XLN v3 Example ===\n');
+  console.log('=== XLN v4 Example ===\n');
   
   const storage = new MemoryStorage();
   const runner = createBlockRunner({ storage, protocols: defaultRegistry, logger: ConsoleLogger, snapshotInterval: 5 });
   
   let server = createInitialState();
   
-  server = registerEntity(server, 'alice', [0], { balance: 1000n, nonce: 0 });
-  server = registerEntity(server, 'bob', [1], { balance: 500n, nonce: 0 });
-  server = registerEntity(server, 'dao', [0, 1, 2], { balance: 10000n, nonce: 0 });
+  // Register entities with the new API format
+  server = registerEntity(server, 'alice', { quorum: [0], protocol: 'wallet' });
+  server = registerEntity(server, 'bob', { quorum: [1], protocol: 'wallet' });
+  server = registerEntity(server, 'dao', { quorum: [0, 1, 2], protocol: 'dao' });
   
-  server = importEntity(server, signer(0), 'alice', { balance: 1000n, nonce: 0 });
-  server = importEntity(server, signer(1), 'bob', { balance: 500n, nonce: 0 });
-  server = importEntity(server, signer(0), 'dao', { balance: 10000n, nonce: 0 });
-  server = importEntity(server, signer(1), 'dao', { balance: 10000n, nonce: 0 });
-  server = importEntity(server, signer(2), 'dao', { balance: 10000n, nonce: 0 });
+  // Import entities to signers
+  server = importEntity(server, 0, 'alice', { balance: 1000n, nonce: 0 });
+  server = importEntity(server, 1, 'bob', { balance: 500n, nonce: 0 });
+  server = importEntity(server, 0, 'dao', { balance: 10000n, nonce: 0 });
+  server = importEntity(server, 1, 'dao', { balance: 10000n, nonce: 0 });
+  server = importEntity(server, 2, 'dao', { balance: 10000n, nonce: 0 });
   
   console.log('Registered entities: alice, bob, dao\n');
   
   console.log('=== Example 1: Simple Transfer ===');
-  server = submitTransaction(server, 0, 'alice', {
+  server = submitCommand(server, 0, 'alice', {
     type: 'addTx',
     tx: { op: 'transfer', data: { to: 'bob', amount: '100' }, nonce: 1 }
   });
   
+  // Process blocks
   for (let i = 0; i < 4; i++) {
     const result = await runner.processBlock(server);
     if (!result.ok) throw new Error(result.error);
@@ -48,7 +51,7 @@ export async function runExample() {
   console.log(`- Alice balance: ${finalAlice?.data.balance}, Bob balance: ${finalBob?.data.balance}\n`);
   
   console.log('=== Example 2: Multi-Sig Transaction ===');
-  server = submitTransaction(server, 0, 'dao', {
+  server = submitCommand(server, 0, 'dao', {
     type: 'addTx',
     tx: { op: 'transfer', data: { to: 'alice', amount: '1000' }, nonce: 1 }
   });

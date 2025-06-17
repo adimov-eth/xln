@@ -2,13 +2,12 @@
 // engine/router.ts - Message routing that reads like English
 // ============================================================================
 
-import type { SignerIdx } from '../types/primitives.js';
-import type { 
-  ServerState, 
-  ServerTx, 
-  OutboxMsg, 
+import type { EntityId, SignerIdx } from '../types/primitives.js';
+import type {
   EntityMeta,
-  ProposedBlock
+  OutboxMsg,
+  ServerState,
+  ServerTx
 } from '../types/state.js';
 
 // ============================================================================
@@ -87,4 +86,4 @@ const broadcastToQuorum = (message: OutboxMsg, meta: EntityMeta, server: ServerS
 // Helper Functions
 // ============================================================================
 
-const entityExistsAtSigner = (server: ServerState, signer: SignerIdx, entityId: string): boolean => server.signers.get(signer)?.has(entityId) ?? false;
+const entityExistsAtSigner = (server: ServerState, signer: SignerIdx, entityId: EntityId): boolean => server.signers.get(signer)?.has(entityId) ?? false;

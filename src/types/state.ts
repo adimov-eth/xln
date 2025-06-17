@@ -65,7 +65,6 @@ export type ServerState = {
   readonly signers: ReadonlyMap<SignerIdx, SignerEntities>;
   readonly registry: ReadonlyMap<EntityId, EntityMeta>;
   readonly mempool: readonly ServerTx[];
-  readonly entities?: ReadonlyMap<EntityId, EntityState>; // For migration
 };
 
 export type BlockData = {
@@ -78,6 +77,18 @@ export type BlockData = {
 
 export type CommandResult = {
   readonly entity: EntityState;
+  readonly messages: readonly OutboxMsg[];
+};
+
+export type Clock = {
+  readonly now: () => number;
+};
+
+export type ProcessedBlock = {
+  readonly server: ServerState;
+  readonly stateHash: string;
+  readonly appliedTxs: readonly ServerTx[];
+  readonly failedTxs: readonly ServerTx[];
   readonly messages: readonly OutboxMsg[];
 };
 

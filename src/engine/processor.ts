@@ -2,19 +2,18 @@
 // engine/processor.ts - Main processing loop that reads like English
 // ============================================================================
 
-import { processEntityCommand } from '../entity/commands.js';
-import type { CommandResult } from '../entity/commands.js';
 import { execute, transition } from '../entity/blocks.js';
-import type { SignerIdx } from '../types/primitives.js';
-import type { Protocol, ProtocolRegistry } from '../types/protocol.js';
+import type { CommandResult } from '../entity/commands.js';
+import { processEntityCommand } from '../entity/commands.js';
+import type { EntityId, SignerIdx } from '../types/primitives.js';
+import type { ProtocolRegistry } from '../types/protocol.js';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
-import type { 
-  ServerState, 
-  ServerTx, 
-  OutboxMsg,
+import type {
   EntityState,
-  EntityMeta
+  OutboxMsg,
+  ServerState,
+  ServerTx
 } from '../types/state.js';
 import { assoc } from '../utils/immutable.js';
 import { router } from './router.js';
@@ -140,16 +139,16 @@ const generateAutomaticProposals = (server: ServerState): ServerTx[] => {
 // Helper Functions
 // ============================================================================
 
-const findEntityAtSigner = (server: ServerState, signer: SignerIdx, entityId: string): EntityState | undefined => server.signers.get(signer)?.get(entityId);
+const findEntityAtSigner = (server: ServerState, signer: SignerIdx, entityId: EntityId): EntityState | undefined => server.signers.get(signer)?.get(entityId);
 
-const applyEntityUpdate = (server: ServerState, signer: SignerIdx, entityId: string, newEntity: EntityState): ServerState => {
+const applyEntityUpdate = (server: ServerState, signer: SignerIdx, entityId: EntityId, newEntity: EntityState): ServerState => {
   const signerEntities = server.signers.get(signer);
   if (!signerEntities) return server;
   const updatedSignerEntities = assoc(signerEntities, entityId, newEntity);
   return { ...server, signers: assoc(server.signers, signer, updatedSignerEntities) };
 };
 
-const shouldAutoPropose = (entity: EntityState, entityId: string, signerId: SignerIdx, server: ServerState): boolean => {
+const shouldAutoPropose = (entity: EntityState, entityId: EntityId, signerId: SignerIdx, server: ServerState): boolean => {
   const meta = server.registry.get(entityId);
   return !!meta && entity.stage === 'idle' && entity.mempool.length > 0 && meta.quorum.length === 1 && meta.quorum[0] === signerId;
 };
