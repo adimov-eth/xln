@@ -25,16 +25,27 @@ export class TestScenario {
     });
   }
   
-  withEntity(entityId: string, config: { protocol: string; signers: number[]; initialState?: any; timeoutMs?: number; }): this {
-    this.server = registerEntity(this.server, entityId, { quorum: config.signers, protocol: config.protocol, timeoutMs: config.timeoutMs });
+  withEntity(entityId: string, config: { protocol: string; signers: number[]; initialState?: any; timeoutMs?: number; thresholdPercent?: number; }): this {
+    this.server = registerEntity(this.server, entityId, { 
+      quorum: config.signers, 
+      protocol: config.protocol, 
+      timeoutMs: config.timeoutMs,
+      thresholdPercent: config.thresholdPercent 
+    });
     for (const signerId of config.signers) {
       this.server = importEntity(this.server, signer(signerId), entityId, config.initialState);
     }
     return this;
   }
   
-  withWallet(walletId: string, owner: number, balance: bigint): this {
-    return this.withEntity(walletId, { protocol: 'wallet', signers: [owner], initialState: { balance, nonce: 0 } });
+  withWallet(walletId: string, owner: number | number[], balance: bigint, thresholdPercent?: number): this {
+    const signers = Array.isArray(owner) ? owner : [owner];
+    return this.withEntity(walletId, { 
+      protocol: 'wallet', 
+      signers, 
+      initialState: { balance, nonce: 0 },
+      thresholdPercent 
+    });
   }
   
   withDao(daoId: string, members: number[], config?: { balance?: bigint; voteThreshold?: number; }): this {

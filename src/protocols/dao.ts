@@ -112,7 +112,8 @@ export const DaoProtocol: Protocol<DaoState, DaoOp> = {
   name: 'dao',
   validateTx: parseTransaction,
   applyTx: applyOperation,
-  generateMessages
+  generateMessages,
+  getDefaultState: () => ({ balance: 0n, nonce: 0, initiatives: new Map(), memberCount: 0, voteThreshold: 66 })
 };
 
 export const createDaoState = (balance: bigint = 0n, memberCount: number = 1, voteThreshold: number = 66): DaoState => ({

@@ -9,19 +9,37 @@ import type { Storage } from './interface.js';
 import { RLP } from '@ethereumjs/rlp';
 import type { Decoded } from '@ethereumjs/rlp';
 
+export type LevelDBStorageOptions = {
+  readonly validateWAL?: boolean; // Enable WAL validation (default: false in production, true in test)
+};
+
 export class LevelDBStorage implements Storage {
   private db: Level<string, Buffer>;
   private walDb: Level<string, Buffer>;
   private blockDb: Level<string, Buffer>;
   private snapshotDb: Level<string, Buffer>;
   private mutex = new Mutex();
+  private validateWAL: boolean;
 
-  constructor(basePath: string) {
-    const options = { valueEncoding: 'buffer', keyEncoding: 'utf8' };
-    this.db = new Level(`${basePath}/main`, options);
-    this.walDb = new Level(`${basePath}/wal`, options);
-    this.blockDb = new Level(`${basePath}/blocks`, options);
-    this.snapshotDb = new Level(`${basePath}/snapshots`, options);
+  constructor(basePath: string, options?: LevelDBStorageOptions) {
+    const levelOptions = { valueEncoding: 'buffer', keyEncoding: 'utf8' };
+    this.db = new Level(`${basePath}/main`, levelOptions);
+    this.walDb = new Level(`${basePath}/wal`, levelOptions);
+    this.blockDb = new Level(`${basePath}/blocks`, levelOptions);
+    this.snapshotDb = new Level(`${basePath}/snapshots`, levelOptions);
+    
+    // Default to validation in test environment, off in production
+    this.validateWAL = options?.validateWAL ?? (process.env.NODE_ENV === 'test');
+  }
+  
+  async open(): Promise<void> {
+    // Level auto-opens, but we can ensure they're ready
+    await Promise.all([
+      this.db.open(),
+      this.walDb.open(),
+      this.blockDb.open(),
+      this.snapshotDb.open(),
+    ].map(p => p.catch(() => {}))); // Ignore "already open" errors
   }
 
   private formatHeight = (h: BlockHeight) => Number(h).toString().padStart(10, '0');
@@ -32,6 +50,19 @@ export class LevelDBStorage implements Storage {
       try {
         const key = `wal:${this.formatHeight(h)}`;
         const value = RLP.encode(txs.map(encode.serverTx));
+        
+        // Conditionally validate encoding based on configuration
+        if (this.validateWAL) {
+          try {
+            const decoded = RLP.decode(value);
+            if (!Array.isArray(decoded)) {
+              return Err('WAL append failed: Invalid encoding - not an array');
+            }
+          } catch (e) {
+            return Err(`WAL append failed: Invalid encoding - ${e}`);
+          }
+        }
+        
         await this.walDb.put(key, Buffer.from(value));
         return Ok(undefined);
       } catch (e) {
@@ -45,10 +76,23 @@ export class LevelDBStorage implements Storage {
       try {
         const result: ServerTx[] = [];
         const startKey = `wal:${this.formatHeight(h)}`;
-        for await (const value of this.walDb.values({ gte: startKey })) {
-          const decodedTxs = RLP.decode(value) as unknown as Decoded[];
-          result.push(...decodedTxs.map(tx => decode.serverTx(tx as unknown as Decoded[])));
+        let corruptedEntries = 0;
+        
+        for await (const [key, value] of this.walDb.iterator({ gte: startKey })) {
+          try {
+            const decodedTxs = RLP.decode(value) as unknown as Decoded[];
+            result.push(...decodedTxs.map(tx => decode.serverTx(tx as unknown as Decoded[])));
+          } catch (e) {
+            // Log corrupted entry but continue processing
+            corruptedEntries++;
+            console.warn(`Skipping corrupted WAL entry ${key}: ${e}`);
+          }
         }
+        
+        if (corruptedEntries > 0) {
+          console.warn(`Recovered from WAL with ${corruptedEntries} corrupted entries skipped`);
+        }
+        
         return Ok(result);
       } catch (e) {
         return Err(`WAL read failed: ${e}`);
@@ -112,11 +156,9 @@ export class LevelDBStorage implements Storage {
 
     loadLatest: async (): Promise<Result<ServerState | null>> => {
       try {
-        let latestKey: string | null = null;
         let latestValue: Buffer | null = null;
         
-        for await (const [key, value] of this.snapshotDb.iterator({ reverse: true, limit: 1 })) {
-          latestKey = key;
+        for await (const [_key, value] of this.snapshotDb.iterator({ reverse: true, limit: 1 })) {
           latestValue = value;
           break;
         }

@@ -24,7 +24,10 @@ export type WalletOp =
 // ============================================================================
 
 const parseTransaction = (tx: EntityTx): Result<WalletOp> => {
-  const amount = parseAmount(tx.data?.amount);
+  const amountResult = parseAmount(tx.data?.amount);
+  if (!amountResult.ok) return amountResult;
+  const amount = amountResult.value;
+  
   switch (tx.op) {
     case 'credit': return parseCredit(tx, amount);
     case 'burn': return parseBurn(amount);
@@ -69,8 +72,14 @@ const generateMessages = (entityId: EntityId, op: WalletOp): readonly OutboxMsg[
 // Helper Functions
 // ============================================================================
 
-const parseAmount = (value: any): bigint => {
-  try { return BigInt(value); } catch { return 0n; }
+const parseAmount = (value: any): Result<bigint> => {
+  try {
+    const amount = BigInt(value);
+    if (amount < 0n) return Err('Amount cannot be negative');
+    return Ok(amount);
+  } catch {
+    return Err(`Invalid amount: ${value}`);
+  }
 };
 
 const parseCredit = (tx: EntityTx, amount: bigint): Result<WalletOp> => {
@@ -99,5 +108,6 @@ export const WalletProtocol: Protocol<WalletState, WalletOp> = {
   name: 'wallet',
   validateTx: parseTransaction,
   applyTx: applyOperation,
-  generateMessages
+  generateMessages,
+  getDefaultState: () => ({ balance: 0n, nonce: 0 })
 };

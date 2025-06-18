@@ -8,6 +8,7 @@ export type Protocol<TState, TData> = {
   readonly validateTx: (tx: EntityTx) => Result<TData>;
   readonly applyTx: (state: TState, data: TData, tx: EntityTx) => Result<TState>;
   readonly generateMessages?: (entityId: EntityId, data: TData) => readonly OutboxMsg[];
+  readonly getDefaultState: () => TState;
 };
 
 export type ProtocolRegistry = ReadonlyMap<string, Protocol<any, any>>;

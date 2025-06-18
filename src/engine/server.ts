@@ -1,4 +1,5 @@
 import { height, id, signer } from '../types/primitives.js';
+import type { ProtocolRegistry } from '../types/protocol.js';
 import type {
   EntityCommand,
   EntityMeta,
@@ -38,15 +39,23 @@ export const registerEntity = (
     readonly quorum: readonly number[];
     readonly protocol: string;
     readonly timeoutMs?: number;
+    readonly thresholdPercent?: number;
   }
 ): ServerState => {
   if (!isValidQuorum(config.quorum)) throw new Error(describeQuorumError(config.quorum));
+  
+  if (config.thresholdPercent !== undefined) {
+    if (config.thresholdPercent < 1 || config.thresholdPercent > 100) {
+      throw new Error('Threshold percent must be between 1 and 100');
+    }
+  }
   
   const meta: EntityMeta = {
     id: id(entityId),
     quorum: config.quorum.map(signer),
     timeoutMs: config.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-    protocol: config.protocol
+    protocol: config.protocol,
+    thresholdPercent: config.thresholdPercent
   };
   
   return { ...server, registry: assoc(server.registry, id(entityId), meta) };
@@ -60,7 +69,8 @@ export const importEntity = (
   server: ServerState,
   signerId: SignerIdx,
   entityId: string,
-  initialState?: any
+  initialState?: any,
+  protocols?: ProtocolRegistry
 ): ServerState => {
   const meta = server.registry.get(id(entityId));
   if (!meta) throw new Error(`Cannot import entity "${entityId}" - it is not registered`);
@@ -68,7 +78,19 @@ export const importEntity = (
   if (!signerIsInQuorum(signerId, meta)) throw new Error(`Signer ${signerId} is not authorized for entity "${entityId}"`);
   if (entityAlreadyImported(server, signerId, entityId)) return server;
   
-  const entity = createEntityState(entityId, initialState ?? getDefaultState(meta.protocol));
+  // Use protocol's getDefaultState if available, otherwise fall back to legacy defaults
+  let defaultState = {};
+  if (protocols) {
+    const protocol = protocols.get(meta.protocol);
+    if (protocol && protocol.getDefaultState) {
+      defaultState = protocol.getDefaultState();
+    }
+  } else {
+    // Legacy fallback for backward compatibility
+    defaultState = getDefaultStateLegacy(meta.protocol);
+  }
+  
+  const entity = createEntityState(entityId, initialState ?? defaultState);
   return addEntityToSigner(server, signerId, entity);
 };
 
@@ -114,7 +136,7 @@ const addEntityToSigner = (server: ServerState, signerIdx: SignerIdx, entity: En
   return { ...server, signers: assoc(server.signers, signerIdx, updatedSignerEntities) };
 };
 
-const getDefaultState = (protocol: string): any => {
+const getDefaultStateLegacy = (protocol: string): any => {
   switch (protocol) {
     case 'wallet': return { balance: 0n, nonce: 0 };
     case 'dao': return { balance: 0n, nonce: 0, initiatives: new Map(), memberCount: 0, voteThreshold: 66 };

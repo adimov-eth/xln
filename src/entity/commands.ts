@@ -118,6 +118,12 @@ const receiveSharedProposal = (entity: EntityState, proposal: ProposedBlock, sig
   if (entity.stage !== 'idle') return Err('Can only receive proposals when idle');
   if (!proposalIsFromValidProposer(proposal, entity.height, meta.quorum)) return Err(`Invalid proposer: ${proposal.proposer}`);
   
+  // SECURITY NOTE: Currently, nodes approve blocks optimistically without validating transactions.
+  // This design prioritizes liveness over immediate validation, relying on the execution phase
+  // to reject invalid transactions. This could be enhanced by adding pre-approval validation
+  // using the protocol's validateTx method, though it would require passing the protocol registry
+  // through the command processing pipeline.
+  
   const updatedEntity = { ...entity, stage: 'proposed' as const, proposal, mempool: [] };
   const approvalMessage = createApprovalMessage(meta.id, proposal.proposer, proposal.hash, signer);
   return Ok({ entity: updatedEntity, messages: [approvalMessage] });
@@ -134,7 +140,7 @@ const addApprovalToBlock = (entity: EntityState, command: { type: 'approveBlock'
   
   const updatedProposal = addApproval(entity.proposal, approver);
   
-  if (hasQuorum(new Set(updatedProposal.approvals), meta.quorum)) {
+  if (hasQuorum(new Set(updatedProposal.approvals), meta.quorum, meta.thresholdPercent)) {
     return moveToCommittingWithConsensus(entity, updatedProposal, meta.id);
   }
   
@@ -147,7 +153,7 @@ const finalizeAndCommitBlock = (entity: EntityState, blockHash: BlockHash, signe
   if (!entity.proposal || entity.proposal.hash !== blockHash) return Err('Block hash does not match current proposal');
   
   // Critical: Check quorum in proposed stage to prevent early commits
-  if (entity.stage === 'proposed' && !hasQuorum(new Set(entity.proposal.approvals), meta.quorum)) {
+  if (entity.stage === 'proposed' && !hasQuorum(new Set(entity.proposal.approvals), meta.quorum, meta.thresholdPercent)) {
     return Err('Cannot commit block: quorum not reached');
   }
   

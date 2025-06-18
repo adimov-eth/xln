@@ -134,6 +134,7 @@ export const encode = {
     meta.quorum.map(encodeNumber),
     encodeNumber(meta.timeoutMs),
     encodeString(meta.protocol),
+    encodeNullable(meta.thresholdPercent, encodeNumber),
   ],
 
   entityCommand: (cmd: EntityCommand): (Buffer | any[] | null)[] => {
@@ -225,6 +226,7 @@ export const decode = {
     quorum: (arr[1] as unknown as Decoded[]).map(item => signer(decodeNumber(item))),
     timeoutMs: decodeNumber(arr[2] as Decoded),
     protocol: decodeString(arr[3] as Decoded),
+    thresholdPercent: arr[4] && !isNull(arr[4]) ? decodeNumber(arr[4]) : undefined,
   }),
 
   entityCommand: (arr: Decoded[]): EntityCommand => {

@@ -34,6 +34,7 @@ export type EntityMeta = {
   readonly quorum: readonly SignerIdx[];
   readonly timeoutMs: number;
   readonly protocol: string;
+  readonly thresholdPercent?: number; // Optional, defaults to 66%
 };
 
 export type EntityCommand = 

@@ -119,8 +119,6 @@ export type Initiative = {
   readonly actions: readonly EntityTx[];
   readonly votes: ReadonlyMap<SignerIdx, boolean>;
   readonly status: 'active' | 'passed' | 'rejected' | 'executed';
-  readonly createdAt: number;
-  readonly executedAt?: number;
 };
 
 export type DaoState = WalletState & {
@@ -151,7 +149,7 @@ export const daoActions = {
   createInitiative: {
     name: 'createInitiative',
     
-    validate: (state: DaoState, params: CreateInitiativeParams): Result<CreateInitiativeParams> => {
+    validate: (_state: DaoState, params: CreateInitiativeParams): Result<CreateInitiativeParams> => {
       if (!params.title) return Err('Initiative requires a title');
       if (!params.description) return Err('Initiative requires a description');
       if (!params.actions || params.actions.length === 0) return Err('Initiative requires at least one action');
@@ -164,8 +162,7 @@ export const daoActions = {
         id: initiativeId,
         ...params,
         votes: new Map(),
-        status: 'active',
-        createdAt: Date.now()
+        status: 'active'
       };
       
       const newInitiatives = new Map(state.initiatives);
@@ -222,7 +219,7 @@ export const daoActions = {
       const initiatives = new Map(state.initiatives);
       const initiative = initiatives.get(params.initiativeId)!;
       
-      const executedInitiative: Initiative = { ...initiative, status: 'executed', executedAt: Date.now() };
+      const executedInitiative: Initiative = { ...initiative, status: 'executed' };
       initiatives.set(params.initiativeId, executedInitiative);
       
       return { ...state, initiatives, nonce: state.nonce + 1 };
@@ -242,7 +239,7 @@ export const daoActions = {
 // Helper Functions
 // ============================================================================
 
-const generateInitiativeId = (state: DaoState): string => `init-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+const generateInitiativeId = (state: DaoState): string => `init-${state.nonce}-${state.initiatives.size}`;
 
 const checkIfInitiativePasses = (
   votes: ReadonlyMap<SignerIdx, boolean>,
@@ -251,6 +248,6 @@ const checkIfInitiativePasses = (
 ): boolean => {
   const supportVotes = Array.from(votes.values()).filter(v => v).length;
   if (memberCount === 0) return false;
-  const supportPercentage = (supportVotes / memberCount) * 100;
-  return supportPercentage >= threshold;
+  // Use integer arithmetic to avoid floating point: supportVotes * 100 >= memberCount * threshold
+  return supportVotes * 100 >= memberCount * threshold;
 };

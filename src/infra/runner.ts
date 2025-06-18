@@ -8,7 +8,7 @@ import { height } from '../types/primitives.js';
 import type { ProtocolRegistry } from '../types/protocol.js';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
-import type { BlockData, Clock, ProcessedBlock, ServerState } from '../types/state.js';
+import type { BlockData, Clock, ServerState } from '../types/state.js';
 import { computeStateHash } from '../utils/hash.js';
 import { createInitialState } from '../utils/serialization.js';
 import type { Logger } from './deps.js';
@@ -32,31 +32,13 @@ export const createBlockRunner = (config: RunnerConfig) => {
     snapshotInterval = 100 
   } = config;
   
-  // Compatibility wrapper to convert new engine result to old format
-  const processBlockPure = (ctx: { server: ServerState; protocols: ProtocolRegistry; clock: Clock }): Result<ProcessedBlock> => {
-    const result = processServerTick(ctx.server, ctx.protocols, ctx.clock.now());
-    
-    if (!result.ok) {
-      return Err(result.error);
-    }
-    
-    // Convert new engine result to old format
-    return Ok({
-      server: result.value.server,
-      stateHash: result.value.stateHash,
-      appliedTxs: result.value.appliedCommands,
-      failedTxs: result.value.failedCommands.map((f: any) => f.command),
-      messages: result.value.generatedMessages
-    });
-  };
-  
   const runner = {
     processBlock: async (server: ServerState, skipWal = false): Promise<Result<ServerState>> => {
       const nextHeight = height(Number(server.height) + 1);
       
-      const blockResult = processBlockPure({ server, protocols, clock });
+      const blockResult = processServerTick(server, protocols, clock.now());
       if (!blockResult.ok) {
-        return blockResult;
+        return Err(blockResult.error);
       }
       
       const processed = blockResult.value;
@@ -98,14 +80,14 @@ export const createBlockRunner = (config: RunnerConfig) => {
         }
       }
       
-      if (processed.failedTxs.length > 0) {
-        logger.warn(`Block ${nextHeight}: ${processed.failedTxs.length} failed transactions`);
+      if (processed.failedCommands.length > 0) {
+        logger.warn(`Block ${nextHeight}: ${processed.failedCommands.length} failed transactions`);
       }
       
       logger.info(`Block ${nextHeight} processed`, {
-        applied: processed.appliedTxs.length,
-        failed: processed.failedTxs.length,
-        messages: processed.messages.length,
+        applied: processed.appliedCommands.length,
+        failed: processed.failedCommands.length,
+        messages: processed.generatedMessages.length,
         newMempool: processed.server.mempool.length
       });
       
