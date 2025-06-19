@@ -1,4 +1,3 @@
-
 import type { EntityId, SignerIdx } from '../types/primitives.js';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
@@ -104,8 +103,7 @@ export const walletActions = {
     
     execute: (state: WalletState, params: CreditParams): WalletState => ({
       ...state,
-      balance: state.balance + params.amount,
-      nonce: state.nonce + 1
+      balance: state.balance + params.amount
     })
   }
 };
@@ -237,11 +235,35 @@ export const daoActions = {
     },
     
     generateMessages: (entityId: EntityId, params: ExecuteInitiativeParams): OutboxMsg[] => {
-      return params.actions.map(tx => ({
-        from: entityId,
-        to: entityId,
-        command: { type: 'addTx', tx }
-      }));
+      return params.actions.map(tx => {
+        // Route to target entity for transfers, otherwise back to self
+        const targetEntity = tx.op === 'transfer' && tx.data?.to ? tx.data.to : entityId;
+        
+        // For transfers, generate a credit transaction for the target
+        if (tx.op === 'transfer' && tx.data?.to) {
+          const creditTx = {
+            op: 'credit',
+            data: {
+              amount: tx.data.amount.toString(),
+              from: entityId,
+              _internal: true
+            }
+            // No nonce for credit transactions
+          };
+          return {
+            from: entityId,
+            to: targetEntity,
+            command: { type: 'addTx', tx: creditTx }
+          };
+        }
+        
+        // For other actions, send to self
+        return {
+          from: entityId,
+          to: targetEntity,
+          command: { type: 'addTx', tx }
+        };
+      });
     }
   }
 };

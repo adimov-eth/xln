@@ -8,7 +8,7 @@ import { height } from '../types/primitives.js';
 import type { ProtocolRegistry } from '../types/protocol.js';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
-import type { BlockData, Clock, ServerState } from '../types/state.js';
+import type { BlockData, Clock, ServerState, ServerTx } from '../types/state.js';
 import { encode } from '../utils/encoding.js';
 import { computeStateHash } from '../utils/hash.js';
 import { createInitialState } from '../utils/serialization.js';
@@ -37,10 +37,20 @@ export const createBlockRunner = (config: RunnerConfig) => {
   const runner = {
     processBlock: async (serverState: ServerState, skipWal = false): Promise<Result<ServerState>> => {
       const now = clock.now();
+      const nextHeight = height(Number(serverState.height) + 1);
       
+      /* ------------------------------------------------------------------
+         Always store a height‑0 snapshot before the very first block.
+         This guarantees that the entity registry, initial balances, etc.
+         survive even if the node crashes before the first scheduled
+         snapshot interval.  A failure here must *never* abort the block. */
+      if (Number(serverState.height) === 0) {
+        await storage.snapshots.save(serverState).catch(() => void 0);
+      }
+
       /* 0. Persist the *inputs* (serverState.mempool) first */
       if (!skipWal && serverState.mempool.length) {
-        const walResult = await storage.wal.append(serverState.height, serverState.mempool);
+        const walResult = await storage.wal.append(nextHeight, serverState.mempool);
         if (!walResult.ok) return Err(`WAL write failed: ${walResult.error}`);
       }
 
@@ -48,7 +58,6 @@ export const createBlockRunner = (config: RunnerConfig) => {
       const ticked = serverComponent.tick(serverState, now);
 
       /* 2. Bump height (side-effect layer controls blocks) */
-      const nextHeight = height(Number(serverState.height) + 1);
       const nextServerState: ServerState = { ...ticked, height: nextHeight };
       
       // --- Side Effects ---
@@ -95,34 +104,42 @@ export const createBlockRunner = (config: RunnerConfig) => {
       return Ok(nextServerState);
     },
     
-    recover: async (initialState?: ServerState): Promise<Result<ServerState>> => {
+    recover: async (): Promise<Result<ServerState>> => {
       logger.info('Starting recovery...');
       
       const snapshotResult = await storage.snapshots.loadLatest();
       if (!snapshotResult.ok) return Err(`Snapshot load failed: ${snapshotResult.error}`);
 
-      // ------------------------------------------------------------------
-      // 1.  Establish the "anchor" height (snapshot or last persisted block)
-      // ------------------------------------------------------------------
-      let server = snapshotResult.value;
-      let anchorHeight = server ? Number(server.height) : 0;
+      let server: ServerState = snapshotResult.value ?? createInitialState();
+      const snapshotHeight = Number(server.height);
+      let anchorHeight = snapshotHeight;
 
-      if (!server) {                         /* no snapshot – find last block */
+      if (!snapshotResult.value) {
         for await (const [key] of storage.blocks.iterator({ reverse: true, limit: 1 })) {
-          // key: "block:0000000015" → 15
           anchorHeight = Number(key.slice(6));
           break;
         }
-        server = initialState ?? createInitialState();
         server = { ...server, height: height(anchorHeight) };
       }
 
       logger.info(`Recovery anchor height ${anchorHeight}`);
       
+      /* ---------------------------------------------------------------
+         2.  Collect transactions already sealed in blocks that are
+             *after* the snapshot but *before* the WAL range.
+             These bring balances / nonces up‑to‑date.
+      ---------------------------------------------------------------- */
+      const blockTxs: ServerTx[] = [];
+      for (let h = snapshotHeight + 1; h <= anchorHeight; h++) {
+        const blk = await storage.blocks.get(height(h));
+        if (blk.ok && blk.value) blockTxs.push(...blk.value.transactions);
+      }
+
       const walResult = await storage.wal.readFromHeight(height(anchorHeight + 1));
       if (!walResult.ok) return Err(`WAL read failed: ${walResult.error}`);
       
-      const walTxs = walResult.value;
+      const walTxs = [...blockTxs, ...walResult.value];
+      
       if (walTxs.length === 0) {
         logger.info('No WAL entries to replay');
         return Ok(server);

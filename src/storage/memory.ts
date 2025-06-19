@@ -70,53 +70,63 @@ export class MemoryStorage implements Storage {
     }
   };
   
-  readonly blocks = {
-    save: async (h: BlockHeight, block: BlockData): Promise<Result<void>> => {
-      const bufferToSave = block.encodedData ?? encode.blockData(block);
-      this.blockStore.set(h, bufferToSave);
-      return Ok(undefined);
-    },
-    get: async (h: BlockHeight): Promise<Result<BlockData | null>> => {
-      const buffer = this.blockStore.get(h);
-      return Ok(buffer ? decode.blockData(buffer) : null);
-    },
-    iterator: async function* (this: MemoryStorage, options?: { reverse?: boolean; limit?: number }): AsyncIterableIterator<[string, any]> {
-      const entries = Array.from(this.blockStore.entries())
-        .map(([h, buffer]) => [`block:${this.formatHeight(h)}`, buffer] as [string, any])
-        .sort((a, b) => options?.reverse ? b[0].localeCompare(a[0]) : a[0].localeCompare(b[0]));
+  get blocks() {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+    return {
+      save: async (h: BlockHeight, block: BlockData): Promise<Result<void>> => {
+        const bufferToSave = block.encodedData ?? encode.blockData(block);
+        self.blockStore.set(h, bufferToSave);
+        return Ok(undefined);
+      },
+      get: async (h: BlockHeight): Promise<Result<BlockData | null>> => {
+        const buffer = self.blockStore.get(h);
+        return Ok(buffer ? decode.blockData(buffer) : null);
+      },
+      iterator: async function* (
+        options?: { reverse?: boolean; limit?: number }
+      ): AsyncIterableIterator<[string, any]> {
+        const entries = Array.from(self.blockStore.entries())
+          .map(([h, buffer]) => [`block:${self.formatHeight(h)}`, buffer] as [string, any])
+          .sort((a, b) => (options?.reverse ? b[0].localeCompare(a[0]) : a[0].localeCompare(b[0])));
+
+        const limit = options?.limit ?? entries.length;
+        for (let i = 0; i < Math.min(limit, entries.length); i++) {
+          const entry = entries[i];
+          if (entry) {
+            yield entry;
+          }
+        }
+      },
+    };
+  }
+  
+  get snapshots() {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+    return {
+      save: async (state: ServerState): Promise<Result<void>> => {
+        try {
+          const encoded = encode.serverState(state);
+          self.snapshotStore.set(state.height, encoded);
+          return Ok(undefined);
+        } catch (e) {
+          return Err(`Snapshot save failed: ${e}`);
+        }
+      },
       
-      const limit = options?.limit ?? entries.length;
-      for (let i = 0; i < Math.min(limit, entries.length); i++) {
-        const entry = entries[i];
-        if (entry) {
-          yield entry;
+      loadLatest: async (): Promise<Result<ServerState | null>> => {
+        try {
+          if (self.snapshotStore.size === 0) return Ok(null);
+          const latestHeight = Math.max(...Array.from(self.snapshotStore.keys()).map(Number));
+          const encoded = self.snapshotStore.get(latestHeight as BlockHeight);
+          return Ok(encoded ? decode.serverState(encoded) : null);
+        } catch (e) {
+          return Err(`Snapshot load failed: ${e}`);
         }
       }
-    }.bind(this)
-  };
-  
-  readonly snapshots = {
-    save: async (state: ServerState): Promise<Result<void>> => {
-      try {
-        const encoded = encode.serverState(state);
-        this.snapshotStore.set(state.height, encoded);
-        return Ok(undefined);
-      } catch (e) {
-        return Err(`Snapshot save failed: ${e}`);
-      }
-    },
-    
-    loadLatest: async (): Promise<Result<ServerState | null>> => {
-      try {
-        if (this.snapshotStore.size === 0) return Ok(null);
-        const latestHeight = Math.max(...Array.from(this.snapshotStore.keys()).map(Number));
-        const encoded = this.snapshotStore.get(latestHeight as BlockHeight);
-        return Ok(encoded ? decode.serverState(encoded) : null);
-      } catch (e) {
-        return Err(`Snapshot load failed: ${e}`);
-      }
-    }
-  };
+    };
+  }
   
   clear(): void {
     this.walEntries.clear();

@@ -1,14 +1,13 @@
-import { test, expect, beforeEach, afterAll } from 'bun:test';
-import { LevelDBStorage } from '../storage/leveldb.js';
-import { createBlockRunner } from '../infra/runner.js';
-import { createServer, importEntity, registerEntity, submitCommand } from '../engine/server.js';
-import { signer, height, id } from '../types/primitives.js';
-import type { ServerState } from '../types/state.js';
+import { afterAll, beforeEach, expect, test } from 'bun:test';
 import * as fs from 'fs/promises';
-import { defaultRegistry } from '../protocols/registry.js';
+import { createServer, importEntity, registerEntity, submitCommand } from '../engine/server.js';
 import { transaction } from '../entity/transactions.js';
-import type { EntityId } from '../types/primitives.js';
 import { SilentLogger } from '../infra/deps.js';
+import { createBlockRunner } from '../infra/runner.js';
+import { defaultRegistry } from '../protocols/registry.js';
+import { LevelDBStorage } from '../storage/leveldb.js';
+import { height, id, signer } from '../types/primitives.js';
+import type { ServerState } from '../types/state.js';
 
 const DB_PATH = './test-recovery-db';
 
@@ -219,7 +218,7 @@ test('recovery with corrupted WAL entries', async () => {
     logger: SilentLogger,
   });
   
-  const recoveredState = await newRunner.recover(createTestState());
+  const recoveredState = await newRunner.recover();
   
   expect(recoveredState.ok).toBe(true);
   if (recoveredState.ok) {
@@ -444,7 +443,7 @@ test('recovery preserves deterministic state hash', async () => {
     logger: SilentLogger,
   });
   
-  const recoveredState = await newRunner.recover(createTestState());
+  const recoveredState = await newRunner.recover();
   
   expect(recoveredState.ok).toBe(true);
   if (recoveredState.ok) {

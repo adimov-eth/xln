@@ -81,7 +81,25 @@ const applyOperation = (state: DaoState, op: DaoOp, tx: EntityTx): Result<DaoSta
     }
     case 'executeInitiative': {
       const result = daoActions.executeInitiative.validate(state, op);
-      return result.ok ? Ok(daoActions.executeInitiative.execute(state, result.value)) : result;
+      if (!result.ok) return result;
+      
+      // Execute the initiative (mark as executed)
+      let newState = daoActions.executeInitiative.execute(state, result.value);
+      
+      // Process each action in the initiative
+      for (const action of result.value.actions) {
+        const actionResult = parseTransaction(action);
+        if (actionResult.ok && isWalletOperation(actionResult.value)) {
+          const applyResult = WalletProtocol.applyTx(newState, actionResult.value as WalletOp, action) as Result<DaoState>;
+          if (applyResult.ok) {
+            newState = applyResult.value;
+          } else {
+            return Err(`Failed to apply action: ${applyResult.error}`);
+          }
+        }
+      }
+      
+      return Ok(newState);
     }
     default: // @ts-expect-error - Exhaustive check
       return Err(`Unknown DAO operation: ${op.type}`);

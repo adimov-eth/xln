@@ -1,7 +1,7 @@
 import { execute, transition } from '../entity/blocks.js';
 import type { CommandResult } from '../entity/commands.js';
 import { processEntityCommand } from '../entity/commands.js';
-import type { EntityId, SignerIdx, BlockHeight } from '../types/primitives.js';
+import type { BlockHeight, EntityId, SignerIdx } from '../types/primitives.js';
 import type { ProtocolRegistry } from '../types/protocol.js';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
@@ -11,8 +11,8 @@ import type {
   ServerState,
   ServerTx
 } from '../types/state.js';
-import { assoc } from '../utils/immutable.js';
 import { computeStateHash } from '../utils/hash.js';
+import { assoc } from '../utils/immutable.js';
 import { router } from './router.js';
 
 // ============================================================================
@@ -137,20 +137,20 @@ const processOneCommand = (
     //   nextStage: nextEntity.stage
     // });
     const executionResult = execute.block(entity.data, nextEntity.proposal, meta.id, protocol);
-    // console.log('[DEBUG] Block execution result:', {
-    //   messagesCount: executionResult.messages.length,
-    //   failedTxCount: executionResult.failedTransactions.length,
-    //   newState: executionResult.newState
-    // });
     
+    const committedProposal = nextEntity.proposal;
     nextEntity = transition.toIdle(
       nextEntity,
       executionResult.newState,
-      nextEntity.proposal.hash,
+      committedProposal.hash,
       executionResult.failedTransactions.map(f => f.transaction)
     );
     
-    messages = [...messages, ...executionResult.messages];
+    // Only the block proposer should generate messages for other entities.
+    // Followers execute the block to validate the state transition, but we discard their generated messages.
+    if (command.signer === committedProposal.proposer) {
+      messages = [...messages, ...executionResult.messages];
+    }
   }
   
   return Ok({ entity: nextEntity, messages });

@@ -134,68 +134,78 @@ export class LevelDBStorage implements Storage {
     },
   };
 
-  readonly blocks = {
-    save: async (h: BlockHeight, block: BlockData): Promise<Result<void>> => {
-      try {
-        const key = `block:${this.formatHeight(h)}`;
-        const bufferToSave = block.encodedData ?? encode.blockData(block);
-        await this.blockDb.put(key, bufferToSave);
-        return Ok(undefined);
-      } catch (e) {
-        return Err(`Block save failed: ${e}`);
-      }
-    },
-    get: async (h: BlockHeight): Promise<Result<BlockData | null>> => {
-      try {
-        const key = `block:${this.formatHeight(h)}`;
-        const value = await this.blockDb.get(key);
-        return Ok(decode.blockData(value));
-      } catch (e: any) {
-        if (e.code === 'LEVEL_NOT_FOUND') return Ok(null);
-        return Err(`Block get failed: ${e}`);
-      }
-    },
-    iterator: async function* (this: LevelDBStorage, options?: { reverse?: boolean; limit?: number }): AsyncIterableIterator<[string, any]> {
-      const levelIterator = this.blockDb.iterator(options || {});
-      try {
-        for await (const [key, value] of levelIterator) {
-          yield [key, value] as [string, any];
+  get blocks() {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+    return {
+      save: async (h: BlockHeight, block: BlockData): Promise<Result<void>> => {
+        try {
+          const key = `block:${self.formatHeight(h)}`;
+          const bufferToSave = block.encodedData ?? encode.blockData(block);
+          await self.blockDb.put(key, bufferToSave);
+          return Ok(undefined);
+        } catch (e) {
+          return Err(`Block save failed: ${e}`);
         }
-      } finally {
-        await levelIterator.close();
-      }
-    }.bind(this),
-  };
-
-  readonly snapshots = {
-    save: async (state: ServerState): Promise<Result<void>> => {
-      try {
-        const key = `snapshot:${this.formatHeight(state.height)}`;
-        const value = encode.serverState(state);
-        await this.snapshotDb.put(key, value);
-        return Ok(undefined);
-      } catch (e) {
-        return Err(`Snapshot save failed: ${e}`);
-      }
-    },
-
-    loadLatest: async (): Promise<Result<ServerState | null>> => {
-      try {
-        let latestValue: Buffer | null = null;
-        
-        for await (const [_key, value] of this.snapshotDb.iterator({ reverse: true, limit: 1 })) {
-          latestValue = value;
-          break;
+      },
+      get: async (h: BlockHeight): Promise<Result<BlockData | null>> => {
+        try {
+          const key = `block:${self.formatHeight(h)}`;
+          const value = await self.blockDb.get(key);
+          return Ok(decode.blockData(value));
+        } catch (e: any) {
+          if (e.code === 'LEVEL_NOT_FOUND') return Ok(null);
+          return Err(`Block get failed: ${e}`);
         }
-        
-        if (!latestValue) return Ok(null);
-        
-        return Ok(decode.serverState(latestValue));
-      } catch (e) {
-        return Err(`Snapshot load failed: ${e}`);
-      }
-    },
-  };
+      },
+      iterator: async function* (
+        options?: { reverse?: boolean; limit?: number }
+      ): AsyncIterableIterator<[string, any]> {
+        const levelIterator = self.blockDb.iterator(options || {});
+        try {
+          for await (const [key, value] of levelIterator) {
+            yield [key, value] as [string, any];
+          }
+        } finally {
+          await levelIterator.close();
+        }
+      },
+    };
+  }
+
+  get snapshots() {
+    // eslint-disable-next-line @typescript-eslint/no-this-alias
+    const self = this;
+    return {
+      save: async (state: ServerState): Promise<Result<void>> => {
+        try {
+          const key = `snapshot:${self.formatHeight(state.height)}`;
+          const value = encode.serverState(state);
+          await self.snapshotDb.put(key, value);
+          return Ok(undefined);
+        } catch (e) {
+          return Err(`Snapshot save failed: ${e}`);
+        }
+      },
+
+      loadLatest: async (): Promise<Result<ServerState | null>> => {
+        try {
+          let latestValue: Buffer | null = null;
+          
+          for await (const [_key, value] of self.snapshotDb.iterator({ reverse: true, limit: 1 })) {
+            latestValue = value;
+            break;
+          }
+          
+          if (!latestValue) return Ok(null);
+          
+          return Ok(decode.serverState(latestValue));
+        } catch (e) {
+          return Err(`Snapshot load failed: ${e}`);
+        }
+      },
+    };
+  }
 
   async close(): Promise<void> {
     await Promise.all([
