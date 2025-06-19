@@ -2,7 +2,7 @@
 // infra/runner.ts - Block runner with effects
 // ============================================================================
 
-import { processServerTick } from '../engine/processor.js';
+import { Server } from '../server/Server.js';
 import type { Storage } from '../storage/interface.js';
 import { height } from '../types/primitives.js';
 import type { ProtocolRegistry } from '../types/protocol.js';
@@ -32,30 +32,36 @@ export const createBlockRunner = (config: RunnerConfig) => {
     snapshotInterval = 100 
   } = config;
   
+  const serverComponent = Server({ protocols });
+  
   const runner = {
-    processBlock: async (server: ServerState, skipWal = false): Promise<Result<ServerState>> => {
-      const nextHeight = height(Number(server.height) + 1);
+    processBlock: async (serverState: ServerState, skipWal = false): Promise<Result<ServerState>> => {
+      const now = clock.now();
       
-      const blockResult = processServerTick(server, protocols, clock.now());
-      if (!blockResult.ok) {
-        return Err(blockResult.error);
+      /* 0. Persist the *inputs* (serverState.mempool) first */
+      if (!skipWal && serverState.mempool.length) {
+        const walResult = await storage.wal.append(serverState.height, serverState.mempool);
+        if (!walResult.ok) return Err(`WAL write failed: ${walResult.error}`);
       }
+
+      /* 1. Pure tick */
+      const ticked = serverComponent.tick(serverState, now);
+
+      /* 2. Bump height (side-effect layer controls blocks) */
+      const nextHeight = height(Number(serverState.height) + 1);
+      const nextServerState: ServerState = { ...ticked, height: nextHeight };
       
-      const processed = blockResult.value;
+      // --- Side Effects ---
       
-      if (!skipWal && server.mempool.length > 0) {
-        const walResult = await storage.wal.append(nextHeight, server.mempool);
-        if (!walResult.ok) {
-          return Err(`WAL write failed: ${walResult.error}`);
-        }
-      }
-      
+      // 2. Save Block
+      const stateHash = computeStateHash(nextServerState);
+      const parentHash = Number(serverState.height) > 0 ? computeStateHash(serverState) : undefined;
       const blockContent = {
         height: nextHeight,
-        timestamp: clock.now(),
-        transactions: server.mempool,
-        stateHash: processed.stateHash,
-        parentHash: Number(server.height) > 0 ? computeStateHash(server) : undefined,
+        timestamp: now,
+        transactions: serverState.mempool,
+        stateHash,
+        parentHash,
       };
       
       const blockData: BlockData = {
@@ -69,7 +75,7 @@ export const createBlockRunner = (config: RunnerConfig) => {
       }
       
       if (Number(nextHeight) % snapshotInterval === 0) {
-        const snapshotResult = await storage.snapshots.save(processed.server);
+        const snapshotResult = await storage.snapshots.save(nextServerState);
         if (!snapshotResult.ok) {
           logger.error('Snapshot failed', snapshotResult.error);
         } else {
@@ -80,18 +86,13 @@ export const createBlockRunner = (config: RunnerConfig) => {
         }
       }
       
-      if (processed.failedCommands.length > 0) {
-        logger.warn(`Block ${nextHeight}: ${processed.failedCommands.length} failed transactions`);
-      }
-      
       logger.info(`Block ${nextHeight} processed`, {
-        applied: processed.appliedCommands.length,
-        failed: processed.failedCommands.length,
-        messages: processed.generatedMessages.length,
-        newMempool: processed.server.mempool.length
+        inputs: serverState.mempool.length,
+        outputs: nextServerState.eventBus.length,
+        stateHash,
       });
       
-      return Ok(processed.server);
+      return Ok(nextServerState);
     },
     
     recover: async (initialState?: ServerState): Promise<Result<ServerState>> => {

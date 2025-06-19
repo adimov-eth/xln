@@ -103,6 +103,7 @@ export const encode = {
   merkleKey: (signerId: SignerIdx, entityId: EntityId): Buffer =>
     Buffer.from(`${signerId}:${entityId}`),
 
+
   entityTx: (tx: EntityTx): (Buffer | null)[] => [
     encodeString(tx.op),
     Buffer.from(serializeWithBigInt(tx.data)), // JSON for arbitrary data with BigInt support
@@ -162,6 +163,14 @@ export const encode = {
     encode.entityCommand(tx.command),
   ],
 
+  /** Asynchronous message between entities */
+  outboxMsg: (msg: OutboxMsg): (Buffer | any[] | null)[] => [
+    encodeString(msg.from),
+    encodeString(msg.to),
+    encodeNullable(msg.toSigner, encodeNumber),
+    encode.entityCommand(msg.command),
+  ],
+
   registry: (reg: ReadonlyMap<EntityId, EntityMeta>): any[] =>
     encodeMap(reg, (k, v) => [encodeString(k), encode.entityMeta(v)]),
 
@@ -182,6 +191,7 @@ export const encode = {
       encode.signers(state.signers),
       encode.registry(state.registry),
       state.mempool.map(encode.serverTx),
+      state.eventBus.map(encode.outboxMsg),
     ])),
 
   blockData: (block: Omit<BlockData, 'encodedData'>): Buffer =>
@@ -291,6 +301,15 @@ export const decode = {
       mempool: (decoded[3] as unknown as Decoded[]).map(item =>
         decode.serverTx(item as unknown as Decoded[]),
       ),
+      eventBus: (decoded[4] as unknown as Decoded[] || []).map(item => {
+        const arr = item as unknown as Decoded[];
+        return {
+          from: id(decodeString(arr[0] as Decoded)),
+          to: id(decodeString(arr[1] as Decoded)),
+          toSigner: arr[2] && !isNull(arr[2]) ? signer(decodeNumber(arr[2])) : undefined,
+          command: decode.entityCommand(arr[3] as unknown as Decoded[]),
+        };
+      }),
     };
   },
 

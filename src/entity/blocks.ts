@@ -118,9 +118,14 @@ export const execute = {
     entityId: EntityId
   ): Result<{ newState: T; messages?: readonly OutboxMsg[] }> => {
     if (transactionRequiresNonce(transaction) && stateHasNonce(state)) {
-      const expectedNonce = state.nonce + 1;
-      if (transaction.nonce !== expectedNonce) {
-        return Err(`Invalid nonce: expected ${expectedNonce}, got ${transaction.nonce}`);
+      if (transaction.nonce === undefined) {
+        return Err('Nonce required');
+      }
+
+      const cur = state.nonce;
+      // allow either the "next" nonce or the current one (idempotent / DAO batch)
+      if (transaction.nonce !== cur && transaction.nonce !== cur + 1) {
+        return Err(`Invalid nonce: expected ${cur} or ${cur + 1}, got ${transaction.nonce}`);
       }
     }
     

@@ -25,7 +25,8 @@ export const createServer = (): ServerState => ({
   height: height(0),
   signers: new Map(),
   registry: new Map(),
-  mempool: []
+  mempool: [],
+  eventBus: []
 });
 
 // ============================================================================
@@ -104,6 +105,22 @@ export const submitCommand = (
   toEntity: string,
   command: EntityCommand
 ): ServerState => {
+  const entityId_ = id(toEntity);
+  const meta = server.registry.get(entityId_);
+
+  // For 'addTx' commands to multi-signer entities, we need to inform all signers
+  // so the transaction is in all their mempools when a block is proposed.
+  if (command.type === 'addTx' && meta && meta.quorum.length > 1) {
+    const commands: ServerTx[] = meta.quorum.map(signerId => ({
+      signer: signerId,
+      entityId: entityId_,
+      command: command
+    }));
+    return { ...server, mempool: [...server.mempool, ...commands] };
+  }
+
+  // For other commands (like proposeBlock) or single-signer entities,
+  // the command is only for the 'fromSigner'.
   const serverTx: ServerTx = { signer: fromSigner, entityId: id(toEntity), command };
   return { ...server, mempool: [...server.mempool, serverTx] };
 };

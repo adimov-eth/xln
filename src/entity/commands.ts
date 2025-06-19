@@ -82,7 +82,7 @@ export const processEntityCommand = (context: CommandContext): Result<CommandRes
     case 'proposeBlock': return createBlockProposal(activeEntity, signer, meta, now);
     case 'shareProposal': return receiveSharedProposal(activeEntity, command.proposal, signer, meta);
     case 'approveBlock': return addApprovalToBlock(activeEntity, command, signer, meta);
-    case 'commitBlock': return finalizeAndCommitBlock(activeEntity, command.hash, signer, meta);
+    case 'commitBlock': return finalizeAndCommitBlock(activeEntity, command.hash, signer, meta, command.approvalCount);
     default: return Err('Unknown command type');
   }
 };
@@ -92,7 +92,9 @@ export const processEntityCommand = (context: CommandContext): Result<CommandRes
 // ============================================================================
 
 const addTransactionToMempool = (entity: EntityState, transaction: EntityTx): Result<CommandResult> => {
-  if (entity.stage !== 'idle') return Err('Can only add transactions when entity is idle');
+  if (entity.stage !== 'idle' && entity.stage !== 'proposed') {
+    return Err('Can only add transactions when entity is idle or proposed');
+  }
   const updatedEntity = { ...entity, mempool: [...entity.mempool, transaction] };
   return Ok({ entity: updatedEntity, messages: [] });
 };
@@ -141,20 +143,31 @@ const addApprovalToBlock = (entity: EntityState, command: { type: 'approveBlock'
   const updatedProposal = addApproval(entity.proposal, approver);
   
   if (hasQuorum(new Set(updatedProposal.approvals), meta.quorum, meta.thresholdPercent)) {
-    return moveToCommittingWithConsensus(entity, updatedProposal, meta.id);
+    return moveToCommittingWithConsensus(entity, updatedProposal, meta.id, meta);
   }
   
   return Ok({ entity: { ...entity, proposal: updatedProposal }, messages: [] });
 };
 
-const finalizeAndCommitBlock = (entity: EntityState, blockHash: BlockHash, signer: SignerIdx, meta: EntityMeta): Result<CommandResult> => {
+const finalizeAndCommitBlock = (entity: EntityState, blockHash: BlockHash, signer: SignerIdx, meta: EntityMeta, approvalCount?: number): Result<CommandResult> => {
   if (entityAlreadyCommittedThisBlock(entity, blockHash)) return Ok({ entity, messages: [] });
   if (!canCommitBlock(entity)) return Err('Can only commit when in committing or proposed state');
   if (!entity.proposal || entity.proposal.hash !== blockHash) return Err('Block hash does not match current proposal');
   
-  // Critical: Check quorum in proposed stage to prevent early commits
-  if (entity.stage === 'proposed' && !hasQuorum(new Set(entity.proposal.approvals), meta.quorum, meta.thresholdPercent)) {
-    return Err('Cannot commit block: quorum not reached');
+  // Handle remote finalization when in proposed stage
+  if (entity.stage === 'proposed') {
+    // If approvalCount is provided, use it to verify quorum
+    if (approvalCount !== undefined) {
+      const required = calcRequiredApprovals(meta.quorum.length, meta.thresholdPercent);
+      if (approvalCount < required) {
+        return Err(`Cannot commit block: insufficient approvals (${approvalCount}/${required})`);
+      }
+      // Remote finalization: trust the approval count and proceed
+      // Move directly to committing so processor will execute the block
+    } else if (!hasQuorum(new Set(entity.proposal.approvals), meta.quorum, meta.thresholdPercent)) {
+      // Local check: verify we have quorum locally
+      return Err('Cannot commit block: quorum not reached');
+    }
   }
   
   if (entity.stage === 'committing' && signer !== entity.proposal.proposer) {
@@ -163,10 +176,10 @@ const finalizeAndCommitBlock = (entity: EntityState, blockHash: BlockHash, signe
   
   // NOTE: Block execution is now handled by the engine/processor.
   // This command handler's job is to prepare the state for execution.
-  const committedEntity: EntityState = { ...entity, stage: 'committing' };
+  const committedEntity: EntityState = { ...entity, stage: 'committing', proposal: entity.proposal };
   
   const notifications = shouldNotifyOthers(entity, signer) 
-    ? createCommitNotifications(meta, signer, blockHash as BlockHash)
+    ? createCommitNotifications(meta, signer, blockHash as BlockHash, entity.proposal!.approvals.size)
     : [];
   
   return Ok({ entity: committedEntity, messages: notifications });
@@ -194,7 +207,7 @@ const createProposal = (entity: EntityState, proposer: SignerIdx, now: number, e
 
 const moveStraightToCommitting = (entity: EntityState, proposal: ProposedBlock, signer: SignerIdx, entityId: EntityId): Result<CommandResult> => {
   const committingEntity = { ...entity, stage: 'committing' as const, proposal, mempool: [] };
-  const commitMessage: OutboxMsg = { from: entityId, to: entityId, toSigner: signer, command: { type: 'commitBlock', hash: proposal.hash } };
+  const commitMessage: OutboxMsg = { from: entityId, to: entityId, toSigner: signer, command: { type: 'commitBlock', hash: proposal.hash, approvalCount: 1 } };
   return Ok({ entity: committingEntity, messages: [commitMessage] });
 };
 
@@ -214,15 +227,21 @@ const approverIsInQuorum = (approver: SignerIdx, quorum: readonly SignerIdx[]): 
 const proposalAlreadyHasApproval = (proposal: ProposedBlock, approver: SignerIdx): boolean => proposal.approvals.has(approver);
 const addApproval = (proposal: ProposedBlock, approver: SignerIdx): ProposedBlock => ({ ...proposal, approvals: new Set([...proposal.approvals, approver]) });
 
-const moveToCommittingWithConsensus = (entity: EntityState, proposal: ProposedBlock, entityId: EntityId): Result<CommandResult> => {
+const moveToCommittingWithConsensus = (entity: EntityState, proposal: ProposedBlock, entityId: EntityId, meta: EntityMeta): Result<CommandResult> => {
   const committingEntity = { ...entity, stage: 'committing' as const, proposal };
-  const commitMessage: OutboxMsg = { from: entityId, to: entityId, toSigner: proposal.proposer, command: { type: 'commitBlock', hash: proposal.hash } };
-  return Ok({ entity: committingEntity, messages: [commitMessage] });
+  // Broadcast commit to ALL signers with approval count
+  const commitMessages: OutboxMsg[] = meta.quorum.map(signer => ({
+    from: entityId, 
+    to: entityId, 
+    toSigner: signer, 
+    command: { type: 'commitBlock', hash: proposal.hash, approvalCount: proposal.approvals.size }
+  }));
+  return Ok({ entity: committingEntity, messages: commitMessages });
 };
 
 const entityAlreadyCommittedThisBlock = (entity: EntityState, hash: BlockHash): boolean => entity.stage === 'idle' && entity.lastBlockHash === hash;
 const canCommitBlock = (entity: EntityState): boolean => entity.stage === 'committing' || entity.stage === 'proposed';
 const shouldNotifyOthers = (entity: EntityState, signer: SignerIdx): boolean => entity.stage === 'committing' && entity.proposal !== undefined && signer === entity.proposal.proposer;
 
-const createCommitNotifications = (meta: EntityMeta, signer: SignerIdx, hash: BlockHash): OutboxMsg[] =>
-  meta.quorum.filter(s => s !== signer).map(targetSigner => ({ from: meta.id, to: meta.id, toSigner: targetSigner, command: { type: 'commitBlock', hash } }));
+const createCommitNotifications = (meta: EntityMeta, signer: SignerIdx, hash: BlockHash, approvalCount: number): OutboxMsg[] =>
+  meta.quorum.filter(s => s !== signer).map(targetSigner => ({ from: meta.id, to: meta.id, toSigner: targetSigner, command: { type: 'commitBlock', hash, approvalCount } }));

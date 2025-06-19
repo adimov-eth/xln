@@ -18,5 +18,6 @@ export const createInitialState = (): ServerState => ({
   height: height(0),
   signers: new Map(),
   registry: new Map(),
-  mempool: []
+  mempool: [],
+  eventBus: []
 });

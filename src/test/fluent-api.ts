@@ -92,10 +92,32 @@ export class TestScenario {
   
   async processUntilIdle(maxIterations = 20): Promise<this> {
     for (let i = 0; i < maxIterations && this.server.mempool.length > 0; i++) {
+      const beforeMempool = this.server.mempool.length;
       await this.tick();
+      const afterMempool = this.server.mempool.length;
+      
+      // Check if we're stuck
+      if (i > 5 && afterMempool === beforeMempool) {
+        console.warn(`Mempool stuck at iteration ${i}: ${afterMempool} commands`);
+        const daoEntity = this.findEntity('dao', 0);
+        if (daoEntity) {
+          console.warn('DAO state:', {
+            stage: daoEntity.stage,
+            mempoolLen: daoEntity.mempool.length,
+            hasProposal: !!daoEntity.proposal,
+            lastBlockHash: daoEntity.lastBlockHash
+          });
+        }
+        break;
+      }
     }
     if (this.server.mempool.length > 0) {
       console.warn(`Mempool not empty after ${maxIterations} iterations.`);
+      console.warn('Mempool contents:', this.server.mempool.map(tx => ({
+        signer: tx.signer,
+        entity: tx.entityId,
+        type: tx.command.type
+      })));
     }
     return this;
   }

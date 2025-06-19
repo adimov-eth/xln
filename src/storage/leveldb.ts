@@ -63,7 +63,22 @@ export class LevelDBStorage implements Storage {
           }
         }
         
-        await this.walDb.put(key, Buffer.from(value));
+        // make sure the handle is ready *before* the first put
+        if (this.walDb.status !== 'open') {
+          await this.walDb.open();
+        }
+        
+        try {
+          await this.walDb.put(key, Buffer.from(value));
+        } catch (e: any) {
+          // extremely defensive – one more attempt
+          if (String(e).includes('Database is not open')) {
+            await this.walDb.open();
+            await this.walDb.put(key, Buffer.from(value));
+          } else {
+            throw e;
+          }
+        }
         return Ok(undefined);
       } catch (e) {
         return Err(`WAL append failed: ${e}`);

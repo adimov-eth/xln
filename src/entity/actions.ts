@@ -55,6 +55,7 @@ export const walletActions = {
     },
     
     execute: (state: WalletState, params: TransferParams): WalletState => ({
+      ...state,
       balance: state.balance - params.amount,
       nonce: state.nonce + 1
     }),
@@ -86,6 +87,7 @@ export const walletActions = {
     },
     
     execute: (state: WalletState, params: BurnParams): WalletState => ({
+      ...state,
       balance: state.balance - params.amount,
       nonce: state.nonce + 1
     })
@@ -101,6 +103,7 @@ export const walletActions = {
     },
     
     execute: (state: WalletState, params: CreditParams): WalletState => ({
+      ...state,
       balance: state.balance + params.amount,
       nonce: state.nonce + 1
     })
@@ -212,7 +215,15 @@ export const daoActions = {
       const initiative = state.initiatives.get(params.initiativeId);
       if (!initiative) return Err('Initiative not found');
       if (initiative.status !== 'passed') return Err('Initiative has not passed');
-      return Ok(params);
+      
+      // Update nonces for the actions to be executed
+      let nextNonce = state.nonce + 1;
+      const updatedActions = params.actions.map(action => ({
+        ...action,
+        nonce: nextNonce++
+      }));
+      
+      return Ok({ ...params, actions: updatedActions });
     },
     
     execute: (state: DaoState, params: ExecuteInitiativeParams): DaoState => {

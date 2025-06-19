@@ -42,7 +42,7 @@ export type EntityCommand =
   | { readonly type: 'proposeBlock' }
   | { readonly type: 'shareProposal'; readonly proposal: ProposedBlock }
   | { readonly type: 'approveBlock'; readonly hash: BlockHash; readonly from?: SignerIdx }
-  | { readonly type: 'commitBlock'; readonly hash: BlockHash };
+  | { readonly type: 'commitBlock'; readonly hash: BlockHash; readonly approvalCount?: number };
 
 export type ServerTx = {
   readonly signer: SignerIdx;
@@ -62,6 +62,8 @@ export type ServerState = {
   readonly signers: ReadonlyMap<SignerIdx, SignerEntities>;
   readonly registry: ReadonlyMap<EntityId, EntityMeta>;
   readonly mempool: readonly ServerTx[];
+  /** Outgoing asynchronous messages produced in the last tick */
+  readonly eventBus: readonly OutboxMsg[];
 };
 
 export type BlockData = {
