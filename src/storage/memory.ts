@@ -2,14 +2,14 @@
 // storage/memory.ts - In-memory storage implementation
 // ============================================================================
 
+import type { Decoded } from '@ethereumjs/rlp';
+import { RLP } from '@ethereumjs/rlp';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
 import type { BlockData, BlockHeight, ServerState, ServerTx } from '../types/state.js';
-import { Mutex } from '../utils/mutex.js';
 import { decode, encode } from '../utils/encoding.js';
+import { Mutex } from '../utils/mutex.js';
 import type { Storage } from './interface.js';
-import { RLP } from '@ethereumjs/rlp';
-import type { Decoded } from '@ethereumjs/rlp';
 
 export class MemoryStorage implements Storage {
   private walEntries = new Map<string, Buffer>();
@@ -79,7 +79,20 @@ export class MemoryStorage implements Storage {
     get: async (h: BlockHeight): Promise<Result<BlockData | null>> => {
       const buffer = this.blockStore.get(h);
       return Ok(buffer ? decode.blockData(buffer) : null);
-    }
+    },
+    iterator: async function* (this: MemoryStorage, options?: { reverse?: boolean; limit?: number }): AsyncIterableIterator<[string, any]> {
+      const entries = Array.from(this.blockStore.entries())
+        .map(([h, buffer]) => [`block:${this.formatHeight(h)}`, buffer] as [string, any])
+        .sort((a, b) => options?.reverse ? b[0].localeCompare(a[0]) : a[0].localeCompare(b[0]));
+      
+      const limit = options?.limit ?? entries.length;
+      for (let i = 0; i < Math.min(limit, entries.length); i++) {
+        const entry = entries[i];
+        if (entry) {
+          yield entry;
+        }
+      }
+    }.bind(this)
   };
   
   readonly snapshots = {

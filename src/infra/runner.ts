@@ -9,11 +9,11 @@ import type { ProtocolRegistry } from '../types/protocol.js';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
 import type { BlockData, Clock, ServerState } from '../types/state.js';
+import { encode } from '../utils/encoding.js';
 import { computeStateHash } from '../utils/hash.js';
 import { createInitialState } from '../utils/serialization.js';
 import type { Logger } from './deps.js';
 import { ConsoleLogger, SystemClock } from './deps.js';
-import { encode } from '../utils/encoding.js';
 
 export type RunnerConfig = {
   readonly storage: Storage;
@@ -100,11 +100,26 @@ export const createBlockRunner = (config: RunnerConfig) => {
       
       const snapshotResult = await storage.snapshots.loadLatest();
       if (!snapshotResult.ok) return Err(`Snapshot load failed: ${snapshotResult.error}`);
+
+      // ------------------------------------------------------------------
+      // 1.  Establish the "anchor" height (snapshot or last persisted block)
+      // ------------------------------------------------------------------
+      let server = snapshotResult.value;
+      let anchorHeight = server ? Number(server.height) : 0;
+
+      if (!server) {                         /* no snapshot – find last block */
+        for await (const [key] of storage.blocks.iterator({ reverse: true, limit: 1 })) {
+          // key: "block:0000000015" → 15
+          anchorHeight = Number(key.slice(6));
+          break;
+        }
+        server = initialState ?? createInitialState();
+        server = { ...server, height: height(anchorHeight) };
+      }
+
+      logger.info(`Recovery anchor height ${anchorHeight}`);
       
-      let server = snapshotResult.value || initialState || createInitialState();
-      logger.info(`Loaded snapshot at height ${server.height}`);
-      
-      const walResult = await storage.wal.readFromHeight(height(Number(server.height) + 1));
+      const walResult = await storage.wal.readFromHeight(height(anchorHeight + 1));
       if (!walResult.ok) return Err(`WAL read failed: ${walResult.error}`);
       
       const walTxs = walResult.value;

@@ -1,8 +1,8 @@
-import { test, expect } from 'bun:test';
-import { calcRequiredApprovals } from '../entity/commands.js';
-import { encode, decode } from '../utils/encoding.js';
+import { expect, test } from 'bun:test';
 import { createServer, registerEntity } from '../engine/server.js';
+import { calcRequiredApprovals } from '../entity/commands.js';
 import { id } from '../types/primitives.js';
+import { decode, encode } from '../utils/encoding.js';
 
 test('calcRequiredApprovals math is correct', () => {
   // Test default 66% threshold
@@ -29,7 +29,7 @@ test('EntityMeta threshold encoding/decoding', () => {
   };
   
   const encoded = encode.entityMeta(meta);
-  const decoded = decode.entityMeta(encoded);
+  const decoded = decode.entityMeta(encoded as any);
   
   expect(decoded.thresholdPercent).toBe(75);
   
@@ -42,7 +42,7 @@ test('EntityMeta threshold encoding/decoding', () => {
   };
   
   const encoded2 = encode.entityMeta(meta2);
-  const decoded2 = decode.entityMeta(encoded2);
+  const decoded2 = decode.entityMeta(encoded2 as any);
   
   expect(decoded2.thresholdPercent).toBeUndefined();
 });

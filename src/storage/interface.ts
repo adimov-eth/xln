@@ -15,6 +15,7 @@ export interface Storage {
   readonly blocks: {
     save(height: BlockHeight, block: BlockData): Promise<Result<void>>;
     get(height: BlockHeight): Promise<Result<BlockData | null>>;
+    iterator(options?: { reverse?: boolean; limit?: number }): AsyncIterableIterator<[string, any]>;
   };
   
   readonly snapshots: {

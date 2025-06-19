@@ -229,13 +229,17 @@ const addApproval = (proposal: ProposedBlock, approver: SignerIdx): ProposedBloc
 
 const moveToCommittingWithConsensus = (entity: EntityState, proposal: ProposedBlock, entityId: EntityId, meta: EntityMeta): Result<CommandResult> => {
   const committingEntity = { ...entity, stage: 'committing' as const, proposal };
-  // Broadcast commit to ALL signers with approval count
-  const commitMessages: OutboxMsg[] = meta.quorum.map(signer => ({
-    from: entityId, 
-    to: entityId, 
-    toSigner: signer, 
-    command: { type: 'commitBlock', hash: proposal.hash, approvalCount: proposal.approvals.size }
-  }));
+  // Broadcast commit message (toSigner omitted for broadcast)
+  const commitMessages: OutboxMsg[] = [{
+    from: entityId,
+    to: entityId,
+    // toSigner omitted → broadcast
+    command: { 
+      type: 'commitBlock', 
+      hash: proposal.hash, 
+      approvalCount: proposal.approvals.size 
+    }
+  }];
   return Ok({ entity: committingEntity, messages: commitMessages });
 };
 
@@ -244,4 +248,9 @@ const canCommitBlock = (entity: EntityState): boolean => entity.stage === 'commi
 const shouldNotifyOthers = (entity: EntityState, signer: SignerIdx): boolean => entity.stage === 'committing' && entity.proposal !== undefined && signer === entity.proposal.proposer;
 
 const createCommitNotifications = (meta: EntityMeta, signer: SignerIdx, hash: BlockHash, approvalCount: number): OutboxMsg[] =>
-  meta.quorum.filter(s => s !== signer).map(targetSigner => ({ from: meta.id, to: meta.id, toSigner: targetSigner, command: { type: 'commitBlock', hash, approvalCount } }));
+  /* single broadcast, but skip if quorum is size‑1 to avoid self‑spam */
+  meta.quorum.length === 1 ? [] : [{
+    from: meta.id,
+    to: meta.id,               // broadcast
+    command: { type: 'commitBlock', hash, approvalCount },
+  }];

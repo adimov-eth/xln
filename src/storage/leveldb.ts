@@ -1,13 +1,13 @@
-import { Level } from 'level';
+import type { Decoded } from '@ethereumjs/rlp';
+import { RLP } from '@ethereumjs/rlp';
 import type { BatchOperation } from 'level';
-import type { BlockHeight, ServerState, ServerTx, BlockData } from '../types/state.js';
+import { Level } from 'level';
 import type { Result } from '../types/result.js';
 import { Err, Ok } from '../types/result.js';
+import type { BlockData, BlockHeight, ServerState, ServerTx } from '../types/state.js';
 import { decode, encode } from '../utils/encoding.js';
 import { Mutex } from '../utils/mutex.js';
 import type { Storage } from './interface.js';
-import { RLP } from '@ethereumjs/rlp';
-import type { Decoded } from '@ethereumjs/rlp';
 
 export type LevelDBStorageOptions = {
   readonly validateWAL?: boolean; // Enable WAL validation (default: false in production, true in test)
@@ -155,6 +155,16 @@ export class LevelDBStorage implements Storage {
         return Err(`Block get failed: ${e}`);
       }
     },
+    iterator: async function* (this: LevelDBStorage, options?: { reverse?: boolean; limit?: number }): AsyncIterableIterator<[string, any]> {
+      const levelIterator = this.blockDb.iterator(options || {});
+      try {
+        for await (const [key, value] of levelIterator) {
+          yield [key, value] as [string, any];
+        }
+      } finally {
+        await levelIterator.close();
+      }
+    }.bind(this),
   };
 
   readonly snapshots = {
