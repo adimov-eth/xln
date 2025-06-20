@@ -8,5 +8,9 @@
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@ethereumjs/rlp": "^10.0.0",
+    "level": "^10.0.0"
   }
 }
