@@ -1,202 +1,90 @@
-import { RLP } from '@ethereumjs/rlp';
+import { createHash } from 'crypto';
 import { Level } from 'level';
-import type { EntityState, EntityTx } from './entity.js';
-import { createInitialState, decodeState, decodeTx, encodeState, encodeTx, executeBlock } from './entity.js';
+import { encode } from 'rlp';
+import { Entity, encodeBlock } from './entity.js';
 
-export type EntityId = string;
-
-export type ServerState = {
-  blockNumber: number;
-  mempool: Map<EntityId, EntityTx[]>;
+const sha256 = (b: Buffer) => createHash('sha256').update(b).digest();
+const merkleRoot = (leaves: Buffer[]) => {
+  if (leaves.length === 0) return Buffer.alloc(32);
+  let level = leaves.map(sha256);
+  while (level.length > 1) {
+    const next: Buffer[] = [];
+    for (let i = 0; i < level.length; i += 2) {
+      const a = level[i]!, b = level[i + 1] ?? level[i]!;
+      next.push(sha256(Buffer.concat([a, b])));
+    }
+    level = next;
+  }
+  return level[0]!;
 };
 
+type EntityId   = string;
+type Entities  = Map<EntityId, ReturnType<typeof Entity.init>>;
 
-type BlockData = Map<EntityId, EntityTx[]>;
+type ServerState = Readonly<{
+  height : number;
+  entities   : Entities;
+}>;
 
-class Storage {
-  private logDb: Level<Buffer, Buffer>;
-  private stateDb: Level<Buffer, Buffer>;
+const logDb   = new Level<string, Buffer>('./db/log',   { valueEncoding: 'buffer' });
+const stateDb = new Level<string, Buffer>('./db/state', { valueEncoding: 'buffer' });
 
-  constructor(basePath: string) {
-    const options = { keyEncoding: 'binary' as const, valueEncoding: 'binary' as const };
-    this.logDb = new Level<Buffer, Buffer>(`${basePath}/log`, options);
-    this.stateDb = new Level<Buffer, Buffer>(`${basePath}/state`, options);
-  }
+const makeServer = (): ServerState => ({ height: 0, entities: new Map() });
 
+const withEntity = (s: ServerState, id: EntityId, f: (e: ReturnType<typeof Entity.init>) =>
+                      ReturnType<typeof Entity.init>): ServerState => {
+  const next = new Map(s.entities);
+  next.set(id, f(next.get(id) ?? Entity.init()));
+  return { ...s, entities: next };
+};
 
+export const Server = {
+  addTx(state: ServerState, id: EntityId, tx: Parameters<typeof Entity.addTx>[1]): ServerState {
+    return withEntity(state, id, e => Entity.addTx(e, tx));
+  },
 
-  async loadEntity(id: EntityId): Promise<EntityState> {
-    try {
-      const data = await this.stateDb.get(Buffer.from(id));
-      return decodeState(data);
-    } catch (e: any) {
-      if (e.code === 'LEVEL_NOT_FOUND') {
-        return createInitialState();
+  async tick(state: ServerState): Promise<ServerState> {
+    const nextEntities = new Map<EntityId, ReturnType<typeof Entity.init>>();
+    const blockLeaves: Buffer[] = [];
+
+    for (const [id, ent] of state.entities) {
+      const committed = ent.mempool.size ? Entity.commit(ent) : ent;
+      nextEntities.set(id, committed);
+
+      if (committed.lastBlock) {
+        const key = `${id}:${committed.lastBlock.height}`;
+        await logDb.put(key, encodeBlock(committed.lastBlock));
+
+        const leaf = Buffer.from(encode([id, committed.lastBlock.height,
+          committed.lastBlock.storage.value]));
+        blockLeaves.push(leaf);
       }
-      throw e;
     }
+
+    const newHeight  = state.height + 1;
+    const rootHash   = merkleRoot(blockLeaves);
+    await stateDb.put(
+      newHeight.toString().padStart(10, '0'),
+      Buffer.concat([rootHash, Buffer.from(Uint32Array.of(Date.now()).buffer)])
+    );
+
+    return { height: newHeight, entities: nextEntities };
   }
+};
 
-  async saveEntity(id: EntityId, state: EntityState): Promise<void> {
-    await this.stateDb.put(Buffer.from(id), encodeState(state));
-  }
+if (import.meta.main) {
+  (async () => {
+    let s = makeServer();
 
+    s = Server.addTx(s, 'counter', { type: 'create' });
+    for (let i = 0; i < 3; i++)
+      s = Server.addTx(s, 'counter', { type: 'increment', n: 1 });
 
+    s = await Server.tick(s);
+    console.log('block #1 committed');
 
-  private encodeBlock(data: BlockData): Buffer {
-    const encodedEntries = Array.from(data.entries()).map(([entityId, txs]) => {
-      return [Buffer.from(entityId), txs.map(encodeTx)];
-    });
-    return Buffer.from(RLP.encode(encodedEntries));
-  }
-
-  private decodeBlock(data: Buffer): BlockData {
-    const decodedEntries = RLP.decode(data) as unknown as [Buffer, Buffer[]][];
-    const map = new Map<EntityId, EntityTx[]>();
-    for (const [entityIdBuf, txsBuf] of decodedEntries) {
-      const entityId = entityIdBuf.toString();
-      const txs = txsBuf.map(decodeTx);
-      map.set(entityId, txs);
-    }
-    return map;
-  }
-
-  async appendLog(blockNumber: number, data: BlockData): Promise<void> {
-    const key = Buffer.alloc(4);
-    key.writeUInt32BE(blockNumber);
-    const value = this.encodeBlock(data);
-    await this.logDb.put(key, value);
-  }
-
-  async *readLog(fromBlock: number): AsyncGenerator<{ blockNumber: number, data: BlockData }> {
-    const startKey = Buffer.alloc(4);
-    startKey.writeUInt32BE(fromBlock);
-
-    for await (const [key, value] of this.logDb.iterator({ gte: startKey })) {
-      const blockNumber = key.readUInt32BE(0);
-      const data = this.decodeBlock(value);
-      yield { blockNumber, data };
-    }
-  }
-  
-  async getLatestBlockNumber(): Promise<number> {
-    let latest = 0;
-    try {
-      const keys = await this.logDb.keys({ reverse: true, limit: 1 }).all();
-      if (keys.length > 0 && keys[0]) {
-        latest = keys[0].readUInt32BE(0);
-      }
-    } catch (e) {
-    
-    }
-    return latest;
-  }
-
-  async clear(): Promise<void> {
-    await this.logDb.clear();
-    await this.stateDb.clear();
-  }
-}
-
-
-
-export function createServerState(): ServerState {
-  return {
-    blockNumber: 0,
-    mempool: new Map(),
-  };
-}
-
-export function receive(state: ServerState, entityId: EntityId, tx: EntityTx): ServerState {
-  const newMempool = new Map(state.mempool);
-  const entityTxs = newMempool.get(entityId) ?? [];
-  entityTxs.push(tx);
-  newMempool.set(entityId, entityTxs);
-
-  return {
-    ...state,
-    mempool: newMempool,
-  };
-}
-
-
-export async function processTick(state: ServerState, storage: Storage): Promise<ServerState> {
-  if (state.mempool.size === 0) {
-    return state;
-  }
-
-  const newBlockNumber = state.blockNumber + 1;
-  const blockTxs = state.mempool;
-
-
-
-  await storage.appendLog(newBlockNumber, blockTxs);
-
-
-  for (const [entityId, txs] of blockTxs.entries()) {
-    const currentState = await storage.loadEntity(entityId);
-    const newState = executeBlock(currentState, txs);
-    await storage.saveEntity(entityId, newState);
-  }
-
-
-  console.log(`Processed block ${newBlockNumber} with ${blockTxs.size} entities affected.`);
-  return {
-    blockNumber: newBlockNumber,
-    mempool: new Map(),
-  };
-}
-
-
-export async function recover(storage: Storage): Promise<void> {
-  console.log('Starting recovery...');
-
-
-  for await (const { blockNumber, data } of storage.readLog(0)) {
-    console.log(`Replaying block ${blockNumber}...`);
-    for (const [entityId, txs] of data.entries()) {
-      const currentState = await storage.loadEntity(entityId);
-      const newState = executeBlock(currentState, txs);
-      await storage.saveEntity(entityId, newState);
-    }
-  }
-  console.log('Recovery complete.');
-}
-
-
-async function main() {
-  const storage = new Storage('./db');
-  
-  await recover(storage);
-  
-  const latestBlock = await storage.getLatestBlockNumber();
-  let state = createServerState();
-  state.blockNumber = latestBlock;
-
-  console.log(`Server started. Current block: ${state.blockNumber}`);
-
-  state = receive(state, 'wallet-alice', { op: 'create' });
-  state = receive(state, 'wallet-alice', { op: 'increment', amount: 100 });
-  state = receive(state, 'wallet-bob', { op: 'create' });
-  state = receive(state, 'wallet-bob', { op: 'increment', amount: 50 });
-  state = receive(state, 'wallet-alice', { op: 'increment', amount: -20 });
-
-
-  state = await processTick(state, storage);
-
-
-  const aliceState = await storage.loadEntity('wallet-alice');
-  const bobState = await storage.loadEntity('wallet-bob');
-  console.log("Alice's final state:", aliceState);
-  console.log("Bob's final state:", bobState);    
-
-
-  state = receive(state, 'wallet-bob', { op: 'increment', amount: 10 });
-  state = await processTick(state, storage);
-  const bobState2 = await storage.loadEntity('wallet-bob');
-  console.log("Bob's state after 2nd tick:", bobState2);
-}
-
-if (import.meta.url.startsWith('file:') && process.argv[1] === new URL(import.meta.url).pathname) {
-  main().catch(console.error);
+    s = Server.addTx(s, 'counter', { type: 'increment', n: 5 });
+    s = await Server.tick(s);
+    console.log('block #2 committed');
+  })();
 }
