@@ -27,105 +27,114 @@ npm i  noble-secp256k1 @noble/hashes rlp fast-check mocha chai
 ## 1  `types.ts` – single source of truth for domain types
 
 ```ts
-/* =========================================================================
-   PRIMITIVE BRANDS
-   ========================================================================= */
+/* ───────── primitive brands ───────── */
 export type Hex     = `0x${string}`;
 export type Address = Hex;
 export type UInt64  = bigint;
-export type TS      = number;          // ms since Unix‑epoch (rounded - see server)
+export type Nonce   = UInt64;
+export type TS      = number;      // ms since Unix epoch
 
-/* =========================================================================
-   SIGNERS & QUORUM
-   ========================================================================= */
-export interface SignerMeta { address: Address; shares: number; }
-
-export interface Quorum {
-  readonly threshold : number;
-  readonly members   : readonly SignerMeta[];
+/* ───────── quorum & signer record ───────── */
+export interface SignerRecord {
+  /** personal frame‑height inside the entity */
+  nonce  : Nonce;
+  /** voting power of this signer */
+  shares : number;
 }
 
-/* =========================================================================
-   TRANSACTIONS
-   ========================================================================= */
-export const enum TxKind { Chat = 'chat' }
+/**
+ * All information needed for consensus.
+ * `members` is keyed by signer address, so we never keep two
+ * separate containers for the same signer.
+ */
+export interface Quorum {
+  /** ≥ sum(shares) required for a commit */
+  threshold : number;
+  members   : Record<Address, SignerRecord>;
+}
+
+/* ───────── entity state ───────── */
+export interface EntityState {
+  quorum : Quorum;
+  chat   : { from: Address; msg: string; ts: TS }[];
+}
+
+/* ───────── transactions ───────── */
+export type TxKind = 'chat' // | 'proposeAction' | 'vote';
 
 export interface BaseTx<K extends TxKind = TxKind> {
-  readonly kind  : K;
-  readonly nonce : UInt64;
-  readonly from  : Address;
-  readonly body  : unknown;
-  readonly sig   : Hex;
+  kind  : K;
+  nonce : Nonce;
+  from  : Address;
+  body  : unknown;
+  sig   : Hex;
 }
 
-export type ChatTx      = BaseTx<TxKind.Chat> & { body: { message: string } };
-export type Transaction = ChatTx;
+export type ChatTx        = BaseTx<'chat'> & { body: { message: string } };
 
-/* =========================================================================
-   FRAMES
-   ========================================================================= */
+export type Transaction   = ChatTx; // | ProposeAction | VoteTx;
+
+/* ───────── frames / blocks ───────── */
 export interface Frame<T = unknown> {
-  readonly height : UInt64;
-  readonly ts     : TS;
-  readonly txs    : readonly Transaction[];
-  readonly state  : T;
+  height : UInt64;
+  ts     : TS;
+  txs    : Transaction[];
+  state  : T;
 }
+
 export interface ProposedFrame<T = unknown> extends Frame<T> {
-  readonly sigs : ReadonlyMap<Address, Hex>;
+  sigs : Map<Address, Hex>;
 }
 
-/* =========================================================================
-   ENTITY REPLICA
-   ========================================================================= */
-export const enum Stage { Ready = 'ready', Awaiting = 'awaiting' }
-
-export interface SignerRecord {
-  nonce : UInt64;          // aka personal frame‑height
-  // future: votes, delegation, personal balances …
-}
-
-export interface EntityState {
-  quorum   : Quorum;                               // как было
-  records  : Record<Address, SignerRecord>;        //  вместо `nonces`
-  chat     : { from: Address; msg: string; ts: TS }[];
-}
-
-
+/* ───────── replica addressing ───────── */
 export interface ReplicaAddr {
-  jurisdiction : string;   // eg. 'eth'
-  entityId     : string;   // eg. 'dao‑chat'
-  signerId?    : string;   // optional – needed only for direct SignerMsg
-  providerId?  : string;   // = 'default' пока
-}
+    jurisdiction : string;   // eg. 'eth'
+    entityId     : string;   // eg. 'dao‑chat'
+    signerId?    : string;   // optional – needed only for direct SignerMsg
+    providerId?  : string;   // eg. 'lido' 
+  }
 
-//  Transaction stays the same, but nonce now
-//  takes from EntityState.records[tx.from].nonce
+export const addrKey = (a: ReplicaAddr) => `${a.jurisdiction}:${a.entityId}`;
+
+/* ───────── replica runtime view ───────── */
 export interface Replica {
   address   : ReplicaAddr;
-  quorum    : Quorum;
   proposer  : Address;
-  stage     : Stage;
+  awaiting  : boolean;               // true ⇢ proposed ⇢ waiting for sigs
   mempool   : Transaction[];
   last      : Frame<EntityState>;
   proposal? : ProposedFrame<EntityState>;
 }
 
-/* =========================================================================
-   SERVER‑LEVEL COMMANDS (patched)
-   ========================================================================= */
+/* ───────── server‑level commands ───────── */
 export type Command =
   | { type:'IMPORT'   ; replica: Replica }
-  | { type:'ADD_TX'   ; entityId: string; tx: Transaction }
-  | { type:'PROPOSE'  ; entityId: string }
-  | { type:'SIGN_REQ' ; entityId: string; frameHash: Hex }
-  | { type:'SIGN'     ; entityId: string; signer: Address; frameHash: Hex; sig: Hex }
-  | { type:'COMMIT'   ; entityId: string; frame: Frame<EntityState> };
+  | { type:'ADD_TX'   ; addrKey: string; tx: Transaction }
+  | { type:'PROPOSE'  ; addrKey: string }
+  | { type:'SIGN_REQ' ; addrKey: string; frameHash: Hex }
+  | { type:'SIGN'     ; addrKey: string; signer: Address; frameHash: Hex; sig: Hex }
+  | { type:'COMMIT'   ; addrKey: string; frame: Frame<EntityState> };
 
 export interface Envelope {
-  readonly from : Address;             // signer@entity.jurisdiction → see server
-  readonly to   : Address;
-  readonly cmd  : Command;
+  from : Address;
+  to   : Address;
+  cmd  : Command;
 }
+
+
+/* ───────── optional refinement ───────── */
+// Optional refinement:
+//
+// * **Encoding helper** – A discriminated union lets your codec derive schema dynamically:
+// 
+//   ```ts
+//   const encodeTx = (tx: Transaction) => {
+//     switch (tx.kind) { … }
+//   };
+//   ```
+// * **`body` generics** – If every `body` must include common fields (e.g., `fee`), move them up to `BaseTx` and let each variant extend further.
+
+
 /* TODO(codegen) : generate runtime validators from this file later */
 ```
 
@@ -136,7 +145,7 @@ export interface Envelope {
 ```ts
 import { schnorr, utils as u } from 'noble-secp256k1';
 import { sha256 } from '@noble/hashes/sha256';
-import type { Hex } from './schema';
+import type { Hex } from './types';
 
 export type PrivKey = Uint8Array;
 export type PubKey  = Uint8Array;
@@ -180,7 +189,7 @@ export function hash(o: unknown): Uint8Array {
 import * as rlp from 'rlp';
 import type {
   Frame, Transaction, TxKind, Envelope, Command, Hex, UInt64,
-} from './schema';
+} from './types';
 
 /* ————————————————— helpers ————————————————— */
 
@@ -268,63 +277,61 @@ export function decodeEnvelope(buf: Buffer): Envelope {
 ## 4  `state.ts` – pure state machine
 
 ```ts
-import {
-  Replica, Stage, Command, EntityState, Frame, ProposedFrame,
-  TxKind, Transaction,
-} from './schema';
+import { Replica, Command, EntityState, Frame, Transaction } from './types';
+import { addrKey } from './types';
 import { hash } from './crypto';
 
+/* ——— pure state‑machine ——— */
 export function applyTx(st: EntityState, tx: Transaction, ts: number): EntityState {
-  if (tx.kind === TxKind.Chat) {
-    const nonce = st.nonces[tx.from] ?? 0n;
-    if (tx.nonce !== nonce) throw new Error('bad-nonce');
-    return {
-      ...st,
-      nonces: { ...st.nonces, [tx.from]: nonce + 1n },
-      chat  : [...st.chat, { from: tx.from, msg: tx.body.message, ts }],
-    };
-  }
-  /* future kinds … */
-  throw new Error('unk-txkind');
+  if (tx.kind !== 'chat') throw new Error('unk‑txkind');
+
+  const rec = st.records[tx.from] ?? { nonce: 0n, shares: 0 };
+  if (tx.nonce !== rec.nonce) throw new Error('bad‑nonce');
+
+  return {
+    ...st,
+    records: {
+      ...st.records,
+      [tx.from]: { ...rec, nonce: rec.nonce + 1n },
+    },
+    chat: [...st.chat, { from: tx.from, msg: tx.body.message, ts }],
+  };
 }
 
 export function execFrame(prev: Frame<EntityState>, txs: Transaction[], ts: number): Frame<EntityState> {
-  let state = prev.state;
-  for (const tx of txs) state = applyTx(state, tx, ts);
-  return { height: prev.height + 1n, ts, txs, state };
+  let st = prev.state;
+  for (const tx of txs) st = applyTx(st, tx, ts);
+  return { height: prev.height + 1n, ts, txs, state: st };
 }
 
-/* ——————————————————————————————————————————————————————— */
 export function applyCommand(rep: Replica, cmd: Command): Replica {
   switch (cmd.type) {
     case 'ADD_TX':
       return { ...rep, mempool: [...rep.mempool, cmd.tx] };
 
-    case 'PROPOSE': {
-      if (rep.stage !== Stage.Ready || rep.mempool.length === 0) return rep;
-      const frame = execFrame(rep.last, rep.mempool, Date.now());
-      const sigs  = new Map([[rep.proposer, '0x00']]); // proposer self-sig to be filled by server
-      return { ...rep,
-        stage: Stage.Awaiting,
+    case 'PROPOSE':
+      if (rep.awaiting || rep.mempool.length === 0) return rep;
+      return {
+        ...rep,
+        awaiting: true,
         mempool: [],
-        proposal: { ...frame, sigs },
+        proposal: (() => {
+          const f  = execFrame(rep.last, rep.mempool, Date.now());
+          const s  = new Map<Address, Hex>([[rep.proposer, '0x00']]);
+          return { ...f, sigs: s };
+        })(),
       };
-    }
 
-    /* —— SIGN : attach sig to proposal —— */
-    case 'SIGN': {
-      if (rep.stage !== Stage.Awaiting || !rep.proposal) return rep;
-      const sigs = new Map(rep.proposal.sigs);
-      sigs.set(cmd.signer, cmd.sig);
-      return { ...rep, proposal: { ...rep.proposal, sigs } };
-    }
+    case 'SIGN':
+      if (!rep.awaiting || !rep.proposal) return rep;
+      rep.proposal.sigs.set(cmd.signer, cmd.sig);
+      return { ...rep };
 
-    /* —— COMMIT : accept already-executed frame —— */
     case 'COMMIT':
-      return { ...rep, stage: Stage.Ready,
-               last: cmd.frame, proposal: undefined };
+      return { ...rep, awaiting: false, last: cmd.frame, proposal: undefined };
 
-    default: return rep;
+    default:
+      return rep;
   }
 }
 ```
@@ -334,83 +341,83 @@ export function applyCommand(rep: Replica, cmd: Command): Replica {
 ## 5  `server.ts` – runtime & routing (single‑thread dev‑net)
 
 ```ts
-import {
-  Envelope, Replica, Command, Stage, Frame, EntityState, Quorum, TxKind,
-} from './schema';
-import { randomPriv, pub, addr, hash, sign, verify } from './crypto';
-import { applyCommand, execFrame } from './state';
+import { Envelope, Replica, Command, addrKey } from './types';
+import { randomPriv, pub, addr, hash, sign } from './crypto';
+import { applyCommand } from './state';
 
 export class Server {
-  /* deterministic 3-signer wallet */
+  /* deterministic 3‑signer test wallet */
   signers = Array.from({ length: 3 }, () => {
     const priv = randomPriv();
     return { priv, pub: pub(priv), addr: addr(pub(priv)) };
   });
 
-  replicas = new Map<string, Replica>();            // entityId → replica
+  replicas = new Map<string, Replica>();   // key = addrKey(rep.address)
   inbox: Envelope[] = [];
 
   enqueue(e: Envelope) { this.inbox.push(e); }
 
-  private clampTs(ms: number) { return Math.floor(ms / 1000) * 1000; }
-
-  /** one tick */
   async tick() {
     while (this.inbox.length) {
-      const env = this.inbox.shift()!;
-      const { cmd } = env;
+      const { cmd, to } = this.inbox.shift()!;
 
-      /* ——— IMPORT handled immediately ——— */
-      if (cmd.type === 'IMPORT') { this.replicas.set(cmd.replica.id, cmd.replica); continue; }
+      /* ——— IMPORT ——— */
+      if (cmd.type === 'IMPORT') {
+        this.replicas.set(addrKey(cmd.replica.address), cmd.replica);
+        continue;
+      }
 
-      /* ——— SIGN_REQ : produce a SIGN ——— */
+      const r = this.replicas.get(cmd.addrKey)!;
+
+      /* ——— SIGN_REQ ——— */
       if (cmd.type === 'SIGN_REQ') {
-        const r = this.replicas.get(cmd.entityId)!;
         if (!r.proposal) continue;
-        const signer = this.signers.find(s => s.addr === env.to)!;
+        const signer = this.signers.find(s => s.addr === to)!;
         const sig    = await sign(hash(r.proposal), signer.priv);
         this.enqueue({
           from: signer.addr, to: r.proposer,
           cmd : { type:'SIGN',
-                  entityId : r.id,
+                  addrKey : cmd.addrKey,
                   signer   : signer.addr,
                   frameHash: cmd.frameHash,
                   sig }});
         continue;
       }
 
-      /* ——— everything else is entity logic ——— */
-      const r = this.replicas.get(cmd.entityId)!;
+      /* ——— entity logic ——— */
       const next = applyCommand(r, cmd);
 
-      /* → after PROPOSE send SIGN_REQs */
+      /* → multicast SIGN_REQ after proposal */
       if (cmd.type === 'PROPOSE' && next.proposal) {
         const proposer = this.signers.find(s => s.addr === next.proposer)!;
-        for (const m of next.quorum.members) {
-          if (m.address === proposer.addr) continue;
+        for (const [addr, rec] of Object.entries(next.last.state.records)) {
+          if (addr === proposer.addr) continue;
           this.enqueue({
-            from: proposer.addr, to: m.address,
-            cmd : { type:'SIGN_REQ', entityId: next.id,
+            from: proposer.addr, to: addr,
+            cmd : { type:'SIGN_REQ',
+                    addrKey : cmd.addrKey,
                     frameHash: addr(hash(next.proposal) as any) }});
         }
       }
 
-      /* → threshold reached?  broadcast COMMIT */
-      if (next.proposal && next.stage === Stage.Awaiting) {
-        const power = next.quorum.members
-          .filter(m => next.proposal!.sigs.has(m.address))
-          .reduce((s, m) => s + m.shares, 0);
-        if (power >= next.quorum.threshold) {
-          const committed = { ...next.proposal };
+      /* → threshold? then COMMIT */
+      if (next.proposal && next.awaiting) {
+        const power = [...next.proposal.sigs.keys()]
+          .reduce((sum, a) => sum + next.last.state.records[a].shares, 0);
+        if (power >= next.last.state.threshold) {
           this.enqueue({
-            from: next.proposer, to: next.address,
-            cmd : { type:'COMMIT', entityId: next.id, frame: committed }});
+            from: next.proposer, to: next.proposer,
+            cmd : { type:'COMMIT',
+                    addrKey : cmd.addrKey,
+                    frame   : { ...next.proposal } }});
         }
       }
-      this.replicas.set(next.id, next);
+
+      this.replicas.set(cmd.addrKey, next);
     }
   }
 }
+
 
 /* TODO(persistence): snapshot every N frames - out of scope now              */
 ```
@@ -421,67 +428,61 @@ export class Server {
 
 ```ts
 import { expect } from 'chai';
-import * as fc from 'fast-check';
 import { Server } from './server';
-import { TxKind, Replica, Quorum, Frame, EntityState, Stage } from './schema';
+import { addrKey, ReplicaAddr, Frame, EntityState } from './types';
 
-/* deterministic genesis */
-function genesis(server: Server): Replica {
+function genesis(server: Server) {
   const [a, b, c] = server.signers;
-  const quorum: Quorum = {
-    threshold: 600,
-    members: [
-      { address: a.addr, shares: 300 },
-      { address: b.addr, shares: 300 },
-      { address: c.addr, shares: 400 },
-    ],
+
+  const recs = {
+    [a.addr]: { nonce: 0n, shares: 300 },
+    [b.addr]: { nonce: 0n, shares: 300 },
+    [c.addr]: { nonce: 0n, shares: 400 },
   };
-  const init: EntityState = {
-    quorum, nonces: { [a.addr]: 0n, [b.addr]: 0n, [c.addr]: 0n }, chat: [],
-  };
-  const frame: Frame<EntityState> = {
-    height: 0n, ts: Date.now(), txs: [], state: init,
-  };
+  const init: EntityState = { threshold: 600, records: recs, chat: [] };
+
+  const frame: Frame<EntityState> = { height: 0n, ts: Date.now(), txs: [], state: init };
+  const addr: ReplicaAddr = { jurisdiction: 'xln', entityId: 'dao‑chat' };
+
   return {
-    id: 'dao-chat',
-    address: 'dao-chat@xln',
-    quorum, proposer: a.addr, stage: Stage.Ready,
-    mempool: [], last: frame,
+    address : addr,
+    proposer: a.addr,
+    awaiting: false,
+    mempool : [],
+    last    : frame,
   };
 }
 
-describe('XLN happy-path', () => {
+describe('XLN refactor happy‑path', () => {
   it('commits a chat frame', async () => {
     const srv = new Server();
     const rep = genesis(srv);
+    const key = addrKey(rep.address);
+
+    /* IMPORT */
     srv.enqueue({ from: rep.proposer, to: rep.proposer,
-      cmd: { type: 'IMPORT', replica: rep },
-    });
+      cmd: { type:'IMPORT', replica: rep }});
 
-    const bSigner = srv.signers[1];
-    srv.enqueue({ from: bSigner.addr, to: rep.proposer,
-      cmd: { type: 'ADD_TX',
-             entityId: rep.id,
-             tx: { kind: TxKind.Chat,
-                   nonce: 0n,
-                   from: bSigner.addr,
-                   body: { message: 'hi' },
-                   sig: '0x00' } }});
+    /* ADD_TX */
+    const bob = srv.signers[1];
+    srv.enqueue({ from: bob.addr, to: rep.proposer,
+      cmd: { type:'ADD_TX',
+             addrKey: key,
+             tx: { kind:'chat', nonce:0n, from:bob.addr,
+                   body:{ message:'hi' }, sig:'0x00' }}});
 
+    /* PROPOSE */
     srv.enqueue({ from: rep.proposer, to: rep.proposer,
-      cmd: { type: 'PROPOSE', entityId: rep.id }});
+      cmd: { type:'PROPOSE', addrKey: key }});
 
-    await srv.tick();   // IMPORT
-    await srv.tick();   // ADD_TX
-    await srv.tick();   // PROPOSE + multicast SIGN
-    await srv.tick();   // SIGNs processed, COMMIT queued
-    await srv.tick();   // COMMIT applied
+    await srv.tick(); await srv.tick(); await srv.tick(); await srv.tick(); await srv.tick();
 
-    const final = srv.replicas.get(rep.id)!;
+    const final = srv.replicas.get(key)!;
     expect(final.last.height).to.equal(1n);
     expect(final.last.state.chat).to.have.length(1);
   });
 });
+
 ```
 
 Run tests:
@@ -489,8 +490,6 @@ Run tests:
 ```bash
 npx mocha -r ts-node/register src/simulation.spec.ts
 ```
-
-*all tests green → the integrated node survives its first quorum cycle.*
 
 ---
 

@@ -92,16 +92,3 @@ export interface Envelope {
   cmd  : Command;
 }
 
-
-/* ───────── optional refinement ───────── */
-// Optional refinement:
-//
-// * **Encoding helper** – A discriminated union lets your codec derive schema dynamically:
-// 
-//   ```ts
-//   const encodeTx = (tx: Transaction) => {
-//     switch (tx.kind) { … }
-//   };
-//   ```
-// * **`body` generics** – If every `body` must include common fields (e.g., `fee`), move them up to `BaseTx` and let each variant extend further.
-
