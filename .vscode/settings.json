@@ -1,0 +1,4 @@
+{
+    "typescript.validate.enable": true,
+    "deno.enable": false,
+}
