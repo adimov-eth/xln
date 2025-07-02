@@ -41,10 +41,11 @@ Server (Pure Router)
    - Write-ahead log for crash recovery
 
 ### Transaction Flow
-1. `ServerTx` → routes to entity
-2. `EntityInput` → processed by entity machine
-3. `EntityTx` → atomic business operations
-4. Outbox messages → routed after block finalization
+1. `Input` → routes to entity via server
+2. `Command` → processed by entity machine
+3. `Frame` → consensus on transaction batch
+4. `Hanko` → BLS aggregate signature finalizes block
+5. Outbox messages → routed after block finalization
 
 ## Project Structure
 
@@ -121,7 +122,10 @@ npm run lint
 - **Simplified Tendermint**: No prevote stage, just propose → vote → execute
 
 ## Documentation Structure
-- `/docs/concept/` - Architectural decisions and discussions
-- `/docs/codeRef/` - Reference implementations
-- `/docs/spec.md` - Complete protocol specification
-- `/docs/phase4-*.md` - Development phase documentation
+- `/docs/spec.md` - XLN v1.3 Unified Technical Specification
+- `/docs/index.md` - Documentation hub with navigation
+- `/docs/architecture.md` - Layered architecture overview
+- `/docs/data-model.md` - TypeScript types and encoding
+- `/docs/consensus.md` - Frame/Hanko consensus mechanism
+- `/docs/walkthrough.md` - Step-by-step chat example
+- See `/docs/` for complete v1.3 documentation set

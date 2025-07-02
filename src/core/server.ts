@@ -1,11 +1,15 @@
+import { keccak_256 as keccak } from '@noble/hashes/sha3';
+import { encServerFrame } from '../codec/rlp';
 import type {
-  Input, Replica, Command, ServerFrame, ServerState,
-  TS, Hex, Address, UInt64
+  Address,
+  Hex,
+  Input, Replica,
+  ServerFrame, ServerState,
+  TS,
+  UInt64
 } from '../types';
 import { addrKey } from '../types';
 import { applyCommand } from './entity';
-import { keccak_256 as keccak } from '@noble/hashes/sha3';
-import { encServerFrame } from '../codec/rlp';
 
 /* ──────────── Merkle root computation (simplified binary tree for MVP) ──────────── */
 /** Compute a Merkle-like root over all replicas' last states. (Here we just hash the JSON of all state snapshots.) */
