@@ -1,4 +1,4 @@
-import { ChatTx } from '../../src/types'
+import type { ChatTx } from '../../src/types'
 
 export const createChatTx = (sender: string, msg: string): ChatTx => ({
   kind: 'chat',

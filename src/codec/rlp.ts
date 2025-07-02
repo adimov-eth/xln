@@ -1,5 +1,5 @@
 import * as rlp from 'rlp';
-import type { Frame, Transaction, TxKind, Input, Command, Hex, UInt64, Address } from '../types';
+import type { Frame, Transaction, TxKind, Input, Command, Hex, UInt64, Address, EntityState, SignerRecord } from '../types';
 import { keccak_256 as keccak } from '@noble/hashes/sha3';
 
 /* — internal helpers for bigint <-> Buffer — */
@@ -28,21 +28,48 @@ export const decTx = (b: Uint8Array): Transaction => {
   } as Transaction;
 };
 
+/* -- EntityState encode helper (deterministic ordering) -- */
+export const encEntityState = (s: EntityState): Uint8Array => {
+  const members = Object.entries(s.quorum.members)
+    .sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
+    .map(([addr, rec]) => [addr, bnToBuf(rec.nonce), rec.shares]);
+  const chat = s.chat.map(c => [c.from, c.msg, c.ts]);
+  return rlp.encode([
+    [s.quorum.threshold, members],
+    chat,
+  ]) as Uint8Array;
+};
+
 /* — Entity Frame encode/decode — */
-export const encFrame = <S>(f: Frame<S>): Uint8Array =>
+export const encFrame = (f: Frame<EntityState>): Uint8Array =>
   rlp.encode([
     bnToBuf(f.height),
     f.ts,
     f.txs.map(encTx) as any,
-    rlp.encode(f.state as any),   // note: state is encoded as RLP of its data structure
+    encEntityState(f.state),
   ]) as Uint8Array;
-export const decFrame = <S>(b: Uint8Array): Frame<S> => {
+export const decEntityState = (b: Uint8Array): EntityState => {
+  const [qArr, chatArr] = rlp.decode(b) as any[];
+  const [thresh, membersArr] = qArr as [Uint8Array, any[]];
+  const members: Record<Address, SignerRecord> = {};
+  (membersArr as any[]).forEach(([a, n, s]: [Uint8Array, Uint8Array, number]) => {
+    members[Buffer.from(a).toString() as Address] = { nonce: bufToBn(n), shares: Number(s) };
+  });
+  const chat = (chatArr as any[]).map(([f, m, t]: [Uint8Array, Uint8Array, Uint8Array]) => ({
+    from: Buffer.from(f).toString() as Address,
+    msg: Buffer.from(m).toString(),
+    ts: Number(t.toString()),
+  }));
+  return { quorum: { threshold: Number(thresh.toString()), members }, chat };
+};
+
+export const decFrame = (b: Uint8Array): Frame<EntityState> => {
   const [h, ts, txs, st] = rlp.decode(b) as [Uint8Array, Uint8Array, Uint8Array[], Uint8Array];
   return {
     height: bufToBn(h),
     ts    : Number(ts.toString()),
     txs   : (txs as Uint8Array[]).map(decTx),
-    state : rlp.decode(st) as S,
+    state : decEntityState(st),
   };
 };
 
