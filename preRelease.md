@@ -140,7 +140,309 @@ export interface Envelope {
 
 ---
 
-## 2  `crypto.ts` – Schnorr over secp256k1 (noble‑secp256k1)
+
+
+
+## 2  `state.ts` – pure state machine
+
+```ts
+import { Replica, Command, EntityState, Frame, Transaction } from './types';
+import { addrKey } from './types';
+import { hash } from './crypto';
+
+/** 
+ * Apply a single transaction to the EntityState.
+ * Enforces per-signer nonces, updates nonce inside quorum.members,
+ * and appends to chat.
+ */
+export function applyTx(
+  st: EntityState,
+  tx: Transaction,
+  ts: number
+): EntityState {
+  if (tx.kind !== 'chat') throw new Error('unknown tx kind');
+
+  const rec = st.quorum.members[tx.from];
+  if (!rec) throw new Error(`unknown signer: ${tx.from}`);
+  if (tx.nonce !== rec.nonce) throw new Error('bad nonce');
+
+  // bump signer nonce, leave shares unchanged
+  const newMembers = {
+    ...st.quorum.members,
+    [tx.from]: { nonce: rec.nonce + 1n, shares: rec.shares }
+  };
+
+  return {
+    quorum: { ...st.quorum, members: newMembers },
+    chat  : [...st.chat, { from: tx.from, msg: tx.body.message, ts }]
+  };
+}
+
+/**
+ * Execute a batch of transactions as a new Frame.
+ */
+export function execFrame(
+  prev: Frame<EntityState>,
+  txs: Transaction[],
+  ts: number
+): Frame<EntityState> {
+  let state = prev.state;
+  for (const tx of txs) {
+    state = applyTx(state, tx, ts);
+  }
+  return { height: prev.height + 1n, ts, txs, state };
+}
+
+/**
+ * Apply a server-level command to a Replica.
+ * Manages ADD_TX, PROPOSE, SIGN, COMMIT flows.
+ */
+export function applyCommand(rep: Replica, cmd: Command): Replica {
+  switch (cmd.type) {
+    case 'ADD_TX':
+      return { ...rep, mempool: [...rep.mempool, cmd.tx] };
+
+    case 'PROPOSE':
+      // only proposer can propose, and only if not already awaiting
+      if (rep.awaiting || rep.mempool.length === 0) return rep;
+      const frame = execFrame(rep.last, rep.mempool, Date.now());
+      return {
+        ...rep,
+        awaiting : true,
+        mempool  : [],
+        proposal : { ...frame, sigs: new Map([[rep.proposer, '0x00']]) }
+      };
+
+    case 'SIGN':
+      // other signers add their signature
+      if (!rep.awaiting || !rep.proposal) return rep;
+      rep.proposal.sigs.set(cmd.signer, cmd.sig);
+      return { ...rep };
+
+    case 'COMMIT':
+      // once threshold reached, commit the frame
+      return {
+        ...rep,
+        awaiting : false,
+        last     : cmd.frame,
+        proposal : undefined
+      };
+
+    default:
+      return rep;
+  }
+}
+
+```
+
+---
+
+## 3  `server.ts` – runtime & routing (single‑thread dev‑net)
+
+```ts
+import { Envelope, Replica, Command, addrKey, Quorum } from './types';
+import { randomPriv, pub, addr, hash, sign } from './crypto';
+import { applyCommand } from './state';
+
+export class Server {
+  /* deterministic 3‑signer test wallet */
+  signers = Array.from({ length: 3 }, () => {
+    const priv = randomPriv();
+    return { priv, pub: pub(priv), addr: addr(pub(priv)) };
+  });
+
+  replicas = new Map<string, Replica>();   // key = addrKey(rep.address)
+  inbox: Envelope[] = [];
+
+  enqueue(e: Envelope) { this.inbox.push(e); }
+
+  async tick() {
+    while (this.inbox.length) {
+      const { cmd, to } = this.inbox.shift()!;
+
+      /* ——— IMPORT ——— */
+      if (cmd.type === 'IMPORT') {
+        this.replicas.set(addrKey(cmd.replica.address), cmd.replica);
+        continue;
+      }
+
+      const r = this.replicas.get(cmd.addrKey)!;
+
+      /* ——— SIGN_REQ ——— */
+      if (cmd.type === 'SIGN_REQ') {
+        if (!r.proposal) continue;
+        const signer = this.signers.find(s => s.addr === to)!;
+        const sig    = await sign(hash(r.proposal), signer.priv);
+        this.enqueue({
+          from: signer.addr, to: r.proposer,
+          cmd : { type:'SIGN',
+                  addrKey : cmd.addrKey,
+                  signer   : signer.addr,
+                  frameHash: cmd.frameHash,
+                  sig }});
+        continue;
+      }
+
+      /* ——— entity logic ——— */
+      const next = applyCommand(r, cmd);
+
+      /* → multicast SIGN_REQ after proposal */
+      if (cmd.type === 'PROPOSE' && next.proposal) {
+        const proposer = this.signers.find(s => s.addr === next.proposer)!;
+        for (const [addr, rec] of Object.entries(next.last.state.quorum.members)) {
+          if (addr === proposer.addr) continue;
+          this.enqueue({
+            from: proposer.addr, to: addr,
+            cmd : { type:'SIGN_REQ',
+                    addrKey : cmd.addrKey,
+                    frameHash: '0x' + hash(next.proposal).toString('hex') }});
+        }
+      }
+
+      /* → threshold? then COMMIT */
+      if (next.proposal && next.awaiting) {
+        const quorum = next.last.state.quorum;
+        
+        // Power of the replica *before* this command was applied
+        const oldPower = r.proposal
+          ? [...r.proposal.sigs.keys()].reduce((sum, a) => sum + (quorum.members[a]?.shares ?? 0), 0)
+          : 0;
+        
+        // Power of the replica *after* this command was applied
+        const newPower = [...next.proposal.sigs.keys()]
+          .reduce((sum, a) => sum + (quorum.members[a]?.shares ?? 0), 0);
+        
+        // If the threshold was just crossed, multicast COMMIT to all members.
+        // This prevents re-committing if more signatures arrive later.
+        if (oldPower < quorum.threshold && newPower >= quorum.threshold) {
+          const committedFrame = { ...next.proposal };
+          delete (committedFrame as any).sigs; // Sigs are not part of the final frame
+
+          for (const memberAddress of Object.keys(quorum.members)) {
+            this.enqueue({
+              from: next.proposer,
+              to: memberAddress,
+              cmd: {
+                type: 'COMMIT',
+                addrKey: cmd.addrKey,
+                frame: committedFrame
+              }
+            });
+          }
+        }
+      }
+
+      this.replicas.set(cmd.addrKey, next);
+    }
+  }
+}
+
+
+/* TODO(persistence): snapshot every N frames - out of scope now              */
+```
+
+---
+
+## 4  `simulation.spec.ts` – mocha + fast‑check demo
+
+```ts
+import { expect } from 'chai';
+import { Server }      from './server';
+import { addrKey,
+         ReplicaAddr,
+         Frame,
+         EntityState,
+         SignerRecord,
+         Quorum,
+         Transaction,
+         Replica }  from './types';
+
+// build a deterministic genesis Replica
+export function genesis(srv: Server): Replica {
+  const [A, B, C] = srv.signers;
+
+  // initial signer records
+  const members: Record<string, SignerRecord> = {
+    [A.addr]: { nonce: 0n, shares: 300 },
+    [B.addr]: { nonce: 0n, shares: 300 },
+    [C.addr]: { nonce: 0n, shares: 400 },
+  };
+  const quorum: Quorum = { threshold: 600, members };
+
+  const initState: EntityState = { quorum, chat: [] };
+  const frame: Frame<EntityState> =
+    { height: 0n, ts: Date.now(), txs: [], state: initState };
+
+  const addr: ReplicaAddr = { jurisdiction: 'xln', entityId: 'dao-chat' };
+
+  return {
+    address : addr,
+    proposer: A.addr,
+    awaiting: false,
+    mempool : [],
+    last    : frame
+  };
+}
+
+describe('XLN signer-record inside entity', () => {
+  it('commits a single chat message', async () => {
+    const srv = new Server();
+    const rep = genesis(srv);
+    const key = addrKey(rep.address);
+
+    // IMPORT the replica
+    srv.enqueue({ from: rep.proposer, to: rep.proposer,
+      cmd: { type: 'IMPORT', replica: rep }
+    });
+
+    // ADD_TX by B
+    const B = srv.signers[1];
+    const tx: Transaction = {
+      kind : 'chat', // FIX: 'TxKind.Chat' is not a value, 'chat' is the correct literal
+      nonce: 0n,
+      from : B.addr,
+      body : { message: 'hello XLN' },
+      sig  : '0x00' // signature verification is out of scope for this test
+    };
+    srv.enqueue({ from: B.addr, to: rep.proposer,
+      cmd: { type: 'ADD_TX', addrKey: key, tx }
+    });
+
+    // PROPOSE by proposer
+    srv.enqueue({ from: rep.proposer, to: rep.proposer,
+      cmd: { type: 'PROPOSE', addrKey: key }
+    });
+
+    // The server's tick() method processes the entire inbox, including
+    // messages that are enqueued during the current tick.
+    // Therefore, one call is sufficient to run the full cycle.
+    await srv.tick();
+
+    const final = srv.replicas.get(key)!;
+    expect(final.last.height).to.equal(1n);
+    expect(final.last.state.chat).to.have.length(1);
+    expect(final.last.state.chat[0].msg).to.equal('hello XLN');
+    
+    // Verify that all replicas have committed the frame and are no longer awaiting
+    srv.replicas.forEach(replica => {
+      expect(replica.last.height).to.equal(1n);
+      expect(replica.awaiting).to.be.false;
+      expect(replica.proposal).to.be.undefined;
+    });
+  });
+});
+
+```
+
+Run tests:
+
+```bash
+npx mocha -r ts-node/register src/simulation.spec.ts
+```
+
+
+
+## 5  `crypto.ts` – Schnorr over secp256k1 (noble‑secp256k1)
 
 ```ts
 import { schnorr, utils as u } from 'noble-secp256k1';
@@ -175,7 +477,7 @@ export function hash(o: unknown): Uint8Array {
 
 ---
 
-## 3  `codec.ts` – minimal RLP helpers (excerpt)
+## 6  `codec.ts` – minimal RLP helpers (excerpt)
 
 ```ts
 /**
@@ -271,228 +573,3 @@ export function decodeEnvelope(buf: Buffer): Envelope {
 ```
 
 *You can swap in CBOR or protobuf later.*
-
----
-
-## 4  `state.ts` – pure state machine
-
-```ts
-import { Replica, Command, EntityState, Frame, Transaction } from './types';
-import { addrKey } from './types';
-import { hash } from './crypto';
-
-/* ——— pure state‑machine ——— */
-export function applyTx(st: EntityState, tx: Transaction, ts: number): EntityState {
-  if (tx.kind !== 'chat') throw new Error('unk‑txkind');
-
-  const rec = st.records[tx.from] ?? { nonce: 0n, shares: 0 };
-  if (tx.nonce !== rec.nonce) throw new Error('bad‑nonce');
-
-  return {
-    ...st,
-    records: {
-      ...st.records,
-      [tx.from]: { ...rec, nonce: rec.nonce + 1n },
-    },
-    chat: [...st.chat, { from: tx.from, msg: tx.body.message, ts }],
-  };
-}
-
-export function execFrame(prev: Frame<EntityState>, txs: Transaction[], ts: number): Frame<EntityState> {
-  let st = prev.state;
-  for (const tx of txs) st = applyTx(st, tx, ts);
-  return { height: prev.height + 1n, ts, txs, state: st };
-}
-
-export function applyCommand(rep: Replica, cmd: Command): Replica {
-  switch (cmd.type) {
-    case 'ADD_TX':
-      return { ...rep, mempool: [...rep.mempool, cmd.tx] };
-
-    case 'PROPOSE':
-      if (rep.awaiting || rep.mempool.length === 0) return rep;
-      return {
-        ...rep,
-        awaiting: true,
-        mempool: [],
-        proposal: (() => {
-          const f  = execFrame(rep.last, rep.mempool, Date.now());
-          const s  = new Map<Address, Hex>([[rep.proposer, '0x00']]);
-          return { ...f, sigs: s };
-        })(),
-      };
-
-    case 'SIGN':
-      if (!rep.awaiting || !rep.proposal) return rep;
-      rep.proposal.sigs.set(cmd.signer, cmd.sig);
-      return { ...rep };
-
-    case 'COMMIT':
-      return { ...rep, awaiting: false, last: cmd.frame, proposal: undefined };
-
-    default:
-      return rep;
-  }
-}
-```
-
----
-
-## 5  `server.ts` – runtime & routing (single‑thread dev‑net)
-
-```ts
-import { Envelope, Replica, Command, addrKey } from './types';
-import { randomPriv, pub, addr, hash, sign } from './crypto';
-import { applyCommand } from './state';
-
-export class Server {
-  /* deterministic 3‑signer test wallet */
-  signers = Array.from({ length: 3 }, () => {
-    const priv = randomPriv();
-    return { priv, pub: pub(priv), addr: addr(pub(priv)) };
-  });
-
-  replicas = new Map<string, Replica>();   // key = addrKey(rep.address)
-  inbox: Envelope[] = [];
-
-  enqueue(e: Envelope) { this.inbox.push(e); }
-
-  async tick() {
-    while (this.inbox.length) {
-      const { cmd, to } = this.inbox.shift()!;
-
-      /* ——— IMPORT ——— */
-      if (cmd.type === 'IMPORT') {
-        this.replicas.set(addrKey(cmd.replica.address), cmd.replica);
-        continue;
-      }
-
-      const r = this.replicas.get(cmd.addrKey)!;
-
-      /* ——— SIGN_REQ ——— */
-      if (cmd.type === 'SIGN_REQ') {
-        if (!r.proposal) continue;
-        const signer = this.signers.find(s => s.addr === to)!;
-        const sig    = await sign(hash(r.proposal), signer.priv);
-        this.enqueue({
-          from: signer.addr, to: r.proposer,
-          cmd : { type:'SIGN',
-                  addrKey : cmd.addrKey,
-                  signer   : signer.addr,
-                  frameHash: cmd.frameHash,
-                  sig }});
-        continue;
-      }
-
-      /* ——— entity logic ——— */
-      const next = applyCommand(r, cmd);
-
-      /* → multicast SIGN_REQ after proposal */
-      if (cmd.type === 'PROPOSE' && next.proposal) {
-        const proposer = this.signers.find(s => s.addr === next.proposer)!;
-        for (const [addr, rec] of Object.entries(next.last.state.records)) {
-          if (addr === proposer.addr) continue;
-          this.enqueue({
-            from: proposer.addr, to: addr,
-            cmd : { type:'SIGN_REQ',
-                    addrKey : cmd.addrKey,
-                    frameHash: addr(hash(next.proposal) as any) }});
-        }
-      }
-
-      /* → threshold? then COMMIT */
-      if (next.proposal && next.awaiting) {
-        const power = [...next.proposal.sigs.keys()]
-          .reduce((sum, a) => sum + next.last.state.records[a].shares, 0);
-        if (power >= next.last.state.threshold) {
-          this.enqueue({
-            from: next.proposer, to: next.proposer,
-            cmd : { type:'COMMIT',
-                    addrKey : cmd.addrKey,
-                    frame   : { ...next.proposal } }});
-        }
-      }
-
-      this.replicas.set(cmd.addrKey, next);
-    }
-  }
-}
-
-
-/* TODO(persistence): snapshot every N frames - out of scope now              */
-```
-
----
-
-## 6  `simulation.spec.ts` – mocha + fast‑check demo
-
-```ts
-import { expect } from 'chai';
-import { Server } from './server';
-import { addrKey, ReplicaAddr, Frame, EntityState } from './types';
-
-function genesis(server: Server) {
-  const [a, b, c] = server.signers;
-
-  const recs = {
-    [a.addr]: { nonce: 0n, shares: 300 },
-    [b.addr]: { nonce: 0n, shares: 300 },
-    [c.addr]: { nonce: 0n, shares: 400 },
-  };
-  const init: EntityState = { threshold: 600, records: recs, chat: [] };
-
-  const frame: Frame<EntityState> = { height: 0n, ts: Date.now(), txs: [], state: init };
-  const addr: ReplicaAddr = { jurisdiction: 'xln', entityId: 'dao‑chat' };
-
-  return {
-    address : addr,
-    proposer: a.addr,
-    awaiting: false,
-    mempool : [],
-    last    : frame,
-  };
-}
-
-describe('XLN refactor happy‑path', () => {
-  it('commits a chat frame', async () => {
-    const srv = new Server();
-    const rep = genesis(srv);
-    const key = addrKey(rep.address);
-
-    /* IMPORT */
-    srv.enqueue({ from: rep.proposer, to: rep.proposer,
-      cmd: { type:'IMPORT', replica: rep }});
-
-    /* ADD_TX */
-    const bob = srv.signers[1];
-    srv.enqueue({ from: bob.addr, to: rep.proposer,
-      cmd: { type:'ADD_TX',
-             addrKey: key,
-             tx: { kind:'chat', nonce:0n, from:bob.addr,
-                   body:{ message:'hi' }, sig:'0x00' }}});
-
-    /* PROPOSE */
-    srv.enqueue({ from: rep.proposer, to: rep.proposer,
-      cmd: { type:'PROPOSE', addrKey: key }});
-
-    await srv.tick(); await srv.tick(); await srv.tick(); await srv.tick(); await srv.tick();
-
-    const final = srv.replicas.get(key)!;
-    expect(final.last.height).to.equal(1n);
-    expect(final.last.state.chat).to.have.length(1);
-  });
-});
-
-```
-
-Run tests:
-
-```bash
-npx mocha -r ts-node/register src/simulation.spec.ts
-```
-
----
-
-
-
-
