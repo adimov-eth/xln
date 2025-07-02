@@ -4,11 +4,12 @@ import type {
 } from '../types';
 import { keccak_256 as keccak } from '@noble/hashes/sha3';
 import { verifyAggregate } from '../crypto/bls';
+import { encFrame } from '../codec/rlp';
 
 /* ──────────── frame hashing ──────────── */
-/** Compute canonical hash of a frame’s content using keccak256. */
-export const hashFrame = (f: Frame<any>): Hex => ('0x' + Buffer.from(keccak(JSON.stringify(f, (_,v)=>typeof v==='bigint'?v.toString():v))).toString('hex')) as Hex;
-  // TODO: switch to keccak(encFrame(f)) for canonical hashing once codec is stable
+/** Compute canonical hash of a frame using keccak256(RLP(frame)). */
+export const hashFrame = (f: Frame<EntityState>): Hex =>
+  ('0x' + Buffer.from(keccak(encFrame(f))).toString('hex')) as Hex;
 
 /* ──────────── internal helpers ──────────── */
 const sortTx = (a: Transaction, b: Transaction) =>

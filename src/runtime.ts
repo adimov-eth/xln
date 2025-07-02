@@ -3,7 +3,8 @@ import type pino from 'pino'
 import { applyServerBlock } from './core/server'
 import { randomPriv, pub, addr } from './crypto/bls'
 import type { Input, Replica, Frame, EntityState, Quorum, ChatTx, ServerState, Address, Hex } from './types'
-import { makeLogger, ILogger } from './logging'
+import { makeLogger } from './logging'
+import type { ILogger } from './logging'
 
 const PRIVS = Array.from({ length: 5 }, () => randomPriv())
 const PUBS = PRIVS.map(pub)
@@ -42,7 +43,7 @@ export class Runtime {
   private pending: Input[] = []
   private now = 0
 
-  constructor(opts: { logLevel?: pino.Level } = {}) {
+  constructor(opts: { logLevel?: pino.LevelWithSilent } = {}) {
     this.log = makeLogger(opts.logLevel ?? (process.env.LOG_LEVEL as any) ?? 'info')
     this.server = createServer()
   }
@@ -69,8 +70,20 @@ export class Runtime {
   tick() {
     this.now += 100
     this.log.debug('tick start', { height: this.server.height })
-    const { state, outbox } = applyServerBlock(this.server, this.pending, this.now)
-    outbox.forEach(o => this.log.debug('apply cmd', o.cmd))
+    const { state, frame, outbox } = applyServerBlock(this.server, this.pending, this.now)
+    // log newly created proposals
+    state.replicas.forEach((rep, key) => {
+      const prev = this.server.replicas.get(key)
+      if (!prev?.proposal && rep.proposal) {
+        this.log.debug('propose', { height: rep.proposal.height, hash: rep.proposal.hash })
+      }
+    })
+    outbox.forEach(o => {
+      this.log.debug('apply cmd', o.cmd)
+      if (o.cmd.type === 'COMMIT') {
+        this.log.info('commit', { height: o.cmd.frame.height, hash: hashFrame(o.cmd.frame as any) })
+      }
+    })
     this.server = state
     this.pending = outbox
   }
