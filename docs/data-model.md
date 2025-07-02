@@ -9,10 +9,14 @@ XLN uses a carefully designed type system that balances simplicity with expressi
 The fundamental message format for all communication:
 
 ```typescript
-export type Input = [signerIdx: number, entityId: string, cmd: Command];
+export interface Input {
+  from: Address;
+  to:   Address;
+  cmd:  Command;
+}
 ```
 
-**Implementation**: [`src/types.ts#L15`](../src/types.ts#L15)
+**Implementation**: [`src/types.ts`](../src/types.ts)
 
 ### Commands
 
@@ -20,31 +24,36 @@ Commands drive state transitions at the consensus level:
 
 ```typescript
 export type Command =
-  | { type: 'importEntity'; snapshot: EntityState }
-  | { type: 'addTx';        tx: EntityTx }
-  | { type: 'proposeFrame' }
-  | { type: 'signFrame';    sig: string }
-  | { type: 'commitFrame';  frame: Frame; hanko: string };
+  | { type: 'IMPORT';  replica: Replica }
+  | { type: 'ADD_TX';  addrKey: string; tx: Transaction }
+  | { type: 'PROPOSE'; addrKey: string; ts: TS }
+  | { type: 'SIGN';    addrKey: string; signer: Address; frameHash: Hex; sig: Hex }
+  | { type: 'COMMIT';  addrKey: string; hanko: Hanko; frame: Frame<EntityState> };
 ```
 
-**Implementation**: [`src/types.ts#L20`](../src/types.ts#L20)
+**Implementation**: [`src/types.ts`](../src/types.ts)
 
-### Entity Transaction
+### Transaction
 
 Application-level operations within an entity:
 
 ```typescript
-export type EntityTx = {
-  kind: string;     // e.g. 'chat', 'transfer'
-  data: any;        // Operation-specific payload
-  nonce: bigint;    // Per-signer replay protection
-  sig: string;      // Ed25519 signature (mocked in MVP)
-};
+export type Transaction = ChatTx; // In MVP, only 'chat' transactions exist
+
+export type ChatTx = BaseTx<'chat'> & { body: { message: string } };
+
+export interface BaseTx<K extends TxKind = TxKind> {
+  kind:  K;
+  nonce: Nonce;
+  from:  Address;
+  body:  unknown;
+  sig:   Hex;
+}
 ```
 
 **Key Properties**:
 - `kind`: Determines processing logic
-- `nonce`: Prevents replay attacks
+- `nonce`: Per-signer replay protection
 - `sig`: Ensures authenticity
 
 ### Frame
@@ -52,32 +61,25 @@ export type EntityTx = {
 The entity-level block structure:
 
 ```typescript
-export type Frame = {
-  height: bigint;
-  timestamp: bigint;
-  txs: EntityTx[];
-  postState: EntityState;
+export interface Frame<T = unknown> {
+  height: UInt64;
+  ts:     TS;
+  txs:    Transaction[];
+  state:  T;
 };
 ```
 
-**Design Note**: Including `postState` in the frame enables instant verification without replay.
+**Design Note**: Including `state` in the frame enables instant verification without replay. The hash of the frame includes this state, ensuring deterministic validation.
 
 ### Entity State
 
 Complete state of an autonomous entity:
 
 ```typescript
-export type EntityState = {
-  height: bigint;
+export interface EntityState {
   quorum: Quorum;
-  signerRecords: Record<string, { nonce: bigint }>;
-  domainState: any;       // Application-specific (chat log, balances, etc.)
-  mempool: EntityTx[];
-  proposal?: { 
-    frame: Frame; 
-    sigs: Record<string, string> 
-  };
-};
+  chat:   { from: Address; msg: string; ts: TS }[];
+}
 ```
 
 ### Quorum Definition

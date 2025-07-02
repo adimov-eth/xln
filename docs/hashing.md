@@ -28,25 +28,21 @@ export function hash(data: Uint8Array): string {
 Frames are hashed deterministically:
 
 ```typescript
+export const encFrame = (f: Frame<EntityState>): Uint8Array =>
+  rlp.encode([
+    bnToBuf(f.height),
+    f.ts,
+    f.txs.map(encTx) as any,
+    encEntityState(f.state),
+  ]) as Uint8Array;
+
 export function hashFrame(frame: Frame): string {
-  // Canonical encoding order
-  const encoded = RLP.encode([
-    frame.height,
-    frame.timestamp,
-    frame.txs.map(tx => [
-      tx.kind,
-      tx.data,
-      tx.nonce,
-      tx.sig
-    ]),
-    // Note: postState excluded from hash
-  ]);
-  
-  return hash(encoded);
+  const encoded = encFrame(frame);
+  return '0x' + bytesToHex(keccak256(encoded));
 }
 ```
 
-**Design Choice**: `postState` is excluded from the hash to allow validators to verify execution independently.
+**Design Choice**: `state` is included in the hash. This enforces that all validators agree on the exact same state transition and resulting state, making validation a simple hash comparison rather than requiring re-execution.
 
 ## Merkle Tree Construction
 
