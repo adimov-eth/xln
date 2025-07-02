@@ -1,5 +1,7 @@
 # Persistence
 
+> **Note**: The persistence layer described here is a **roadmap item** and is **not yet implemented** in the `main` branch. The current implementation uses an in-memory `Map` for state management.
+
 XLN implements a sophisticated storage architecture optimized for crash recovery, deterministic replay, and audit-grade history.
 
 ## Storage Architecture

@@ -11,11 +11,11 @@ The consensus process follows five distinct phases:
 Any signer can inject a signed transaction into the target entity's mempool:
 
 ```typescript
-const input: Input = [
-  signerIdx,
-  entityId,
-  { type: 'addTx', tx: signedTx }
-];
+const input: Input = {
+  from: signerAddress,
+  to:   entityAddress,
+  cmd:  { type: 'ADD_TX', addrKey: 'jurisdiction:entityId', tx: signedTx }
+};
 ```
 
 **Validation**:
@@ -28,7 +28,11 @@ const input: Input = [
 The current proposer packages queued transactions into a frame:
 
 ```typescript
-{ type: 'proposeFrame' }
+const input: Input = {
+  from: proposerAddress,
+  to:   entityAddress,
+  cmd:  { type: 'PROPOSE', addrKey: 'jurisdiction:entityId', ts: Date.now() }
+};
 ```
 
 **Proposer Selection**:
@@ -40,9 +44,9 @@ The current proposer packages queued transactions into a frame:
 ```typescript
 const frame: Frame = {
   height: entity.height + 1n,
-  timestamp: BigInt(Date.now()),
-  txs: entity.mempool,
-  postState: applyTxs(entity.state, entity.mempool)
+  ts:     BigInt(Date.now()),
+  txs:    entity.mempool,
+  state:  applyTxs(entity.state, entity.mempool)
 };
 ```
 
@@ -51,7 +55,11 @@ const frame: Frame = {
 Other quorum members verify and sign the proposed frame:
 
 ```typescript
-{ type: 'signFrame', sig: signature }
+const input: Input = {
+  from: signerAddress,
+  to:   entityAddress,
+  cmd:  { type: 'SIGN', addrKey: 'jurisdiction:entityId', frameHash: hash, sig: signature }
+};
 ```
 
 **Verification Steps**:
@@ -67,11 +75,16 @@ Other quorum members verify and sign the proposed frame:
 When collected signatures meet the threshold, the proposer aggregates them:
 
 ```typescript
-{ 
-  type: 'commitFrame', 
-  frame: frame,
-  hanko: aggregateSignature  // 48-byte BLS aggregate
-}
+const input: Input = {
+  from: proposerAddress,
+  to:   entityAddress,
+  cmd:  { 
+    type: 'COMMIT', 
+    addrKey: 'jurisdiction:entityId',
+    frame: frame,
+    hanko: aggregateSignature
+  }
+};
 ```
 
 **Finality**: Once committed, the frame cannot be reversed.
@@ -80,7 +93,7 @@ When collected signatures meet the threshold, the proposer aggregates them:
 
 All replicas:
 1. Verify `hash(frame) ⟂ hanko`
-2. Adopt `postState`
+2. Adopt `state`
 3. Clear mempool
 4. Advance height
 
