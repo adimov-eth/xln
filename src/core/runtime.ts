@@ -1,6 +1,6 @@
+import { addr, aggregate, pub, randomPriv, sign } from '../crypto/bls';
+import type { EntityState, Frame, Hex, Input, Quorum, Replica } from '../types';
 import { applyServerBlock } from './server';
-import { sign, aggregate, randomPriv, pub, addr } from '../crypto/bls';
-import type { Input, Replica, Frame, EntityState, Quorum, Hex } from '../types';
 
 /* ──────────── Deterministic demo key generation (5 signers) ──────────── */
 const PRIVS = Array.from({ length: 5 }, () => randomPriv());
