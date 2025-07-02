@@ -17,7 +17,7 @@ const encodeLen = (len: number, offset: number) => {
 }
 
 export const encodeRlp = (v: unknown): Uint8Array => {
-  if (v === null) return new Uint8Array([0x80])
+  if (v === null || v === undefined) return new Uint8Array([0x80])
   if (typeof v === 'number' || typeof v === 'bigint') return encodeStr(toUint(v))
   if (typeof v === 'string') return encodeStr(new Uint8Array(Buffer.from(v.slice(2), 'hex')))
   if (v instanceof Uint8Array) return encodeStr(v)

@@ -4,9 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "format": "bun x prettier --write . --ignore-unknown",
-    "lint": "bun x eslint . --ext .ts -c .eslintrc.cjs",
-    "ci": "bun x prettier --check . --ignore-unknown && bun x eslint . --ext .ts -c .eslintrc.cjs && bun test"
+    "format": "node_modules/.bin/prettier --write . --ignore-unknown",
+    "lint": "node_modules/.bin/eslint . --ext .ts -c .eslintrc.cjs",
+    "ci": "node_modules/.bin/prettier --check . --ignore-unknown && node_modules/.bin/eslint . --ext .ts -c .eslintrc.cjs && bun test"
   },
   "dependencies": {
     "@noble/bls12-381": "^1.4.0",

@@ -8,7 +8,7 @@ const empty = (): EntityState => ({
   domainState: {},
   mempool: [],
 })
-test('replica attach stays in sync', () => {
+test('replica attach stays in sync', async () => {
   let state = new Map()
   const snap = empty()
   const attachA: Input = [0, 'e', { type: 'attachReplica', snapshot: snap }]
@@ -17,7 +17,7 @@ test('replica attach stays in sync', () => {
   const txB: Input = [1, 'e', { type: 'addTx', tx: { kind: 'chat', data: 1, nonce: 0n, sig: '' } }]
   for (let i = 0; i < 100; i++) {
     const batch = i === 0 ? [attachA, attachB] : [txA, txB]
-    state = applyServerFrame(state, batch, () => BigInt(i)).next
+    state = (await applyServerFrame(state, batch, () => BigInt(i))).next
   }
   const [a, b] = ['0:e', '1:e'].map((k) => state.get(k)!.state)
   const ser = (v: unknown) =>

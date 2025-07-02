@@ -1,8 +1,11 @@
-import { Input, ServerState, EntityState, Replica, Frame, Command, Address } from './types'
+import { Input, ServerState, EntityState, Replica, Frame, Command, Address, Quorum } from './types'
 import { computeServerRoot } from './hash'
 import { verifyAggregate } from './bls'
 
-const applyCommand = (rep: Replica, cmd: Command, now: () => bigint): Replica => {
+const weight = (sigs: Record<Address, string>, q: Quorum): bigint =>
+  q.members.reduce((acc, m) => acc + (sigs[m.address] ? m.shares : 0n), 0n)
+
+const applyCommand = async (rep: Replica, cmd: Command, now: () => bigint): Promise<Replica> => {
   if (!rep.attached && cmd.type !== 'attachReplica') return rep
   const s = rep.state
   switch (cmd.type) {
@@ -26,6 +29,7 @@ const applyCommand = (rep: Replica, cmd: Command, now: () => bigint): Replica =>
     }
     case 'signFrame': {
       const addr = cmd.sig.slice(0, 42) as Address
+      if (s.proposal?.sigs[addr]) return rep
       const nonce = (s.signerRecords[addr]?.nonce ?? 0n) + 1n
       const sigs = { ...(s.proposal?.sigs || {}), [addr]: cmd.sig }
       return {
@@ -38,8 +42,9 @@ const applyCommand = (rep: Replica, cmd: Command, now: () => bigint): Replica =>
       }
     }
     case 'commitFrame': {
-      if (!verifyAggregate(cmd.hanko, '0x', s.quorum)) return rep
-      if (Object.keys(s.proposal?.sigs || {}).length * 2 < s.quorum.members.length) return rep
+      if (!(await verifyAggregate(cmd.hanko, cmd.frame, s.proposal?.sigs || {}, s.quorum)))
+        return rep
+      if (weight(s.proposal?.sigs || {}, s.quorum) < s.quorum.threshold) return rep
       return {
         ...rep,
         state: {
@@ -53,21 +58,17 @@ const applyCommand = (rep: Replica, cmd: Command, now: () => bigint): Replica =>
   }
 }
 
-export const applyServerFrame = (
+export const applyServerFrame = async (
   st: ServerState,
   batch: Input[],
   now: () => bigint,
-): { next: ServerState; root: Uint8Array } => {
+): Promise<{ next: ServerState; root: Uint8Array }> => {
   const next = new Map(st)
   for (const [idx, id, cmd] of batch) {
     const key = `${idx}:${id}` as const
-    const rep =
-      next.get(key) ||
-      ({
-        attached: false,
-        state: cmd.type === 'attachReplica' ? cmd.snapshot : (undefined as unknown as EntityState),
-      } as Replica)
-    next.set(key, applyCommand(rep, cmd, now))
+    if (!next.has(key) && cmd.type !== 'attachReplica') continue
+    const rep = next.get(key) || ({ attached: false, state: cmd.snapshot } as Replica)
+    next.set(key, await applyCommand(rep, cmd, now))
   }
   return { next, root: computeServerRoot(next) }
 }
