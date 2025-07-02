@@ -1,15 +1,7 @@
-# v0
-
-To install dependencies:
-
+### Quick start  
 ```bash
-bun install
+bun install  
+bun run format  
+bun run lint  
+bun test  
 ```
-
-To run:
-
-```bash
-bun run src/index.ts
-```
-
-This project was created using `bun init` in bun v1.2.9. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
