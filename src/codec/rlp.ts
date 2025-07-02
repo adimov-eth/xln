@@ -47,7 +47,10 @@ export const decFrame = <S>(b: Uint8Array): Frame<S> => {
 };
 
 /* — Command encode/decode (wrapped in Input) — */
-const encCmd = (c: Command): rlp.Input => [c.type, JSON.stringify(c)];
+const encCmd = (c: Command): rlp.Input => [
+  c.type,
+  JSON.stringify(c, (_, v) => typeof v === 'bigint' ? v.toString() : v)
+];
 const decCmd = (arr: any[]): Command => JSON.parse(arr[1].toString());
 
 /* — Input (wire packet) encode/decode — */

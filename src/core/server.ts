@@ -12,7 +12,8 @@ import { encServerFrame } from '../codec/rlp';
 const computeRoot = (reps: Map<string, Replica>): Hex =>
   ('0x' + Buffer.from(
       keccak(JSON.stringify(
-        [...reps.values()].map(r => ({ addr: r.address, state: r.last.state }))
+        [...reps.values()].map(r => ({ addr: r.address, state: r.last.state })),
+        (_, v) => typeof v === 'bigint' ? v.toString() : v
       ))
     ).toString('hex')) as Hex;
 
