@@ -3,13 +3,14 @@ import type {
   ProposedFrame, Address, Hex, TS
 } from '../types';
 import { keccak_256 as keccak } from '@noble/hashes/sha3';
+import { bytesToHex } from '@noble/hashes/utils';
 import { verifyAggregate } from '../crypto/bls';
 import { encFrame } from '../codec/rlp';
 
 /* ──────────── frame hashing ──────────── */
 /** Compute canonical hash of a frame using keccak256(RLP(frame)). */
 export const hashFrame = (f: Frame<EntityState>): Hex =>
-  ('0x' + Buffer.from(keccak(encFrame(f))).toString('hex')) as Hex;
+  ('0x' + bytesToHex(keccak(encFrame(f)))) as Hex;
 
 /* ──────────── internal helpers ──────────── */
 const sortTx = (a: Transaction, b: Transaction) =>
