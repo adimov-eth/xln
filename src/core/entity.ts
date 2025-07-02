@@ -7,8 +7,7 @@ import { verifyAggregate } from '../crypto/bls';
 
 /* ──────────── frame hashing ──────────── */
 /** Compute canonical hash of a frame’s content using keccak256. */
-export const hashFrame = (f: Frame<any>): Hex =>
-  ('0x' + Buffer.from(keccak(JSON.stringify(f))).toString('hex')) as Hex; 
+export const hashFrame = (f: Frame<any>): Hex => ('0x' + Buffer.from(keccak(JSON.stringify(f, (_,v)=>typeof v==='bigint'?v.toString():v))).toString('hex')) as Hex;
   // TODO: switch to keccak(encFrame(f)) for canonical hashing once codec is stable
 
 /* ──────────── internal helpers ──────────── */
