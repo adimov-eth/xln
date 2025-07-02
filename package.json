@@ -4,9 +4,9 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "format": "bun x prettier --write .",
-    "lint": "bun x eslint . --ext .ts",
-    "ci": "bun x prettier --check . && bun x eslint . --ext .ts && bun test"
+    "format": "bun x prettier --write . --ignore-unknown",
+    "lint": "bun x eslint . --ext .ts -c .eslintrc.cjs",
+    "ci": "bun x prettier --check . --ignore-unknown && bun x eslint . --ext .ts -c .eslintrc.cjs && bun test"
   },
   "dependencies": {
     "@noble/bls12-381": "^1.4.0",
@@ -16,6 +16,7 @@
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.6.0",
     "@typescript-eslint/parser": "^7.6.0",
+    "eslint": "^8.57.0",
     "fast-check": "^4.1.1",
     "prettier": "^3.3.2",
     "typescript": "^5.4.5"
