@@ -9,26 +9,28 @@ XLN uses RLP encoding for all network communication and storage, ensuring consis
 The fundamental message format is a 3-tuple:
 
 ```typescript
-export type Input = [signerIdx: number, entityId: string, cmd: Command];
+export type Input = [signerIdx: number, entityId: string, cmd: Command]
 ```
 
 **RLP Encoding**:
+
 ```typescript
 const encoded = RLP.encode([
-  signerIdx,           // Encoded as integer
-  entityId,            // Encoded as UTF-8 string
-  [cmd.type, ...args]  // Command as array
-]);
+  signerIdx, // Encoded as integer
+  entityId, // Encoded as UTF-8 string
+  [cmd.type, ...args], // Command as array
+])
 ```
 
 **Example**:
+
 ```typescript
 // Input message
 const input: Input = [
   0,
   'myEntity',
-  { type: 'addTx', tx: { kind: 'transfer', data: { to: 'alice', amount: 100n } } }
-];
+  { type: 'addTx', tx: { kind: 'transfer', data: { to: 'alice', amount: 100n } } },
+]
 
 // Encoded (hex)
 // 0xd383886d79456e74697479ce8461646454789874...
@@ -40,13 +42,13 @@ Commands are encoded with type as first element:
 
 ```typescript
 // addTx command
-['addTx', [tx.kind, tx.data, tx.nonce, tx.sig]]
-
-// proposeFrame command
-['proposeFrame']
-
-// commitFrame command
-['commitFrame', encodedFrame, hanko]
+;['addTx', [tx.kind, tx.data, tx.nonce, tx.sig]][
+  // proposeFrame command
+  'proposeFrame'
+][
+  // commitFrame command
+  ('commitFrame', encodedFrame, hanko)
+]
 ```
 
 ## RPC Interface
@@ -57,21 +59,21 @@ XLN exposes a JSON-RPC interface for client interaction:
 
 ```typescript
 interface JsonRpcRequest {
-  jsonrpc: '2.0';
-  method: string;
-  params: any[];
-  id: string | number;
+  jsonrpc: '2.0'
+  method: string
+  params: any[]
+  id: string | number
 }
 
 interface JsonRpcResponse {
-  jsonrpc: '2.0';
-  result?: any;
+  jsonrpc: '2.0'
+  result?: any
   error?: {
-    code: number;
-    message: string;
-    data?: any;
-  };
-  id: string | number;
+    code: number
+    message: string
+    data?: any
+  }
+  id: string | number
 }
 ```
 
@@ -85,19 +87,21 @@ Submit a transaction to an entity:
 {
   "jsonrpc": "2.0",
   "method": "xln_submitTransaction",
-  "params": [{
-    "signerIdx": 0,
-    "entityId": "0x123...",
-    "tx": {
-      "kind": "transfer",
-      "data": {
-        "to": "0x456...",
-        "amount": "1000000000000000000"
-      },
-      "nonce": "1",
-      "sig": "0xabc..."
+  "params": [
+    {
+      "signerIdx": 0,
+      "entityId": "0x123...",
+      "tx": {
+        "kind": "transfer",
+        "data": {
+          "to": "0x456...",
+          "amount": "1000000000000000000"
+        },
+        "nonce": "1",
+        "sig": "0xabc..."
+      }
     }
-  }],
+  ],
   "id": 1
 }
 ```
@@ -116,17 +120,18 @@ Query current entity state:
 ```
 
 Response:
+
 ```json
 {
   "jsonrpc": "2.0",
   "result": {
     "height": "100",
-    "state": { /* domain-specific */ },
+    "state": {
+      /* domain-specific */
+    },
     "quorum": {
       "threshold": "67",
-      "members": [
-        { "address": "0x...", "shares": "33" }
-      ]
+      "members": [{ "address": "0x...", "shares": "33" }]
     }
   },
   "id": 2
@@ -163,17 +168,17 @@ Subscribe to entity updates (WebSocket only):
 
 Standard JSON-RPC errors plus XLN-specific:
 
-| Code | Message | Description |
-|------|---------|-------------|
-| -32700 | Parse error | Invalid JSON |
-| -32600 | Invalid request | Invalid method |
-| -32601 | Method not found | Unknown method |
-| -32602 | Invalid params | Invalid parameters |
-| -32603 | Internal error | Server error |
-| -40001 | Entity not found | Unknown entity ID |
-| -40002 | Invalid nonce | Nonce mismatch |
-| -40003 | Not authorized | Not in quorum |
-| -40004 | Mempool full | Try again later |
+| Code   | Message          | Description        |
+| ------ | ---------------- | ------------------ |
+| -32700 | Parse error      | Invalid JSON       |
+| -32600 | Invalid request  | Invalid method     |
+| -32601 | Method not found | Unknown method     |
+| -32602 | Invalid params   | Invalid parameters |
+| -32603 | Internal error   | Server error       |
+| -40001 | Entity not found | Unknown entity ID  |
+| -40002 | Invalid nonce    | Nonce mismatch     |
+| -40003 | Not authorized   | Not in quorum      |
+| -40004 | Mempool full     | Try again later    |
 
 ## Binary Protocol (Future)
 
@@ -196,7 +201,7 @@ enum MessageType {
   INPUT = 0x01,
   FRAME = 0x02,
   STATE = 0x03,
-  PROOF = 0x04
+  PROOF = 0x04,
 }
 ```
 
@@ -204,16 +209,16 @@ enum MessageType {
 
 ### Type Mappings
 
-| TypeScript | RLP | Notes |
-|------------|-----|-------|
-| `string` | UTF-8 bytes | No null terminator |
-| `number` | Variable-length integer | Big-endian |
-| `bigint` | Variable-length integer | No leading zeros |
-| `boolean` | 0x00 or 0x01 | Single byte |
-| `null` | Empty string | Zero length |
-| `undefined` | Error | Not encodable |
-| `Array` | List | Recursive encoding |
-| `Object` | List of values | Fixed field order |
+| TypeScript  | RLP                     | Notes              |
+| ----------- | ----------------------- | ------------------ |
+| `string`    | UTF-8 bytes             | No null terminator |
+| `number`    | Variable-length integer | Big-endian         |
+| `bigint`    | Variable-length integer | No leading zeros   |
+| `boolean`   | 0x00 or 0x01            | Single byte        |
+| `null`      | Empty string            | Zero length        |
+| `undefined` | Error                   | Not encodable      |
+| `Array`     | List                    | Recursive encoding |
+| `Object`    | List of values          | Fixed field order  |
 
 ### Address Encoding
 
@@ -221,10 +226,10 @@ Addresses use lowercase hex without checksums:
 
 ```typescript
 // Correct
-"0xabcdef1234567890abcdef1234567890abcdef12"
+'0xabcdef1234567890abcdef1234567890abcdef12'
 
 // Incorrect (checksummed)
-"0xAbCdEf1234567890aBcDeF1234567890AbCdEf12"
+'0xAbCdEf1234567890aBcDeF1234567890AbCdEf12'
 ```
 
 **Rationale**: Prevents object identity issues in JavaScript Maps.
@@ -233,12 +238,10 @@ Addresses use lowercase hex without checksums:
 
 ```typescript
 // Encoding
-const encoded = RLP.encode(123n); // Removes leading zeros
+const encoded = RLP.encode(123n) // Removes leading zeros
 
 // JSON serialization
-JSON.stringify({ value: 123n }, (k, v) => 
-  typeof v === 'bigint' ? v.toString() : v
-);
+JSON.stringify({ value: 123n }, (k, v) => (typeof v === 'bigint' ? v.toString() : v))
 ```
 
 ## Batching
@@ -301,17 +304,19 @@ Requests include signer proof for rate limiting:
 ### Connection
 
 ```javascript
-const ws = new WebSocket('wss://xln-node.com/ws');
+const ws = new WebSocket('wss://xln-node.com/ws')
 
 ws.on('open', () => {
   // Subscribe to updates
-  ws.send(JSON.stringify({
-    jsonrpc: '2.0',
-    method: 'xln_subscribe',
-    params: ['newFrames', { entityId: '0x...' }],
-    id: 1
-  }));
-});
+  ws.send(
+    JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'xln_subscribe',
+      params: ['newFrames', { entityId: '0x...' }],
+      id: 1,
+    }),
+  )
+})
 ```
 
 ### Subscription Management
@@ -348,9 +353,9 @@ ws.on('open', () => {
 ### TypeScript SDK
 
 ```typescript
-import { XlnClient } from '@xln/client';
+import { XlnClient } from '@xln/client'
 
-const client = new XlnClient('https://xln-node.com');
+const client = new XlnClient('https://xln-node.com')
 
 // Submit transaction
 const receipt = await client.submitTransaction({
@@ -360,12 +365,12 @@ const receipt = await client.submitTransaction({
     kind: 'transfer',
     data: { to: 'alice', amount: 100n },
     nonce: 1n,
-    sig: await wallet.sign(txHash)
-  }
-});
+    sig: await wallet.sign(txHash),
+  },
+})
 
 // Query state
-const state = await client.getEntityState('myEntity');
+const state = await client.getEntityState('myEntity')
 ```
 
 ## Implementation Notes

@@ -7,7 +7,7 @@ This walkthrough demonstrates XLN's consensus mechanism through a simple chat ap
 We'll create a multi-signer chat entity and send a "hello" message through the complete consensus cycle:
 
 1. **Setup**: Create entity with 3 signers
-2. **Submit**: Add chat message to mempool  
+2. **Submit**: Add chat message to mempool
 3. **Propose**: Create frame from mempool
 4. **Sign**: Collect validator signatures
 5. **Commit**: Finalize with aggregated signature
@@ -28,27 +28,27 @@ bun test
 ## Step 1: Initialize System
 
 ```typescript
-import { initServer, importEntity } from './src/core/server';
-import { createChatEntity } from './src/examples/chat';
+import { initServer, importEntity } from './src/core/server'
+import { createChatEntity } from './src/examples/chat'
 
 // Create server with 3 signers
-const server = initServer(3);
+const server = initServer(3)
 
 // Create chat entity with 2-of-3 multisig
 const chatEntity = createChatEntity({
   quorum: {
-    threshold: 67n,  // 67%
+    threshold: 67n, // 67%
     members: [
       { address: '0xalice...', shares: 33n },
       { address: '0xbob...', shares: 33n },
-      { address: '0xcarol...', shares: 34n }
-    ]
-  }
-});
+      { address: '0xcarol...', shares: 34n },
+    ],
+  },
+})
 
 // Import entity to all signers
 for (let i = 0; i < 3; i++) {
-  server = importEntity(server, i, 'chatRoom', chatEntity);
+  server = importEntity(server, i, 'chatRoom', chatEntity)
 }
 ```
 
@@ -61,22 +61,23 @@ const chatTx: EntityTx = {
   data: {
     author: 'Alice',
     message: 'hello',
-    timestamp: 1234567890n
+    timestamp: 1234567890n,
   },
   nonce: 1n,
-  sig: 'alice_sig_mock'
-};
+  sig: 'alice_sig_mock',
+}
 
 const input: Input = [
-  0,                    // Alice's signer index
-  'chatRoom',          // Entity ID
-  { type: 'addTx', tx: chatTx }
-];
+  0, // Alice's signer index
+  'chatRoom', // Entity ID
+  { type: 'addTx', tx: chatTx },
+]
 
-server = applyInput(server, input);
+server = applyInput(server, input)
 ```
 
 **State after submission**:
+
 ```
 Entity mempool: [chatTx]
 Entity height: 0
@@ -88,15 +89,16 @@ Server height: 1
 ```typescript
 // Bob (proposer) creates frame
 const proposeInput: Input = [
-  1,                    // Bob's signer index
+  1, // Bob's signer index
   'chatRoom',
-  { type: 'proposeFrame' }
-];
+  { type: 'proposeFrame' },
+]
 
-server = applyInput(server, proposeInput);
+server = applyInput(server, proposeInput)
 ```
 
 **Proposed frame**:
+
 ```typescript
 {
   height: 1n,
@@ -119,18 +121,19 @@ server = applyInput(server, proposeInput);
 ```typescript
 // Carol signs the frame
 const signInput: Input = [
-  2,                    // Carol's signer index
+  2, // Carol's signer index
   'chatRoom',
-  { 
-    type: 'signFrame', 
-    sig: 'carol_sig_on_frame_hash' 
-  }
-];
+  {
+    type: 'signFrame',
+    sig: 'carol_sig_on_frame_hash',
+  },
+]
 
-server = applyInput(server, signInput);
+server = applyInput(server, signInput)
 ```
 
 **Signature weight**:
+
 - Bob (proposer): 33%
 - Carol (validator): 34%
 - **Total**: 67% ✓ (meets threshold)
@@ -139,38 +142,35 @@ server = applyInput(server, signInput);
 
 ```typescript
 // Bob aggregates signatures and commits
-const hanko = aggregateSignatures([
-  'bob_sig_on_frame_hash',
-  'carol_sig_on_frame_hash'
-]); // = '0x48_byte_bls_aggregate...'
+const hanko = aggregateSignatures(['bob_sig_on_frame_hash', 'carol_sig_on_frame_hash']) // = '0x48_byte_bls_aggregate...'
 
 const commitInput: Input = [
-  1,                    // Bob's signer index
+  1, // Bob's signer index
   'chatRoom',
   {
     type: 'commitFrame',
     frame: proposedFrame,
-    hanko: hanko
-  }
-];
+    hanko: hanko,
+  },
+]
 
-server = applyInput(server, commitInput);
+server = applyInput(server, commitInput)
 ```
 
 ## Step 6: Verify Final State
 
 ```typescript
 // Check entity state
-const finalEntity = server.replicas.get('0:chatRoom:0xalice...');
+const finalEntity = server.replicas.get('0:chatRoom:0xalice...')
 console.log({
-  height: finalEntity.height,           // 1n
+  height: finalEntity.height, // 1n
   messages: finalEntity.state.messages, // ['hello']
-  status: finalEntity.status            // 'idle'
-});
+  status: finalEntity.status, // 'idle'
+})
 
 // Verify Merkle root
-const root = computeServerRoot(server);
-console.log(`Server root: ${root}`);
+const root = computeServerRoot(server)
+console.log(`Server root: ${root}`)
 // 0xf1e2d3c4b5a6978685746352413f2e1d0c9b8a7f
 ```
 
@@ -181,7 +181,7 @@ Tick 0: Server height=0
   └─ Process ADD_TX
      └─ Entity mempool=[chat_tx]
 
-Tick 1: Server height=1  
+Tick 1: Server height=1
   └─ Process PROPOSE_FRAME
      └─ Create frame hash=0x3f2a...
      └─ Entity status='proposed'
@@ -218,9 +218,9 @@ Final: Server root=0xf1e2...
 const personalChat = createChatEntity({
   quorum: {
     threshold: 100n,
-    members: [{ address: '0xalice...', shares: 100n }]
-  }
-});
+    members: [{ address: '0xalice...', shares: 100n }],
+  },
+})
 // Commits immediately, 1 tick latency
 ```
 
@@ -239,8 +239,8 @@ const personalChat = createChatEntity({
 // Malicious proposer creates invalid frame
 const badFrame = {
   ...validFrame,
-  postState: { messages: ['forged message'] }
-};
+  postState: { messages: ['forged message'] },
+}
 
 // Validators compute expected state
 // Mismatch detected
@@ -271,6 +271,7 @@ bun test walkthrough.test.ts
 ## Code Repository
 
 Full implementation available at:
+
 - Chat entity: `src/examples/chat.ts`
 - Walkthrough test: `tests/walkthrough.test.ts`
 - Core logic: `src/core/`

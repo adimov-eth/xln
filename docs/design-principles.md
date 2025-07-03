@@ -11,20 +11,22 @@ Every layer in XLN follows the same pure functional pattern:
 ```
 
 ### Benefits
+
 - **Deterministic**: Same inputs always produce same outputs
 - **Testable**: No hidden dependencies or side effects
 - **Composable**: Functions combine predictably
 - **Auditable**: State transitions can be replayed
 
 ### Implementation
+
 ```typescript
 // Pure reducer - no side effects
 export function applyCommand(
   entity: EntityState,
-  cmd: Command
+  cmd: Command,
 ): { state: EntityState; outbox: Input[] } {
   // Only compute new state, no I/O
-  return { state: newState, outbox: messages };
+  return { state: newState, outbox: messages }
 }
 ```
 
@@ -39,6 +41,7 @@ The same reducer signature repeats at every level:
 - **Channel**: Processes `ChannelOp[]` → `ChannelState` (future)
 
 ### Why Fractal?
+
 - Learn once, apply everywhere
 - Uniform testing strategies
 - Easy to reason about nested systems
@@ -54,9 +57,10 @@ Participants maintain full control over their data:
 - **Cryptographic Proofs**: Verify without trusting
 
 ### Architecture Impact
+
 ```typescript
 // Each signer maintains their own replicas
-type SignerState = Map<EntityId, EntityState>;
+type SignerState = Map<EntityId, EntityState>
 
 // No shared global state
 // No data availability committees
@@ -73,6 +77,7 @@ The dual snapshot + write-ahead log design guarantees:
 - **Proof Generation**: Create verifiable audit trails
 
 ### Storage Architecture
+
 ```
 state/    → Mutable snapshots (every N blocks)
 wal/      → Immutable command log
@@ -89,6 +94,7 @@ System capacity grows linearly with resources:
 - **No Global Bottlenecks**: Each component is sovereign
 
 ### Scaling Model
+
 ```
 Capacity = Entities × TPS_per_entity + Channels × TPS_per_channel
 ```
@@ -98,21 +104,25 @@ Capacity = Entities × TPS_per_entity + Channels × TPS_per_channel
 These principles combine to create:
 
 ### Simplicity
+
 - Minimal abstractions
 - Clear data flow
 - Obvious correctness
 
 ### Reliability
+
 - Automatic recovery
 - No split-brain scenarios
 - Consistent global state
 
 ### Performance
+
 - Memory-first operation
 - Batched I/O
 - Cache-friendly layouts
 
 ### Security
+
 - Isolated failure domains
 - Cryptographic verification
 - Byzantine fault tolerance
@@ -147,11 +157,11 @@ function proposeFrame(entity: EntityState): Frame {
     height: entity.height + 1n,
     txs: entity.mempool,
     // Local sovereignty (Principle 3)
-    postState: applyTxs(entity.state, entity.mempool)
-  };
-  
+    postState: applyTxs(entity.state, entity.mempool),
+  }
+
   // Audit-grade (Principle 4)
-  return hashFrame(frame);
+  return hashFrame(frame)
 }
 
 // Linear scaling (Principle 5)

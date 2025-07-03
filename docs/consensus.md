@@ -13,12 +13,13 @@ Any signer can inject a signed transaction into the target entity's mempool:
 ```typescript
 const input: Input = {
   from: signerAddress,
-  to:   entityAddress,
-  cmd:  { type: 'ADD_TX', addrKey: 'jurisdiction:entityId', tx: signedTx }
-};
+  to: entityAddress,
+  cmd: { type: 'ADD_TX', addrKey: 'jurisdiction:entityId', tx: signedTx },
+}
 ```
 
 **Validation**:
+
 - Signer must be in entity's quorum
 - Transaction signature must be valid
 - Nonce must be exactly `lastNonce + 1`
@@ -30,24 +31,26 @@ The current proposer packages queued transactions into a frame:
 ```typescript
 const input: Input = {
   from: proposerAddress,
-  to:   entityAddress,
-  cmd:  { type: 'PROPOSE', addrKey: 'jurisdiction:entityId', ts: Date.now() }
-};
+  to: entityAddress,
+  cmd: { type: 'PROPOSE', addrKey: 'jurisdiction:entityId', ts: Date.now() },
+}
 ```
 
 **Proposer Selection**:
+
 - Deterministic: `proposer = members[height % members.length]`
 - Rotates each block for fairness
 - No proposer election overhead
 
 **Frame Construction**:
+
 ```typescript
 const frame: Frame = {
   height: entity.height + 1n,
-  ts:     BigInt(Date.now()),
-  txs:    entity.mempool,
-  state:  applyTxs(entity.state, entity.mempool)
-};
+  ts: BigInt(Date.now()),
+  txs: entity.mempool,
+  state: applyTxs(entity.state, entity.mempool),
+}
 ```
 
 ### 3. SIGN - Validation
@@ -57,12 +60,13 @@ Other quorum members verify and sign the proposed frame:
 ```typescript
 const input: Input = {
   from: signerAddress,
-  to:   entityAddress,
-  cmd:  { type: 'SIGN', addrKey: 'jurisdiction:entityId', frameHash: hash, sig: signature }
-};
+  to: entityAddress,
+  cmd: { type: 'SIGN', addrKey: 'jurisdiction:entityId', frameHash: hash, sig: signature },
+}
 ```
 
 **Verification Steps**:
+
 1. Proposer is correct for height
 2. All transactions are valid
 3. State transition is deterministic
@@ -77,14 +81,14 @@ When collected signatures meet the threshold, the proposer aggregates them:
 ```typescript
 const input: Input = {
   from: proposerAddress,
-  to:   entityAddress,
-  cmd:  { 
-    type: 'COMMIT', 
+  to: entityAddress,
+  cmd: {
+    type: 'COMMIT',
     addrKey: 'jurisdiction:entityId',
     frame: frame,
-    hanko: aggregateSignature
-  }
-};
+    hanko: aggregateSignature,
+  },
+}
 ```
 
 **Finality**: Once committed, the frame cannot be reversed.
@@ -92,6 +96,7 @@ const input: Input = {
 ### 5. State Update
 
 All replicas:
+
 1. Verify `hash(frame) ⟂ hanko`
 2. Adopt `state`
 3. Clear mempool
@@ -106,9 +111,7 @@ If the proposer fails to propose within `TIMEOUT_PROPOSAL_MS`:
 ```typescript
 if (timeSinceLastBlock > TIMEOUT_PROPOSAL_MS) {
   // Any member can propose
-  const emergencyProposer = members[
-    (height + retryCount) % members.length
-  ];
+  const emergencyProposer = members[(height + retryCount) % members.length]
 }
 ```
 
@@ -120,7 +123,7 @@ Per-signer nonces prevent replay:
 
 ```typescript
 if (cmd.nonce <= signerRecords[addr].lastNonce) {
-  throw new Error('Duplicate or old vote');
+  throw new Error('Duplicate or old vote')
 }
 ```
 
@@ -133,6 +136,7 @@ When membership changes:
 3. New members start at nonce 0
 
 Example:
+
 ```typescript
 // Before: Alice, Bob, Carol
 // After: Alice, Bob, Dave
@@ -144,23 +148,20 @@ Example:
 Validators compute state without side effects:
 
 ```typescript
-function validateProposal(
-  entity: EntityState,
-  frame: Frame
-): boolean {
-  const simulated = applyTxs(entity.state, frame.txs);
-  return deepEqual(simulated, frame.postState);
+function validateProposal(entity: EntityState, frame: Frame): boolean {
+  const simulated = applyTxs(entity.state, frame.txs)
+  return deepEqual(simulated, frame.postState)
 }
 ```
 
 ## Consensus Parameters
 
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| `TIMEOUT_PROPOSAL_MS` | 30,000 | Proposer timeout |
-| `MIN_SIGNATURES` | 67% | BFT threshold |
-| `FRAME_SIZE_LIMIT` | 1 MB | Max frame size |
-| `MEMPOOL_SIZE` | 10,000 | Max pending txs |
+| Parameter             | Default | Description      |
+| --------------------- | ------- | ---------------- |
+| `TIMEOUT_PROPOSAL_MS` | 30,000  | Proposer timeout |
+| `MIN_SIGNATURES`      | 67%     | BFT threshold    |
+| `FRAME_SIZE_LIMIT`    | 1 MB    | Max frame size   |
+| `MEMPOOL_SIZE`        | 10,000  | Max pending txs  |
 
 ## Single vs Multi-Signer
 
@@ -184,8 +185,8 @@ Full BFT consensus:
 
 ```typescript
 const votingPower = signatures
-  .map(sig => getMemberShares(sig.address))
-  .reduce((a, b) => a + b, 0n);
+  .map((sig) => getMemberShares(sig.address))
+  .reduce((a, b) => a + b, 0n)
 
 if (votingPower >= quorum.threshold) {
   // Commit frame
@@ -210,12 +211,12 @@ Use cases: DAOs, exchanges, bridges
 
 ## Performance Characteristics
 
-| Metric | Single-Signer | Multi-Signer |
-|--------|---------------|--------------|
-| Latency | 100ms | 400ms |
-| Throughput | 10,000+ TPS | 1,000+ TPS |
-| Finality | Instant | 4 ticks |
-| Messages | 0 | O(n²) |
+| Metric     | Single-Signer | Multi-Signer |
+| ---------- | ------------- | ------------ |
+| Latency    | 100ms         | 400ms        |
+| Throughput | 10,000+ TPS   | 1,000+ TPS   |
+| Finality   | Instant       | 4 ticks      |
+| Messages   | 0             | O(n²)        |
 
 ## Implementation
 
@@ -224,15 +225,15 @@ Core consensus logic in [`src/core/entity.ts`](../src/core/entity.ts):
 ```typescript
 export function applyCommand(
   entity: EntityState,
-  cmd: Command
+  cmd: Command,
 ): { state: EntityState; outbox: Input[] } {
   switch (cmd.type) {
     case 'proposeFrame':
-      return proposeFrame(entity);
+      return proposeFrame(entity)
     case 'signFrame':
-      return signFrame(entity, cmd.sig);
+      return signFrame(entity, cmd.sig)
     case 'commitFrame':
-      return commitFrame(entity, cmd.frame, cmd.hanko);
+      return commitFrame(entity, cmd.frame, cmd.hanko)
     // ...
   }
 }

@@ -9,14 +9,16 @@ XLN (Cross-Ledger Network) is a programmable trust network that reimagines block
 ## Architecture
 
 ### Hierarchical State Machines
+
 ```
 Server (Pure Router)
-  └── Signer (Key Management) 
+  └── Signer (Key Management)
       └── Entity (Business Logic)
           └── Account/Channel (Bilateral State)
 ```
 
 ### Key Design Principles
+
 - **Pure Functional**: No classes, only pure functions and interfaces
 - **Machine Isolation**: Each machine has inbox/outbox, no shared state
 - **Deterministic Execution**: Same inputs always produce same outputs
@@ -41,6 +43,7 @@ Server (Pure Router)
    - Write-ahead log for crash recovery
 
 ### Transaction Flow
+
 1. `Input` → routes to entity via server
 2. `Command` → processed by entity machine
 3. `Frame` → consensus on transaction batch
@@ -52,22 +55,26 @@ Server (Pure Router)
 XLN uses a strict core ⇄ effects layering architecture where all protocol rules are isolated in pure modules, and all I/O operations are handled by outer effects layers.
 
 ### Pure Core
+
 - `src/protocols.ts` - Registry of all entity types
 - `src/core/server.ts` - Server state machine (reducers)
 - `src/core/entity.ts` - Entity state machine (proposer/validator)
 - `src/types.ts` - Core type definitions
 
 ### Shared Utilities (Pure)
+
 - `src/crypto.ts` - BLS signatures, hashing
 - `src/codec/*.ts` - RLP encoding/decoding
 - `src/fp.ts` - Functional programming utilities
 - `src/validation/*.ts` - Input validation
 
 ### Effects Layer
+
 - `src/effects/*.ts` - Persistence modules
 - `src/runtime.ts` - Server runtime with I/O
 
 ### Entry Points
+
 - `src/index.ts` - Library exports
 - `src/bin/xln.ts` - Executable entry
 
@@ -103,12 +110,14 @@ npm run lint
 ## Development Guidelines
 
 ### Code Style
+
 - Use pure functions exclusively
 - RLP encoding for all data structures
 - TypeScript with strict typing
 - 100ms processing cycles for machines
 
 ### Testing Approach
+
 - Vitest for unit tests
 - Property-based testing with fast-check
 - Test files in `/tests/` directory
@@ -116,12 +125,14 @@ npm run lint
 - Focus on deterministic execution property
 
 ### Important Concepts
+
 - **Credit Lines**: Replace liquidity pools, start at zero capacity
 - **No Global Consensus**: Only entity-level and channel-level consensus
 - **Outbox Pattern**: Fire-and-forget message delivery between entities
 - **Simplified Tendermint**: No prevote stage, just propose → vote → execute
 
 ## Documentation Structure
+
 - `/docs/spec.md` - XLN v1.3 Unified Technical Specification
 - `/docs/index.md` - Documentation hub with navigation
 - `/docs/architecture.md` - Layered architecture overview

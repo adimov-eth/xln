@@ -9,15 +9,16 @@ XLN uses cryptographic hashing extensively for integrity verification, content a
 All primary hashing uses Keccak-256 (Ethereum's SHA3 variant):
 
 ```typescript
-import { keccak256 } from '@noble/hashes/sha3';
-import { bytesToHex } from '@noble/hashes/utils';
+import { keccak256 } from '@noble/hashes/sha3'
+import { bytesToHex } from '@noble/hashes/utils'
 
 export function hash(data: Uint8Array): string {
-  return '0x' + bytesToHex(keccak256(data));
+  return '0x' + bytesToHex(keccak256(data))
 }
 ```
 
 **Properties**:
+
 - 32-byte output
 - Collision resistant
 - Ethereum compatible
@@ -34,11 +35,11 @@ export const encFrame = (f: Frame<EntityState>): Uint8Array =>
     f.ts,
     f.txs.map(encTx) as any,
     encEntityState(f.state),
-  ]) as Uint8Array;
+  ]) as Uint8Array
 
 export function hashFrame(frame: Frame): string {
-  const encoded = encFrame(frame);
-  return '0x' + bytesToHex(keccak256(encoded));
+  const encoded = encFrame(frame)
+  return '0x' + bytesToHex(keccak256(encoded))
 }
 ```
 
@@ -53,18 +54,18 @@ The global Merkle root captures all entity states:
 ```typescript
 export function computeServerRoot(state: ServerState): string {
   // Collect leaf nodes
-  const leaves: Array<[string, string]> = [];
-  
+  const leaves: Array<[string, string]> = []
+
   for (const [addr, replica] of state.replicas) {
-    const leaf = hash(RLP.encode([addr, replica.height]));
-    leaves.push([addr, leaf]);
+    const leaf = hash(RLP.encode([addr, replica.height]))
+    leaves.push([addr, leaf])
   }
-  
+
   // Sort for determinism
-  leaves.sort((a, b) => a[0].localeCompare(b[0]));
-  
+  leaves.sort((a, b) => a[0].localeCompare(b[0]))
+
   // Build tree
-  return buildMerkleRoot(leaves.map(l => l[1]));
+  return buildMerkleRoot(leaves.map((l) => l[1]))
 }
 ```
 
@@ -72,26 +73,26 @@ export function computeServerRoot(state: ServerState): string {
 
 ```typescript
 function buildMerkleRoot(leaves: string[]): string {
-  if (leaves.length === 0) return EMPTY_ROOT;
-  if (leaves.length === 1) return leaves[0];
-  
+  if (leaves.length === 0) return EMPTY_ROOT
+  if (leaves.length === 1) return leaves[0]
+
   // Pad to power of 2
   while (!isPowerOfTwo(leaves.length)) {
-    leaves.push(EMPTY_LEAF);
+    leaves.push(EMPTY_LEAF)
   }
-  
+
   // Build layers
-  let layer = leaves;
+  let layer = leaves
   while (layer.length > 1) {
-    const nextLayer = [];
+    const nextLayer = []
     for (let i = 0; i < layer.length; i += 2) {
-      const combined = concat(layer[i], layer[i + 1]);
-      nextLayer.push(hash(combined));
+      const combined = concat(layer[i], layer[i + 1])
+      nextLayer.push(hash(combined))
     }
-    layer = nextLayer;
+    layer = nextLayer
   }
-  
-  return layer[0];
+
+  return layer[0]
 }
 ```
 
@@ -103,57 +104,51 @@ Prove an entity exists in the global state:
 
 ```typescript
 export type MerkleProof = {
-  leaf: string;
+  leaf: string
   path: Array<{
-    hash: string;
-    isLeft: boolean;
-  }>;
-};
+    hash: string
+    isLeft: boolean
+  }>
+}
 
-export function verifyProof(
-  proof: MerkleProof,
-  root: string
-): boolean {
-  let current = proof.leaf;
-  
+export function verifyProof(proof: MerkleProof, root: string): boolean {
+  let current = proof.leaf
+
   for (const node of proof.path) {
     if (node.isLeft) {
-      current = hash(concat(node.hash, current));
+      current = hash(concat(node.hash, current))
     } else {
-      current = hash(concat(current, node.hash));
+      current = hash(concat(current, node.hash))
     }
   }
-  
-  return current === root;
+
+  return current === root
 }
 ```
 
 ### Proof Generation
 
 ```typescript
-export function generateProof(
-  addr: string,
-  state: ServerState
-): MerkleProof {
-  const leaves = sortedLeaves(state);
-  const index = leaves.findIndex(l => l.addr === addr);
-  
-  const path = [];
-  let currentIndex = index;
-  let levelSize = leaves.length;
-  
+export function generateProof(addr: string, state: ServerState): MerkleProof {
+  const leaves = sortedLeaves(state)
+  const index = leaves.findIndex((l) => l.addr === addr)
+
+  const path = []
+  let currentIndex = index
+  let levelSize = leaves.length
+
   while (levelSize > 1) {
-    const siblingIndex = currentIndex ^ 1; // XOR flips last bit
+    const siblingIndex = currentIndex ^ 1 // XOR flips last bit
     path.push({
       hash: leaves[siblingIndex].hash,
-      isLeft: siblingIndex < currentIndex
-    });
-    
-    currentIndex = Math.floor(currentIndex / 2);
-    levelSize = Math.ceil(levelSize / 2);
+      isLeft: siblingIndex < currentIndex,
+    })
+
+    currentIndex = Math.floor(currentIndex / 2)
+    levelSize = Math.ceil(levelSize / 2)
   }
-  
-  return { leaf: leaves[index].hash, path };
+
+  return { leaf: leaves[index].hash, path }
 }
 ```
 
@@ -165,13 +160,13 @@ Frames stored by hash enable:
 
 ```typescript
 // Store
-const frameHash = hashFrame(frame);
-await storage.put(`cas:${frameHash}`, frame);
+const frameHash = hashFrame(frame)
+await storage.put(`cas:${frameHash}`, frame)
 
 // Retrieve with integrity check
-const stored = await storage.get(`cas:${frameHash}`);
+const stored = await storage.get(`cas:${frameHash}`)
 if (hashFrame(stored) !== frameHash) {
-  throw new Error('Frame corrupted');
+  throw new Error('Frame corrupted')
 }
 ```
 
@@ -181,8 +176,8 @@ Identical frames share storage:
 
 ```typescript
 // Both entities store same frame
-await storeFrame(entityA, frame); // Writes to disk
-await storeFrame(entityB, frame); // Already exists, no-op
+await storeFrame(entityA, frame) // Writes to disk
+await storeFrame(entityB, frame) // Already exists, no-op
 ```
 
 ## Special Hashes
@@ -190,31 +185,34 @@ await storeFrame(entityB, frame); // Already exists, no-op
 ### Empty Values
 
 ```typescript
-export const EMPTY_ROOT = '0x' + '00'.repeat(32);
-export const EMPTY_LEAF = keccak256(new Uint8Array(0));
+export const EMPTY_ROOT = '0x' + '00'.repeat(32)
+export const EMPTY_LEAF = keccak256(new Uint8Array(0))
 ```
 
 ### Genesis Block
 
 ```typescript
-export const GENESIS_HASH = hash(RLP.encode({
-  height: 0n,
-  timestamp: 0n,
-  txs: []
-}));
+export const GENESIS_HASH = hash(
+  RLP.encode({
+    height: 0n,
+    timestamp: 0n,
+    txs: [],
+  }),
+)
 ```
 
 ## Hash Lists vs Trees
 
 Different structures for different uses:
 
-| Structure | Use Case | Proof Size | Update Cost |
-|-----------|----------|------------|-------------|
-| Hash List | Transaction ordering | O(n) | O(1) |
-| Merkle Tree | State proofs | O(log n) | O(log n) |
-| Patricia Trie | Key-value proofs | O(k) | O(k) |
+| Structure     | Use Case             | Proof Size | Update Cost |
+| ------------- | -------------------- | ---------- | ----------- |
+| Hash List     | Transaction ordering | O(n)       | O(1)        |
+| Merkle Tree   | State proofs         | O(log n)   | O(log n)    |
+| Patricia Trie | Key-value proofs     | O(k)       | O(k)        |
 
 XLN uses:
+
 - **Hash Lists**: For transaction ordering within frames
 - **Merkle Trees**: For global state roots
 - **Direct Hashing**: For frame integrity
@@ -224,6 +222,7 @@ XLN uses:
 ### Collision Resistance
 
 Keccak-256 provides 128-bit collision resistance:
+
 - Birthday attacks require 2^128 operations
 - Current Bitcoin hashrate: 2^67 hashes/second
 - Time to collision: 2^61 seconds ≈ 73 billion years
@@ -241,40 +240,41 @@ Keccak uses sponge construction, immune to length extension attacks.
 ### Optimization Techniques
 
 1. **Incremental Hashing**
+
 ```typescript
 class IncrementalHasher {
-  private hasher = keccak256.create();
-  
+  private hasher = keccak256.create()
+
   update(data: Uint8Array) {
-    this.hasher.update(data);
+    this.hasher.update(data)
   }
-  
+
   digest(): string {
-    return '0x' + bytesToHex(this.hasher.digest());
+    return '0x' + bytesToHex(this.hasher.digest())
   }
 }
 ```
 
 2. **Cached Hashes**
+
 ```typescript
-const frameHashCache = new WeakMap<Frame, string>();
+const frameHashCache = new WeakMap<Frame, string>()
 
 export function hashFrameCached(frame: Frame): string {
   if (frameHashCache.has(frame)) {
-    return frameHashCache.get(frame)!;
+    return frameHashCache.get(frame)!
   }
-  const hash = hashFrame(frame);
-  frameHashCache.set(frame, hash);
-  return hash;
+  const hash = hashFrame(frame)
+  frameHashCache.set(frame, hash)
+  return hash
 }
 ```
 
 3. **Parallel Hashing**
+
 ```typescript
 async function hashFramesParallel(frames: Frame[]): Promise<string[]> {
-  return Promise.all(frames.map(f => 
-    crypto.subtle.digest('SHA-256', encodeFrame(f))
-  ));
+  return Promise.all(frames.map((f) => crypto.subtle.digest('SHA-256', encodeFrame(f))))
 }
 ```
 

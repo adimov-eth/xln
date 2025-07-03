@@ -25,7 +25,7 @@ graph TD
     E1 --> CH2[Channel 2]
     E2 --> CH1
     E3 --> CH2
-    
+
     style JL fill:#f9f,stroke:#333,stroke-width:2px
     style S fill:#bbf,stroke:#333,stroke-width:2px
     style E1 fill:#bfb,stroke:#333,stroke-width:2px
@@ -37,13 +37,13 @@ graph TD
 
 ### Layer Responsibilities
 
-| Layer | Pure? | Responsibility | Key Implementation |
-|-------|-------|---------------|-------------------|
-| **Jurisdiction (JL)** | ✗ | On-chain root of trust, collateral & disputes | `Depositary.sol` |
-| **Server** | ✓ | Routes messages, maintains global state | [`applyServerBlock`](../src/core/server.ts#L42) |
-| **Signer** | ✓ | Holds entity replicas | `Replica = Map<entityId, EntityState>` |
-| **Entity** | ✓ | BFT state machine, consensus | [`applyCommand`](../src/core/entity.ts#L125) |
-| **Channel** | ✓ | Two-party state channels (future) | `AccountProof` |
+| Layer                 | Pure? | Responsibility                                | Key Implementation                              |
+| --------------------- | ----- | --------------------------------------------- | ----------------------------------------------- |
+| **Jurisdiction (JL)** | ✗     | On-chain root of trust, collateral & disputes | `Depositary.sol`                                |
+| **Server**            | ✓     | Routes messages, maintains global state       | [`applyServerBlock`](../src/core/server.ts#L42) |
+| **Signer**            | ✓     | Holds entity replicas                         | `Replica = Map<entityId, EntityState>`          |
+| **Entity**            | ✓     | BFT state machine, consensus                  | [`applyCommand`](../src/core/entity.ts#L125)    |
+| **Channel**           | ✓     | Two-party state channels (future)             | `AccountProof`                                  |
 
 ## Core Processing Loop
 
@@ -61,24 +61,24 @@ The server processes inputs every 100ms in a deterministic cycle:
 // From src/core/server.ts
 export function applyServerBlock(
   state: ServerState,
-  inputs: Input[]
+  inputs: Input[],
 ): { state: ServerState; outbox: Input[] } {
-  const outbox: Input[] = [];
-  
+  const outbox: Input[] = []
+
   for (const input of inputs) {
-    const [signerIdx, entityId, cmd] = input;
-    const replica = state.replicas.get(addressFromIndex(signerIdx, entityId));
-    
+    const [signerIdx, entityId, cmd] = input
+    const replica = state.replicas.get(addressFromIndex(signerIdx, entityId))
+
     if (replica) {
-      const result = applyCommand(replica, cmd, outbox);
-      state.replicas.set(addressFromIndex(signerIdx, entityId), result.state);
+      const result = applyCommand(replica, cmd, outbox)
+      state.replicas.set(addressFromIndex(signerIdx, entityId), result.state)
     }
   }
-  
+
   return {
     state: { ...state, height: state.height + 1n },
-    outbox
-  };
+    outbox,
+  }
 }
 ```
 
@@ -97,15 +97,15 @@ Every layer exposes the same reducer interface, enabling:
 export function applyCommand(
   entity: EntityState,
   cmd: Command,
-  outbox: Input[]
+  outbox: Input[],
 ): { state: EntityState; outbox: Input[] } {
   switch (cmd.type) {
     case 'addTx':
-      return addTransaction(entity, cmd.tx);
+      return addTransaction(entity, cmd.tx)
     case 'proposeFrame':
-      return proposeFrame(entity, outbox);
+      return proposeFrame(entity, outbox)
     case 'commitFrame':
-      return commitFrame(entity, cmd.frame, cmd.hanko);
+      return commitFrame(entity, cmd.frame, cmd.hanko)
     // ... other commands
   }
 }
@@ -114,6 +114,7 @@ export function applyCommand(
 ## State Management
 
 Each entity maintains:
+
 - **Consensus State**: Height, quorum, proposal status
 - **Domain State**: Application-specific data (chat logs, balances)
 - **Mempool**: Pending transactions
@@ -131,6 +132,7 @@ Each entity maintains:
 ## Scalability
 
 The architecture scales linearly because:
+
 - Each entity processes independently
 - No global consensus bottleneck
 - Channels (future) enable bilateral scaling
