@@ -4,24 +4,26 @@ XLN provides configuration options to tune system behavior for different deploym
 
 ## Configuration Knobs
 
-| Key | Default | Description | Valid Range |
-|-----|---------|-------------|-------------|
-| `FRAME_INTERVAL_MS` | 100 | Server tick cadence | 50-1000 |
-| `SNAPSHOT_EVERY_N_FRAMES` | 100 | Snapshot frequency | 10-10000 |
-| `TIMEOUT_PROPOSAL_MS` | 30,000 | Liveness guard | 5000-300000 |
-| `OUTBOX_DEPTH_LIMIT` | ∞ | Recursion guard | 1-1000 |
+| Key                       | Default | Description         | Valid Range |
+| ------------------------- | ------- | ------------------- | ----------- |
+| `FRAME_INTERVAL_MS`       | 100     | Server tick cadence | 50-1000     |
+| `SNAPSHOT_EVERY_N_FRAMES` | 100     | Snapshot frequency  | 10-10000    |
+| `TIMEOUT_PROPOSAL_MS`     | 30,000  | Liveness guard      | 5000-300000 |
+| `OUTBOX_DEPTH_LIMIT`      | ∞       | Recursion guard     | 1-1000      |
 
 ## Configuration Sources
 
 Configuration can be provided through (in order of precedence):
 
 1. **Environment Variables**
+
 ```bash
 export XLN_FRAME_INTERVAL_MS=50
 export XLN_SNAPSHOT_EVERY_N_FRAMES=1000
 ```
 
 2. **Configuration File** (`xln.config.json`)
+
 ```json
 {
   "server": {
@@ -36,22 +38,24 @@ export XLN_SNAPSHOT_EVERY_N_FRAMES=1000
 ```
 
 3. **Command Line Arguments**
+
 ```bash
 xln server --frame-interval-ms=50 --snapshot-every-n-frames=1000
 ```
 
 4. **Default Values** (from `src/config.ts`)
+
 ```typescript
 export const DEFAULT_CONFIG = {
   server: {
     frameIntervalMs: 100,
-    snapshotEveryNFrames: 100
+    snapshotEveryNFrames: 100,
   },
   entity: {
     timeoutProposalMs: 30000,
-    mempoolLimit: 10000
-  }
-};
+    mempoolLimit: 10000,
+  },
+}
 ```
 
 ## Server Configuration
@@ -61,19 +65,19 @@ export const DEFAULT_CONFIG = {
 ```typescript
 export interface ServerConfig {
   // Core timing
-  frameIntervalMs: number;      // How often to process blocks
-  
+  frameIntervalMs: number // How often to process blocks
+
   // Persistence
-  snapshotEveryNFrames: number; // Snapshot frequency
-  walBatchSize: number;         // WAL write batching
-  
+  snapshotEveryNFrames: number // Snapshot frequency
+  walBatchSize: number // WAL write batching
+
   // Resources
-  maxMempool: number;           // Global mempool limit
-  maxReplicas: number;          // Max entities per server
-  
+  maxMempool: number // Global mempool limit
+  maxReplicas: number // Max entities per server
+
   // Networking (future)
-  listenPort: number;           // RPC server port
-  maxConnections: number;       // Connection limit
+  listenPort: number // RPC server port
+  maxConnections: number // Connection limit
 }
 ```
 
@@ -112,16 +116,16 @@ export interface ServerConfig {
 ```typescript
 export interface EntityConfig {
   // Consensus timing
-  timeoutProposalMs: number;    // Proposer timeout
-  maxFrameSize: number;         // Max bytes per frame
-  
+  timeoutProposalMs: number // Proposer timeout
+  maxFrameSize: number // Max bytes per frame
+
   // Mempool
-  mempoolLimit: number;         // Max pending txs
-  mempoolTTL: number;          // TX expiration time
-  
+  mempoolLimit: number // Max pending txs
+  mempoolTTL: number // TX expiration time
+
   // State management
-  stateHistoryLimit: number;    // Keep N historical states
-  pruneAfterDays: number;      // Prune old data
+  stateHistoryLimit: number // Keep N historical states
+  pruneAfterDays: number // Prune old data
 }
 ```
 
@@ -145,16 +149,16 @@ export interface EntityConfig {
 ```typescript
 export interface StorageConfig {
   // LevelDB options
-  cacheSize: number;            // LRU cache in bytes
-  writeBufferSize: number;      // Write buffer size
-  maxOpenFiles: number;         // File descriptor limit
-  compression: boolean;         // Enable compression
-  
+  cacheSize: number // LRU cache in bytes
+  writeBufferSize: number // Write buffer size
+  maxOpenFiles: number // File descriptor limit
+  compression: boolean // Enable compression
+
   // Paths
-  dataDir: string;              // Base data directory
-  walDir: string;              // WAL directory
-  stateDir: string;            // Snapshot directory
-  casDir: string;              // CAS directory
+  dataDir: string // Base data directory
+  walDir: string // WAL directory
+  stateDir: string // Snapshot directory
+  casDir: string // CAS directory
 }
 ```
 
@@ -179,16 +183,16 @@ export interface StorageConfig {
 ```typescript
 export interface SecurityConfig {
   // Authentication
-  requireAuth: boolean;         // Enable authentication
-  authMethod: 'jwt' | 'mtls';  // Auth mechanism
-  
+  requireAuth: boolean // Enable authentication
+  authMethod: 'jwt' | 'mtls' // Auth mechanism
+
   // Rate limiting
-  rateLimitEnabled: boolean;    // Enable rate limiting
-  rateLimitPerSigner: number;   // Requests per second
-  
+  rateLimitEnabled: boolean // Enable rate limiting
+  rateLimitPerSigner: number // Requests per second
+
   // Monitoring
-  auditLogging: boolean;        // Log all operations
-  metricsEnabled: boolean;      // Expose metrics
+  auditLogging: boolean // Log all operations
+  metricsEnabled: boolean // Expose metrics
 }
 ```
 
@@ -216,17 +220,17 @@ xln admin set-config server.maxMempool=50000
 export function validateConfig(config: Config): void {
   // Frame interval bounds
   if (config.server.frameIntervalMs < 10) {
-    throw new Error('Frame interval too low, minimum 10ms');
+    throw new Error('Frame interval too low, minimum 10ms')
   }
-  
+
   // Snapshot frequency
   if (config.server.snapshotEveryNFrames < 1) {
-    throw new Error('Must snapshot at least every frame');
+    throw new Error('Must snapshot at least every frame')
   }
-  
+
   // Mempool limits
   if (config.entity.mempoolLimit > config.server.maxMempool) {
-    throw new Error('Entity mempool cannot exceed server mempool');
+    throw new Error('Entity mempool cannot exceed server mempool')
   }
 }
 ```
@@ -300,11 +304,11 @@ export function validateConfig(config: Config): void {
 
 ### Common Issues
 
-| Symptom | Likely Cause | Solution |
-|---------|--------------|----------|
-| High latency | Frame interval too high | Reduce `frameIntervalMs` |
-| Memory growth | Snapshots too infrequent | Reduce `snapshotEveryNFrames` |
-| Disk I/O spikes | WAL not batched | Increase `walBatchSize` |
-| Proposal timeouts | Timeout too low | Increase `timeoutProposalMs` |
+| Symptom           | Likely Cause             | Solution                      |
+| ----------------- | ------------------------ | ----------------------------- |
+| High latency      | Frame interval too high  | Reduce `frameIntervalMs`      |
+| Memory growth     | Snapshots too infrequent | Reduce `snapshotEveryNFrames` |
+| Disk I/O spikes   | WAL not batched          | Increase `walBatchSize`       |
+| Proposal timeouts | Timeout too low          | Increase `timeoutProposalMs`  |
 
 For performance impact of settings, see [Performance](./performance.md).

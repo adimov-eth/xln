@@ -3,6 +3,7 @@
 ## v1.3
 
 ### Documentation
+
 - **Major documentation overhaul**: Complete rewrite of `/docs` to align with XLN v1.3 Unified Technical Specification
 - Restructured documentation into 16 sections mirroring the spec structure
 - Added comprehensive TypeScript code examples linked to actual implementation

@@ -1,9 +1,20 @@
-import { Input, ServerState, EntityState, Replica, Frame, Command, Address, Quorum } from './types'
+import { Input, ServerState, Replica, Frame, Command, Address } from './types'
 import { computeServerRoot } from './hash'
 import { verifyAggregate } from './bls'
 
-const weight = (sigs: Record<Address, string>, q: Quorum): bigint =>
-  q.members.reduce((acc, m) => acc + (sigs[m.address] ? m.shares : 0n), 0n)
+function effectiveWeight(
+  votes: ReadonlyArray<{ signer: string }>,
+  weightMap: Record<string, bigint>,
+): bigint {
+  const seen = new Set<string>()
+  let total = 0n
+  for (const v of votes) {
+    if (seen.has(v.signer)) continue
+    seen.add(v.signer)
+    total += weightMap[v.signer] ?? 0n
+  }
+  return total
+}
 
 const applyCommand = async (rep: Replica, cmd: Command, now: () => bigint): Promise<Replica> => {
   if (!rep.attached && cmd.type !== 'attachReplica') return rep
@@ -42,9 +53,13 @@ const applyCommand = async (rep: Replica, cmd: Command, now: () => bigint): Prom
       }
     }
     case 'commitFrame': {
-      if (!(await verifyAggregate(cmd.hanko, cmd.frame, s.proposal?.sigs || {}, s.quorum)))
-        return rep
-      if (weight(s.proposal?.sigs || {}, s.quorum) < s.quorum.threshold) return rep
+      const sigs = s.proposal?.sigs || {}
+      if (!(await verifyAggregate(cmd.hanko, cmd.frame, sigs, s.quorum))) return rep
+      const weightMap = Object.fromEntries(
+        s.quorum.members.map((m) => [m.address, m.shares]),
+      ) as Record<string, bigint>
+      const votes = Object.keys(sigs).map((signer) => ({ signer }))
+      if (effectiveWeight(votes, weightMap) < s.quorum.threshold) return rep
       return {
         ...rep,
         state: {

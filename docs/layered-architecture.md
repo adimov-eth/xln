@@ -4,15 +4,15 @@ XLN implements a hierarchical architecture where each layer has clearly defined 
 
 ## System Layers
 
-| Layer | Pure? | Responsibility | Key Objects |
-|-------|-------|----------------|-------------|
-| **Jurisdiction (JL)** | ✗ | On-chain root of trust, collateral & dispute contracts | `Depositary.sol` |
-| **Server** | ✓ | Routes `Input` packets every 100 ms, seals `ServerFrame`, maintains global Merkle root | `ServerFrame`, `ServerTx`, mempool |
-| **Signer slot** | ✓ | Holds *replicas* of each Entity for which its signer is in the quorum | `Replica = Map<entityId, EntityState>` |
-| **Entity** | ✓ | BFT-replicated state machine; builds & finalizes `Frame`s | `EntityInput`, `EntityTx`, `Frame`, `Hanko` |
-| **Account / Channel** *(phase 2)* | ✓ | Two-party mini-ledgers; HTLC / credit logic | `AccountProof`, sub-contracts |
+| Layer                             | Pure? | Responsibility                                                                         | Key Objects                                 |
+| --------------------------------- | ----- | -------------------------------------------------------------------------------------- | ------------------------------------------- |
+| **Jurisdiction (JL)**             | ✗     | On-chain root of trust, collateral & dispute contracts                                 | `Depositary.sol`                            |
+| **Server**                        | ✓     | Routes `Input` packets every 100 ms, seals `ServerFrame`, maintains global Merkle root | `ServerFrame`, `ServerTx`, mempool          |
+| **Signer slot**                   | ✓     | Holds _replicas_ of each Entity for which its signer is in the quorum                  | `Replica = Map<entityId, EntityState>`      |
+| **Entity**                        | ✓     | BFT-replicated state machine; builds & finalizes `Frame`s                              | `EntityInput`, `EntityTx`, `Frame`, `Hanko` |
+| **Account / Channel** _(phase 2)_ | ✓     | Two-party mini-ledgers; HTLC / credit logic                                            | `AccountProof`, sub-contracts               |
 
-*Fractal rule:* every layer exposes the same pure reducer interface.
+_Fractal rule:_ every layer exposes the same pure reducer interface.
 
 ## Layer Details
 
@@ -40,10 +40,10 @@ The root coordinator that:
 ```typescript
 // Server state is just a collection of replicas
 type ServerState = {
-  height: bigint;
-  replicas: Map<Address, Replica>;
-  mempool: Input[];
-};
+  height: bigint
+  replicas: Map<Address, Replica>
+  mempool: Input[]
+}
 ```
 
 ### Signer Layer
@@ -66,13 +66,13 @@ The core business logic container:
 
 ```typescript
 type EntityState = {
-  height: bigint;
-  quorum: Quorum;
-  signerRecords: Record<string, { nonce: bigint }>;
-  domainState: any;       // Application-specific
-  mempool: EntityTx[];
-  proposal?: { frame: Frame; sigs: Record<string, string> };
-};
+  height: bigint
+  quorum: Quorum
+  signerRecords: Record<string, { nonce: bigint }>
+  domainState: any // Application-specific
+  mempool: EntityTx[]
+  proposal?: { frame: Frame; sigs: Record<string, string> }
+}
 ```
 
 ### Channel Layer (Future)
@@ -91,7 +91,7 @@ graph TD
     subgraph "On-Chain"
         JL[Jurisdiction]
     end
-    
+
     subgraph "Off-Chain"
         S[Server]
         S1[Signer 0]
@@ -100,7 +100,7 @@ graph TD
         E2[Entity B]
         C1[Channel A-B]
     end
-    
+
     JL -.->|disputes| S
     S -->|routes| S1
     S -->|routes| S2
@@ -109,7 +109,7 @@ graph TD
     S1 -->|maintains| E2
     E1 -.->|future| C1
     E2 -.->|future| C1
-    
+
     style JL fill:#f9f,stroke:#333,stroke-width:2px
     style C1 stroke-dasharray: 5 5
 ```
@@ -131,16 +131,14 @@ Each layer processes inputs deterministically:
 
 ```typescript
 // Every layer follows this pattern
-function processLayer<S, I>(
-  state: S,
-  inputs: I[]
-): { state: S; outputs: any[] } {
+function processLayer<S, I>(state: S, inputs: I[]): { state: S; outputs: any[] } {
   // Pure transformation
-  return { state: newState, outputs };
+  return { state: newState, outputs }
 }
 ```
 
 Benefits:
+
 - Easy testing
 - Deterministic replay
 - No race conditions
@@ -149,6 +147,7 @@ Benefits:
 ### Why Separate Signers?
 
 Signers are identity/key management:
+
 - Can participate in multiple entities
 - Can be individuals or institutions
 - Can rotate keys without disrupting entities
@@ -156,13 +155,13 @@ Signers are identity/key management:
 
 ## Comparison with Other Architectures
 
-| Feature | XLN | Rollups | Cosmos | Lightning |
-|---------|-----|---------|---------|-----------|
-| Consensus | Per-entity | Global L2 | Per-zone | Bilateral |
-| Data Availability | Local replicas | DA layer | Validators | Channel partners |
-| Finality | 100ms | L1 dependent | 6s | Instant |
-| Sovereignty | Full | Limited | Full | Limited |
-| Complexity | Low | High | Medium | Medium |
+| Feature           | XLN            | Rollups      | Cosmos     | Lightning        |
+| ----------------- | -------------- | ------------ | ---------- | ---------------- |
+| Consensus         | Per-entity     | Global L2    | Per-zone   | Bilateral        |
+| Data Availability | Local replicas | DA layer     | Validators | Channel partners |
+| Finality          | 100ms          | L1 dependent | 6s         | Instant          |
+| Sovereignty       | Full           | Limited      | Full       | Limited          |
+| Complexity        | Low            | High         | Medium     | Medium           |
 
 ## Implementation Notes
 

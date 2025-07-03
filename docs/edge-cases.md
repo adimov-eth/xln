@@ -10,16 +10,16 @@ This document covers edge cases, known limitations, and their workarounds in the
 
 ```typescript
 // WRONG - different objects
-const key1 = Buffer.from([1, 2, 3]);
-const key2 = Buffer.from([1, 2, 3]);
-map.set(key1, 'value');
-map.get(key2); // undefined!
+const key1 = Buffer.from([1, 2, 3])
+const key2 = Buffer.from([1, 2, 3])
+map.set(key1, 'value')
+map.get(key2) // undefined!
 
 // CORRECT - use hex strings
-const key1 = '0x010203';
-const key2 = '0x010203';
-map.set(key1, 'value');
-map.get(key2); // 'value'
+const key1 = '0x010203'
+const key2 = '0x010203'
+map.set(key1, 'value')
+map.get(key2) // 'value'
 ```
 
 **Solution**: Always convert binary keys to lowercase hex strings.
@@ -35,9 +35,9 @@ map.get(key2); // 'value'
 ```typescript
 if (entity.quorum.members.length === 1) {
   // Still create frame for history
-  const frame = createFrame(entity);
+  const frame = createFrame(entity)
   // But skip signature collection
-  return commitFrame(entity, frame, SELF_SIGNATURE);
+  return commitFrame(entity, frame, SELF_SIGNATURE)
 }
 ```
 
@@ -48,6 +48,7 @@ if (entity.quorum.members.length === 1) {
 **Issue**: Messages sent to outdated proposer are queued locally.
 
 **Scenario**:
+
 1. Alice is proposer at height 100
 2. Bob sends message to Alice
 3. Before delivery, height advances to 101
@@ -57,10 +58,10 @@ if (entity.quorum.members.length === 1) {
 
 ```typescript
 type RoutedInput = {
-  input: Input;
-  targetHeight: bigint;
-  retryCount: number;
-};
+  input: Input
+  targetHeight: bigint
+  retryCount: number
+}
 ```
 
 **Tracking**: [Issue #67](https://github.com/xln/xln/issues/67)
@@ -70,6 +71,7 @@ type RoutedInput = {
 **Issue**: Mismatch between snapshot hash and WAL replay hash.
 
 **Causes**:
+
 - Non-deterministic operations (timestamps, random)
 - Floating point calculations
 - Map iteration order
@@ -78,14 +80,13 @@ type RoutedInput = {
 
 ```typescript
 // Always sort before iteration
-const sortedEntries = Array.from(map.entries())
-  .sort(([a], [b]) => a.localeCompare(b));
+const sortedEntries = Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b))
 
 // Never use Date.now()
-const timestamp = blockHeight * 100n; // Deterministic
+const timestamp = blockHeight * 100n // Deterministic
 
 // Avoid floating point
-const fee = amount * 3n / 1000n; // Integer math only
+const fee = (amount * 3n) / 1000n // Integer math only
 ```
 
 **Tracking**: [Issue #89](https://github.com/xln/xln/issues/89)
@@ -104,7 +105,7 @@ const fee = amount * 3n / 1000n; // Integer math only
 
 ```typescript
 if (entity.mempool.length >= MAX_MEMPOOL_SIZE) {
-  throw new Error('Mempool full');
+  throw new Error('Mempool full')
 }
 ```
 
@@ -120,10 +121,10 @@ if (entity.mempool.length >= MAX_MEMPOOL_SIZE) {
 
 ```typescript
 // Two-phase commit pattern
-await entityA.lock(amount);
-await entityB.prepare(amount);
-await entityA.commit();
-await entityB.commit();
+await entityA.lock(amount)
+await entityB.prepare(amount)
+await entityA.commit()
+await entityB.commit()
 ```
 
 **Future**: HTLC in channels for atomic swaps.
@@ -139,9 +140,9 @@ await entityB.commit();
 **Workaround**: Split into multiple transactions:
 
 ```typescript
-const chunks = splitLargeUpdate(update, MAX_TX_SIZE);
+const chunks = splitLargeUpdate(update, MAX_TX_SIZE)
 for (const chunk of chunks) {
-  await submitTx(chunk);
+  await submitTx(chunk)
 }
 ```
 
@@ -189,9 +190,9 @@ sig: await bls.sign(privateKey, message)
 
 ```typescript
 // Analyze dependencies
-const groups = groupIndependentTxs(frame.txs);
+const groups = groupIndependentTxs(frame.txs)
 // Process groups in parallel
-await Promise.all(groups.map(processGroup));
+await Promise.all(groups.map(processGroup))
 ```
 
 **Tracking**: [Issue #203](https://github.com/xln/xln/issues/203)
@@ -242,15 +243,15 @@ await Promise.all(groups.map(processGroup));
 
 ```typescript
 type StoredFrame = {
-  version: number;
-  frame: Frame;
-};
+  version: number
+  frame: Frame
+}
 
 function migrateFrame(stored: StoredFrame): Frame {
   if (stored.version < CURRENT_VERSION) {
-    return migrate(stored.frame);
+    return migrate(stored.frame)
   }
-  return stored.frame;
+  return stored.frame
 }
 ```
 
@@ -270,13 +271,13 @@ function migrateFrame(stored: StoredFrame): Frame {
 async function submitWithRetry(tx: EntityTx, maxRetries = 3) {
   for (let i = 0; i < maxRetries; i++) {
     try {
-      return await client.submitTx(tx);
+      return await client.submitTx(tx)
     } catch (err) {
       if (err.code === -40004 && i < maxRetries - 1) {
-        await sleep(1000 * Math.pow(2, i)); // Exponential backoff
-        continue;
+        await sleep(1000 * Math.pow(2, i)) // Exponential backoff
+        continue
       }
-      throw err;
+      throw err
     }
   }
 }
@@ -286,15 +287,15 @@ async function submitWithRetry(tx: EntityTx, maxRetries = 3) {
 
 ```typescript
 function monitorLiveness(entity: Entity) {
-  let lastHeight = entity.state.height;
-  
+  let lastHeight = entity.state.height
+
   setInterval(() => {
     if (entity.state.height === lastHeight) {
-      console.warn(`Entity ${entity.id} may be stuck`);
+      console.warn(`Entity ${entity.id} may be stuck`)
       // Trigger manual intervention
     }
-    lastHeight = entity.state.height;
-  }, TIMEOUT_PROPOSAL_MS);
+    lastHeight = entity.state.height
+  }, TIMEOUT_PROPOSAL_MS)
 }
 ```
 
@@ -303,11 +304,11 @@ function monitorLiveness(entity: Entity) {
 ```typescript
 function safeGetState(entity: Entity, key: string): any {
   try {
-    return entity.state.domainState[key];
+    return entity.state.domainState[key]
   } catch (err) {
     // Handle corruption gracefully
-    console.error(`State corruption detected: ${err}`);
-    return getDefaultValue(key);
+    console.error(`State corruption detected: ${err}`)
+    return getDefaultValue(key)
   }
 }
 ```
@@ -326,7 +327,7 @@ When encountering breaking changes:
 Tracked in roadmap, these limitations will be addressed:
 
 - **M2**: Real signatures, bounded mempool
-- **M3**: State pruning, parallel execution  
+- **M3**: State pruning, parallel execution
 - **M4**: Protocol versioning, hot reload
 - **M5**: Byzantine detection, monitoring
 

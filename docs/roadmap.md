@@ -22,9 +22,10 @@ gantt
 
 ### M1 – "DAO-only" ✓ Current
 
-*Entities with quorum governance, chat/wallet demo, no channels.*
+_Entities with quorum governance, chat/wallet demo, no channels._
 
 **Completed**:
+
 - ✅ Basic server loop with 100ms ticks
 - ✅ Entity state management
 - ✅ Frame-based consensus
@@ -38,9 +39,10 @@ gantt
 
 ### M2 – Channel Layer
 
-*Bidirectional payment channels, collateral & credit logic.*
+_Bidirectional payment channels, collateral & credit logic._
 
 **Planned Features**:
+
 - [ ] Channel state machine
 - [ ] HTLC implementation
 - [ ] Credit line management
@@ -51,32 +53,35 @@ gantt
 - [ ] Channel backup/restore
 
 **Technical Changes**:
+
 ```typescript
 // New types
 type Channel = {
-  parties: [Entity, Entity];
-  balances: [bigint, bigint];
-  nonce: bigint;
-  htlcs: HTLC[];
-};
+  parties: [Entity, Entity]
+  balances: [bigint, bigint]
+  nonce: bigint
+  htlcs: HTLC[]
+}
 
 type HTLC = {
-  hash: string;
-  amount: bigint;
-  expiry: bigint;
-};
+  hash: string
+  amount: bigint
+  expiry: bigint
+}
 ```
 
 **Target Metrics**:
+
 - 1M+ TPS per channel
 - Sub-millisecond updates
 - Atomic cross-entity swaps
 
 ### M3 – Hub & Order-book Entities
 
-*Liquidity routing, on-channel AMM snippets.*
+_Liquidity routing, on-channel AMM snippets._
 
 **Planned Features**:
+
 - [ ] Hub entity type
 - [ ] Automated market making
 - [ ] Order matching engine
@@ -87,17 +92,19 @@ type HTLC = {
 - [ ] Analytics dashboard
 
 **Architecture**:
+
 ```typescript
 // Hub entity
 type HubState = {
-  channels: Map<EntityId, Channel>;
-  orderBook: OrderBook;
-  liquidityPools: Map<TokenPair, Pool>;
-  fees: FeeSchedule;
-};
+  channels: Map<EntityId, Channel>
+  orderBook: OrderBook
+  liquidityPools: Map<TokenPair, Pool>
+  fees: FeeSchedule
+}
 ```
 
 **Business Logic**:
+
 - Cross-entity routing
 - Dynamic fee adjustment
 - Liquidity incentives
@@ -105,9 +112,10 @@ type HubState = {
 
 ### M4 – Multi-jurisdiction Deployment
 
-*Jurisdiction adapters for several L1s, fiat on/off-ramp partnerships.*
+_Jurisdiction adapters for several L1s, fiat on/off-ramp partnerships._
 
 **Planned Jurisdictions**:
+
 - [ ] Ethereum mainnet
 - [ ] Arbitrum One
 - [ ] Polygon PoS
@@ -116,6 +124,7 @@ type HubState = {
 - [ ] Starknet (researching)
 
 **Integration Features**:
+
 - [ ] Unified deposit contract
 - [ ] Cross-chain messaging
 - [ ] Asset bridge standardization
@@ -126,6 +135,7 @@ type HubState = {
 - [ ] Governance token
 
 **Deployment Strategy**:
+
 1. Testnet deployment on all chains
 2. Limited mainnet with caps
 3. Gradual limit increases
@@ -136,6 +146,7 @@ type HubState = {
 ### Phase 5: Advanced Features
 
 **Q3 2024**:
+
 - Zero-knowledge proofs for privacy
 - Threshold signatures
 - State compression
@@ -144,6 +155,7 @@ type HubState = {
 ### Phase 6: Ecosystem
 
 **Q4 2024**:
+
 - Developer grants program
 - Plugin architecture
 - Marketplace for entities
@@ -152,6 +164,7 @@ type HubState = {
 ### Phase 7: Decentralization
 
 **2025**:
+
 - Multi-server consensus
 - Decentralized governance
 - Community validators
@@ -160,18 +173,21 @@ type HubState = {
 ## Development Priorities
 
 ### Immediate (Next Sprint)
+
 1. Real signature implementation
 2. Network authentication
 3. Performance benchmarking
 4. Security audit preparation
 
 ### Short Term (Next Month)
+
 1. Channel proof of concept
 2. Cross-entity messaging
 3. State pruning
 4. Monitoring dashboard
 
 ### Medium Term (Next Quarter)
+
 1. Production deployment
 2. External integrations
 3. SDK development
@@ -181,32 +197,32 @@ type HubState = {
 
 Each milestone has specific success criteria:
 
-| Milestone | Key Metric | Target |
-|-----------|------------|--------|
-| M1 | Entity consensus working | ✅ Done |
-| M2 | Channel TPS | 1M+ |
-| M3 | Routing efficiency | <3 hops average |
-| M4 | Chain coverage | 5+ L1s |
+| Milestone | Key Metric               | Target          |
+| --------- | ------------------------ | --------------- |
+| M1        | Entity consensus working | ✅ Done         |
+| M2        | Channel TPS              | 1M+             |
+| M3        | Routing efficiency       | <3 hops average |
+| M4        | Chain coverage           | 5+ L1s          |
 
 ## Risk Mitigation
 
 ### Technical Risks
 
-| Risk | Mitigation |
-|------|------------|
-| Consensus bugs | Extensive testing, formal verification |
-| Performance bottlenecks | Profiling, optimization sprints |
-| Storage growth | State pruning, archival nodes |
-| Network partitions | Timeout recovery, social consensus |
+| Risk                    | Mitigation                             |
+| ----------------------- | -------------------------------------- |
+| Consensus bugs          | Extensive testing, formal verification |
+| Performance bottlenecks | Profiling, optimization sprints        |
+| Storage growth          | State pruning, archival nodes          |
+| Network partitions      | Timeout recovery, social consensus     |
 
 ### Business Risks
 
-| Risk | Mitigation |
-|------|------------|
-| Adoption | Developer incentives, partnerships |
-| Regulation | Legal review, compliance framework |
-| Competition | Fast execution, unique features |
-| Funding | Diverse revenue streams |
+| Risk        | Mitigation                         |
+| ----------- | ---------------------------------- |
+| Adoption    | Developer incentives, partnerships |
+| Regulation  | Legal review, compliance framework |
+| Competition | Fast execution, unique features    |
+| Funding     | Diverse revenue streams            |
 
 ## Contributing
 
@@ -227,10 +243,10 @@ Ways to contribute to roadmap goals:
 
 ## Version History
 
-| Version | Date | Changes |
-|---------|------|---------|
-| 0.1 | Jan 2024 | Initial roadmap |
-| 0.2 | Feb 2024 | Added success metrics |
-| 0.3 | Mar 2024 | Updated after M1 completion |
+| Version | Date     | Changes                     |
+| ------- | -------- | --------------------------- |
+| 0.1     | Jan 2024 | Initial roadmap             |
+| 0.2     | Feb 2024 | Added success metrics       |
+| 0.3     | Mar 2024 | Updated after M1 completion |
 
 For current implementation status, see [Changelog](../CHANGELOG.md).
