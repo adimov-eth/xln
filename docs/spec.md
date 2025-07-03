@@ -1,274 +1,223 @@
-### XLN Platform — Unified Technical Specification
-
-**Version 1.3 · July 2025**
-
----
-
-#### Table of Contents
-
-1. Purpose & Scope
-2. Design Principles
-3. Layered Architecture
-4. Canonical Data Model (TypeScript)
-5. Consensus & Frame Life‑cycle
-6. Persistence, Storage & Replay
-7. Hashing & Merkle Roots
-8. Security Model & Threat Matrix
-9. Scalability & Performance Targets
-10. Configuration Knobs (defaults)
-11. Wire‑Encoding & RPC Conventions
-12. Edge‑Cases & Known Limitations
-13. Clock‑tick Walk‑through ("hello" chat)
-14. Reference Code Skeleton
-15. Roadmap & Milestones
-16. Glossary
+# XLN — Protocol Specification  
+**Version 1.4 (2025‑07‑03)**  
 
 ---
 
-## 1 Purpose & Scope
-
-This document merges **all authoritative fragments**—Core‑Layer 0.9 draft, v3.2 edits, engineering chat distillations, and every uploaded edge‑case memo—into a _single_ self‑consistent specification of the **Minimal‑Viable XLN network**.
-_In scope:_ pure business logic of the **Server → Signer → Entity** stack, state‑persistence rules, and the message/consensus flow.
-_Out of scope:_ cryptography primitives, networking adapters, access‑control layers, on‑chain Jurisdiction (JL) details, and the future Channel layer (listed only for context).&#x20;
+## 1  Scope & Rationale
+XLN is a deterministic, multi‑jurisdiction ledger that achieves consensus through **entity‑centric frames** signed by flexible quorums.  
+This document defines the **canonical data model**, frame life‑cycle, security guarantees and glossary. It supersedes v1.3.
 
 ---
 
-## 2 Design Principles
+## 2  Top‑Level Batch (`ServerInput`)
 
-| Principle                  | Rationale                                                                                                      |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| **Pure Functions**         | Every layer reduces `(prevState, inputBatch)` → `{nextState, outbox}`; side‑effects live in thin adapters.     |
-| **Fractal Interface**      | The same reducer signature repeats for Server, Entity, and—later—Channel layers, easing reasoning and testing. |
-| **Local Data Sovereignty** | Each participant can keep a _full_ copy of the shards they care about; no sequencer or DA committees.          |
-| **Audit‑grade Replay**     | Dual snapshot + immutable CAS blobs guarantee deterministic re‑execution from genesis or any checkpoint.       |
-| **Linear Scalability**     | Channels (phase 2) add TPS linearly with hubs; core layers have no global bottleneck.                          |
-
----
-
-## 3 Layered Architecture
-
-| Layer                             | Pure? | Responsibility                                                                          | Key Objects                                 |
-| --------------------------------- | ----- | --------------------------------------------------------------------------------------- | ------------------------------------------- |
-| **Jurisdiction (JL)**             | ✘     | On‑chain root of trust, collateral & dispute contracts.                                 | `Depositary.sol`                            |
-| **Server**                        | ✔︎   | Routes `Input` packets every 100 ms, seals `ServerFrame`, maintains global Merkle root. | `ServerFrame`, `ServerTx`, mempool          |
-| **Signer slot**                   | ✔︎   | Holds _replicas_ of each Entity for which its signer is in the quorum.                  | `Replica = Map<entityId, EntityState>`      |
-| **Entity**                        | ✔︎   | BFT‑replicated state‑machine; builds & finalises `Frame`s.                              | `EntityInput`, `EntityTx`, `Frame`, `Hanko` |
-| **Account / Channel** _(phase 2)_ | ✔︎   | Two‑party mini‑ledgers; HTLC / credit logic.                                            | `AccountProof`, sub‑contracts               |
-
-_Fractal rule:_ every layer exposes the same pure reducer interface.
-
----
-
-## 4 Canonical Data Model (TypeScript‑style)
+| Field | Type | Description |
+|-------|------|-------------|
+| `inputId` | `string` | Unique UUID‑v7 for the batch. |
+| `frameId` | `bigint` | Monotonically increasing frame number. |
+| `timestamp` | `bigint` | UNIX epoch ms when batch was assembled (used only for drift checks). |
+| `serverTxs` | `ServerTx[]` | Governance‑level operations processed once per batch. |
+| `entityInputs` | `EntityInput[]` | Parallel per‑entity blobs; order **irrelevant**. |
 
 ```ts
-/* ─── 4.1  Wire envelope ─── */
-export type Input = [signerIdx: number, entityId: string, cmd: Command]
+export interface ServerInput {
+  inputId: string;
+  frameId: bigint;
+  timestamp: bigint;
+  serverTxs: ServerTx[];
+  entityInputs: EntityInput[];
+}
+````
 
-/* ─── 4.2  Consensus‑level commands ─── */
-export type Command =
-  | { type: 'importEntity'; snapshot: EntityState }
-  | { type: 'addTx'; tx: EntityTx }
-  | { type: 'proposeFrame' }
-  | { type: 'signFrame'; sig: string }
-  | { type: 'commitFrame'; frame: Frame; hanko: string }
+---
 
-/* ─── 4.3  Application‑level transaction ─── */
-export type EntityTx = {
-  kind: string // e.g. 'chat', 'transfer'
-  data: any
-  nonce: bigint // per‑signer replay protection
-  sig: string // mocked in MVP
+## 3  Governance Operations (`ServerTx`)
+
+```ts
+export type ServerTx =
+  | ImportEntityTx
+  | UpgradeEntityTx
+  | RotateKeyTx
+  | SlashSignerTx;
+
+interface BaseServerTx {
+  entityId: string;
+  nonce: bigint;
 }
 
-/* ─── 4.4  Frame (≃ block at Entity level) ─── */
-export type Frame = {
-  height: bigint
-  timestamp: bigint
-  txs: EntityTx[]
-  postState: EntityState
+export interface ImportEntityTx extends BaseServerTx {
+  type: 'importEntity';
+  data: unknown;            // full entity definition
 }
 
-/* ─── 4.5  Entity state ─── */
-export type EntityState = {
-  height: bigint
-  quorum: Quorum
-  signerRecords: Record<string, { nonce: bigint }>
-  domainState: any // chat log, wallet balances, etc.
-  mempool: EntityTx[]
-  proposal?: { frame: Frame; sigs: Record<string, string> }
+export interface UpgradeEntityTx extends BaseServerTx {
+  type: 'upgradeEntity';
+  codeHash: string;         // new WASM hash
 }
 
-/* ─── 4.6  Quorum definition ─── */
-export type Quorum = {
-  threshold: bigint // Hanko power required
-  members: { address: string; shares: bigint }[]
+export interface RotateKeyTx extends BaseServerTx {
+  type: 'rotateKey';
+  newSigner: string;
+}
+
+export interface SlashSignerTx extends BaseServerTx {
+  type: 'slashSigner';
+  badSigner: string;
+  evidence: string;
 }
 ```
 
-All structures are serialised with **RLP**; hashes use `keccak256`. Terminology and invariants follow the consensus table in §5.
-
 ---
 
-## 5 Consensus & Frame Life‑cycle
+## 4  Canonical Data Model
 
-1. **ADD_TX** – any signer injects a signed `EntityTx` into the target replica's mempool.
-2. **PROPOSE** – current proposer packs queued txs into a _Proposed Frame_, signs its hash, and emits `proposeFrame`.
-3. **SIGN** – other quorum members deterministically verify and respond with `signFrame`.
-4. **COMMIT** – when collected signature‑weight ≥ `threshold`, proposer aggregates a **Hanko** (48‑byte BLS aggregate sig) and sends `commitFrame`.
-5. Replicas verify `hash(frame) ⟂ hanko`, adopt `postState`, clear mempool, advance height.
+### 4.1  EntityInput
 
-**Edge‑cases handled**
-
-| Scenario            | Behaviour                                                                                       |
-| ------------------- | ----------------------------------------------------------------------------------------------- |
-| _Stuck proposer_    | Any member may re‑propose after `TIMEOUT_PROPOSAL_MS` (default 30 s).                           |
-| _Duplicate vote_    | `signerRecords[addr].nonce` prevents replay of old `signFrame`.                                 |
-| _Quorum rotation_   | Nonces of ex‑members are retained, blocking replay if they later re‑join.                       |
-| _Dry‑run execution_ | Validators simulate the proposed frame but do **not** mutate state until `commitFrame` arrives. |
-
----
-
-## 6 Persistence, Storage & Replay
-
-| Store                           | Medium                | Trigger                          | Purpose                                  |
-| ------------------------------- | --------------------- | -------------------------------- | ---------------------------------------- |
-| **Write‑Ahead Log** (`wal/`)    | LevelDB CF            | every 100 ms tick                | Crash‑consistency & deterministic replay |
-| **Mutable snapshot** (`state/`) | LevelDB CF            | every _N_ frames or ≥ 20 MB diff | Fast cold‑start                          |
-| **Immutable CAS** (`cas/`)      | LevelDB CF            | on every `commitFrame`           | Audit‑grade history                      |
-| **Entity Frames**               | `entity_blocks/<id>/` | on commit                        | End‑user proofs                          |
-| **ServerFrames**                | `server_blocks/`      | every tick                       | Global state‑hash timeline               |
-
-_Dual snapshot model:_ replay = _latest snapshot_ + _all WAL segments > snapshot_ → verify Merkle root.&#x20;
-
-**LevelDB key‑scheme**
-A flat 96‑byte prefix = `SignerID ∥ EntityID ∥ StoreType` aligns on‑disk ordering with in‑memory maps, enabling range scans without extra buckets.&#x20;
-
----
-
-## 7 Hashing & Merkle Roots
-
-- **Frame hash** = `keccak256(rlp(frameHeader ‖ txs))`.
-- **Server root** = binary Merkle over each `[signerIdx, entityId] → rlp(snapshot)` pair, sorted lexicographically. Stored in every `ServerFrame` for divergence detection.&#x20;
-
----
-
-## 8 Security Model & Threat Matrix
-
-| Layer      | Honest‑party assumption    | Main threats               | Mitigations                            |
-| ---------- | -------------------------- | -------------------------- | -------------------------------------- |
-| **Entity** | ≥ ⅔ weighted shares honest | forged frames, vote replay | BLS aggregate check; per‑signer nonce  |
-| **Server** | crash‑only failures        | WAL corruption             | hash‑assert on replay                  |
-| **JL**     | single systemic contract   | contract bug / exploit     | formal verification (future milestone) |
-
-_Remaining gaps (MVP)_ – signature authenticity mocked, no Byzantine detection at Server layer, unbounded mempool, networking adapters TBD.&#x20;
-
----
-
-## 9 Scalability & Performance Targets
-
-| Metric               | Target                | Note                              |
-| -------------------- | --------------------- | --------------------------------- |
-| **Server tick**      | 100 ms (configurable) |                                   |
-| **Off‑chain TPS**    | unbounded             | each Entity & Channel independent |
-| **Jurisdiction TPS** | ≈ 10                  | only deposits / disputes touch JL |
-| **Roadmap capacity** | > 10⁹ TPS             | linear with hubs & channels       |
-
-Design rationale and comparative claims vs. roll‑ups & Lightning are detailed in the edge‑case memos.&#x20;
-
----
-
-## 10 Configuration Knobs (defaults)
-
-| Key                       | Default | Description         |
-| ------------------------- | ------- | ------------------- |
-| `FRAME_INTERVAL_MS`       | 100     | Server tick cadence |
-| `SNAPSHOT_EVERY_N_FRAMES` | 100     | Snapshot frequency  |
-| `TIMEOUT_PROPOSAL_MS`     | 30 000  | Liveness guard      |
-| `OUTBOX_DEPTH_LIMIT`      | ∞       | Recursion guard     |
-
----
-
-## 11 Wire‑Encoding & RPC Conventions
-
-- **External packet** = RLP‑encoded `Input` (`[signerIdx, entityId, command]`).
-- First field inside `command` is its _type_; the executor aggregates **all** packets received during the current tick into one `ServerInput` batch.&#x20;
-- Addresses carried in lowercase hex; binary keys must not be used directly in JS `Map` due to object‑identity pitfalls.&#x20;
-
----
-
-## 12 Edge‑Cases & Known Limitations
-
-- Binary map keys in JS – store as lower‑case hex strings.&#x20;
-- Single‑signer optimisation – still wrap self‑signed txs into frames for identical history.&#x20;
-- Message mis‑routing – inputs to outdated proposer queued locally, retried post‑rotation.&#x20;
-- Dual snapshot integrity – mismatch between snapshot hash & WAL hash halts replay.&#x20;
-- Channels, order‑book map, insurance cascade — specified but _disabled_ until Milestone 2+.
-
----
-
-## 13 Clock‑tick Walk‑through ("hello" chat)
-
-An executable end‑to‑end example lives in `spec/walkthrough.md` and demonstrates:
-`ADD_TX("hello") → propose → sign → commit → ServerFrame` evolution, with exact hashes and Merkle roots.&#x20;
-
----
-
-## 14 Reference Code Skeleton (extract)
+| Field               | Type                | Notes                                                          |
+| ------------------- | ------------------- | -------------------------------------------------------------- |
+| `jurisdictionId`    | `string`            | Governing jurisdiction.                                        |
+| `signerId`          | `string`            | Signer assembling this blob.                                   |
+| `entityId`          | `string`            | Target entity.                                                 |
+| `blockHeight`       | `bigint`            | Parent height.                                                 |
+| `prevBlockHash`     | `string`            | Hash of parent proposed block.                                 |
+| `quorumCertificate` | `QuorumCertificate` | ≥ threshold signatures on parent frame.                        |
+| `entityTxs`         | `EntityTx[]`        | Includes **jurisdiction events** (`type:'jurisdictionEvent'`). |
+| `precommits`        | `string[]`          | Hashes of prevotes (> ⅔ weight).                               |
+| `proposedBlock`     | `string`            | Hash of candidate block at `blockHeight + 1`.                  |
+| `observedInbox`     | `InboxMessage[]`    | Deterministically delivered cross‑entity messages.             |
+| `accountInputs`     | `AccountInput[]`    | See 4.3.                                                       |
 
 ```ts
-/* core.ts — runnable PoC */
-export function applyServerFrame(state: ServerState, batch: Input[]): ServerState {
-  const outbox: Input[] = []
-
-  for (const [signerIdx, entityId, cmd] of batch) {
-    const replica = state.signers.get(signerIdx)?.get(entityId)
-    if (!replica) continue
-
-    const next = applyCommand(replica, cmd, outbox)
-    state.signers.get(signerIdx)!.set(entityId, next)
-  }
-
-  return {
-    ...state,
-    height: state.height + 1n,
-    signers: state.signers,
-  }
+export interface EntityInput {
+  jurisdictionId: string;
+  signerId: string;
+  entityId: string;
+  blockHeight: bigint;
+  prevBlockHash: string;
+  quorumCertificate: QuorumCertificate;
+  entityTxs: EntityTx[];
+  precommits: string[];
+  proposedBlock: string;
+  observedInbox: InboxMessage[];
+  accountInputs: AccountInput[];
 }
 ```
 
-Full TS scaffolding with LevelDB adapters is in `src/` per the storage layout table.&#x20;
+### 4.2  QuorumCertificate
+
+```ts
+export interface QuorumCertificate {
+  hash: string;             // hash being certified
+  structure: unknown;       // signer weights etc.
+  signatures: string[];     // raw sigs
+}
+```
+
+### 4.3  AccountInput & AccountTx
+
+```ts
+export interface AccountInput {
+  accountId: string;             // stream identifier inside the entity
+  counterpartyEntityId: string;  // remote entity
+  accountTxs: AccountTx[];
+}
+
+export interface AccountTx {
+  type: 'AddPaymentSubcontract' | string;
+  paymentId: string;
+  amount: number;
+  nonce: bigint;
+}
+```
+
+### 4.4  EntityTx & InboxMessage
+
+```ts
+export interface EntityTx {
+  type: 'jurisdictionEvent' | 'entityUpdate' | string;
+  data: unknown;
+  nonce: bigint;
+}
+
+export interface InboxMessage {
+  fromEntityId: string;
+  message: unknown;
+}
+```
 
 ---
 
-## 15 Roadmap & Milestones
+## 5  Consensus & Frame Life‑Cycle
 
-1. **M1 – "DAO‑only"**
-   _Entities with quorum governance, chat/wallet demo, no channels._
-2. **M2 – Channel layer**
-   Bidirectional payment channels, collateral & credit logic.
-3. **M3 – Hub & Order‑book entities**
-   Liquidity routing, on‑channel AMM snippets.
-4. **M4 – Multi‑jurisdiction deployment**
-   JL adapters for several L1s, fiat on/off‑ramp partnerships.&#x20;
+1. **Prevote phase** – signers emit `precommits` for `prevBlockHash`.
+2. **Precommit aggregation** – when > ⅔ weight collected, a proposer may build `proposedBlock`.
+3. **Proposal** – proposer embeds `proposedBlock` in the next `EntityInput`.
+4. **QuorumCertificate** – next frame must carry signatures (> ⅔) on the previous block hash.
+5. **Parent linkage** – mismatch in `blockHeight` or `prevBlockHash` causes **immediate rejection**.
 
 ---
 
-## 16 Glossary (quick reference)
+## 6  Security
 
-| Term                       | Concise definition                                             |       |              |           |               |
-| -------------------------- | -------------------------------------------------------------- | ----- | ------------ | --------- | ------------- |
-| **Input**                  | RLP envelope `[signerIdx, entityId, command]`                  |       |              |           |               |
-| **Command**                | \`importEntity                                                 | addTx | proposeFrame | signFrame | commitFrame\` |
-| **Transaction (EntityTx)** | Signed atomic state mutation                                   |       |              |           |               |
-| **Frame**                  | Ordered batch of txs + post‑state snapshot                     |       |              |           |               |
-| **Hanko**                  | 48‑byte BLS aggregate signature proving quorum approval        |       |              |           |               |
-| **Replica**                | In‑memory copy of an Entity under a specific signer            |       |              |           |               |
-| **ServerFrame**            | Batch of Inputs processed in one tick + new global Merkle root |       |              |           |               |
-| **Snapshot**               | Last serialised state of every replica                         |       |              |           |               |
-| **CAS blob**               | Immutable, content‑addressed store of historic frames          |       |              |           |               |
-| **Channel frame**          | Off‑chain batch inside a two‑party channel (phase 2)           |       |              |           |               |
+* **Replay protection** – every signed object (`ServerTx`, `EntityTx`, `AccountTx`) includes a **monotone `nonce` per signer**. Duplicate or out‑of‑order nonce ⇒ reject.
+* **Weight drift** – `quorumCertificate.structure` pins the weight map; any change requires an **explicit `rotateKey`** governance op.
+* **Tamper evident chain** – `prevBlockHash` forms a Merkle‑linked chain of proposed blocks.
 
 ---
 
-**Status:** Version 1.3 supersedes earlier drafts (v0.9, v1.0, v1.2). It is the _single source of truth_ for all further coding, test‑vector generation, audits, and external documentation of XLN.
+## 7  Validation Rules (non‑exhaustive)
+
+| Check        | Reject if                                       |
+| ------------ | ----------------------------------------------- |
+| Frame drift  | `frameId` ≤ previous processed frame.           |
+| Timestamp    | Abs(`now − timestamp`) > `MAX_DRIFT_MS`.        |
+| QC           | Signatures < threshold *or* invalid weight map. |
+| Parent hash  | `prevBlockHash` ≠ hash(parent `proposedBlock`). |
+| Nonce reuse  | Same signer + same nonce reappears.             |
+| AccountInput | Duplicate `accountId` within same batch.        |
+
+---
+
+## 8  Glossary
+
+| Term                     | Meaning                                                                |
+| ------------------------ | ---------------------------------------------------------------------- |
+| **AccountInput**         | Batch of account‑level transactions addressed to one counter‑party.    |
+| **CounterpartyEntityId** | Remote entity on the other side of an account stream.                  |
+| **Frame**                | Atomic simulation step across **all** entities sharing same `frameId`. |
+| **InboxMessage**         | Deterministically delivered cross‑entity message.                      |
+| **Quorum Certificate**   | Object proving ≥ threshold weight signed a specific hash.              |
+| **Signer**               | Off‑chain agent authorised to submit `EntityInput`s for an entity.     |
+
+---
+
+## 9  Changelog
+
+* **v1.4 (2025‑07‑03)**
+
+  * Added `blockHeight`, `prevBlockHash` to `EntityInput`.
+  * Introduced `QuorumCertificate` (renamed from `quorumProof`).
+  * Added `AccountInput`, `AccountTx`, `InboxMessage`.
+  * Added `nonce` to every signed tx.
+  * Expanded `ServerTx` union (`upgradeEntity`, `rotateKey`, `slashSigner`).
+  * Replaced separate `jurisdictionEvents` array with `EntityTx{ type:'jurisdictionEvent' }`.
+  * Renamed `counterEntityId` → `counterpartyEntityId`.
+
+* **v1.3 (2025‑05‑19)** – Initial public release.
+
+---
+
+## 10  Reference Implementation
+
+See `packages/runtime/src/frame-validator.ts` for canonical validation logic reflecting this spec.
+
+```
+
+---
+
+### Next Steps / TODOs
+1. **Update runtime code →** adjust type imports & validation to match v1.4.  
+2. **Regenerate OpenAPI schema** used by client SDK.  
+3. **Write migration script** converting stored v1.3 frames to v1.4 (rename fields, move jurisdiction events).  
+4. **Publish v1.4 tag** across all packages (`@xln2/core`, `@xln2/runtime`, docs).
+```
