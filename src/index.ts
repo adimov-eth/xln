@@ -1,1 +1,1 @@
-export { ingest } from './infra/runtime'
+export { ingest } from './infra/runtime';
