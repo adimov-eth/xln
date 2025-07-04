@@ -11,29 +11,30 @@ The consensus process follows five distinct phases:
 Any signer can inject a signed transaction into the target entity's mempool:
 
 ```typescript
-const input: Input = {
-  from: signerAddress,
-  to: entityAddress,
-  cmd: { type: 'ADD_TX', addrKey: 'jurisdiction:entityId', tx: signedTx },
-}
+const input: Input = [
+  signerIdx,        // lexicographic index of signerId
+  entityId,         // target entity
+  { type: 'addTx', tx: signedTx }
+]
 ```
 
-**Validation**:
+**Validation** (A3: Nonce increment rule):
 
 - Signer must be in entity's quorum
 - Transaction signature must be valid
-- Nonce must be exactly `lastNonce + 1`
+- Nonce must be exactly `signerRecords[signerId].nonce + 1n`
+- Nonce is incremented before adding to mempool
 
 ### 2. PROPOSE - Frame Creation
 
 The current proposer packages queued transactions into a frame:
 
 ```typescript
-const input: Input = {
-  from: proposerAddress,
-  to: entityAddress,
-  cmd: { type: 'PROPOSE', addrKey: 'jurisdiction:entityId', ts: Date.now() },
-}
+const input: Input = [
+  signerIdx,
+  entityId,
+  { type: 'proposeFrame', header: frameHeader }
+]
 ```
 
 **Proposer Selection**:
@@ -42,14 +43,21 @@ const input: Input = {
 - Rotates each block for fairness
 - No proposer election overhead
 
-**Frame Construction**:
+**Frame Construction** (Y-2: Transaction sorting):
+
+1. Sort mempool by: **nonce → from (signerId) → kind → insertion-index**
+2. Pack first `MAX_TXS_PER_FRAME` transactions
+3. Build FrameHeader with memRoot of sorted txs
+4. Compute proposedBlock hash: `keccak256(rlp(header, txs))`
 
 ```typescript
-const frame: Frame = {
+const sortedTxs = sortTransactions(entity.mempool)
+const header: FrameHeader = {
+  entityId,
   height: entity.height + 1n,
-  ts: BigInt(Date.now()),
-  txs: entity.mempool,
-  state: applyTxs(entity.state, entity.mempool),
+  memRoot: computeMemRoot(sortedTxs),
+  prevStateRoot: hashEntityState(entity.state),
+  proposer: signerId
 }
 ```
 
@@ -58,49 +66,73 @@ const frame: Frame = {
 Other quorum members verify and sign the proposed frame:
 
 ```typescript
-const input: Input = {
-  from: signerAddress,
-  to: entityAddress,
-  cmd: { type: 'SIGN', addrKey: 'jurisdiction:entityId', frameHash: hash, sig: signature },
-}
+const input: Input = [
+  signerIdx,
+  entityId,
+  { type: 'signFrame', sig: signature }
+]
 ```
 
 **Verification Steps**:
 
-1. Proposer is correct for height
-2. All transactions are valid
-3. State transition is deterministic
-4. Frame hash matches
+1. Reconstruct identical sorted tx list from local mempool
+2. Build header and compute proposedBlock hash
+3. Verify hash matches the proposed frame
+4. Sign the proposedBlock hash
 
-**Dry-Run Execution**: Validators simulate the frame without committing.
+**Deterministic Reconstruction**: Replicas must arrive at the exact same sorted transaction list and hash.
 
 ### 4. COMMIT - Finalization
 
 When collected signatures meet the threshold, the proposer aggregates them:
 
 ```typescript
-const input: Input = {
-  from: proposerAddress,
-  to: entityAddress,
-  cmd: {
-    type: 'COMMIT',
-    addrKey: 'jurisdiction:entityId',
-    frame: frame,
-    hanko: aggregateSignature,
-  },
-}
+const input: Input = [
+  signerIdx,
+  entityId,
+  {
+    type: 'commitFrame',
+    frame: fullFrame,
+    hanko: aggregateSignature
+  }
+]
 ```
+
+The frame now includes:
+- `header`: The static fields that were signed
+- `txs`: The sorted transaction list
+- `postStateRoot`: keccak256 of final entity state (A4)
 
 **Finality**: Once committed, the frame cannot be reversed.
 
-### 5. State Update
+### 5. VERIFY & APPLY - State Update
 
-All replicas:
+All replicas perform final verification (R-1):
 
-1. Verify `hash(frame) ⟂ hanko`
-2. Adopt `state`
-3. Clear mempool
-4. Advance height
+```typescript
+// Verify frame integrity
+assert(keccak256(rlp(frame.header, frame.txs)) === proposedBlock)
+// Verify aggregate signature
+assert(verifyAggregate(hanko, proposedBlock, quorum) === true)
+```
+
+If both checks pass:
+1. Apply transactions to state
+2. Adopt the postStateRoot
+3. Clear committed txs from mempool
+4. Update height to frame.height
+
+### 6. SEAL - Server Frame
+
+The Server includes the new replica snapshot hash in its global Merkle tree and seals the ServerFrame for the tick.
+
+## Additional Consensus Rules
+
+**Quorum Validation**: Each EntityInput is accepted only if `quorumProof.quorumHash == keccak256(rlp(activeQuorum))`
+
+**Signer Ordering** (A1): For every tick, the Server sorts present signerIds lexicographically (lower-case hex). The zero-based index becomes `signerIdx` in the wire envelope.
+
+**Re-proposal Rule**: Any signer may re-propose an identical tx list in identical order after `TIMEOUT_PROPOSAL_MS` if the original proposer fails.
 
 ## Edge Cases
 
@@ -156,12 +188,12 @@ function validateProposal(entity: EntityState, frame: Frame): boolean {
 
 ## Consensus Parameters
 
-| Parameter             | Default | Description      |
-| --------------------- | ------- | ---------------- |
-| `TIMEOUT_PROPOSAL_MS` | 30,000  | Proposer timeout |
-| `MIN_SIGNATURES`      | 67%     | BFT threshold    |
-| `FRAME_SIZE_LIMIT`    | 1 MB    | Max frame size   |
-| `MEMPOOL_SIZE`        | 10,000  | Max pending txs  |
+| Parameter             | Default | Description                   |
+| --------------------- | ------- | ----------------------------- |
+| `TIMEOUT_PROPOSAL_MS` | 30,000  | Proposer timeout              |
+| `MIN_SIGNATURES`      | 67%     | BFT threshold                 |
+| `MAX_TXS_PER_FRAME`   | 1,000   | Soft cap for proposer packing |
+| `MEMPOOL_SIZE`        | 10,000  | Max pending txs               |
 
 ## Single vs Multi-Signer
 
