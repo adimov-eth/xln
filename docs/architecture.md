@@ -57,6 +57,7 @@ The server processes inputs every 100ms in a deterministic cycle:
 
 ### Code Example: Server Reducer
 
+*Note: This is a simplified representation. The canonical data model for server inputs is defined in the [technical specification](./spec.md#4-canonical-data-model-typescript-style).*
 ```typescript
 // From src/core/server.ts
 export function applyServerBlock(

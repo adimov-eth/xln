@@ -157,7 +157,7 @@ function proposeFrame(entity: EntityState): Frame {
     height: entity.height + 1n,
     txs: entity.mempool,
     // Local sovereignty (Principle 3)
-    postState: applyTxs(entity.state, entity.mempool),
+    postStateRoot: hash(applyTxs(entity.state, entity.mempool)),
   }
 
   // Audit-grade (Principle 4)

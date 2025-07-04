@@ -1,6 +1,6 @@
-import { Input, ServerState, Replica, Frame, Command, Address } from './types'
-import { computeServerRoot } from './hash'
 import { verifyAggregate } from './bls'
+import { computeServerRoot } from './hash'
+import type { Address, Command, Frame, Input, Replica, ServerState } from './types'
 
 function effectiveWeight(
   votes: ReadonlyArray<{ signer: string }>,
