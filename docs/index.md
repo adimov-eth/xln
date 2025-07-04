@@ -7,12 +7,12 @@ XLN (Cross-Ledger Network) is a pure-function, Merkle-anchored ledger that scale
 ## Quick Links
 
 [![API Docs](https://img.shields.io/badge/API-TypeDoc-blue)](/api/)
-[![Changelog](https://img.shields.io/badge/Changelog-v1.3-green)](../CHANGELOG.md)
+[![Changelog](https://img.shields.io/badge/Changelog-v1.4.1--RC2-green)](../CHANGELOG.md)
 [![Walkthrough](https://img.shields.io/badge/Demo-Hello_Chat-orange)](./walkthrough.md)
 
 ## Documentation Structure
 
-This documentation is organized to mirror the XLN v1.3 Unified Technical Specification:
+This documentation is organized to mirror the XLN v1.4.1-RC2 Unified Technical Specification:
 
 ### Core Concepts
 

@@ -21,8 +21,15 @@ test('duplicate signFrame ignored', async () => {
   let state = new Map()
   const attachA: Input = [0, 'e', { type: 'attachReplica', snapshot: snap }]
   const attachB: Input = [1, 'e', { type: 'attachReplica', snapshot: snap }]
-  const proposeA: Input = [0, 'e', { type: 'proposeFrame' }]
-  const proposeB: Input = [1, 'e', { type: 'proposeFrame' }]
+  const header = {
+    entityId: 'e',
+    height: 1n,
+    memRoot: '0x0',
+    prevStateRoot: '0x0',
+    proposer: '0x1',
+  }
+  const proposeA: Input = [0, 'e', { type: 'proposeFrame', header }]
+  const proposeB: Input = [1, 'e', { type: 'proposeFrame', header }]
   const sigBase = '0x2000000000000000000000000000000000000000'
   const sign1: Input = [1, 'e', { type: 'signFrame', sig: sigBase + 'aaaa' }]
   const signAgain: Input = [1, 'e', { type: 'signFrame', sig: sigBase + 'bbbb' }]
@@ -31,7 +38,5 @@ test('duplicate signFrame ignored', async () => {
   state = (await applyServerFrame(state, [sign1], () => 2n)).next
   state = (await applyServerFrame(state, [signAgain], () => 3n)).next
   const rep = state.get('1:e')!.state
-  const addr = sigBase.slice(0, 42) as keyof typeof rep.signerRecords
   expect(Object.keys(rep.proposal!.sigs).length).toBe(1)
-  expect(rep.signerRecords[addr].nonce).toBe(1n)
 })

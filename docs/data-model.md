@@ -9,11 +9,11 @@ XLN uses a carefully designed type system that balances simplicity with expressi
 The fundamental message format for all communication:
 
 ```typescript
-export interface Input {
-  from: Address
-  to: Address
-  cmd: Command
-}
+export type Input = [
+  signerIdx: number, // lexicographic index of signerId present this tick
+  entityId: string, // target Entity
+  cmd: Command, // consensus-level command
+]
 ```
 
 **Implementation**: [`src/types.ts`](../src/types.ts)
@@ -24,11 +24,11 @@ Commands drive state transitions at the consensus level:
 
 ```typescript
 export type Command =
-  | { type: 'IMPORT'; replica: Replica }
-  | { type: 'ADD_TX'; addrKey: string; tx: Transaction }
-  | { type: 'PROPOSE'; addrKey: string; ts: TS }
-  | { type: 'SIGN'; addrKey: string; signer: Address; frameHash: Hex; sig: Hex }
-  | { type: 'COMMIT'; addrKey: string; hanko: Hanko; frame: Frame<EntityState> }
+  | { type: 'importEntity'; snapshot: EntityState }
+  | { type: 'addTx'; tx: EntityTx }
+  | { type: 'proposeFrame'; header: FrameHeader } // A2: now carries FrameHeader
+  | { type: 'signFrame'; sig: string }
+  | { type: 'commitFrame'; frame: Frame; hanko: string }
 ```
 
 **Implementation**: [`src/types.ts`](../src/types.ts)
@@ -38,23 +38,18 @@ export type Command =
 Application-level operations within an entity:
 
 ```typescript
-export type Transaction = ChatTx // In MVP, only 'chat' transactions exist
-
-export type ChatTx = BaseTx<'chat'> & { body: { message: string } }
-
-export interface BaseTx<K extends TxKind = TxKind> {
-  kind: K
-  nonce: Nonce
-  from: Address
-  body: unknown
-  sig: Hex
+export interface EntityTx {
+  kind: string // e.g. 'chat', 'transfer', 'jurisdictionEvent'
+  data: unknown // domain payload; must be type-checked by application logic
+  nonce: bigint // strictly increasing per-signer
+  sig: string // signer's signature over RLP(tx)
 }
 ```
 
 **Key Properties**:
 
 - `kind`: Determines processing logic
-- `nonce`: Per-signer replay protection
+- `nonce`: Per-signer replay protection (A3: incremented before adding to mempool)
 - `sig`: Ensures authenticity
 
 ### Frame
@@ -62,15 +57,24 @@ export interface BaseTx<K extends TxKind = TxKind> {
 The entity-level block structure:
 
 ```typescript
-export interface Frame<T = unknown> {
-  height: UInt64
-  ts: TS
-  txs: Transaction[]
-  state: T
+export interface Frame {
+  height: bigint // sequential frame number
+  timestamp: bigint // unix-ms at creation (bigint for 64-bit safety)
+  header: FrameHeader // static fields hashed for propose/sign
+  txs: EntityTx[] // ordered transactions
+  postStateRoot: string // keccak256 of EntityState after txs (A4: was postState)
+}
+
+export interface FrameHeader {
+  entityId: string
+  height: bigint
+  memRoot: string // Merkle root of *sorted* tx list (see Y-2 rule)
+  prevStateRoot: string
+  proposer: string // signerId that built the frame
 }
 ```
 
-**Design Note**: Including `state` in the frame enables instant verification without replay. The hash of the frame includes this state, ensuring deterministic validation.
+**Design Note**: The frame hash (R-1) is computed as `keccak256(rlp(header ‖ txs))`. Transactions are sorted by the Y-2 rule: nonce → sender → kind → index.
 
 ### Entity State
 
@@ -78,8 +82,12 @@ Complete state of an autonomous entity:
 
 ```typescript
 export interface EntityState {
-  quorum: Quorum
-  chat: { from: Address; msg: string; ts: TS }[]
+  height: bigint // last committed height
+  quorum: Quorum // active quorum
+  signerRecords: Record<string, { nonce: bigint }>
+  domainState: unknown // application domain data
+  mempool: EntityTx[] // pending txs
+  proposal?: { header: FrameHeader; sigs: Record<string, string> }
 }
 ```
 
@@ -114,10 +122,14 @@ const quorum: Quorum = {
 The global system state:
 
 ```typescript
-export type ServerState = {
-  height: bigint
-  replicas: Map<string, Replica> // address → entity state
-  mempool: Input[]
+export type ServerState = Map<`${SignerIdx}:${string}`, Replica>
+
+// A5: Server Frame (global timeline)
+export interface ServerFrame {
+  frameId: number
+  timestamp: bigint
+  root: string // Merkle root of replica state hashes
+  inputsRoot: string // Merkle root of RLP(ServerInput)
 }
 ```
 
@@ -126,8 +138,9 @@ export type ServerState = {
 A signer's copy of an entity:
 
 ```typescript
-export type Replica = EntityState & {
-  lastSync: bigint // Server height when last updated
+export type Replica = {
+  attached: boolean
+  state: EntityState
 }
 ```
 
@@ -139,12 +152,66 @@ BLS aggregate signature (48 bytes):
 export type Hanko = string // '0x' + 96 hex chars
 ```
 
-### Address
+### Server Input Batch
 
-Composite entity address:
+Server-level input batch for each tick:
 
 ```typescript
-export type Address = string // 'jurisdiction:entityId:signerAddr'
+export interface ServerInput {
+  inputId: string // UID for the batch
+  frameId: number // monotone tick counter
+  timestamp: bigint // unix-ms
+  metaTxs: ServerMetaTx[] // network-wide cmds (renamed per Y-1)
+  entityInputs: EntityInput[] // per-entity signed inputs
+}
+
+export interface ServerMetaTx {
+  // was ServerTx
+  type: 'importEntity'
+  entityId: string
+  data: unknown // snapshot / metadata
+}
+
+export interface EntityInput {
+  jurisdictionId: string // format chainId:contractAddr
+  signerId: string // BLS public key (hex)
+  entityId: string
+  quorumProof: {
+    quorumHash: string
+    quorumStructure: string // reserved – must be '0x' until Phase 3
+  }
+  entityTxs: EntityTx[] // includes jurisdictionEvent txs
+  precommits: string[] // BLS sigs over header hash
+  proposedBlock: string // keccak256(rlp(header ‖ txs))
+  observedInbox: InboxMessage[]
+  accountInputs: AccountInput[]
+}
+
+export interface InboxMessage {
+  msgHash: string // keccak256(message) (A6)
+  fromEntityId: string
+  message: unknown
+}
+
+export interface AccountInput {
+  counterEntityId: string
+  channelId?: bigint // reserved for phase 2 multi-channel support (A6)
+  accountTxs: AccountTx[]
+}
+
+export interface AccountTx {
+  type: 'AddPaymentSubcontract'
+  paymentId: string
+  amount: number
+}
+```
+
+### Address
+
+Ethereum-style address:
+
+```typescript
+export type Address = `0x${string}` // Ethereum-style BLS public key
 ```
 
 ## Encoding Rules
@@ -171,8 +238,9 @@ function encodeFrame(frame: Frame): Uint8Array {
   return RLP.encode([
     frame.height,
     frame.timestamp,
+    frame.header,
     frame.txs.map((tx) => [tx.kind, tx.data, tx.nonce, tx.sig]),
-    encodeEntityState(frame.postState),
+    frame.postStateRoot,
   ])
 }
 ```
@@ -184,9 +252,17 @@ All hashes use Keccak-256:
 ```typescript
 import { keccak256 } from '@noble/hashes/sha3'
 
-export function hashFrame(frame: Frame): string {
-  const encoded = encodeFrame(frame)
+// R-1: Frame hash = keccak256(rlp(header ‖ txs))
+export function hashFrame(header: FrameHeader, txs: EntityTx[]): string {
+  const encoded = RLP.encode([header, txs])
   return '0x' + bytesToHex(keccak256(encoded))
+}
+
+// Y-2: Transactions are sorted before hashing
+export function computeMemRoot(txs: EntityTx[]): string {
+  const sortedTxs = sortTransactions(txs) // nonce → sender → kind → index
+  const leaves = sortedTxs.map((tx) => RLP.encode(tx))
+  return '0x' + bytesToHex(keccak256(merkle(leaves)))
 }
 ```
 
@@ -245,11 +321,16 @@ export function validateCommand(cmd: unknown): Command {
   }
 
   switch (cmd.type) {
+    case 'importEntity':
+      return validateImportEntity(cmd)
     case 'addTx':
       return validateAddTx(cmd)
     case 'proposeFrame':
       return validateProposeFrame(cmd)
-    // ... other cases
+    case 'signFrame':
+      return validateSignFrame(cmd)
+    case 'commitFrame':
+      return validateCommitFrame(cmd)
   }
 }
 ```

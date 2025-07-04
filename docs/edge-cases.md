@@ -43,7 +43,7 @@ if (entity.quorum.members.length === 1) {
 
 **Tracking**: [Issue #45](https://github.com/xln/xln/issues/45)
 
-### Message Mis-routing
+### Message Mis-routing (Y-67)
 
 **Issue**: Messages sent to outdated proposer are queued locally.
 
@@ -54,17 +54,30 @@ if (entity.quorum.members.length === 1) {
 3. Before delivery, height advances to 101
 4. Carol is now proposer, message stuck at Alice
 
-**Solution**: Include target height in routing:
+**Solution**: Inputs sent to an outdated proposer are queued locally and retried after a proposer rotation.
+
+**Retry Logic**:
+
+1. Queue the input locally with retry metadata
+2. Wait for proposer rotation (height change)
+3. Retry with new proposer
+4. Exponential backoff after multiple failures
 
 ```typescript
 type RoutedInput = {
   input: Input
   targetHeight: bigint
   retryCount: number
+  nextRetryTime: bigint
+}
+
+// Retry after proposer rotation
+if (currentProposer !== targetProposer) {
+  queueForRetry(input, currentHeight + 1n)
 }
 ```
 
-**Tracking**: [Issue #67](https://github.com/xln/xln/issues/67)
+**Note**: See spec.md §12 for cross-reference to this edge case.
 
 ### Dual Snapshot Integrity
 

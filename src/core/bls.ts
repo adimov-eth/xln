@@ -8,13 +8,6 @@ export async function sign(message: Uint8Array, privKey: Uint8Array): Promise<Ui
 }
 
 /**
- * Aggregate multiple BLS signatures.
- */
-export function aggregate(sigs: Uint8Array[]): Uint8Array {
-  return sigs.length === 0 ? new Uint8Array() : nobleBls.aggregateSignatures(sigs)
-}
-
-/**
  * **Fixed:** returns a real boolean, not a `Promise<Promise<boolean>>`.
  * Uses noble-curves `verifyBatch`, ±2× faster than looping verifies.
  */
