@@ -15,7 +15,10 @@
       "Bash(npm run lint)",
       "Bash(git add:*)",
       "Bash(gh pr view:*)",
-      "Bash(bun add:*)"
+      "Bash(bun add:*)",
+      "Bash(bunx prettier:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }
