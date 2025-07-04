@@ -10,7 +10,6 @@ import type {
   Address,
   Command,
   Frame,
-  FrameHeader,
   Input,
   Replica,
   Result,
@@ -37,7 +36,7 @@ function effectiveWeight(
 const applyCommand = async (
   rep: Replica,
   cmd: Command,
-  now: () => bigint,
+  _now: () => bigint,
 ): Promise<Result<Replica>> => {
   if (!rep.attached && cmd.type !== 'attachReplica') return { ok: false, error: 'replica-detached' }
 

@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'bun:test'
+import { expect, it } from 'bun:test'
 import { hashFrame, hashEntityState } from '../src/core/hash'
+import type { EntityState } from '../src/core/types'
 
 it('changes when postStateRoot changes', () => {
   const frame = {
@@ -10,7 +11,7 @@ it('changes when postStateRoot changes', () => {
     postStateRoot: new Uint8Array(32),
   }
   const h1 = hashFrame(frame)
-  frame.postStateRoot = hashEntityState({} as any)
+  frame.postStateRoot = hashEntityState({ domainState: {} } as EntityState)
   const h2 = hashFrame(frame)
   expect(Buffer.compare(h1, h2)).not.toBe(0)
 })

@@ -1,5 +1,4 @@
 import keccak256 from 'keccak256'
-import { concat } from 'uint8arrays'
 import { encodeRlp } from './encodeRlp'
 import { merkle } from './merkle'
 import type { EntityState, Frame, ServerState } from './types'

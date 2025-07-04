@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'bun:test'
+import { expect, it } from 'bun:test'
 import { sortTransactions } from '../src/core/hash'
 
 it('sorts txs by nonce then sig', () => {
