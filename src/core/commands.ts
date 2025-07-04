@@ -1,14 +1,6 @@
 import { verifyAggregate } from './bls'
-import { hashEntityState, hashFrame, sortTransactions, getSender } from './hash'
-import type {
-  Address,
-  EntityState,
-  EntityTx,
-  Frame,
-  FrameHeader,
-  Replica,
-  Result,
-} from './types'
+import { hashEntityState, hashFrame, sortTransactions, getSender, recoverSender } from './hash'
+import type { Address, EntityState, EntityTx, Frame, FrameHeader, Replica, Result } from './types'
 
 /* ---------- helpers ---------- */
 function effectiveWeight(
@@ -30,9 +22,16 @@ export const addTx = (rep: Replica, tx: EntityTx): Result<Replica> => {
   if (!rep.attached) return { ok: false, error: 'replica-detached' }
 
   const s = rep.state
-  const signer = tx.sig.slice(0, 42) as Address
-  const last = s.signerRecords[signer]?.nonce ?? 0n
 
+  // Recover signer from signature (falls back to mock format if needed)
+  const signer = recoverSender(tx)
+  if (!signer) return { ok: false, error: 'invalid-signature' }
+
+  // Check if signer is in the quorum
+  const isMember = s.quorum.members.some((m) => m.address === signer)
+  if (!isMember) return { ok: false, error: 'signer-not-in-quorum' }
+
+  const last = s.signerRecords[signer]?.nonce ?? 0n
   if (tx.nonce !== last + 1n) return { ok: false, error: 'nonce-out-of-order' }
 
   return {
@@ -82,7 +81,14 @@ export const signFrame = (rep: Replica, sig: string): Result<Replica> => {
   const s = rep.state
   if (!s.proposal) return { ok: false, error: 'no-proposal' }
 
+  // For frame signatures, we still use the mock format for now
+  // TODO: Implement BLS signature verification for frame signatures
   const addr = sig.slice(0, 42) as Address
+
+  // Check if signer is in the quorum
+  const isMember = s.quorum.members.some((m) => m.address === addr)
+  if (!isMember) return { ok: false, error: 'signer-not-in-quorum' }
+
   if (s.proposal.sigs[addr]) return { ok: false, error: 'dup-sig' }
 
   const nonce = (s.signerRecords[addr]?.nonce ?? 0n) + 1n
@@ -121,9 +127,26 @@ export const commitFrame = async (
     return { ok: false, error: 'quorum-not-reached' }
   }
 
-  // Verify BLS aggregate signature
+  // Get frame hash for verification
   const frameHash = hashFrame(frame)
-  if (!(await verifyAggregate(hanko, [frameHash], []))) {
+
+  // Collect public keys of signers who voted
+  const pubKeys: Uint8Array[] = []
+  const messages: Uint8Array[] = []
+
+  for (const [addr, _sig] of Object.entries(proposal.sigs)) {
+    const member = s.quorum.members.find((m) => m.address === addr)
+    if (member?.pubKey) {
+      pubKeys.push(member.pubKey)
+      messages.push(frameHash)
+    }
+  }
+
+  // Verify BLS aggregate signature
+  if (pubKeys.length === 0) {
+    // No public keys available, skip verification for now
+    console.warn('No public keys available for BLS verification')
+  } else if (!(await verifyAggregate(hanko, messages, pubKeys))) {
     return { ok: false, error: 'invalid-agg-sig' }
   }
 
@@ -137,7 +160,7 @@ export const commitFrame = async (
       ...(state as { chat?: Array<{ from: string; msg: string }> }),
       chat: [
         ...((state as { chat?: Array<{ from: string; msg: string }> }).chat ?? []),
-        { from: getSender(tx), msg: (tx.data as { msg: string }).msg },
+        { from: recoverSender(tx) || 'unknown', msg: (tx.data as { msg: string }).msg },
       ],
     }),
     // Add other domain reducers here as needed
@@ -149,8 +172,10 @@ export const commitFrame = async (
     if (reducer) {
       newDomainState = reducer(newDomainState, tx)
     }
-    const sender = getSender(tx)
-    newSignerRecords[sender] = { nonce: tx.nonce }
+    const sender = recoverSender(tx)
+    if (sender) {
+      newSignerRecords[sender] = { nonce: tx.nonce }
+    }
   }
 
   return {

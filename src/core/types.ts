@@ -17,7 +17,7 @@ export type EntityTx = {
 
 export type Quorum = {
   threshold: Big
-  members: { address: Address; shares: Big }[]
+  members: { address: Address; shares: Big; pubKey?: Uint8Array }[]
 }
 
 export type EntityState = {
