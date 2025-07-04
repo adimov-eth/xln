@@ -39,8 +39,7 @@ const applyCommand = async (
   cmd: Command,
   now: () => bigint,
 ): Promise<Result<Replica>> => {
-  if (!rep.attached && cmd.type !== 'attachReplica')
-    return { ok: false, error: 'replica-detached' }
+  if (!rep.attached && cmd.type !== 'attachReplica') return { ok: false, error: 'replica-detached' }
 
   const s = rep.state
 
@@ -56,8 +55,7 @@ const applyCommand = async (
     case 'addTx': {
       const signer = cmd.tx.sig.slice(0, 42) as Address
       const last = s.signerRecords[signer]?.nonce ?? 0n
-      if (cmd.tx.nonce !== last + 1n)
-        return { ok: false, error: 'nonce-out-of-order' }
+      if (cmd.tx.nonce !== last + 1n) return { ok: false, error: 'nonce-out-of-order' }
       return {
         ok: true,
         value: {

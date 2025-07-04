@@ -10,11 +10,7 @@ export const hashEntityState = (s: EntityState): Uint8Array =>
 
 export const sortTransactions = (txs: ReadonlyArray<Frame['txs'][number]>) =>
   [...txs].sort((a, b) =>
-    a.nonce === b.nonce
-      ? a.sig.localeCompare(b.sig)
-      : a.nonce < b.nonce
-      ? -1
-      : 1,
+    a.nonce === b.nonce ? a.sig.localeCompare(b.sig) : a.nonce < b.nonce ? -1 : 1,
   )
 
 export const hashFrame = (f: Frame): Uint8Array => {

@@ -14,9 +14,9 @@ export const ingest = async (batch: Input[]) => {
 
   // ---- MVP storage / WAL stub ----
   console.info(
-    `⛓️  committed serverFrame #${serverFrame.height} root=${Buffer.from(
-      serverFrame.root,
-    ).toString('hex').slice(0, 16)}… inputsRoot=${Buffer.from(serverFrame.inputsRoot)
+    `⛓️  committed serverFrame #${serverFrame.height} root=${Buffer.from(serverFrame.root)
+      .toString('hex')
+      .slice(0, 16)}… inputsRoot=${Buffer.from(serverFrame.inputsRoot)
       .toString('hex')
       .slice(0, 16)}…`,
   )
