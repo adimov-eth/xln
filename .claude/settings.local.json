@@ -12,7 +12,8 @@
       "Bash(git stash:*)",
       "Bash(npm test)",
       "Bash(bun test:*)",
-      "Bash(npm run lint)"
+      "Bash(npm run lint)",
+      "Bash(git add:*)"
     ],
     "deny": []
   }

@@ -56,13 +56,11 @@ const applyCommand = async (rep: Replica, cmd: Command, _now: () => bigint): Pro
     case 'signFrame': {
       const addr = cmd.sig.slice(0, 42) as Address
       if (s.proposal?.sigs[addr]) return rep
-      const nonce = (s.signerRecords[addr]?.nonce ?? 0n) + 1n
       const sigs = { ...(s.proposal?.sigs || {}), [addr]: cmd.sig }
       return {
         ...rep,
         state: {
           ...s,
-          signerRecords: { ...s.signerRecords, [addr]: { nonce } },
           proposal: s.proposal ? { ...s.proposal, sigs } : undefined,
         },
       }
@@ -72,7 +70,10 @@ const applyCommand = async (rep: Replica, cmd: Command, _now: () => bigint): Pro
       
       // R-1: Verify frame hash
       const frameHash = hashFrame(cmd.frame.header, cmd.frame.txs)
-      if (!(await verifyAggregate(cmd.hanko, frameHash, sigs, s.quorum))) return rep
+      const hankoBytes = new Uint8Array(Buffer.from(cmd.hanko.slice(2), 'hex'))
+      const messages = Object.keys(sigs).map(() => new Uint8Array(Buffer.from(frameHash.slice(2), 'hex')))
+      const pubKeys = Object.keys(sigs).map(s => new Uint8Array(Buffer.from(s.slice(2), 'hex')))
+      if (!(await verifyAggregate(hankoBytes, messages, pubKeys))) return rep
       
       const weightMap = Object.fromEntries(
         s.quorum.members.map((m) => [m.address, m.shares]),
@@ -81,8 +82,19 @@ const applyCommand = async (rep: Replica, cmd: Command, _now: () => bigint): Pro
       if (effectiveWeight(votes, weightMap) < s.quorum.threshold) return rep
       
       // Apply transactions to get new state
-      const newState = { ...s, height: cmd.frame.height }
-      // TODO: Apply transactions from cmd.frame.txs to newState
+      const newState = cmd.frame.txs.reduce((acc, tx) => {
+        if (tx.kind === 'chat' && typeof tx.data === 'string') {
+          const chatHistory = ((acc.domainState as { chat?: Array<{ from: string; msg: string }> })?.chat) ?? []
+          return {
+            ...acc,
+            domainState: {
+              ...acc.domainState,
+              chat: [...chatHistory, { from: tx.sig.slice(0, 42), msg: tx.data }],
+            },
+          }
+        }
+        return acc
+      }, { ...s, height: cmd.frame.height })
       
       // Remove committed txs from mempool
       const committedNonces = new Set(cmd.frame.txs.map(tx => `${tx.sig.slice(0, 42)}:${tx.nonce}`))

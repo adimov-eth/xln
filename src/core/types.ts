@@ -1,4 +1,3 @@
-export type Big = bigint
 export type Address = `0x${string}`
 export type SignerIdx = number
 export type Command =
@@ -9,12 +8,12 @@ export type Command =
   | { type: 'attachReplica'; snapshot: EntityState }
   | { type: 'detachReplica' }
 export type Input = [SignerIdx, string, Command]
-export type EntityTx = { kind: string; data: unknown; nonce: Big; sig: string }
-export type Quorum = { threshold: Big; members: { address: Address; shares: Big }[] }
+export type EntityTx = { kind: string; data: unknown; nonce: bigint; sig: string }
+export type Quorum = { threshold: bigint; members: { address: Address; shares: bigint }[] }
 export type EntityState = {
-  height: Big
+  height: bigint
   quorum: Quorum
-  signerRecords: Record<Address, { nonce: Big }>
+  signerRecords: Record<Address, { nonce: bigint }>
   domainState: unknown
   mempool: EntityTx[]
   proposal?: { header: FrameHeader; sigs: Record<Address, string> }
@@ -28,8 +27,8 @@ export interface FrameHeader {
 }
 
 export type Frame = {
-  height: Big
-  timestamp: Big
+  height: bigint
+  timestamp: bigint
   header: FrameHeader // static fields hashed for propose/sign
   txs: EntityTx[]
   postStateRoot: string // keccak256 of EntityState after txs (was postState)
