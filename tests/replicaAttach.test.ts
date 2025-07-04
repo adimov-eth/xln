@@ -13,11 +13,40 @@ test('replica attach stays in sync', async () => {
   const snap = empty()
   const attachA: Input = [0, 'e', { type: 'attachReplica', snapshot: snap }]
   const attachB: Input = [1, 'e', { type: 'attachReplica', snapshot: snap }]
-  const txA: Input = [0, 'e', { type: 'addTx', tx: { kind: 'chat', data: 1, nonce: 0n, sig: '' } }]
-  const txB: Input = [1, 'e', { type: 'addTx', tx: { kind: 'chat', data: 1, nonce: 0n, sig: '' } }]
   for (let i = 0; i < 100; i++) {
-    const batch = i === 0 ? [attachA, attachB] : [txA, txB]
-    state = (await applyServerFrame(state, batch, () => BigInt(i))).next
+    if (i === 0) {
+      state = (await applyServerFrame(state, [attachA, attachB], () => BigInt(i))).next
+    } else {
+      // Use proper nonce and mock signature format
+      const nonce = BigInt(i)
+      const txA: Input = [
+        0,
+        'e',
+        {
+          type: 'addTx',
+          tx: {
+            kind: 'chat',
+            data: i,
+            nonce,
+            sig: '0x1000000000000000000000000000000000000000signed',
+          },
+        },
+      ]
+      const txB: Input = [
+        1,
+        'e',
+        {
+          type: 'addTx',
+          tx: {
+            kind: 'chat',
+            data: i,
+            nonce,
+            sig: '0x1000000000000000000000000000000000000000signed',
+          },
+        },
+      ]
+      state = (await applyServerFrame(state, [txA, txB], () => BigInt(i))).next
+    }
   }
   const [a, b] = ['0:e', '1:e'].map((k) => state.get(k)!.state)
   const ser = (v: unknown) =>

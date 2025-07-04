@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@noble/bls12-381": "^1.4.0",
+    "ethereumjs-util": "^7.1.5",
     "keccak256": "^1.0.0",
     "uint8arrays": "^5.1.0"
   },

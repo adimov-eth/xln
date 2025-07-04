@@ -7,8 +7,8 @@ const base = (): EntityState => ({
   quorum: {
     threshold: 2n,
     members: [
-      { address: '0x1', shares: 1n },
-      { address: '0x2', shares: 1n },
+      { address: '0x1000000000000000000000000000000000000000', shares: 1n },
+      { address: '0x2000000000000000000000000000000000000000', shares: 1n },
     ],
   },
   signerRecords: {},
