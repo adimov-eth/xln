@@ -1,1 +1,1 @@
-export { ingest } from './infra/runtime'
+export { ingest, createInitialContext, type Context } from './infra/runtime'
