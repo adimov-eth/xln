@@ -1,5 +1,5 @@
 import { verifyAggregate } from './bls'
-import { hashEntityState, hashFrame, sortTransactions, getSender, recoverSender } from './hash'
+import { hashEntityState, hashFrame, sortTransactions, recoverSender } from './hash'
 import type { Address, EntityState, EntityTx, Frame, FrameHeader, Replica, Result } from './types'
 
 /* ---------- helpers ---------- */
@@ -134,7 +134,7 @@ export const commitFrame = async (
   const pubKeys: Uint8Array[] = []
   const messages: Uint8Array[] = []
 
-  for (const [addr, _sig] of Object.entries(proposal.sigs)) {
+  for (const [addr] of Object.entries(proposal.sigs)) {
     const member = s.quorum.members.find((m) => m.address === addr)
     if (member?.pubKey) {
       pubKeys.push(member.pubKey)
