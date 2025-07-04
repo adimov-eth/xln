@@ -127,7 +127,7 @@ const applyCommand = async (
       // Apply transactions and update nonces
       let newDomainState = s.domainState
       const newSignerRecords = { ...s.signerRecords }
-      
+
       // Domain reducers dispatch table
       const domainReducers: Record<string, (state: unknown, tx: EntityTx) => unknown> = {
         chat: (state, tx) => ({
