@@ -57,6 +57,7 @@ if (entity.quorum.members.length === 1) {
 **Solution**: Inputs sent to an outdated proposer are queued locally and retried after a proposer rotation.
 
 **Retry Logic**:
+
 1. Queue the input locally with retry metadata
 2. Wait for proposer rotation (height change)
 3. Retry with new proposer

@@ -31,7 +31,7 @@ const applyCommand = async (rep: Replica, cmd: Command, _now: () => bigint): Pro
       if (cmd.tx.nonce !== currentNonce + 1n) {
         return rep // Invalid nonce, reject transaction
       }
-      
+
       // Increment nonce before adding to mempool
       return {
         ...rep,
@@ -39,10 +39,10 @@ const applyCommand = async (rep: Replica, cmd: Command, _now: () => bigint): Pro
           ...s,
           signerRecords: {
             ...s.signerRecords,
-            [signer]: { nonce: cmd.tx.nonce }
+            [signer]: { nonce: cmd.tx.nonce },
           },
-          mempool: [...s.mempool, cmd.tx]
-        }
+          mempool: [...s.mempool, cmd.tx],
+        },
       }
     }
     case 'proposeFrame': {
@@ -67,39 +67,49 @@ const applyCommand = async (rep: Replica, cmd: Command, _now: () => bigint): Pro
     }
     case 'commitFrame': {
       const sigs = s.proposal?.sigs || {}
-      
+
       // R-1: Verify frame hash
       const frameHash = hashFrame(cmd.frame.header, cmd.frame.txs)
       const hankoBytes = new Uint8Array(Buffer.from(cmd.hanko.slice(2), 'hex'))
-      const messages = Object.keys(sigs).map(() => new Uint8Array(Buffer.from(frameHash.slice(2), 'hex')))
-      const pubKeys = Object.keys(sigs).map(s => new Uint8Array(Buffer.from(s.slice(2), 'hex')))
+      const messages = Object.keys(sigs).map(
+        () => new Uint8Array(Buffer.from(frameHash.slice(2), 'hex')),
+      )
+      const pubKeys = Object.keys(sigs).map((s) => new Uint8Array(Buffer.from(s.slice(2), 'hex')))
       if (!(await verifyAggregate(hankoBytes, messages, pubKeys))) return rep
-      
+
       const weightMap = Object.fromEntries(
         s.quorum.members.map((m) => [m.address, m.shares]),
       ) as Record<string, bigint>
       const votes = Object.keys(sigs).map((signer) => ({ signer }))
       if (effectiveWeight(votes, weightMap) < s.quorum.threshold) return rep
-      
+
       // Apply transactions to get new state
-      const newState = cmd.frame.txs.reduce((acc, tx) => {
-        if (tx.kind === 'chat' && typeof tx.data === 'string') {
-          const chatHistory = ((acc.domainState as { chat?: Array<{ from: string; msg: string }> })?.chat) ?? []
-          return {
-            ...acc,
-            domainState: {
-              ...acc.domainState,
-              chat: [...chatHistory, { from: tx.sig.slice(0, 42), msg: tx.data }],
-            },
+      const newState = cmd.frame.txs.reduce(
+        (acc, tx) => {
+          if (tx.kind === 'chat' && typeof tx.data === 'string') {
+            const chatHistory =
+              (acc.domainState as { chat?: Array<{ from: string; msg: string }> })?.chat ?? []
+            return {
+              ...acc,
+              domainState: {
+                ...acc.domainState,
+                chat: [...chatHistory, { from: tx.sig.slice(0, 42), msg: tx.data }],
+              },
+            }
           }
-        }
-        return acc
-      }, { ...s, height: cmd.frame.height })
-      
+          return acc
+        },
+        { ...s, height: cmd.frame.height },
+      )
+
       // Remove committed txs from mempool
-      const committedNonces = new Set(cmd.frame.txs.map(tx => `${tx.sig.slice(0, 42)}:${tx.nonce}`))
-      const remainingMempool = s.mempool.filter(tx => !committedNonces.has(`${tx.sig.slice(0, 42)}:${tx.nonce}`))
-      
+      const committedNonces = new Set(
+        cmd.frame.txs.map((tx) => `${tx.sig.slice(0, 42)}:${tx.nonce}`),
+      )
+      const remainingMempool = s.mempool.filter(
+        (tx) => !committedNonces.has(`${tx.sig.slice(0, 42)}:${tx.nonce}`),
+      )
+
       return {
         ...rep,
         state: {

@@ -12,9 +12,9 @@ Any signer can inject a signed transaction into the target entity's mempool:
 
 ```typescript
 const input: Input = [
-  signerIdx,        // lexicographic index of signerId
-  entityId,         // target entity
-  { type: 'addTx', tx: signedTx }
+  signerIdx, // lexicographic index of signerId
+  entityId, // target entity
+  { type: 'addTx', tx: signedTx },
 ]
 ```
 
@@ -30,11 +30,7 @@ const input: Input = [
 The current proposer packages queued transactions into a frame:
 
 ```typescript
-const input: Input = [
-  signerIdx,
-  entityId,
-  { type: 'proposeFrame', header: frameHeader }
-]
+const input: Input = [signerIdx, entityId, { type: 'proposeFrame', header: frameHeader }]
 ```
 
 **Proposer Selection**:
@@ -57,7 +53,7 @@ const header: FrameHeader = {
   height: entity.height + 1n,
   memRoot: computeMemRoot(sortedTxs),
   prevStateRoot: hashEntityState(entity.state),
-  proposer: signerId
+  proposer: signerId,
 }
 ```
 
@@ -66,11 +62,7 @@ const header: FrameHeader = {
 Other quorum members verify and sign the proposed frame:
 
 ```typescript
-const input: Input = [
-  signerIdx,
-  entityId,
-  { type: 'signFrame', sig: signature }
-]
+const input: Input = [signerIdx, entityId, { type: 'signFrame', sig: signature }]
 ```
 
 **Verification Steps**:
@@ -93,12 +85,13 @@ const input: Input = [
   {
     type: 'commitFrame',
     frame: fullFrame,
-    hanko: aggregateSignature
-  }
+    hanko: aggregateSignature,
+  },
 ]
 ```
 
 The frame now includes:
+
 - `header`: The static fields that were signed
 - `txs`: The sorted transaction list
 - `postStateRoot`: keccak256 of final entity state (A4)
@@ -117,6 +110,7 @@ assert(verifyAggregate(hanko, proposedBlock, quorum) === true)
 ```
 
 If both checks pass:
+
 1. Apply transactions to state
 2. Adopt the postStateRoot
 3. Clear committed txs from mempool

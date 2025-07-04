@@ -8,24 +8,24 @@ import type { EntityTx, FrameHeader, ServerState } from './types'
 export const sortTransactions = (txs: EntityTx[]): EntityTx[] => {
   // Add insertion index to preserve order for identical transactions
   const indexed = txs.map((tx, index) => ({ tx, index }))
-  
+
   return indexed
     .sort((a, b) => {
       // 1. Sort by nonce (ascending)
       if (a.tx.nonce < b.tx.nonce) return -1
       if (a.tx.nonce > b.tx.nonce) return 1
-      
+
       // 2. Sort by signer (lexicographic)
       // Extract signer from signature (first 42 chars of sig)
       const signerA = a.tx.sig.slice(0, 42).toLowerCase()
       const signerB = b.tx.sig.slice(0, 42).toLowerCase()
       if (signerA < signerB) return -1
       if (signerA > signerB) return 1
-      
+
       // 3. Sort by kind (lexicographic)
       if (a.tx.kind < b.tx.kind) return -1
       if (a.tx.kind > b.tx.kind) return 1
-      
+
       // 4. Sort by insertion index
       return a.index - b.index
     })
@@ -35,7 +35,7 @@ export const sortTransactions = (txs: EntityTx[]): EntityTx[] => {
 // Compute merkle root of sorted transaction list
 export const computeMemRoot = (txs: EntityTx[]): string => {
   const sortedTxs = sortTransactions(txs)
-  const leaves = sortedTxs.map(tx => encodeRlp(tx))
+  const leaves = sortedTxs.map((tx) => encodeRlp(tx))
   return '0x' + keccak256(Buffer.from(merkle(leaves))).toString('hex')
 }
 

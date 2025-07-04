@@ -10,9 +10,9 @@ The fundamental message format for all communication:
 
 ```typescript
 export type Input = [
-  signerIdx: number,   // lexicographic index of signerId present this tick
-  entityId: string,    // target Entity
-  cmd: Command         // consensus-level command
+  signerIdx: number, // lexicographic index of signerId present this tick
+  entityId: string, // target Entity
+  cmd: Command, // consensus-level command
 ]
 ```
 
@@ -39,10 +39,10 @@ Application-level operations within an entity:
 
 ```typescript
 export interface EntityTx {
-  kind: string;    // e.g. 'chat', 'transfer', 'jurisdictionEvent'
-  data: unknown;   // domain payload; must be type-checked by application logic
-  nonce: bigint;   // strictly increasing per-signer
-  sig: string;     // signer's signature over RLP(tx)
+  kind: string // e.g. 'chat', 'transfer', 'jurisdictionEvent'
+  data: unknown // domain payload; must be type-checked by application logic
+  nonce: bigint // strictly increasing per-signer
+  sig: string // signer's signature over RLP(tx)
 }
 ```
 
@@ -58,19 +58,19 @@ The entity-level block structure:
 
 ```typescript
 export interface Frame {
-  height: bigint;           // sequential frame number
-  timestamp: bigint;        // unix-ms at creation (bigint for 64-bit safety)
-  header: FrameHeader;      // static fields hashed for propose/sign
-  txs: EntityTx[];          // ordered transactions
-  postStateRoot: string;    // keccak256 of EntityState after txs (A4: was postState)
+  height: bigint // sequential frame number
+  timestamp: bigint // unix-ms at creation (bigint for 64-bit safety)
+  header: FrameHeader // static fields hashed for propose/sign
+  txs: EntityTx[] // ordered transactions
+  postStateRoot: string // keccak256 of EntityState after txs (A4: was postState)
 }
 
 export interface FrameHeader {
-  entityId: string;
-  height: bigint;
-  memRoot: string;          // Merkle root of *sorted* tx list (see Y-2 rule)
-  prevStateRoot: string;
-  proposer: string;         // signerId that built the frame
+  entityId: string
+  height: bigint
+  memRoot: string // Merkle root of *sorted* tx list (see Y-2 rule)
+  prevStateRoot: string
+  proposer: string // signerId that built the frame
 }
 ```
 
@@ -82,12 +82,12 @@ Complete state of an autonomous entity:
 
 ```typescript
 export interface EntityState {
-  height: bigint;                              // last committed height
-  quorum: Quorum;                              // active quorum
-  signerRecords: Record<string, { nonce: bigint }>;
-  domainState: unknown;                        // application domain data
-  mempool: EntityTx[];                         // pending txs
-  proposal?: { header: FrameHeader; sigs: Record<string, string> };
+  height: bigint // last committed height
+  quorum: Quorum // active quorum
+  signerRecords: Record<string, { nonce: bigint }>
+  domainState: unknown // application domain data
+  mempool: EntityTx[] // pending txs
+  proposal?: { header: FrameHeader; sigs: Record<string, string> }
 }
 ```
 
@@ -126,10 +126,10 @@ export type ServerState = Map<`${SignerIdx}:${string}`, Replica>
 
 // A5: Server Frame (global timeline)
 export interface ServerFrame {
-  frameId: number;
-  timestamp: bigint;
-  root: string;                 // Merkle root of replica state hashes
-  inputsRoot: string;           // Merkle root of RLP(ServerInput)
+  frameId: number
+  timestamp: bigint
+  root: string // Merkle root of replica state hashes
+  inputsRoot: string // Merkle root of RLP(ServerInput)
 }
 ```
 
@@ -139,8 +139,8 @@ A signer's copy of an entity:
 
 ```typescript
 export type Replica = {
-  attached: boolean;
-  state: EntityState;
+  attached: boolean
+  state: EntityState
 }
 ```
 
@@ -158,50 +158,51 @@ Server-level input batch for each tick:
 
 ```typescript
 export interface ServerInput {
-  inputId: string;              // UID for the batch
-  frameId: number;              // monotone tick counter
-  timestamp: bigint;            // unix-ms
-  metaTxs: ServerMetaTx[];      // network-wide cmds (renamed per Y-1)
-  entityInputs: EntityInput[];  // per-entity signed inputs
+  inputId: string // UID for the batch
+  frameId: number // monotone tick counter
+  timestamp: bigint // unix-ms
+  metaTxs: ServerMetaTx[] // network-wide cmds (renamed per Y-1)
+  entityInputs: EntityInput[] // per-entity signed inputs
 }
 
-export interface ServerMetaTx { // was ServerTx
-  type: 'importEntity';
-  entityId: string;
-  data: unknown;                // snapshot / metadata
+export interface ServerMetaTx {
+  // was ServerTx
+  type: 'importEntity'
+  entityId: string
+  data: unknown // snapshot / metadata
 }
 
 export interface EntityInput {
-  jurisdictionId: string;       // format chainId:contractAddr
-  signerId: string;             // BLS public key (hex)
-  entityId: string;
+  jurisdictionId: string // format chainId:contractAddr
+  signerId: string // BLS public key (hex)
+  entityId: string
   quorumProof: {
-    quorumHash: string;
-    quorumStructure: string;    // reserved – must be '0x' until Phase 3
-  };
-  entityTxs: EntityTx[];        // includes jurisdictionEvent txs
-  precommits: string[];         // BLS sigs over header hash
-  proposedBlock: string;        // keccak256(rlp(header ‖ txs))
-  observedInbox: InboxMessage[];
-  accountInputs: AccountInput[];
+    quorumHash: string
+    quorumStructure: string // reserved – must be '0x' until Phase 3
+  }
+  entityTxs: EntityTx[] // includes jurisdictionEvent txs
+  precommits: string[] // BLS sigs over header hash
+  proposedBlock: string // keccak256(rlp(header ‖ txs))
+  observedInbox: InboxMessage[]
+  accountInputs: AccountInput[]
 }
 
 export interface InboxMessage {
-  msgHash: string;              // keccak256(message) (A6)
-  fromEntityId: string;
-  message: unknown;
+  msgHash: string // keccak256(message) (A6)
+  fromEntityId: string
+  message: unknown
 }
 
 export interface AccountInput {
-  counterEntityId: string;
-  channelId?: bigint;           // reserved for phase 2 multi-channel support (A6)
-  accountTxs: AccountTx[];
+  counterEntityId: string
+  channelId?: bigint // reserved for phase 2 multi-channel support (A6)
+  accountTxs: AccountTx[]
 }
 
 export interface AccountTx {
-  type: 'AddPaymentSubcontract';
-  paymentId: string;
-  amount: number;
+  type: 'AddPaymentSubcontract'
+  paymentId: string
+  amount: number
 }
 ```
 
@@ -260,7 +261,7 @@ export function hashFrame(header: FrameHeader, txs: EntityTx[]): string {
 // Y-2: Transactions are sorted before hashing
 export function computeMemRoot(txs: EntityTx[]): string {
   const sortedTxs = sortTransactions(txs) // nonce → sender → kind → index
-  const leaves = sortedTxs.map(tx => RLP.encode(tx))
+  const leaves = sortedTxs.map((tx) => RLP.encode(tx))
   return '0x' + bytesToHex(keccak256(merkle(leaves)))
 }
 ```

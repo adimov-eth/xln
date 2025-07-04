@@ -26,7 +26,7 @@ test('duplicate signFrame ignored', async () => {
     height: 1n,
     memRoot: '0x0',
     prevStateRoot: '0x0',
-    proposer: '0x1'
+    proposer: '0x1',
   }
   const proposeA: Input = [0, 'e', { type: 'proposeFrame', header }]
   const proposeB: Input = [1, 'e', { type: 'proposeFrame', header }]
