@@ -14,7 +14,8 @@
       "Bash(bun test:*)",
       "Bash(npm run lint)",
       "Bash(git add:*)",
-      "Bash(gh pr view:*)"
+      "Bash(gh pr view:*)",
+      "Bash(bun add:*)"
     ],
     "deny": []
   }

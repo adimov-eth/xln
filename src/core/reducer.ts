@@ -1,7 +1,24 @@
 import { verifyAggregate } from './bls'
-import { computeServerRoot, hashFrame } from './hash'
-import type { Address, Command, Input, Replica, ServerState } from './types'
+import {
+  computeServerRoot,
+  computeInputsRoot,
+  hashEntityState,
+  hashFrame,
+  sortTransactions,
+} from './hash'
+import type {
+  Address,
+  Command,
+  Frame,
+  FrameHeader,
+  Input,
+  Replica,
+  Result,
+  ServerFrame,
+  ServerState,
+} from './types'
 
+/* ---------- helpers ---------- */
 function effectiveWeight(
   votes: ReadonlyArray<{ signer: string }>,
   weightMap: Record<string, bigint>,
@@ -16,123 +33,143 @@ function effectiveWeight(
   return total
 }
 
-const applyCommand = async (rep: Replica, cmd: Command, _now: () => bigint): Promise<Replica> => {
-  if (!rep.attached && cmd.type !== 'attachReplica') return rep
+/* ---------- command handler ---------- */
+const applyCommand = async (
+  rep: Replica,
+  cmd: Command,
+  now: () => bigint,
+): Promise<Result<Replica>> => {
+  if (!rep.attached && cmd.type !== 'attachReplica')
+    return { ok: false, error: 'replica-detached' }
+
   const s = rep.state
+
   switch (cmd.type) {
+    /* ---------- replica mgmt ---------- */
     case 'attachReplica':
-      return { attached: true, state: cmd.snapshot }
+      return { ok: true, value: { attached: true, state: cmd.snapshot } }
+
     case 'detachReplica':
-      return { ...rep, attached: false }
+      return { ok: true, value: { ...rep, attached: false } }
+
+    /* ---------- transaction ---------- */
     case 'addTx': {
-      // A3: Validate nonce
       const signer = cmd.tx.sig.slice(0, 42) as Address
-      const currentNonce = s.signerRecords[signer]?.nonce ?? 0n
-      if (cmd.tx.nonce !== currentNonce + 1n) {
-        return rep // Invalid nonce, reject transaction
-      }
-
-      // Increment nonce before adding to mempool
+      const last = s.signerRecords[signer]?.nonce ?? 0n
+      if (cmd.tx.nonce !== last + 1n)
+        return { ok: false, error: 'nonce-out-of-order' }
       return {
-        ...rep,
-        state: {
-          ...s,
-          signerRecords: {
-            ...s.signerRecords,
-            [signer]: { nonce: cmd.tx.nonce },
+        ok: true,
+        value: {
+          ...rep,
+          state: {
+            ...s,
+            mempool: [...s.mempool, cmd.tx],
+            signerRecords: { ...s.signerRecords, [signer]: { nonce: cmd.tx.nonce } },
           },
-          mempool: [...s.mempool, cmd.tx],
         },
       }
     }
-    case 'proposeFrame': {
-      // Proposer has already built the header with sorted txs
-      // Store it for validators to verify
-      return {
-        ...rep,
-        state: { ...s, proposal: { header: cmd.header, sigs: {} } },
-      }
-    }
-    case 'signFrame': {
-      const addr = cmd.sig.slice(0, 42) as Address
-      if (s.proposal?.sigs[addr]) return rep
-      const sigs = { ...(s.proposal?.sigs || {}), [addr]: cmd.sig }
-      return {
-        ...rep,
-        state: {
-          ...s,
-          proposal: s.proposal ? { ...s.proposal, sigs } : undefined,
-        },
-      }
-    }
-    case 'commitFrame': {
-      const sigs = s.proposal?.sigs || {}
 
-      // R-1: Verify frame hash
-      const frameHash = hashFrame(cmd.frame.header, cmd.frame.txs)
-      const hankoBytes = new Uint8Array(Buffer.from(cmd.hanko.slice(2), 'hex'))
-      const messages = Object.keys(sigs).map(
-        () => new Uint8Array(Buffer.from(frameHash.slice(2), 'hex')),
-      )
-      const pubKeys = Object.keys(sigs).map((s) => new Uint8Array(Buffer.from(s.slice(2), 'hex')))
-      if (!(await verifyAggregate(hankoBytes, messages, pubKeys))) return rep
+    /* ---------- frame proposal ---------- */
+    case 'proposeFrame': {
+      const txs = sortTransactions(s.mempool)
+      const postStateRoot = hashEntityState({ ...s, mempool: [] })
+      const frame: Frame = {
+        ...cmd.header,
+        txs,
+        postStateRoot,
+      }
+      return {
+        ok: true,
+        value: {
+          ...rep,
+          state: { ...s, proposal: { frame, sigs: {} } },
+        },
+      }
+    }
+
+    case 'signFrame': {
+      if (!s.proposal) return { ok: false, error: 'no-proposal' }
+      const addr = cmd.sig.slice(0, 42) as Address
+      if (s.proposal.sigs[addr]) return { ok: false, error: 'dup-sig' }
+      const nonce = (s.signerRecords[addr]?.nonce ?? 0n) + 1n
+      return {
+        ok: true,
+        value: {
+          ...rep,
+          state: {
+            ...s,
+            signerRecords: { ...s.signerRecords, [addr]: { nonce } },
+            proposal: { ...s.proposal, sigs: { ...s.proposal.sigs, [addr]: cmd.sig } },
+          },
+        },
+      }
+    }
+
+    /* ---------- commit ---------- */
+    case 'commitFrame': {
+      const { proposal } = s
+      if (!proposal) return { ok: false, error: 'no-proposal' }
+
+      const frameHash = hashFrame(cmd.frame)
+      if (!(await verifyAggregate(cmd.hanko, [frameHash], [])))
+        return { ok: false, error: 'invalid-agg-sig' }
 
       const weightMap = Object.fromEntries(
         s.quorum.members.map((m) => [m.address, m.shares]),
       ) as Record<string, bigint>
-      const votes = Object.keys(sigs).map((signer) => ({ signer }))
-      if (effectiveWeight(votes, weightMap) < s.quorum.threshold) return rep
-
-      // Apply transactions to get new state
-      const newState = cmd.frame.txs.reduce(
-        (acc, tx) => {
-          if (tx.kind === 'chat' && typeof tx.data === 'string') {
-            const chatHistory =
-              (acc.domainState as { chat?: Array<{ from: string; msg: string }> })?.chat ?? []
-            return {
-              ...acc,
-              domainState: {
-                ...acc.domainState,
-                chat: [...chatHistory, { from: tx.sig.slice(0, 42), msg: tx.data }],
-              },
-            }
-          }
-          return acc
-        },
-        { ...s, height: cmd.frame.height },
-      )
-
-      // Remove committed txs from mempool
-      const committedNonces = new Set(
-        cmd.frame.txs.map((tx) => `${tx.sig.slice(0, 42)}:${tx.nonce}`),
-      )
-      const remainingMempool = s.mempool.filter(
-        (tx) => !committedNonces.has(`${tx.sig.slice(0, 42)}:${tx.nonce}`),
-      )
+      const votes = Object.keys(proposal.sigs).map((signer) => ({ signer }))
+      if (effectiveWeight(votes, weightMap) < s.quorum.threshold)
+        return { ok: false, error: 'quorum-not-reached' }
 
       return {
-        ...rep,
-        state: {
-          ...newState,
-          mempool: remainingMempool,
-          proposal: undefined,
+        ok: true,
+        value: {
+          ...rep,
+          state: {
+            ...s,
+            height: cmd.frame.height,
+            mempool: [],
+            proposal: undefined,
+          },
         },
       }
     }
   }
 }
 
+/* ---------- server reducer ---------- */
 export const applyServerFrame = async (
   st: ServerState,
   batch: Input[],
   now: () => bigint,
-): Promise<{ next: ServerState; root: Uint8Array }> => {
+  height: bigint,
+): Promise<{ next: ServerState; serverFrame: ServerFrame }> => {
   const next = new Map(st)
+  const rejects: { key: string; err: string }[] = []
+
   for (const [idx, id, cmd] of batch) {
     const key = `${idx}:${id}` as const
-    if (!next.has(key) && cmd.type !== 'attachReplica') continue
-    const rep = next.get(key) || ({ attached: false, state: cmd.snapshot } as Replica)
-    next.set(key, await applyCommand(rep, cmd, now))
+    const rep = next.get(key) ?? ({ attached: false, state: cmd.snapshot } as Replica)
+    const res = await applyCommand(rep, cmd, now)
+    if (res.ok) next.set(key, res.value)
+    else rejects.push({ key, err: res.error })
   }
-  return { next, root: computeServerRoot(next) }
+
+  if (rejects.length) console.warn('rejected commands', rejects)
+
+  const root = computeServerRoot(next)
+  const inputsRoot = computeInputsRoot(batch)
+
+  return {
+    next,
+    serverFrame: {
+      height,
+      timestamp: now(),
+      root,
+      inputsRoot,
+      batch,
+    },
+  }
 }
