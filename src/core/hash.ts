@@ -1,7 +1,14 @@
 import keccak256 from 'keccak256'
 import { encodeRlp } from './encodeRlp'
 import { merkle } from './merkle'
-import type { EntityState, Frame, ServerState } from './types'
+import type { EntityState, Frame, ServerState, EntityTx, Address } from './types'
+
+/* ---------- helpers ---------- */
+export const getSender = (tx: EntityTx): Address => {
+  // TODO: Replace with proper ecrecover when signatures are real
+  // For now, extract from sig as per legacy format
+  return tx.sig.slice(0, 42) as Address
+}
 
 /* ---------- entity‑level hashing ---------- */
 export const hashEntityState = (s: EntityState): Uint8Array =>

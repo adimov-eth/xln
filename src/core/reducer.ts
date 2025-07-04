@@ -5,6 +5,7 @@ import {
   hashEntityState,
   hashFrame,
   sortTransactions,
+  getSender,
 } from './hash'
 import type {
   Address,
@@ -15,6 +16,7 @@ import type {
   Result,
   ServerFrame,
   ServerState,
+  EntityTx,
 } from './types'
 
 /* ---------- helpers ---------- */
@@ -109,16 +111,46 @@ const applyCommand = async (
       const { proposal } = s
       if (!proposal) return { ok: false, error: 'no-proposal' }
 
-      const frameHash = hashFrame(cmd.frame)
-      if (!(await verifyAggregate(cmd.hanko, [frameHash], [])))
-        return { ok: false, error: 'invalid-agg-sig' }
-
+      // Check weight before expensive BLS verification
       const weightMap = Object.fromEntries(
         s.quorum.members.map((m) => [m.address, m.shares]),
       ) as Record<string, bigint>
       const votes = Object.keys(proposal.sigs).map((signer) => ({ signer }))
       if (effectiveWeight(votes, weightMap) < s.quorum.threshold)
         return { ok: false, error: 'quorum-not-reached' }
+
+      // Verify BLS aggregate signature
+      const frameHash = hashFrame(cmd.frame)
+      if (!(await verifyAggregate(cmd.hanko, [frameHash], [])))
+        return { ok: false, error: 'invalid-agg-sig' }
+
+      // Apply transactions and update nonces
+      let newDomainState = s.domainState
+      const newSignerRecords = { ...s.signerRecords }
+      
+      // Domain reducers dispatch table
+      const domainReducers: Record<string, (state: unknown, tx: EntityTx) => unknown> = {
+        chat: (state, tx) => ({
+          ...(state as { chat?: Array<{ from: string; msg: string }> }),
+          chat: [
+            ...((state as { chat?: Array<{ from: string; msg: string }> }).chat ?? []),
+            { from: getSender(tx), msg: (tx.data as { msg: string }).msg },
+          ],
+        }),
+        // Add other domain reducers here as needed
+      }
+
+      // Process each transaction
+      for (const tx of cmd.frame.txs) {
+        // Apply domain-specific logic
+        const reducer = domainReducers[tx.kind]
+        if (reducer) {
+          newDomainState = reducer(newDomainState, tx)
+        }
+        // Update nonce for replay protection
+        const sender = getSender(tx)
+        newSignerRecords[sender] = { nonce: tx.nonce }
+      }
 
       return {
         ok: true,
@@ -127,6 +159,8 @@ const applyCommand = async (
           state: {
             ...s,
             height: cmd.frame.height,
+            domainState: newDomainState,
+            signerRecords: newSignerRecords,
             mempool: [],
             proposal: undefined,
           },
