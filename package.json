@@ -113,3 +113,5 @@
   },
   "type": "module"
 }
+    "diagram:generate": "bun run utils/diagram-watcher.ts",
+    "diagram:watch": "bun run utils/diagram-watcher.ts --watch",
