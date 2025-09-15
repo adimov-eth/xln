@@ -18,45 +18,36 @@ export type {
   TransformContext,
   TransformResult,
   ChannelCapacity,
-  TransactionState
+  TransformProof,
+  AtomicTransaction,
+  TransformOperation
 } from './BaseTransformer';
 
 export type { SwapParams, SwapState } from './SwapTransformer';
-export type { HTLCParams, HTLCState, HTLCClaimParams } from './HTLCTransformer';
+export type { HTLCParams, HTLCState } from './HTLCTransformer';
 export type {
-  OptionsParams,
-  OptionsState,
-  OptionType,
-  OptionStyle,
+  OptionParams,
+  OptionState,
   Greeks
 } from './OptionsTransformer';
 export type {
   FuturesParams,
-  FuturesState,
-  FuturesType,
   FuturesPosition
 } from './FuturesTransformer';
 export type {
-  LiquidityPoolParams,
-  LiquidityPoolState,
-  PoolType,
-  LiquidityPosition
+  LiquidityPool
 } from './LiquidityPoolTransformer';
 export type {
-  InsurancePoolParams,
-  InsurancePoolState,
-  InsuranceClaim,
-  RiskProfile
+  InsuranceParams,
+  InsurancePool
 } from './InsurancePoolTransformer';
 export type {
   FlashLoanParams,
-  FlashLoanState,
-  FlashLoanRequest
+  FlashLoanState
 } from './FlashLoanTransformer';
 export type {
-  ComposedTransform,
   CompositionResult,
-  TransformerStep
+  StepResult
 } from './TransformerComposer';
 
 import { BaseTransformer } from './BaseTransformer';

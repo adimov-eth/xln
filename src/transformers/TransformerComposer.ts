@@ -84,7 +84,10 @@ export class TransformerComposer extends BaseTransformer {
             return {
               success: false,
               error: `Step ${i} failed: ${stepResult.error}`,
-              data: { steps: results }
+              data: {
+                steps: results,
+                atomicProof: '0x0'
+              }
             };
           }
         }
@@ -107,7 +110,10 @@ export class TransformerComposer extends BaseTransformer {
         return {
           success: false,
           error: 'Required steps failed',
-          data: { steps: results }
+          data: {
+            steps: results,
+            atomicProof: '0x0'
+          }
         };
       }
 
@@ -141,7 +147,10 @@ export class TransformerComposer extends BaseTransformer {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Composition failed',
-        data: { steps: results }
+        data: {
+          steps: results,
+          atomicProof: '0x0'
+        }
       };
     }
   }
