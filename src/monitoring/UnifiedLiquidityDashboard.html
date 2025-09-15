@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XLN Unified Liquidity Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            background: linear-gradient(90deg, #00d4ff, #7b2ff7, #ff00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 15px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-indicator.active {
+            background: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+        }
+
+        .status-indicator.warning {
+            background: #ffaa00;
+            box-shadow: 0 0 10px #ffaa00;
+        }
+
+        .status-indicator.error {
+            background: #ff3366;
+            box-shadow: 0 0 10px #ff3366;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .card-title {
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            color: #00d4ff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .metric {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 12px;
+            border-radius: 8px;
+        }
+
+        .metric-label {
+            font-size: 0.85em;
+            color: #888;
+            margin-bottom: 5px;
+        }
+
+        .metric-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .metric-value.positive {
+            color: #00ff88;
+        }
+
+        .metric-value.negative {
+            color: #ff3366;
+        }
+
+        .order-book {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        .order-book-side {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .order-book-header {
+            font-size: 0.9em;
+            margin-bottom: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .bids .order-book-header {
+            color: #00ff88;
+        }
+
+        .asks .order-book-header {
+            color: #ff3366;
+        }
+
+        .order-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 8px;
+            margin: 2px 0;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-family: 'SF Mono', monospace;
+        }
+
+        .bids .order-row {
+            background: rgba(0, 255, 136, 0.1);
+        }
+
+        .asks .order-row {
+            background: rgba(255, 51, 102, 0.1);
+        }
+
+        .trade-flow {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+
+        .trade-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .trade-custodial {
+            border-left: 3px solid #00d4ff;
+        }
+
+        .trade-trustless {
+            border-left: 3px solid #7b2ff7;
+        }
+
+        .trade-cross {
+            border-left: 3px solid #ff00ff;
+            background: rgba(255, 0, 255, 0.1);
+        }
+
+        .liquidity-map {
+            position: relative;
+            height: 200px;
+            margin-top: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .liquidity-bar {
+            position: absolute;
+            bottom: 0;
+            width: 30px;
+            background: linear-gradient(180deg, #00ff88, #00d4ff);
+            border-radius: 4px 4px 0 0;
+            transition: height 0.3s ease;
+        }
+
+        .consensus-status {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+        }
+
+        .validator-node {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            font-weight: bold;
+            position: relative;
+        }
+
+        .validator-node.honest {
+            background: rgba(0, 255, 136, 0.3);
+            border: 2px solid #00ff88;
+        }
+
+        .validator-node.byzantine {
+            background: rgba(255, 51, 102, 0.3);
+            border: 2px solid #ff3366;
+        }
+
+        .validator-node.proposer::after {
+            content: '👑';
+            position: absolute;
+            top: -10px;
+            right: -5px;
+        }
+
+        .carol-status {
+            background: linear-gradient(135deg, rgba(255, 0, 255, 0.2), rgba(123, 47, 247, 0.2));
+            border: 2px solid #ff00ff;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+
+        .carol-strategy {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .strategy-chip {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.85em;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 250px;
+            margin-top: 15px;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+            font-size: 0.85em;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+        }
+
+        @media (max-width: 768px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .status-bar {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>XLN Unified Liquidity Dashboard</h1>
+        <div class="status-bar">
+            <div class="status-item">
+                <div class="status-indicator active"></div>
+                <span>Consensus Active</span>
+            </div>
+            <div class="status-item">
+                <div class="status-indicator active"></div>
+                <span>Liquidity Bridge Online</span>
+            </div>
+            <div class="status-item">
+                <div class="status-indicator active"></div>
+                <span>Carol Trading</span>
+            </div>
+            <div class="status-item">
+                <div class="status-indicator warning"></div>
+                <span>Network Health: 97%</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <!-- TPS Metrics -->
+        <div class="card">
+            <h2 class="card-title">⚡ Performance Metrics</h2>
+            <div class="metric-grid">
+                <div class="metric">
+                    <div class="metric-label">Current TPS</div>
+                    <div class="metric-value positive" id="current-tps">24.7</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Peak TPS</div>
+                    <div class="metric-value" id="peak-tps">31.2</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">P95 Latency</div>
+                    <div class="metric-value" id="latency">142ms</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Success Rate</div>
+                    <div class="metric-value positive" id="success-rate">99.7%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Unified Liquidity Status -->
+        <div class="card">
+            <h2 class="card-title">💧 Unified Liquidity Pool</h2>
+            <div class="metric-grid">
+                <div class="metric">
+                    <div class="metric-label">Custodial TVL</div>
+                    <div class="metric-value" id="custodial-tvl">$4.2M</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Trustless TVL</div>
+                    <div class="metric-value" id="trustless-tvl">$2.8M</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Cross-Settlements</div>
+                    <div class="metric-value positive" id="cross-settlements">847</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">HTLC Success</div>
+                    <div class="metric-value positive" id="htlc-success">98.2%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Order Book -->
+        <div class="card">
+            <h2 class="card-title">📊 ETH/USDC Order Book</h2>
+            <div class="order-book">
+                <div class="order-book-side bids">
+                    <div class="order-book-header">BIDS</div>
+                    <div id="bids-container">
+                        <div class="order-row">
+                            <span>4,201.5</span>
+                            <span>2.45</span>
+                        </div>
+                        <div class="order-row">
+                            <span>4,200.0</span>
+                            <span>5.12</span>
+                        </div>
+                        <div class="order-row">
+                            <span>4,198.5</span>
+                            <span>1.87</span>
+                        </div>
+                        <div class="order-row">
+                            <span>4,197.0</span>
+                            <span>3.33</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="order-book-side asks">
+                    <div class="order-book-header">ASKS</div>
+                    <div id="asks-container">
+                        <div class="order-row">
+                            <span>4,202.5</span>
+                            <span>1.98</span>
+                        </div>
+                        <div class="order-row">
+                            <span>4,204.0</span>
+                            <span>4.21</span>
+                        </div>
+                        <div class="order-row">
+                            <span>4,205.5</span>
+                            <span>2.76</span>
+                        </div>
+                        <div class="order-row">
+                            <span>4,207.0</span>
+                            <span>5.44</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Carol Market Maker Status -->
+        <div class="card">
+            <h2 class="card-title">🤖 Carol Market Maker</h2>
+            <div class="carol-status">
+                <div class="metric-grid">
+                    <div class="metric">
+                        <div class="metric-label">Strategy</div>
+                        <div class="metric-value">GRID</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">P&L Today</div>
+                        <div class="metric-value positive">+$12,847</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Fill Rate</div>
+                        <div class="metric-value">87.3%</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Inventory</div>
+                        <div class="metric-value">BALANCED</div>
+                    </div>
+                </div>
+                <div class="carol-strategy">
+                    <span class="strategy-chip">Grid Trading</span>
+                    <span class="strategy-chip">Arbitrage</span>
+                    <span class="strategy-chip">Mean Reversion</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Consensus Visualization -->
+        <div class="card">
+            <h2 class="card-title">🔗 Consensus Network</h2>
+            <div class="consensus-status">
+                <div class="validator-node honest proposer">V1</div>
+                <div class="validator-node honest">V2</div>
+                <div class="validator-node honest">V3</div>
+                <div class="validator-node byzantine">V4</div>
+                <div class="validator-node honest">V5</div>
+                <div class="validator-node honest">V6</div>
+                <div class="validator-node byzantine">V7</div>
+            </div>
+            <div class="metric-grid" style="margin-top: 15px;">
+                <div class="metric">
+                    <div class="metric-label">Current Round</div>
+                    <div class="metric-value">8,472</div>
+                </div>
+                <div class="metric">
+                    <div class="metric-label">Byzantine Ratio</div>
+                    <div class="metric-value">28.6%</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Trades -->
+        <div class="card">
+            <h2 class="card-title">📈 Recent Trades</h2>
+            <div class="trade-flow" id="trade-flow">
+                <div class="trade-item trade-cross">
+                    <span>ETH/USDC</span>
+                    <span>Cross-Settlement</span>
+                    <span class="positive">0.5 ETH @ 4,201</span>
+                </div>
+                <div class="trade-item trade-custodial">
+                    <span>BTC/USDC</span>
+                    <span>Custodial</span>
+                    <span>0.02 BTC @ 65,100</span>
+                </div>
+                <div class="trade-item trade-trustless">
+                    <span>ETH/USDC</span>
+                    <span>Trustless</span>
+                    <span>1.2 ETH @ 4,202</span>
+                </div>
+                <div class="trade-item trade-custodial">
+                    <span>LINK/USDC</span>
+                    <span>Custodial</span>
+                    <span>100 LINK @ 14.5</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- TPS Chart -->
+        <div class="card full-width">
+            <h2 class="card-title">📊 TPS History (Last Hour)</h2>
+            <div class="chart-container">
+                <canvas id="tps-chart"></canvas>
+            </div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00ff88;"></div>
+                    <span>Actual TPS</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff3366;"></div>
+                    <span>Target (18 TPS)</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00d4ff;"></div>
+                    <span>Moving Average</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Liquidity Flow Visualization -->
+        <div class="card full-width">
+            <h2 class="card-title">🌊 Liquidity Flow Map</h2>
+            <div class="liquidity-map" id="liquidity-map">
+                <!-- Dynamically generated liquidity bars -->
+            </div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #00d4ff;"></div>
+                    <span>Custodial</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #7b2ff7;"></div>
+                    <span>Trustless</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ff00ff;"></div>
+                    <span>Cross-Settlement</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize TPS Chart
+        const ctx = document.getElementById('tps-chart').getContext('2d');
+        const tpsChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    {
+                        label: 'Actual TPS',
+                        data: [],
+                        borderColor: '#00ff88',
+                        backgroundColor: 'rgba(0, 255, 136, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Target',
+                        data: [],
+                        borderColor: '#ff3366',
+                        borderDash: [5, 5],
+                        borderWidth: 1,
+                        fill: false
+                    },
+                    {
+                        label: 'Moving Average',
+                        data: [],
+                        borderColor: '#00d4ff',
+                        backgroundColor: 'rgba(0, 212, 255, 0.05)',
+                        borderWidth: 2,
+                        tension: 0.4
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        },
+                        ticks: {
+                            color: '#888'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.05)'
+                        },
+                        ticks: {
+                            color: '#888',
+                            maxRotation: 45
+                        }
+                    }
+                }
+            }
+        });
+
+        // Simulate real-time data updates
+        function updateMetrics() {
+            // Update TPS
+            const currentTPS = (18 + Math.random() * 15).toFixed(1);
+            document.getElementById('current-tps').textContent = currentTPS;
+
+            // Update other metrics with slight variations
+            document.getElementById('latency').textContent =
+                Math.floor(100 + Math.random() * 100) + 'ms';
+
+            document.getElementById('success-rate').textContent =
+                (98 + Math.random() * 1.5).toFixed(1) + '%';
+
+            document.getElementById('cross-settlements').textContent =
+                Math.floor(847 + Math.random() * 10);
+        }
+
+        // Update TPS chart
+        function updateTPSChart() {
+            const now = new Date();
+            const timeLabel = now.toLocaleTimeString();
+
+            // Add new data point
+            tpsChart.data.labels.push(timeLabel);
+            tpsChart.data.datasets[0].data.push(18 + Math.random() * 15);
+            tpsChart.data.datasets[1].data.push(18); // Target line
+
+            // Calculate moving average
+            const actualData = tpsChart.data.datasets[0].data;
+            const movingAvg = actualData.slice(-5).reduce((a, b) => a + b, 0) /
+                Math.min(actualData.length, 5);
+            tpsChart.data.datasets[2].data.push(movingAvg);
+
+            // Keep only last 20 points
+            if (tpsChart.data.labels.length > 20) {
+                tpsChart.data.labels.shift();
+                tpsChart.data.datasets.forEach(dataset => dataset.data.shift());
+            }
+
+            tpsChart.update('none'); // Update without animation
+        }
+
+        // Simulate new trades
+        function addNewTrade() {
+            const tradeTypes = ['trade-custodial', 'trade-trustless', 'trade-cross'];
+            const pairs = ['ETH/USDC', 'BTC/USDC', 'LINK/USDC', 'UNI/USDC'];
+            const types = ['Custodial', 'Trustless', 'Cross-Settlement'];
+
+            const tradeType = tradeTypes[Math.floor(Math.random() * tradeTypes.length)];
+            const typeIndex = tradeTypes.indexOf(tradeType);
+            const pair = pairs[Math.floor(Math.random() * pairs.length)];
+
+            const tradeFlow = document.getElementById('trade-flow');
+            const newTrade = document.createElement('div');
+            newTrade.className = `trade-item ${tradeType}`;
+
+            let amount, price;
+            if (pair.includes('ETH')) {
+                amount = (Math.random() * 2).toFixed(2);
+                price = (4200 + Math.random() * 10).toFixed(0);
+            } else if (pair.includes('BTC')) {
+                amount = (Math.random() * 0.05).toFixed(3);
+                price = (65000 + Math.random() * 200).toFixed(0);
+            } else {
+                amount = Math.floor(50 + Math.random() * 200);
+                price = (10 + Math.random() * 10).toFixed(1);
+            }
+
+            newTrade.innerHTML = `
+                <span>${pair}</span>
+                <span>${types[typeIndex]}</span>
+                <span class="${Math.random() > 0.5 ? 'positive' : ''}">
+                    ${amount} ${pair.split('/')[0]} @ ${price}
+                </span>
+            `;
+
+            tradeFlow.insertBefore(newTrade, tradeFlow.firstChild);
+
+            // Keep only last 5 trades
+            while (tradeFlow.children.length > 5) {
+                tradeFlow.removeChild(tradeFlow.lastChild);
+            }
+        }
+
+        // Update order book
+        function updateOrderBook() {
+            const bidsContainer = document.getElementById('bids-container');
+            const asksContainer = document.getElementById('asks-container');
+
+            // Generate random bid prices
+            const basePrice = 4200;
+            bidsContainer.innerHTML = '';
+            for (let i = 0; i < 4; i++) {
+                const price = (basePrice - i * 1.5).toFixed(1);
+                const amount = (Math.random() * 5 + 1).toFixed(2);
+                bidsContainer.innerHTML += `
+                    <div class="order-row">
+                        <span>${price}</span>
+                        <span>${amount}</span>
+                    </div>
+                `;
+            }
+
+            // Generate random ask prices
+            asksContainer.innerHTML = '';
+            for (let i = 0; i < 4; i++) {
+                const price = (basePrice + 2 + i * 1.5).toFixed(1);
+                const amount = (Math.random() * 5 + 1).toFixed(2);
+                asksContainer.innerHTML += `
+                    <div class="order-row">
+                        <span>${price}</span>
+                        <span>${amount}</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Create liquidity flow visualization
+        function createLiquidityMap() {
+            const map = document.getElementById('liquidity-map');
+            map.innerHTML = '';
+
+            const pairs = ['ETH', 'BTC', 'LINK', 'UNI', 'AAVE', 'SNX'];
+            const colors = ['#00d4ff', '#7b2ff7', '#ff00ff'];
+
+            pairs.forEach((pair, index) => {
+                ['Custodial', 'Trustless', 'Cross'].forEach((type, typeIndex) => {
+                    const bar = document.createElement('div');
+                    bar.className = 'liquidity-bar';
+                    bar.style.left = `${index * 160 + typeIndex * 40 + 20}px`;
+                    bar.style.width = '30px';
+                    bar.style.height = `${Math.random() * 150 + 20}px`;
+                    bar.style.background = colors[typeIndex];
+                    bar.style.opacity = '0.8';
+                    map.appendChild(bar);
+                });
+            });
+        }
+
+        // Initialize and start updates
+        createLiquidityMap();
+
+        // Initial chart population
+        for (let i = 0; i < 10; i++) {
+            updateTPSChart();
+        }
+
+        // Set up periodic updates
+        setInterval(updateMetrics, 1000);
+        setInterval(updateTPSChart, 3000);
+        setInterval(addNewTrade, 2000);
+        setInterval(updateOrderBook, 5000);
+        setInterval(createLiquidityMap, 10000);
+
+        // Simulate WebSocket connection for real-time updates
+        // In production, this would connect to the actual XLN backend
+        console.log('XLN Unified Liquidity Dashboard initialized');
+        console.log('Monitoring real-time liquidity flows across custodial and trustless systems');
+    </script>
+</body>
+</html>

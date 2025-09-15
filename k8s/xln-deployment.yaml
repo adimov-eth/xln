@@ -1,0 +1,708 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: xln
+  labels:
+    name: xln
+    version: "1.0.0"
+
+---
+# ConfigMap for XLN configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: xln-config
+  namespace: xln
+data:
+  network-id: "mainnet"
+  chain-id: "1"
+  min-eoa-signatures: "2"
+  max-delegation-depth: "3"
+  fee-threshold: "0.7"
+  target-tps: "18"
+  htlc-timeout-blocks: "144"
+  maker-fee: "-1"
+  taker-fee: "5"
+  wash-trade-limit: "0.05"
+
+---
+# Secret for sensitive data
+apiVersion: v1
+kind: Secret
+metadata:
+  name: xln-secrets
+  namespace: xln
+type: Opaque
+stringData:
+  ethereum-private-key: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+  alice-private-key: "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+  bob-private-key: "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a"
+  grafana-password: "xln-admin-2025"
+
+---
+# PersistentVolumeClaim for data persistence
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: xln-data-pvc
+  namespace: xln
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: fast-ssd
+
+---
+# Ethereum Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: ethereum
+  namespace: xln
+spec:
+  selector:
+    app: ethereum
+  ports:
+    - name: http-rpc
+      port: 8545
+      targetPort: 8545
+    - name: ws-rpc
+      port: 8546
+      targetPort: 8546
+  type: ClusterIP
+
+---
+# Ethereum Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ethereum
+  namespace: xln
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ethereum
+  template:
+    metadata:
+      labels:
+        app: ethereum
+    spec:
+      containers:
+      - name: ethereum
+        image: ethereum/client-go:stable
+        ports:
+        - containerPort: 8545
+        - containerPort: 8546
+        command:
+        - geth
+        - --dev
+        - --dev.period=3
+        - --http
+        - --http.addr=0.0.0.0
+        - --http.port=8545
+        - --http.api=eth,net,web3,personal,admin,debug,txpool
+        - --http.corsdomain=*
+        - --ws
+        - --ws.addr=0.0.0.0
+        - --ws.port=8546
+        - --ws.api=eth,net,web3,personal,admin,debug,txpool
+        - --ws.origins=*
+        - --allow-insecure-unlock
+        - --rpc.gascap=0
+        - --rpc.txfeecap=0
+        - --mine
+        volumeMounts:
+        - name: ethereum-data
+          mountPath: /root/.ethereum
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+      volumes:
+      - name: ethereum-data
+        emptyDir: {}
+
+---
+# Redis Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: xln
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+  type: ClusterIP
+
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: xln
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: redis-data
+        emptyDir: {}
+
+---
+# XLN Consensus Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: xln-consensus
+  namespace: xln
+spec:
+  selector:
+    app: xln-consensus
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+    - name: p2p
+      port: 3001
+      targetPort: 3001
+    - name: metrics
+      port: 9090
+      targetPort: 9090
+  type: ClusterIP
+
+---
+# XLN Consensus StatefulSet (for multiple validators)
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: xln-consensus
+  namespace: xln
+spec:
+  serviceName: xln-consensus
+  replicas: 7  # 7 validators for Byzantine fault tolerance
+  selector:
+    matchLabels:
+      app: xln-consensus
+  template:
+    metadata:
+      labels:
+        app: xln-consensus
+    spec:
+      containers:
+      - name: consensus
+        image: xln/consensus:latest
+        ports:
+        - containerPort: 3000
+        - containerPort: 3001
+        - containerPort: 9090
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: ETH_RPC_URL
+          value: "http://ethereum:8545"
+        - name: ETH_WS_URL
+          value: "ws://ethereum:8546"
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        - name: VALIDATOR_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: PROPOSER
+          value: "false"  # Only first pod is proposer
+        envFrom:
+        - configMapRef:
+            name: xln-config
+        volumeMounts:
+        - name: consensus-data
+          mountPath: /data
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: consensus-data
+    spec:
+      accessModes: ["ReadWriteOnce"]
+      resources:
+        requests:
+          storage: 5Gi
+
+---
+# Unified Liquidity Bridge Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: xln-liquidity-bridge
+  namespace: xln
+spec:
+  selector:
+    app: xln-liquidity-bridge
+  ports:
+    - name: http
+      port: 4000
+      targetPort: 4000
+    - name: ws
+      port: 4001
+      targetPort: 4001
+  type: LoadBalancer
+
+---
+# Unified Liquidity Bridge Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xln-liquidity-bridge
+  namespace: xln
+spec:
+  replicas: 3  # HA deployment
+  selector:
+    matchLabels:
+      app: xln-liquidity-bridge
+  template:
+    metadata:
+      labels:
+        app: xln-liquidity-bridge
+    spec:
+      containers:
+      - name: liquidity-bridge
+        image: xln/liquidity-bridge:latest
+        ports:
+        - containerPort: 4000
+        - containerPort: 4001
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: CONSENSUS_URL
+          value: "http://xln-consensus:3000"
+        - name: MATCHING_URL
+          value: "http://matching-engine:5000"
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        - name: ENABLE_CROSS_SETTLEMENT
+          value: "true"
+        envFrom:
+        - configMapRef:
+            name: xln-config
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 4000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+
+---
+# Matching Engine Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: matching-engine
+  namespace: xln
+spec:
+  selector:
+    app: matching-engine
+  ports:
+    - name: http
+      port: 5000
+      targetPort: 5000
+    - name: ws
+      port: 5001
+      targetPort: 5001
+  type: ClusterIP
+
+---
+# Matching Engine Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: matching-engine
+  namespace: xln
+spec:
+  replicas: 2  # HA deployment
+  selector:
+    matchLabels:
+      app: matching-engine
+  template:
+    metadata:
+      labels:
+        app: matching-engine
+    spec:
+      containers:
+      - name: matching-engine
+        image: xln/matching-engine:latest
+        ports:
+        - containerPort: 5000
+        - containerPort: 5001
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: REDIS_URL
+          value: "redis://redis:6379"
+        - name: ENABLE_MAKER_TAKER_FEES
+          value: "true"
+        envFrom:
+        - configMapRef:
+            name: xln-config
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1"
+          limits:
+            memory: "4Gi"
+            cpu: "2"
+
+---
+# Carol Market Maker Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: carol-market-maker
+  namespace: xln
+spec:
+  replicas: 1  # Single instance to avoid conflicts
+  selector:
+    matchLabels:
+      app: carol-market-maker
+  template:
+    metadata:
+      labels:
+        app: carol-market-maker
+    spec:
+      containers:
+      - name: carol
+        image: xln/carol:latest
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: STRATEGY
+          value: "production"
+        - name: LIQUIDITY_URL
+          value: "http://xln-liquidity-bridge:4000"
+        - name: MATCHING_URL
+          value: "http://matching-engine:5000"
+        - name: CAPITAL_LIMIT
+          value: "1000000"
+        - name: RISK_LIMIT
+          value: "0.05"
+        - name: MAX_DRAWDOWN
+          value: "0.10"
+        - name: UPDATE_INTERVAL
+          value: "5000"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+
+---
+# Dashboard Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: xln-dashboard
+  namespace: xln
+spec:
+  selector:
+    app: xln-dashboard
+  ports:
+    - port: 80
+      targetPort: 80
+  type: LoadBalancer
+
+---
+# Dashboard Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: xln-dashboard
+  namespace: xln
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: xln-dashboard
+  template:
+    metadata:
+      labels:
+        app: xln-dashboard
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: dashboard-html
+          mountPath: /usr/share/nginx/html
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+      volumes:
+      - name: dashboard-html
+        configMap:
+          name: dashboard-content
+
+---
+# HorizontalPodAutoscaler for Liquidity Bridge
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: liquidity-bridge-hpa
+  namespace: xln
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: xln-liquidity-bridge
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# HorizontalPodAutoscaler for Matching Engine
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: matching-engine-hpa
+  namespace: xln
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: matching-engine
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+# Prometheus Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: xln
+spec:
+  selector:
+    app: prometheus
+  ports:
+    - port: 9090
+      targetPort: 9090
+  type: ClusterIP
+
+---
+# Prometheus Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: xln
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+      - name: prometheus
+        image: prom/prometheus:latest
+        ports:
+        - containerPort: 9090
+        args:
+        - '--config.file=/etc/prometheus/prometheus.yml'
+        - '--storage.tsdb.path=/prometheus'
+        - '--web.enable-lifecycle'
+        volumeMounts:
+        - name: prometheus-config
+          mountPath: /etc/prometheus
+        - name: prometheus-data
+          mountPath: /prometheus
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1"
+      volumes:
+      - name: prometheus-config
+        configMap:
+          name: prometheus-config
+      - name: prometheus-data
+        emptyDir: {}
+
+---
+# Grafana Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: xln
+spec:
+  selector:
+    app: grafana
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: LoadBalancer
+
+---
+# Grafana Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: xln
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+      - name: grafana
+        image: grafana/grafana:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: GF_SECURITY_ADMIN_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: xln-secrets
+              key: grafana-password
+        - name: GF_USERS_ALLOW_SIGN_UP
+          value: "false"
+        volumeMounts:
+        - name: grafana-data
+          mountPath: /var/lib/grafana
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+      volumes:
+      - name: grafana-data
+        emptyDir: {}
+
+---
+# NetworkPolicy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: xln-network-policy
+  namespace: xln
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: xln
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: xln
+  - to:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 443  # HTTPS
+    - protocol: TCP
+      port: 80   # HTTP

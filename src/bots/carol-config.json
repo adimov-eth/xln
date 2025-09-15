@@ -1,0 +1,113 @@
+{
+  "production": {
+    "pairs": ["ETH/USD", "BTC/USD", "USDT/USD"],
+    "capitalPerPair": "500000000000000000000000",
+    "maxPositionSize": "250000000000000000000000",
+    "maxDailyDrawdown": 0.03,
+    "gasThreshold": "30000000000",
+
+    "gridLevels": 8,
+    "baseSpread": 15,
+    "gridSpacing": 25,
+
+    "volatilityWindow": 30,
+    "minSpread": 8,
+    "maxSpread": 150,
+    "spreadMultiplier": 2.0,
+
+    "enableArbitrage": true,
+    "arbThreshold": 20,
+    "maxArbSize": "50000000000000000000000",
+
+    "targetInventory": 0.5,
+    "rebalanceThreshold": 0.15,
+    "rebalanceSize": "25000000000000000000000",
+
+    "updateInterval": 2000,
+    "metricsWindow": 30
+  },
+
+  "development": {
+    "pairs": ["ETH/USD", "BTC/USD"],
+    "capitalPerPair": "100000000000000000000000",
+    "maxPositionSize": "50000000000000000000000",
+    "maxDailyDrawdown": 0.05,
+    "gasThreshold": "100000000000",
+
+    "gridLevels": 5,
+    "baseSpread": 25,
+    "gridSpacing": 50,
+
+    "volatilityWindow": 60,
+    "minSpread": 15,
+    "maxSpread": 200,
+    "spreadMultiplier": 1.5,
+
+    "enableArbitrage": true,
+    "arbThreshold": 30,
+    "maxArbSize": "10000000000000000000000",
+
+    "targetInventory": 0.5,
+    "rebalanceThreshold": 0.2,
+    "rebalanceSize": "5000000000000000000000",
+
+    "updateInterval": 5000,
+    "metricsWindow": 60
+  },
+
+  "conservative": {
+    "pairs": ["USDT/USD", "ETH/USD"],
+    "capitalPerPair": "200000000000000000000000",
+    "maxPositionSize": "100000000000000000000000",
+    "maxDailyDrawdown": 0.02,
+    "gasThreshold": "20000000000",
+
+    "gridLevels": 10,
+    "baseSpread": 8,
+    "gridSpacing": 20,
+
+    "volatilityWindow": 120,
+    "minSpread": 5,
+    "maxSpread": 100,
+    "spreadMultiplier": 1.2,
+
+    "enableArbitrage": false,
+    "arbThreshold": 50,
+    "maxArbSize": "5000000000000000000000",
+
+    "targetInventory": 0.5,
+    "rebalanceThreshold": 0.1,
+    "rebalanceSize": "10000000000000000000000",
+
+    "updateInterval": 10000,
+    "metricsWindow": 120
+  },
+
+  "aggressive": {
+    "pairs": ["ETH/USD", "BTC/USD", "USDT/USD"],
+    "capitalPerPair": "1000000000000000000000000",
+    "maxPositionSize": "800000000000000000000000",
+    "maxDailyDrawdown": 0.08,
+    "gasThreshold": "150000000000",
+
+    "gridLevels": 12,
+    "baseSpread": 35,
+    "gridSpacing": 75,
+
+    "volatilityWindow": 15,
+    "minSpread": 20,
+    "maxSpread": 300,
+    "spreadMultiplier": 3.0,
+
+    "enableArbitrage": true,
+    "arbThreshold": 15,
+    "maxArbSize": "100000000000000000000000",
+
+    "targetInventory": 0.6,
+    "rebalanceThreshold": 0.3,
+    "rebalanceSize": "50000000000000000000000",
+
+    "updateInterval": 1000,
+    "metricsWindow": 15
+  }
+}

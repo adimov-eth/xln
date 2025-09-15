@@ -21,8 +21,8 @@
 
 import { ethers } from 'ethers';
 import { randomBytes } from 'crypto';
-import { HankoBytes, HankoClaim } from './types.js';
-import { buildRealHanko, testFullCycle } from './hanko-real.js';
+import { HankoBytes, HankoClaim } from '../src/types.js';
+import { buildRealHanko, testFullCycle } from '../src/hanko-real.js';
 
 // === TEST SETUP ===
 

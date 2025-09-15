@@ -9,8 +9,8 @@
 
 import { ethers } from 'ethers';
 import { randomBytes } from 'crypto';
-import { HankoBytes } from './types.js';
-import { buildRealHanko, packRealSignatures, unpackRealSignatures, detectSignatureCount } from './hanko-real.js';
+import { HankoBytes } from '../src/types.js';
+import { buildRealHanko, packRealSignatures, unpackRealSignatures, detectSignatureCount } from '../src/hanko-real.js';
 
 // Test private keys (same as in other tests)
 const testKeys = {

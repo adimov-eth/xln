@@ -4,7 +4,7 @@
  */
 
 import { ethers } from 'ethers';
-import { createHash, randomBytes } from './utils.js';
+import { createHash, randomBytes } from '../src/utils.js';
 import { 
   buildRealHanko, 
   packRealSignatures, 
@@ -14,7 +14,7 @@ import {
   recoverHankoEntities,
   testFullCycle,
   testGasOptimization
-} from './hanko-real.js';
+} from '../src/hanko-real.js';
 
 // === TEST UTILITIES ===
 

@@ -5,7 +5,8 @@
 
 import {
   ConsensusConfig, EntityInput, EntityTx, EntityState, ProposedEntityFrame,
-  EntityReplica, Env, JurisdictionConfig, Proposal
+  EntityReplica, Env, JurisdictionConfig, Proposal, ViewChangeRequest, NewViewConfirmation,
+  SlashingCondition, SlashingEvidence
 } from './types.js';
 import { applyEntityTx } from './entity-tx';
 import { log, DEBUG, formatEntityDisplay, formatSignerDisplay } from './utils.js';
@@ -175,6 +176,391 @@ const validateVotingPower = (power: bigint): boolean => {
   }
 };
 
+// === SLASHING CONDITIONS ===
+
+/**
+ * Create a slashing condition record
+ */
+const createSlashingCondition = (
+  type: SlashingCondition['type'],
+  validator: string,
+  evidence: SlashingEvidence,
+  severity: SlashingCondition['severity'] = 'major'
+): SlashingCondition => {
+  const penalty: SlashingCondition['penalty'] =
+    severity === 'critical' ? 'ejection' :
+    severity === 'major' ? 'stake_reduction' : 'warning';
+
+  return {
+    type,
+    validator,
+    evidence,
+    timestamp: Date.now(),
+    severity,
+    penalty
+  };
+};
+
+/**
+ * Detect double signing by same validator on different proposals at same height
+ */
+const detectDoubleSigning = (replica: EntityReplica, signerId: string, proposalHash: string, signature: string): SlashingCondition | null => {
+  const existingSignatures = replica.signatureHistory.get(proposalHash) || [];
+
+  // Check if this validator has signed different proposals at same height
+  for (const [otherHash, signatures] of replica.signatureHistory) {
+    if (otherHash !== proposalHash && signatures.includes(signerId)) {
+      // Found same validator signing different proposals - this is double signing
+      const evidence: SlashingEvidence = {
+        doubleSigning: {
+          signature1: signatures[signatures.indexOf(signerId)],
+          signature2: signature,
+          proposal1: replica.proposalHistory.find(p => p.hash === otherHash)!,
+          proposal2: replica.proposalHistory.find(p => p.hash === proposalHash)!
+        }
+      };
+
+      console.log(`⚔️  SLASHING: Double signing detected from ${signerId} on proposals ${otherHash.slice(0,10)} and ${proposalHash.slice(0,10)}`);
+      return createSlashingCondition('double_signing', signerId, evidence, 'critical');
+    }
+  }
+
+  // Store this signature for future double-signing detection
+  if (!replica.signatureHistory.has(proposalHash)) {
+    replica.signatureHistory.set(proposalHash, []);
+  }
+  replica.signatureHistory.get(proposalHash)!.push(signerId);
+
+  return null;
+};
+
+/**
+ * Detect invalid proposals (malformed, inconsistent, or violating rules)
+ */
+const detectInvalidProposal = (replica: EntityReplica, proposal: ProposedEntityFrame, fromValidator: string): SlashingCondition | null => {
+  const issues: string[] = [];
+
+  // Check proposal integrity
+  if (!proposal.hash || !proposal.newState || !proposal.txs) {
+    issues.push('Missing required proposal fields');
+  }
+
+  // Check height consistency
+  if (proposal.height !== replica.state.height + 1) {
+    issues.push(`Invalid height: ${proposal.height} != ${replica.state.height + 1}`);
+  }
+
+  // Check view consistency
+  if (proposal.view !== undefined && proposal.view < replica.currentView) {
+    issues.push(`Invalid view: ${proposal.view} < ${replica.currentView}`);
+  }
+
+  // Check if proposer is authorized for this view
+  const expectedProposer = getProposerForView(replica.state.config, replica.currentView);
+  if (fromValidator !== expectedProposer) {
+    issues.push(`Invalid proposer: ${fromValidator} != ${expectedProposer}`);
+  }
+
+  // Check transaction validity (basic checks)
+  for (const tx of proposal.txs) {
+    if (!tx.type || !tx.data) {
+      issues.push('Invalid transaction format');
+    }
+  }
+
+  if (issues.length > 0) {
+    const evidence: SlashingEvidence = {
+      invalidProposal: {
+        proposal,
+        reason: issues.join('; ')
+      }
+    };
+
+    console.log(`⚔️  SLASHING: Invalid proposal detected from ${fromValidator}: ${issues.join('; ')}`);
+    return createSlashingCondition('invalid_proposal', fromValidator, evidence, 'major');
+  }
+
+  return null;
+};
+
+/**
+ * Detect premature commits (committing before proper validation time)
+ */
+const detectPrematureCommit = (replica: EntityReplica, proposal: ProposedEntityFrame, commitTime: number): SlashingCondition | null => {
+  const minValidationTime = 1000; // 1 second minimum validation time
+  const proposalTime = proposal.newState.timestamp;
+  const validationDuration = commitTime - proposalTime;
+
+  if (validationDuration < minValidationTime) {
+    const evidence: SlashingEvidence = {
+      prematureCommit: {
+        proposal,
+        commitTime,
+        expectedCommitTime: proposalTime + minValidationTime
+      }
+    };
+
+    console.log(`⚔️  SLASHING: Premature commit detected - validation took only ${validationDuration}ms`);
+    return createSlashingCondition('premature_commit', replica.signerId, evidence, 'minor');
+  }
+
+  return null;
+};
+
+/**
+ * Detect conflicting votes on same proposal
+ */
+const detectConflictingVotes = (replica: EntityReplica, proposalId: string, voter: string, vote: string): SlashingCondition | null => {
+  const existingVotes = replica.votingHistory.get(proposalId) || [];
+
+  // Check if this voter has already voted differently on this proposal
+  for (const existingVote of existingVotes) {
+    const [existingVoter, existingChoice] = existingVote.split(':');
+    if (existingVoter === voter && existingChoice !== vote) {
+      const evidence: SlashingEvidence = {
+        conflictingVotes: {
+          vote1: existingVote,
+          vote2: `${voter}:${vote}`,
+          proposal: proposalId
+        }
+      };
+
+      console.log(`⚔️  SLASHING: Conflicting votes detected from ${voter} on proposal ${proposalId}: ${existingChoice} vs ${vote}`);
+      return createSlashingCondition('conflicting_votes', voter, evidence, 'major');
+    }
+  }
+
+  // Store this vote for future conflict detection
+  if (!replica.votingHistory.has(proposalId)) {
+    replica.votingHistory.set(proposalId, []);
+  }
+  replica.votingHistory.get(proposalId)!.push(`${voter}:${vote}`);
+
+  return null;
+};
+
+/**
+ * Detect equivocation (sending conflicting messages to different validators)
+ */
+const detectEquivocation = (replica: EntityReplica, validator: string, message1: string, message2: string, context: string): SlashingCondition | null => {
+  if (message1 !== message2) {
+    const evidence: SlashingEvidence = {
+      equivocation: {
+        message1,
+        message2,
+        context
+      }
+    };
+
+    console.log(`⚔️  SLASHING: Equivocation detected from ${validator} in ${context}`);
+    return createSlashingCondition('equivocation', validator, evidence, 'critical');
+  }
+
+  return null;
+};
+
+/**
+ * Apply slashing penalties
+ */
+const applySlashingPenalty = (replica: EntityReplica, condition: SlashingCondition): void => {
+  const config = replica.state.config;
+  const validator = condition.validator;
+
+  switch (condition.penalty) {
+    case 'warning':
+      console.log(`⚠️  SLASHING PENALTY: Warning issued to ${validator} for ${condition.type}`);
+      break;
+
+    case 'stake_reduction':
+      // Reduce validator's voting power
+      if (config.shares[validator]) {
+        const originalShares = config.shares[validator];
+        const reducedShares = originalShares * BigInt(75) / BigInt(100); // 25% reduction
+        config.shares[validator] = reducedShares;
+        console.log(`💸 SLASHING PENALTY: Reduced ${validator}'s stake from ${originalShares} to ${reducedShares} (${condition.type})`);
+      }
+      break;
+
+    case 'ejection':
+      // Remove validator from active set
+      config.validators = config.validators.filter(v => v !== validator);
+      delete config.shares[validator];
+      console.log(`🚫 SLASHING PENALTY: Ejected ${validator} from validator set for ${condition.type}`);
+      break;
+  }
+
+  // Store the slashing record
+  replica.slashingConditions.push(condition);
+};
+
+/**
+ * Check all slashing conditions for an input
+ */
+const checkSlashingConditions = (replica: EntityReplica, input: EntityInput): SlashingCondition[] => {
+  const conditions: SlashingCondition[] = [];
+
+  // Check double signing on precommits
+  if (input.precommits && input.proposedFrame) {
+    for (const [signerId, signature] of input.precommits) {
+      const condition = detectDoubleSigning(replica, signerId, input.proposedFrame.hash, signature);
+      if (condition) conditions.push(condition);
+    }
+  }
+
+  // Check invalid proposals
+  if (input.proposedFrame) {
+    const condition = detectInvalidProposal(replica, input.proposedFrame, input.signerId);
+    if (condition) conditions.push(condition);
+  }
+
+  // Check premature commits
+  if (input.precommits?.size && input.proposedFrame) {
+    const condition = detectPrematureCommit(replica, input.proposedFrame, Date.now());
+    if (condition) conditions.push(condition);
+  }
+
+  // Check conflicting votes in transactions
+  if (input.entityTxs) {
+    for (const tx of input.entityTxs) {
+      if (tx.type === 'vote') {
+        const condition = detectConflictingVotes(replica, tx.data.proposalId, tx.data.voter, tx.data.choice);
+        if (condition) conditions.push(condition);
+      }
+    }
+  }
+
+  return conditions;
+};
+
+// === VIEW CHANGE LOGIC ===
+
+/**
+ * Calculate the next proposer based on view number
+ */
+const getProposerForView = (config: ConsensusConfig, view: number): string => {
+  return config.validators[view % config.validators.length];
+};
+
+/**
+ * Start view change timeout for proposer failure detection
+ */
+const startViewChangeTimer = (replica: EntityReplica): void => {
+  const timeout = replica.state.config.viewChangeTimeout || 30000; // 30 seconds default
+
+  // Clear existing timer
+  if (replica.viewChangeTimer) {
+    clearTimeout(replica.viewChangeTimer);
+  }
+
+  replica.viewChangeTimer = setTimeout(() => {
+    // Timeout reached, initiate view change
+    console.log(`⏰ VIEW-CHANGE-TIMEOUT: ${replica.signerId} detected proposer timeout, initiating view change from view ${replica.currentView}`);
+    initiateViewChange(replica, 'timeout');
+  }, timeout);
+};
+
+/**
+ * Initiate a view change
+ */
+const initiateViewChange = (replica: EntityReplica, reason: 'timeout' | 'byzantine' | 'network_partition'): ViewChangeRequest => {
+  const newView = replica.currentView + 1;
+
+  const viewChangeRequest: ViewChangeRequest = {
+    newView,
+    lastCommittedHeight: replica.state.height,
+    lastCommittedHash: replica.lockedFrame?.hash,
+    reason,
+    timestamp: Date.now()
+  };
+
+  // Store our own view change request
+  replica.viewChangeRequests.set(replica.signerId, viewChangeRequest);
+
+  console.log(`🔄 VIEW-CHANGE: ${replica.signerId} initiated view change from ${replica.currentView} to ${newView} (reason: ${reason})`);
+
+  return viewChangeRequest;
+};
+
+/**
+ * Process view change request from peer
+ */
+const processViewChangeRequest = (replica: EntityReplica, request: ViewChangeRequest, fromPeer: string): boolean => {
+  // Validate view change request
+  if (request.newView <= replica.currentView) {
+    console.log(`❌ VIEW-CHANGE: Invalid view number ${request.newView} <= ${replica.currentView} from ${fromPeer}`);
+    return false;
+  }
+
+  if (request.lastCommittedHeight > replica.state.height) {
+    console.log(`❌ VIEW-CHANGE: Invalid height ${request.lastCommittedHeight} > ${replica.state.height} from ${fromPeer}`);
+    return false;
+  }
+
+  // Store valid view change request
+  replica.viewChangeRequests.set(fromPeer, request);
+  console.log(`✅ VIEW-CHANGE: Stored view change request from ${fromPeer} for view ${request.newView}`);
+
+  // Check if we have enough view change requests to trigger new view
+  return checkViewChangeQuorum(replica);
+};
+
+/**
+ * Check if we have enough view change requests to start new view
+ */
+const checkViewChangeQuorum = (replica: EntityReplica): boolean => {
+  const config = replica.state.config;
+  const totalPower = Array.from(replica.viewChangeRequests.keys())
+    .reduce((sum, signerId) => sum + (config.shares[signerId] || 0n), 0n);
+
+  if (totalPower >= config.threshold) {
+    // We have enough view change requests, start new view
+    const newView = Math.max(...Array.from(replica.viewChangeRequests.values()).map(r => r.newView));
+    const newProposer = getProposerForView(config, newView);
+
+    console.log(`🎯 NEW-VIEW: Quorum reached for view ${newView}, new proposer: ${newProposer}`);
+
+    // Update our view
+    replica.currentView = newView;
+    replica.isProposer = (replica.signerId === newProposer);
+
+    // Clear view change state
+    replica.viewChangeRequests.clear();
+    replica.proposal = undefined;
+
+    // Clear timer
+    if (replica.viewChangeTimer) {
+      clearTimeout(replica.viewChangeTimer);
+      replica.viewChangeTimer = undefined;
+    }
+
+    // Start new timer for the new proposer
+    if (!replica.isProposer) {
+      startViewChangeTimer(replica);
+    }
+
+    return true;
+  }
+
+  return false;
+};
+
+/**
+ * Reset view change timer when we receive activity from proposer
+ */
+const resetViewChangeTimer = (replica: EntityReplica): void => {
+  replica.lastProposalTime = Date.now();
+
+  if (replica.viewChangeTimer) {
+    clearTimeout(replica.viewChangeTimer);
+    replica.viewChangeTimer = undefined;
+  }
+
+  // Start new timer if we're not the proposer
+  if (!replica.isProposer) {
+    startViewChangeTimer(replica);
+  }
+};
+
 // === CORE ENTITY PROCESSING ===
 
 /**
@@ -210,6 +596,83 @@ export const applyEntityInput = (env: Env, entityReplica: EntityReplica, entityI
   }
 
   const entityOutbox: EntityInput[] = [];
+
+  // Check for slashing conditions BEFORE processing any consensus logic
+  const slashingConditions = checkSlashingConditions(entityReplica, entityInput);
+  if (slashingConditions.length > 0) {
+    console.log(`⚔️  SLASHING: Detected ${slashingConditions.length} slashing conditions from ${entityInput.signerId}`);
+
+    // Apply penalties for each slashing condition
+    for (const condition of slashingConditions) {
+      applySlashingPenalty(entityReplica, condition);
+    }
+
+    // For critical violations, reject the input entirely
+    const criticalViolations = slashingConditions.filter(c => c.severity === 'critical');
+    if (criticalViolations.length > 0) {
+      console.log(`🚫 SLASHING: Rejecting input due to ${criticalViolations.length} critical violations from ${entityInput.signerId}`);
+      return entityOutbox; // Return empty, reject the malicious input
+    }
+  }
+
+  // Handle view change requests first (before normal consensus)
+  if (entityInput.viewChangeRequest) {
+    console.log(`🔄 VIEW-CHANGE-REQUEST: ${entityReplica.signerId} received view change from ${entityInput.signerId} for view ${entityInput.viewChangeRequest.newView}`);
+
+    if (processViewChangeRequest(entityReplica, entityInput.viewChangeRequest, entityInput.signerId)) {
+      // View change completed, broadcast new view confirmation if we're the new proposer
+      if (entityReplica.isProposer) {
+        const newViewConfirmation: NewViewConfirmation = {
+          newView: entityReplica.currentView,
+          newProposer: entityReplica.signerId,
+          viewChangeProofs: new Map(Array.from(entityReplica.viewChangeRequests.entries())
+            .map(([signerId, req]) => [signerId, `viewchange_${signerId}_${req.newView}_${req.timestamp}`])),
+          prepareCertificate: entityReplica.lockedFrame
+        };
+
+        // Send new view confirmation to all validators
+        entityReplica.state.config.validators.forEach(validatorId => {
+          if (validatorId !== entityReplica.signerId) {
+            entityOutbox.push({
+              entityId: entityInput.entityId,
+              signerId: validatorId,
+              newViewConfirmation
+            });
+          }
+        });
+
+        console.log(`🎯 NEW-VIEW-PROPOSER: ${entityReplica.signerId} became proposer for view ${entityReplica.currentView}, sent confirmations to ${entityReplica.state.config.validators.length - 1} validators`);
+      }
+    }
+    // Don't process normal consensus messages during view change
+    return entityOutbox;
+  }
+
+  // Handle new view confirmations
+  if (entityInput.newViewConfirmation) {
+    const confirmation = entityInput.newViewConfirmation;
+    console.log(`🎯 NEW-VIEW-CONFIRMATION: ${entityReplica.signerId} received new view confirmation for view ${confirmation.newView} with proposer ${confirmation.newProposer}`);
+
+    // Update to new view
+    entityReplica.currentView = confirmation.newView;
+    entityReplica.isProposer = (entityReplica.signerId === confirmation.newProposer);
+    entityReplica.viewChangeRequests.clear();
+    entityReplica.proposal = undefined;
+
+    // Clear timer
+    if (entityReplica.viewChangeTimer) {
+      clearTimeout(entityReplica.viewChangeTimer);
+      entityReplica.viewChangeTimer = undefined;
+    }
+
+    // Start timer if we're not the proposer
+    if (!entityReplica.isProposer) {
+      startViewChangeTimer(entityReplica);
+    }
+
+    console.log(`🎯 VIEW-UPDATED: ${entityReplica.signerId} updated to view ${entityReplica.currentView}, isProposer=${entityReplica.isProposer}`);
+    return entityOutbox;
+  }
 
   // Add transactions to mempool (mutable for performance)
   if (entityInput.entityTxs?.length) {
@@ -279,6 +742,9 @@ export const applyEntityInput = (env: Env, entityReplica: EntityReplica, entityI
   // Handle proposed frame (PROPOSE phase) - only if not a commit notification
   if (entityInput.proposedFrame && (!entityReplica.proposal ||
       (entityReplica.state.config.mode === 'gossip-based' && entityReplica.isProposer))) {
+
+    // Reset view change timer when we receive a valid proposal
+    resetViewChangeTimer(entityReplica);
     const frameSignature = `sig_${entityReplica.signerId}_${entityInput.proposedFrame.hash}`;
     const config = entityReplica.state.config;
 
@@ -665,4 +1131,113 @@ export const handleGossipMode = (): void => {
  */
 export const handleEmptyMempoolProposer = (): void => {
   console.log(`    ⚠️  CORNER CASE: Proposer with empty mempool - no auto-propose`);
+};
+
+// === VIEW CHANGE EXPORTS ===
+
+/**
+ * Initialize view change state for a replica
+ */
+export const initializeViewChangeState = (replica: EntityReplica, initialView: number = 0): void => {
+  replica.currentView = initialView;
+  replica.viewChangeRequests = new Map();
+  replica.lastProposalTime = Date.now();
+
+  // Initialize slashing state
+  replica.slashingConditions = [];
+  replica.signatureHistory = new Map();
+  replica.votingHistory = new Map();
+  replica.proposalHistory = [];
+
+  // Determine initial proposer
+  const initialProposer = getProposerForView(replica.state.config, initialView);
+  replica.isProposer = (replica.signerId === initialProposer);
+
+  // Start view change timer for non-proposers
+  if (!replica.isProposer) {
+    startViewChangeTimer(replica);
+  }
+
+  console.log(`🎯 VIEW-INIT: ${replica.signerId} initialized to view ${initialView}, proposer: ${initialProposer}, isProposer: ${replica.isProposer}`);
+};
+
+/**
+ * Manually trigger view change (for testing or Byzantine fault detection)
+ */
+export const triggerViewChange = (replica: EntityReplica, reason: 'timeout' | 'byzantine' | 'network_partition'): EntityInput[] => {
+  const viewChangeRequest = initiateViewChange(replica, reason);
+
+  // Broadcast view change request to all validators
+  const outputs: EntityInput[] = [];
+  replica.state.config.validators.forEach(validatorId => {
+    if (validatorId !== replica.signerId) {
+      outputs.push({
+        entityId: replica.entityId,
+        signerId: validatorId,
+        viewChangeRequest
+      });
+    }
+  });
+
+  return outputs;
+};
+
+/**
+ * Get current view and proposer info
+ */
+export const getViewInfo = (replica: EntityReplica): { view: number; proposer: string; isProposer: boolean } => {
+  const proposer = getProposerForView(replica.state.config, replica.currentView);
+  return {
+    view: replica.currentView,
+    proposer,
+    isProposer: replica.isProposer
+  };
+};
+
+/**
+ * Check if view change is in progress
+ */
+export const isViewChangeInProgress = (replica: EntityReplica): boolean => {
+  return replica.viewChangeRequests.size > 0;
+};
+
+// === SLASHING EXPORTS ===
+
+/**
+ * Get slashing conditions for a validator
+ */
+export const getSlashingHistory = (replica: EntityReplica, validator?: string): SlashingCondition[] => {
+  if (validator) {
+    return replica.slashingConditions.filter(c => c.validator === validator);
+  }
+  return replica.slashingConditions;
+};
+
+/**
+ * Check if a validator has been ejected due to slashing
+ */
+export const isValidatorEjected = (replica: EntityReplica, validator: string): boolean => {
+  return !replica.state.config.validators.includes(validator) &&
+         replica.slashingConditions.some(c => c.validator === validator && c.penalty === 'ejection');
+};
+
+/**
+ * Get current validator stakes (after slashing adjustments)
+ */
+export const getValidatorStakes = (replica: EntityReplica): { [validator: string]: bigint } => {
+  return { ...replica.state.config.shares };
+};
+
+/**
+ * Manually trigger slashing for testing
+ */
+export const triggerSlashing = (
+  replica: EntityReplica,
+  validator: string,
+  type: SlashingCondition['type'],
+  evidence: SlashingEvidence,
+  severity: SlashingCondition['severity'] = 'major'
+): void => {
+  const condition = createSlashingCondition(type, validator, evidence, severity);
+  applySlashingPenalty(replica, condition);
 };

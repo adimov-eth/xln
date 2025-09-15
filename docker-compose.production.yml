@@ -1,0 +1,366 @@
+version: '3.8'
+
+services:
+  # ============================================
+  # LAYER 1: ETHEREUM INFRASTRUCTURE
+  # ============================================
+
+  ethereum:
+    image: ethereum/client-go:stable
+    container_name: xln-ethereum
+    ports:
+      - "8545:8545"  # HTTP RPC
+      - "8546:8546"  # WebSocket RPC
+      - "30303:30303"  # P2P
+    volumes:
+      - ethereum-data:/root/.ethereum
+      - ./contracts:/contracts
+    command: |
+      --dev
+      --dev.period=3
+      --http
+      --http.addr=0.0.0.0
+      --http.port=8545
+      --http.api=eth,net,web3,personal,admin,debug,txpool
+      --http.corsdomain=*
+      --ws
+      --ws.addr=0.0.0.0
+      --ws.port=8546
+      --ws.api=eth,net,web3,personal,admin,debug,txpool
+      --ws.origins=*
+      --allow-insecure-unlock
+      --rpc.gascap=0
+      --rpc.txfeecap=0
+      --mine
+    networks:
+      - xln-network
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8545"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ============================================
+  # LAYER 2: XLN CONSENSUS & ENTITY MANAGEMENT
+  # ============================================
+
+  xln-consensus:
+    build:
+      context: .
+      dockerfile: Dockerfile.consensus
+    container_name: xln-consensus
+    depends_on:
+      ethereum:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "3000:3000"     # HTTP API
+      - "3001:3001"     # Consensus P2P
+      - "9090:9090"     # Metrics
+    environment:
+      NODE_ENV: production
+      ETH_RPC_URL: http://ethereum:8545
+      ETH_WS_URL: ws://ethereum:8546
+      REDIS_URL: redis://redis:6379
+      DB_PATH: /data/consensus
+      NETWORK_ID: mainnet
+      PROPOSER: ${PROPOSER:-false}
+      VALIDATOR_ID: ${VALIDATOR_ID:-v1}
+      BYZANTINE_MODE: ${BYZANTINE_MODE:-honest}
+    volumes:
+      - consensus-data:/data
+      - ./src:/app/src:ro
+      - ./contracts:/app/contracts:ro
+    networks:
+      - xln-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # LAYER 3: UNIFIED LIQUIDITY INFRASTRUCTURE
+  # ============================================
+
+  xln-liquidity-bridge:
+    build:
+      context: .
+      dockerfile: Dockerfile.liquidity
+    container_name: xln-liquidity-bridge
+    depends_on:
+      - xln-consensus
+      - matching-engine
+    ports:
+      - "4000:4000"     # HTTP API
+      - "4001:4001"     # WebSocket
+    environment:
+      NODE_ENV: production
+      CONSENSUS_URL: http://xln-consensus:3000
+      MATCHING_URL: http://matching-engine:5000
+      REDIS_URL: redis://redis:6379
+      ENABLE_CROSS_SETTLEMENT: true
+      HTLC_TIMEOUT_BLOCKS: 144
+    volumes:
+      - liquidity-data:/data
+      - ./src/core:/app/core:ro
+    networks:
+      - xln-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  matching-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile.matching
+    container_name: xln-matching-engine
+    depends_on:
+      redis:
+        condition: service_healthy
+    ports:
+      - "5000:5000"     # HTTP API
+      - "5001:5001"     # WebSocket
+    environment:
+      NODE_ENV: production
+      REDIS_URL: redis://redis:6379
+      ENABLE_MAKER_TAKER_FEES: true
+      MAKER_FEE: -1  # -0.01% rebate
+      TAKER_FEE: 5   # 0.05% fee
+      WASH_TRADE_LIMIT: 0.05  # 5% max self-trading
+      ORDER_EXPIRY_MS: 86400000  # 24 hours
+    volumes:
+      - matching-data:/data
+      - ./src/trading:/app/trading:ro
+    networks:
+      - xln-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # LAYER 4: BILATERAL CHANNELS & P2P
+  # ============================================
+
+  xln-channel-alice:
+    build:
+      context: .
+      dockerfile: Dockerfile.channel
+    container_name: xln-channel-alice
+    depends_on:
+      - xln-liquidity-bridge
+    ports:
+      - "8080:8080"     # P2P WebSocket
+      - "8081:8081"     # HTTP API
+    environment:
+      NODE_ENV: production
+      PEER_ID: alice
+      PRIVATE_KEY: ${ALICE_PRIVATE_KEY}
+      LIQUIDITY_URL: http://xln-liquidity-bridge:4000
+      DB_PATH: /data/channels
+      SUBCONTRACT_PROVIDER: http://ethereum:8545
+    volumes:
+      - alice-channel-data:/data
+      - ./src/core:/app/core:ro
+      - ./old_src/app:/app/old:ro
+    networks:
+      - xln-network
+
+  xln-channel-bob:
+    build:
+      context: .
+      dockerfile: Dockerfile.channel
+    container_name: xln-channel-bob
+    depends_on:
+      - xln-liquidity-bridge
+    ports:
+      - "8180:8080"     # P2P WebSocket
+      - "8181:8081"     # HTTP API
+    environment:
+      NODE_ENV: production
+      PEER_ID: bob
+      PRIVATE_KEY: ${BOB_PRIVATE_KEY}
+      LIQUIDITY_URL: http://xln-liquidity-bridge:4000
+      DB_PATH: /data/channels
+      SUBCONTRACT_PROVIDER: http://ethereum:8545
+      INITIAL_PEERS: ws://xln-channel-alice:8080
+    volumes:
+      - bob-channel-data:/data
+      - ./src/core:/app/core:ro
+      - ./old_src/app:/app/old:ro
+    networks:
+      - xln-network
+
+  # ============================================
+  # LAYER 5: CAROL MARKET MAKER BOT
+  # ============================================
+
+  carol-market-maker:
+    build:
+      context: .
+      dockerfile: Dockerfile.carol
+    container_name: xln-carol
+    depends_on:
+      - xln-liquidity-bridge
+      - matching-engine
+    environment:
+      NODE_ENV: production
+      STRATEGY: ${CAROL_STRATEGY:-production}
+      LIQUIDITY_URL: http://xln-liquidity-bridge:4000
+      MATCHING_URL: http://matching-engine:5000
+      CAPITAL_LIMIT: 1000000
+      RISK_LIMIT: 0.05
+      MAX_DRAWDOWN: 0.10
+      UPDATE_INTERVAL: 5000
+    volumes:
+      - carol-data:/data
+      - ./src/bots:/app/bots:ro
+      - ./carol-config.json:/app/config.json:ro
+    networks:
+      - xln-network
+    restart: unless-stopped
+
+  # ============================================
+  # LAYER 6: MONITORING & OBSERVABILITY
+  # ============================================
+
+  redis:
+    image: redis:7-alpine
+    container_name: xln-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - xln-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: xln-prometheus
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    networks:
+      - xln-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: xln-grafana
+    depends_on:
+      - prometheus
+    ports:
+      - "3002:3000"
+    volumes:
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - grafana-data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: false
+      GF_FEATURE_TOGGLES_ENABLE: tempoSearch tempoBackendSearch
+    networks:
+      - xln-network
+
+  # ============================================
+  # LAYER 7: USER INTERFACES
+  # ============================================
+
+  unified-liquidity-dashboard:
+    image: nginx:alpine
+    container_name: xln-dashboard
+    ports:
+      - "3003:80"
+    volumes:
+      - ./src/monitoring/UnifiedLiquidityDashboard.html:/usr/share/nginx/html/index.html:ro
+      - ./src/monitoring/assets:/usr/share/nginx/html/assets:ro
+    networks:
+      - xln-network
+
+  trade-ui:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: xln-trade-ui
+    depends_on:
+      - xln-liquidity-bridge
+      - matching-engine
+    ports:
+      - "3004:3000"
+    environment:
+      REACT_APP_API_URL: http://localhost:4000
+      REACT_APP_WS_URL: ws://localhost:4001
+      REACT_APP_MATCHING_URL: http://localhost:5000
+    networks:
+      - xln-network
+
+  # ============================================
+  # LAYER 8: TESTING & BENCHMARKING
+  # ============================================
+
+  tps-benchmark:
+    build:
+      context: .
+      dockerfile: Dockerfile.benchmark
+    container_name: xln-benchmark
+    depends_on:
+      - xln-liquidity-bridge
+      - matching-engine
+      - xln-consensus
+    environment:
+      NODE_ENV: test
+      LIQUIDITY_URL: http://xln-liquidity-bridge:4000
+      MATCHING_URL: http://matching-engine:5000
+      CONSENSUS_URL: http://xln-consensus:3000
+      BENCHMARK_DURATION: ${BENCHMARK_DURATION:-60}
+      NUM_USERS: ${NUM_USERS:-100}
+      TARGET_TPS: 18
+    volumes:
+      - ./test/performance:/app/test:ro
+      - ./benchmark-results:/results
+    networks:
+      - xln-network
+    profiles:
+      - benchmark
+
+# ============================================
+# VOLUMES
+# ============================================
+
+volumes:
+  ethereum-data:
+  consensus-data:
+  liquidity-data:
+  matching-data:
+  alice-channel-data:
+  bob-channel-data:
+  carol-data:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+
+# ============================================
+# NETWORKS
+# ============================================
+
+networks:
+  xln-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16

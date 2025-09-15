@@ -2,7 +2,7 @@
  * Simple runner for Hanko tests
  */
 
-import { runBasicHankoTests } from './test-hanko-basic.js';
+import { runBasicHankoTests } from '../src/test-hanko-basic.js';
 
 async function main() {
   console.log('🚀 Starting Hanko Tests...\n');
