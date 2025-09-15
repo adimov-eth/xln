@@ -11,7 +11,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { ethers } from 'ethers';
-import { EntityReplica } from '../../src/entity-consensus.js';
+import { EntityReplica } from '../../src/types.js';
 import { RealEntityChannelBridge } from '../../src/RealEntityChannelBridge.js';
 import { MerkleTree, SparseMerkleTree, ChannelStateMerkleTree } from '../../src/merkle/MerkleTree.js';
 import { FeeMarket } from '../../src/fee/FeeMarket.js';

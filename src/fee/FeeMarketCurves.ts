@@ -22,6 +22,13 @@ export function sigmoidCongestion(
   utilization: number,
   config: CurveConfig
 ): number {
+  // Handle edge cases
+  if (!isFinite(utilization) || isNaN(utilization)) {
+    return 1.0;
+  }
+  if (utilization < 0) {
+    return 1.0;
+  }
   if (utilization < config.threshold) {
     return 1.0;
   }
@@ -42,6 +49,13 @@ export function logarithmicCongestion(
   utilization: number,
   config: CurveConfig
 ): number {
+  // Handle edge cases
+  if (!isFinite(utilization) || isNaN(utilization)) {
+    return 1.0;
+  }
+  if (utilization < 0) {
+    return 1.0;
+  }
   if (utilization < config.threshold) {
     return 1.0;
   }
