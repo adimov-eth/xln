@@ -8,6 +8,20 @@ XLN is not a rollup or another L2. It is the **organizational layer** for digita
 **For Institutions**: Cryptographic audit trails, hierarchical approvals, dual-class governance  
 **For Everyone**: The missing infrastructure for programmable organizations
 
+### Reference Engine (Clojure)
+
+For formal validation and differential testing, a pure Clojure reference engine lives in `xln-reference/`.
+
+- Deterministic, side‑effect‑free transition function: `apply-entity-input`.
+- JSON Schemas define state/input/output for cross‑language compatibility.
+- Property‑based tests using `test.check`.
+- Differential testing stub to compare with a Node adapter.
+
+Run:
+
+- `npm run ref:test` — runs reference tests (requires Clojure CLI).
+- `npm run ref:run:sample` — executes a sample vector through the engine.
+
 ## At a glance (J/E/A machines)
 
 - **J-machine**: Public registry of entities, reserves, and dispute outcomes. Optional anchoring layer for registered entities across chains.

@@ -9,7 +9,7 @@ import { chromium } from 'playwright';
   // Take screenshot of initial page
   await page.goto('http://localhost:8080');
   await page.waitForTimeout(2000);
-  await page.screenshot({ path: 'debug-01-initial.png', fullPage: true });
+  await page.screenshot({ path: 'docs/assets/debug-01-initial.png', fullPage: true });
   console.log('✅ Screenshot 1: Initial page');
   
   // Check what buttons actually exist
@@ -55,7 +55,7 @@ import { chromium } from 'playwright';
   if (foundDropdown) {
       await foundDropdown.click();
       await page.waitForTimeout(500);
-      await page.screenshot({ path: 'debug-03-dropdown-opened.png', fullPage: true });
+      await page.screenshot({ path: 'docs/assets/debug-03-dropdown-opened.png', fullPage: true });
       console.log('✅ Screenshot 3: Dropdown opened');
       
       // Try to select Alice
@@ -65,7 +65,7 @@ import { chromium } from 'playwright';
       if (options.some(opt => opt.includes('alice'))) {
         await page.selectOption(foundDropdown, { label: /alice/ });
         await page.waitForTimeout(1000);
-        await page.screenshot({ path: 'debug-04-alice-selected.png', fullPage: true });
+        await page.screenshot({ path: 'docs/assets/debug-04-alice-selected.png', fullPage: true });
         console.log('✅ Screenshot 4: Alice selected');
         
         // Check all component headers
@@ -77,7 +77,7 @@ import { chromium } from 'playwright';
         if (await reservesSection.isVisible()) {
           await reservesSection.click();
           await page.waitForTimeout(500);
-          await page.screenshot({ path: 'debug-05-reserves-expanded.png', fullPage: true });
+          await page.screenshot({ path: 'docs/assets/debug-05-reserves-expanded.png', fullPage: true });
           console.log('✅ Screenshot 5: Reserves section found and expanded!');
           
           // Check if reserves data exists
@@ -85,15 +85,15 @@ import { chromium } from 'playwright';
           console.log('💰 Reserves data:', reservesData);
         } else {
           console.log('❌ Reserves section not found');
-          await page.screenshot({ path: 'debug-05-no-reserves.png', fullPage: true });
+          await page.screenshot({ path: 'docs/assets/debug-05-no-reserves.png', fullPage: true });
         }
       }
     }
   } catch (e) {
     console.log('❌ Entity dropdown not found:', e.message);
-    await page.screenshot({ path: 'debug-03-no-dropdown.png', fullPage: true });
+    await page.screenshot({ path: 'docs/assets/debug-03-no-dropdown.png', fullPage: true });
   }
   
   await browser.close();
-  console.log('🎉 Debug screenshots complete! Check debug-*.png files');
+  console.log('🎉 Debug screenshots complete! Check docs/assets/debug-*.png files');
 })();

@@ -42,6 +42,8 @@ contract EntityProvider is ERC1155 {
 
   // Core entity storage - single mapping for all entities
   mapping(bytes32 => Entity) public entities;
+  // Reverse index: boardHash => entityNumber (0 if none). Best-effort, last-writer-wins.
+  mapping(bytes32 => uint256) public boardHashToEntity;
   
   // Sequential numbering for registered entities
   uint256 public nextNumber = 1;
@@ -68,6 +70,17 @@ contract EntityProvider is ERC1155 {
   // Foundation entity (always #1)
   uint256 public constant FOUNDATION_ENTITY = 1;
 
+  // === EIP-712 Typed Data for Entity Actions ===
+  // Domain separator and typehash for typed action verification
+  bytes32 public immutable DOMAIN_SEPARATOR;
+  bytes32 public constant EIP712_DOMAIN_TYPEHASH =
+    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)");
+  bytes32 public constant ENTITY_ACTION_TYPEHASH =
+    keccak256("EntityAction(uint256 nonce,uint256 deadline,bytes32 actionHash)");
+
+  // Per-entity nonces for EIP-712 actions (entity is represented by its address)
+  mapping(address => uint256) public entityNoncesEIP712;
+
   // Events
   event EntityRegistered(bytes32 indexed entityId, uint256 indexed entityNumber, bytes32 boardHash);
   event NameAssigned(string indexed name, uint256 indexed entityNumber);
@@ -78,6 +91,16 @@ contract EntityProvider is ERC1155 {
   event ProposalCancelled(bytes32 indexed entityId, ProposerType cancelledBy);
 
   constructor() ERC1155("https://xln.com/entity/{id}.json") {
+    // Initialize EIP-712 domain separator
+    DOMAIN_SEPARATOR = keccak256(
+      abi.encode(
+        EIP712_DOMAIN_TYPEHASH,
+        keccak256(bytes("XLN EntityProvider")),
+        keccak256(bytes("1")),
+        block.chainid,
+        address(this)
+      )
+    );
     // Reserve some premium names
     reservedNames["coinbase"] = true;
     reservedNames["ethereum"] = true;
@@ -101,6 +124,9 @@ contract EntityProvider is ERC1155 {
         controlThreshold: 51
       })))
     });
+
+    // Reverse index for foundation board
+    boardHashToEntity[foundationQuorum] = FOUNDATION_ENTITY;
     
     // Setup governance for foundation entity
     (uint256 controlTokenId, uint256 dividendTokenId) = getTokenIds(FOUNDATION_ENTITY);
@@ -150,6 +176,9 @@ contract EntityProvider is ERC1155 {
       proposerType: ProposerType.BOARD,
       articlesHash: keccak256(abi.encode(defaultArticles))
     });
+
+    // Update reverse index
+    boardHashToEntity[boardHash] = entityNumber;
     
     // Automatically setup governance with fixed supply
     (uint256 controlTokenId, uint256 dividendTokenId) = getTokenIds(entityNumber);
@@ -266,9 +295,23 @@ contract EntityProvider is ERC1155 {
     require(entities[entityId].proposedBoardHash != bytes32(0), "No proposed board");
     require(block.number >= entities[entityId].activateAtBlock, "Delay period not met");
     
-    entities[entityId].currentBoardHash = entities[entityId].proposedBoardHash;
+    // Update current board and reverse index
+    bytes32 oldHash = entities[entityId].currentBoardHash;
+    bytes32 newHash = entities[entityId].proposedBoardHash;
+    entities[entityId].currentBoardHash = newHash;
     entities[entityId].proposedBoardHash = bytes32(0);
     entities[entityId].activateAtBlock = 0;
+
+    // Best-effort reverse index maintenance
+    if (oldHash != bytes32(0)) {
+      // Note: If multiple entities share a board hash, this clears mapping for others.
+      // Acceptable for now; consider multi-map in future.
+      boardHashToEntity[oldHash] = 0;
+    }
+    uint256 entityNumber = uint256(entityId);
+    if (entityNumber > 0) {
+      boardHashToEntity[newHash] = entityNumber;
+    }
     
     emit BoardActivated(entityId, entities[entityId].currentBoardHash);
   }
@@ -314,11 +357,28 @@ contract EntityProvider is ERC1155 {
   ) public view returns (uint256 entityId) {
     bytes32 boardHash = keccak256(encodedBoard);
     
-    // First try to find registered entity with this board hash
+    // Fast path via reverse index for registered entities
+    uint256 mapped = boardHashToEntity[boardHash];
+    if (mapped != 0) {
+      bytes32 candidateEntityId = bytes32(mapped);
+      if (
+        entities[candidateEntityId].currentBoardHash != bytes32(0) &&
+        entities[candidateEntityId].currentBoardHash == boardHash
+      ) {
+        uint16 boardResult = _verifyBoard(hash, encodedBoard, encodedSignature);
+        if (boardResult > 0) {
+          return mapped;
+        }
+      }
+    }
+
+    // Fallback: linear scan (for lazy entities or in case of collisions)
     for (uint256 i = 1; i < nextNumber; i++) {
       bytes32 candidateEntityId = bytes32(i);
-      if (entities[candidateEntityId].currentBoardHash != bytes32(0) && entities[candidateEntityId].currentBoardHash == boardHash) {
-        // Verify signature for this registered entity
+      if (
+        entities[candidateEntityId].currentBoardHash != bytes32(0) &&
+        entities[candidateEntityId].currentBoardHash == boardHash
+      ) {
         uint16 boardResult = _verifyBoard(hash, encodedBoard, encodedSignature);
         if (boardResult > 0) {
           return i; // Return entity number
@@ -916,6 +976,9 @@ contract EntityProvider is ERC1155 {
       proposerType: ProposerType.BOARD,
       articlesHash: keccak256(abi.encode(articles))
     });
+
+    // Update reverse index
+    boardHashToEntity[boardHash] = entityNumber;
     
     // Automatically setup governance with fixed supply
     (uint256 controlTokenId, uint256 dividendTokenId) = getTokenIds(entityNumber);
@@ -949,25 +1012,31 @@ contract EntityProvider is ERC1155 {
     address to,
     uint256 tokenId,
     uint256 amount,
+    uint256 nonce,
+    uint256 deadline,
     bytes calldata encodedBoard,
     bytes calldata encodedSignature
   ) external {
-    // Create transfer hash
-    bytes32 transferHash = keccak256(abi.encodePacked(
-      "ENTITY_TRANSFER",
-      entityNumber,
-      to,
-      tokenId,
-      amount,
-      block.timestamp
-    ));
-    
+    // Build action hash and EIP-712 typed digest
+    bytes32 actionHash = keccak256(
+      abi.encode("ENTITY_TRANSFER", entityNumber, to, tokenId, amount)
+    );
+    bytes32 structHash = keccak256(
+      abi.encode(ENTITY_ACTION_TYPEHASH, nonce, deadline, actionHash)
+    );
+    bytes32 digest = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash));
+
+    // Enforce deadline and per-entity nonce progression
+    require(block.timestamp <= deadline, "Signature expired");
+    address entityAddress = address(uint160(uint256(bytes32(entityNumber))));
+    require(nonce == entityNoncesEIP712[entityAddress] + 1, "Invalid nonce");
+    entityNoncesEIP712[entityAddress] = nonce;
+
     // Verify entity signature
-    uint256 recoveredEntityId = recoverEntity(encodedBoard, encodedSignature, transferHash);
+    uint256 recoveredEntityId = recoverEntity(encodedBoard, encodedSignature, digest);
     require(recoveredEntityId == entityNumber, "Invalid entity signature");
     
     // Execute transfer
-    address entityAddress = address(uint160(uint256(bytes32(entityNumber))));
     _safeTransferFrom(entityAddress, to, tokenId, amount, "");
   }
 
@@ -998,6 +1067,8 @@ contract EntityProvider is ERC1155 {
     uint256 controlAmount,
     uint256 dividendAmount,
     string calldata purpose,
+    uint256 nonce,
+    uint256 deadline,
     bytes calldata encodedBoard,
     bytes calldata encodedSignature
   ) external {
@@ -1007,19 +1078,30 @@ contract EntityProvider is ERC1155 {
     bytes32 entityId = bytes32(entityNumber);
     require(entities[entityId].currentBoardHash != bytes32(0), "Entity doesn't exist");
     
-    // Create release authorization hash
-    bytes32 releaseHash = keccak256(abi.encodePacked(
-      "RELEASE_CONTROL_SHARES",
-      entityNumber,
-      depository,
-      controlAmount,
-      dividendAmount,
-      keccak256(bytes(purpose)),
-      block.timestamp
-    ));
-    
+    // Build action hash and EIP-712 typed digest
+    bytes32 actionHash = keccak256(
+      abi.encode(
+        "RELEASE_CONTROL_SHARES",
+        entityNumber,
+        depository,
+        controlAmount,
+        dividendAmount,
+        keccak256(bytes(purpose))
+      )
+    );
+    bytes32 structHash = keccak256(
+      abi.encode(ENTITY_ACTION_TYPEHASH, nonce, deadline, actionHash)
+    );
+    bytes32 digest = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash));
+
+    // Enforce deadline and per-entity nonce progression
+    require(block.timestamp <= deadline, "Signature expired");
+    address entityAddress = address(uint160(uint256(entityId)));
+    require(nonce == entityNoncesEIP712[entityAddress] + 1, "Invalid nonce");
+    entityNoncesEIP712[entityAddress] = nonce;
+
     // Verify entity signature authorization
-    uint256 recoveredEntityId = recoverEntity(encodedBoard, encodedSignature, releaseHash);
+    uint256 recoveredEntityId = recoverEntity(encodedBoard, encodedSignature, digest);
     require(recoveredEntityId == entityNumber, "Invalid entity signature");
     
     address entityAddress = address(uint160(uint256(entityId)));

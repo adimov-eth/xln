@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 // Debug helper - run with: bun repl debug.js
 
-const { env } = await import('./src/server.ts');
+const { env } = await import('../../src/server.ts');
 
 console.log('🔧 XLN Environment loaded!');
 console.log(`📊 Replicas: ${env.replicas.size}, Height: ${env.height}`);

@@ -11,6 +11,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  reference-tests:
+    name: Reference Tests (Clojure)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Clojure CLI
+        uses: DeLaGuardo/setup-clojure@12
+        with:
+          cli: 1.11.1.1413
+
+      - name: Run reference tests (with TS vector runner + schema validation)
+        run: clojure -M:test
+        env:
+          TEST_TS_CMD: "node scripts/ts-vector-runner.mjs"
+
   contracts-test:
     name: Contract Build
     runs-on: ubuntu-latest

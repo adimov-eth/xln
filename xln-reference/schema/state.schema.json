@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xln.dev/schemas/state.schema.json",
+  "title": "XLN Reference State",
+  "type": "object",
+  "properties": {
+    "height": { "type": "integer", "minimum": 0 },
+    "entities": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "control": { "type": ["integer", "string"] },
+          "dividend": { "type": ["integer", "string"] },
+          "articles": { "type": ["object", "null"] }
+        },
+        "required": ["control", "dividend"],
+        "additionalProperties": true
+      }
+    },
+    "reserves": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": { "type": ["integer", "string"] }
+      }
+    },
+    "collateral": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": { "type": ["integer", "string"] }
+      }
+    },
+    "channels": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "participants": { "type": "array", "items": { "type": ["string", "integer"] } },
+          "status": { "enum": ["open", "closing", "closed"] },
+          "balances": { "type": "object", "additionalProperties": { "type": ["integer", "string"] } }
+        },
+        "additionalProperties": true
+      }
+    },
+    "logs": { "type": "array", "items": { "type": "object" } }
+  },
+  "required": ["height"],
+  "additionalProperties": true
+}
+

@@ -1,0 +1,30 @@
+{
+  "initial": {"height": 0},
+  "inputs": [
+    {"type": "invoice-issued", "invoice-id": "inv-001", "supplier": "#2", "buyer": "#5", "amount": 100000, "currency": "USD", "due-date": "2025-10-01"},
+    {"type": "invoice-accepted", "invoice-id": "inv-001", "acceptor": "#5"}
+  ],
+  "expected": {
+    "state": {
+      "height": 2,
+      "invoices": {
+        "inv-001": {
+          "invoice-id": "inv-001",
+          "supplier": "#2",
+          "buyer": "#5",
+          "amount": 100000,
+          "currency": "USD",
+          "due-date": "2025-10-01",
+          "terms": {},
+          "refs": [],
+          "status": "accepted"
+        }
+      }
+    },
+    "out": [
+      {"event": "InvoiceIssued", "invoice-id": "inv-001", "supplier": "#2", "buyer": "#5", "amount": "100000", "currency": "USD", "due-date": "2025-10-01"},
+      {"event": "InvoiceAccepted", "invoice-id": "inv-001", "acceptor": "#5"}
+    ]
+  }
+}
+

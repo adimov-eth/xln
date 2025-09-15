@@ -1,0 +1,28 @@
+{
+  "initial": {
+    "height": 0,
+    "entities": {},
+    "reserves": {"0x01": {"USD": 1000}},
+    "collateral": {},
+    "channels": {},
+    "logs": []
+  },
+  "inputs": [
+    {"type": "reserve-to-reserve", "entity-id": "0x01", "from-asset": "USD", "to-asset": "ETH", "amount": 200},
+    {"type": "transfer-reserve-to-collateral", "entity-id": "0x01", "asset": "ETH", "amount": 150}
+  ],
+  "expected": {
+    "state": {
+      "height": 2,
+      "reserves": {"0x01": {"USD": 800, "ETH": 50}},
+      "collateral": {"0x01": {"ETH": 150}},
+      "entities": {},
+      "channels": {}
+    },
+    "out": [
+      {"event": "ReserveToReserve", "entity-id": "0x01", "from": "USD", "to": "ETH", "amount": "200", "ok": true},
+      {"event": "TransferReserveToCollateral", "entity-id": "0x01", "asset": "ETH", "amount": "150", "ok": true}
+    ]
+  }
+}
+

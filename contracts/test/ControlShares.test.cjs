@@ -157,6 +157,7 @@ describe("Entity Control-Shares System", function () {
     });
 
     it("Should reject release without valid signature", async function () {
+      const futureDeadline = Math.floor(Date.now() / 1000) + 3600;
       const abiCoder = ethers.AbiCoder.defaultAbiCoder();
       const encodedBoard = abiCoder.encode(
         ["tuple(uint16,bytes32[],uint16[],uint32,uint32,uint32)"],
@@ -177,13 +178,17 @@ describe("Entity Control-Shares System", function () {
           BigInt("1000000000000000"), // 1M control tokens
           0, // No dividend tokens
           "Series A Funding",
+          1, // nonce
+          futureDeadline,
           encodedBoard,
-          mockSignature
+          // encodedSignature (bytes[]): provide invalid signature list encoding to trigger revert
+          abiCoder.encode(["bytes[]"], [[mockSignature]])
         )
       ).to.be.revertedWith("Invalid entity signature");
     });
 
     it("Should reject release with zero amounts", async function () {
+      const futureDeadline = Math.floor(Date.now() / 1000) + 3600;
       await expect(
         entityProvider.releaseControlShares(
           entityNumber,
@@ -191,6 +196,8 @@ describe("Entity Control-Shares System", function () {
           0, // No control tokens
           0, // No dividend tokens
           "Invalid Release",
+          1,
+          futureDeadline,
           "0x",
           "0x"
         )
@@ -198,6 +205,7 @@ describe("Entity Control-Shares System", function () {
     });
 
     it("Should reject release to zero address", async function () {
+      const futureDeadline = Math.floor(Date.now() / 1000) + 3600;
       await expect(
         entityProvider.releaseControlShares(
           entityNumber,
@@ -205,6 +213,8 @@ describe("Entity Control-Shares System", function () {
           BigInt("1000000000000000"),
           0,
           "Invalid Release",
+          1,
+          futureDeadline,
           "0x",
           "0x"
         )
@@ -212,6 +222,7 @@ describe("Entity Control-Shares System", function () {
     });
 
     it("Should reject release for non-existent entity", async function () {
+      const futureDeadline = Math.floor(Date.now() / 1000) + 3600;
       await expect(
         entityProvider.releaseControlShares(
           999, // Non-existent entity
@@ -219,6 +230,8 @@ describe("Entity Control-Shares System", function () {
           BigInt("1000000000000000"),
           0,
           "Invalid Release",
+          1,
+          futureDeadline,
           "0x",
           "0x"
         )

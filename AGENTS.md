@@ -7,6 +7,10 @@
 - `e2e/` — Playwright end‑to‑end specs (`*.spec.ts`).
 - `test/` — additional TypeScript tests (e.g., `test/integration/*.test.ts`).
 - `dist/` — build outputs. `scripts/` — helper shell scripts. `docs/` — documentation.
+ - `xln-reference/` — Clojure reference engine (pure spec + tests + vectors).
+  - `scripts/debug/` — local debug helpers (Playwright screenshots, REPL).
+  - `scripts/tools/` — utility scripts (e.g., source aggregator for LLM context).
+  - `scripts/bench/` — local benchmarks and experiments.
 
 ## Build, Test, and Development Commands
 - `npm run dev` — full local dev workflow (or `./dev-quick.sh` for faster loop).
@@ -15,6 +19,8 @@
 - `npm run build:static` — build frontend for static hosting; `build:deploy` prepares GH Pages.
 - `npm test` / `npm run test:contracts` — Hardhat contract tests.
 - `npm run test:e2e` — Playwright tests under `e2e/` (use `HEADED=true` to run headed).
+ - `npm run ref:test` — run Clojure reference tests (requires Clojure CLI).
+ - `npm run ref:run:sample` — run sample vector through reference engine.
 - `npm run lint` / `npm run format` — ESLint and Prettier.
 - Env helpers: `npm run env:run` (Hardhat node), `env:deploy` (local deploy), `env:build` (compile).
 
@@ -38,3 +44,7 @@
 ## Agent-Specific Notes
 - Prefer minimal diffs; do not rename/move files unless requested. Follow Prettier/ESLint and existing patterns.
 - If modifying build/test scripts, update this file and related docs/scripts accordingly.
+
+## Reference Engine Notes
+- The `xln-reference/` project is JVM/Clojure CLI (deps.edn). It defines JSON schemas and vectors for cross‑language validation.
+- A Node adapter exists at `scripts/ts-reference-adapter.mjs` to enable differential tests without touching the main TS engine. Point `TEST_TS_CMD` to it.

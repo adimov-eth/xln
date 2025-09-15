@@ -1,3 +1,4 @@
+// Benchmark script (moved under scripts/bench)
 const crypto = require('crypto');
 const cbor = require('cbor');
 const rlp = require('rlp');

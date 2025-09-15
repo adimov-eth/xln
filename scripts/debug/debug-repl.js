@@ -13,7 +13,7 @@ const __dirname = dirname(__filename);
 console.log('🔍 Loading XLN Environment...');
 
 // Dynamic import to load your ES module
-const { env, runDemo, main } = await import('./src/server.ts');
+const { env, runDemo, main } = await import('../../src/server.ts');
 
 console.log('✅ Environment loaded!');
 console.log(`📊 Replicas: ${env.replicas.size}`);

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xln.dev/schemas/output.schema.json",
+  "title": "XLN Reference Output",
+  "type": "object",
+  "properties": {
+    "next-state": { "$ref": "./state.schema.json" },
+    "outbox": { "type": "array", "items": { "type": "object" } }
+  },
+  "required": ["next-state", "outbox"],
+  "additionalProperties": false
+}
+

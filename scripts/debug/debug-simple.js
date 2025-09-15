@@ -9,7 +9,7 @@ import { chromium } from 'playwright';
   // Go to page
   await page.goto('http://localhost:8080');
   await page.waitForTimeout(2000);
-  await page.screenshot({ path: 'simple-01-loaded.png', fullPage: true });
+  await page.screenshot({ path: 'docs/assets/simple-01-loaded.png', fullPage: true });
   console.log('✅ Page loaded');
   
   // Check what's on the page
@@ -29,7 +29,7 @@ import { chromium } from 'playwright';
     if (options.some(opt => opt.includes('alice'))) {
       await firstSelect.selectOption({ label: /alice/ });
       await page.waitForTimeout(1000);
-      await page.screenshot({ path: 'simple-02-alice-selected.png', fullPage: true });
+      await page.screenshot({ path: 'docs/assets/simple-02-alice-selected.png', fullPage: true });
       console.log('✅ Alice selected');
       
       // Look for component headers
@@ -41,7 +41,7 @@ import { chromium } from 'playwright';
         console.log('✅ Reserves header found!');
         await page.locator('.component-header:has(.component-title:has-text("Reserves"))').click();
         await page.waitForTimeout(500);
-        await page.screenshot({ path: 'simple-03-reserves-expanded.png', fullPage: true });
+        await page.screenshot({ path: 'docs/assets/simple-03-reserves-expanded.png', fullPage: true });
         console.log('✅ Reserves expanded');
       } else {
         console.log('❌ Reserves header not found');
