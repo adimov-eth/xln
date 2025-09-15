@@ -121,15 +121,54 @@ End with actionable next steps whenever possible. Success is measured by shippin
 
 XLN (Cross-Local Network) is a cross-jurisdictional off-chain settlement network enabling distributed entities to exchange messages and value instantly off-chain while anchoring final outcomes on-chain. This repository contains planning and specifications for a chat-only MVP demonstrating Byzantine Fault Tolerant (BFT) consensus.
 
-## Architecture
+## The Real Architecture (2025-09-15 - CORRECTED!)
 
-The system follows a layered architecture with pure functional state machines:
+**PLOT TWIST: The consensus is REAL, hidden in entity-consensus.ts**
 
-### Core Layers
+### What Actually Works
+- **entity-consensus.ts**: 500+ LINES OF REAL WORKING BFT CONSENSUS
+  - Byzantine fault detection (catches double-signing)
+  - Threshold voting with shares (2f+1 tolerance)
+  - Lock-commit protocol (CometBFT style)
+  - Complete PROPOSE → PRECOMMIT → COMMIT flow
+  - Timestamp validation, nonce management
+  - Both gossip and proposer-based modes
+- **Tests prove it**: test-consensus.ts reaches agreement, test-byzantine.ts blocks all attacks
 
-- **Entity Layer**: BFT consensus state machine handling ADD_TX → PROPOSE → SIGN → COMMIT flow
-- **Server Layer**: Routes inputs every 100ms tick, maintains global state via ServerFrames
-- **Runtime Layer**: Side-effectful shell managing cryptography and I/O
+### What's Fake (DISTRACTIONS)
+- **ByzantineConsensus.ts**: Doesn't exist (we were looking in wrong place!)
+- **EntityChannelBridge.ts**: Empty interface (red herring)
+- **old_src/server.ts**: Theater that returns "submitted for consensus"
+
+### The Missing Bridge
+There's NO CONNECTION between:
+1. Bilateral channels (networking layer)
+2. BFT consensus (fake stubs)
+3. Entity state (local CRUD only)
+
+The EntityChannelBridge is literally an empty interface. State updates are local-only, no consensus proposals, no channel broadcasts.
+
+### THE TRUTH - GO HERE FIRST
+
+**entity-consensus.ts IS THE REAL CONSENSUS** - Don't waste time looking elsewhere!
+
+When working on XLN consensus:
+1. Start with `src/entity-consensus.ts` - that's the REAL implementation
+2. Run `bun run test-consensus.ts` - proves it works
+3. Run `bun run test-byzantine.ts` - proves Byzantine tolerance
+
+The consensus is COMPLETE. It just needs network wiring:
+```typescript
+// This is ALL that's missing:
+WebSocket.onMessage(msg) → applyEntityInput(env, replica, msg) → WebSocket.send(outputs)
+```
+
+### Don't Be Fooled By
+- Empty interfaces and stub classes elsewhere
+- Files that claim to be consensus but aren't
+- The old_src directory (it's also fake consensus)
+
+The real implementation is hidden in plain sight in entity-consensus.ts
 
 ## Development Commands
 

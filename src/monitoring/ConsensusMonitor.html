@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XLN Consensus Network Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            color: #e0e6ed;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            border-bottom: 1px solid rgba(100, 255, 218, 0.1);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #64ffda;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .header .subtitle {
+            color: #8892b0;
+            margin-top: 5px;
+            font-size: 14px;
+        }
+
+        .container {
+            flex: 1;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .panel {
+            background: rgba(17, 25, 40, 0.75);
+            border: 1px solid rgba(100, 255, 218, 0.1);
+            border-radius: 8px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .panel-title {
+            color: #64ffda;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(100, 255, 218, 0.1);
+        }
+
+        #network-graph {
+            height: 500px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .node {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 20px rgba(100, 255, 218, 0.3);
+        }
+
+        .node.proposer {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: 2px solid #64ffda;
+        }
+
+        .node.validator {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: 2px solid #ff6b6b;
+        }
+
+        .node.byzantine {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            border: 2px solid #ff0000;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.5); }
+            50% { box-shadow: 0 0 40px rgba(255, 0, 0, 0.8); }
+            100% { box-shadow: 0 0 20px rgba(255, 0, 0, 0.5); }
+        }
+
+        .connection {
+            position: absolute;
+            background: linear-gradient(90deg,
+                transparent 0%,
+                rgba(100, 255, 218, 0.3) 50%,
+                transparent 100%);
+            height: 2px;
+            transform-origin: left center;
+            pointer-events: none;
+        }
+
+        .connection.active {
+            animation: flow 2s linear infinite;
+        }
+
+        @keyframes flow {
+            0% { opacity: 0.3; }
+            50% { opacity: 1; }
+            100% { opacity: 0.3; }
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .metric {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 4px;
+            border-left: 3px solid #64ffda;
+        }
+
+        .metric-label {
+            color: #8892b0;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .metric-value {
+            color: #e6f1ff;
+            font-size: 24px;
+            font-weight: bold;
+            margin-top: 5px;
+        }
+
+        .metric-value.success {
+            color: #64ffda;
+        }
+
+        .metric-value.warning {
+            color: #f6ad55;
+        }
+
+        .metric-value.error {
+            color: #ff6b6b;
+        }
+
+        .event-log {
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+            font-family: monospace;
+        }
+
+        .event {
+            padding: 8px;
+            margin-bottom: 5px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            border-left: 3px solid #8892b0;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        .event.consensus {
+            border-left-color: #64ffda;
+        }
+
+        .event.error {
+            border-left-color: #ff6b6b;
+        }
+
+        .event.byzantine {
+            border-left-color: #ff0000;
+        }
+
+        .event-time {
+            color: #8892b0;
+            margin-right: 10px;
+        }
+
+        .event-message {
+            color: #e6f1ff;
+        }
+
+        .consensus-progress {
+            margin-top: 20px;
+        }
+
+        .progress-bar {
+            height: 30px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #64ffda 100%);
+            border-radius: 15px;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .peer-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .peer-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .peer-status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+
+        .peer-status.connected {
+            background: #64ffda;
+            box-shadow: 0 0 10px rgba(100, 255, 218, 0.5);
+        }
+
+        .peer-status.partitioned {
+            background: #f6ad55;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .peer-status.failed {
+            background: #ff6b6b;
+        }
+
+        .peer-latency {
+            color: #8892b0;
+            font-size: 11px;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn.danger {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff0000 100%);
+        }
+
+        .status-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #64ffda;
+            animation: breathe 2s infinite;
+        }
+
+        @keyframes breathe {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .status-text {
+            color: #64ffda;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>XLN Consensus Network Monitor</h1>
+        <div class="subtitle">Real-time Byzantine Fault Tolerant Consensus Visualization</div>
+        <div class="status-indicator">
+            <div class="status-dot"></div>
+            <div class="status-text">Network Active</div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="left-column">
+            <div class="panel">
+                <div class="panel-title">Network Topology</div>
+                <div id="network-graph"></div>
+                <div class="consensus-progress">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="consensus-progress" style="width: 0%">
+                            Consensus Progress: 0%
+                        </div>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button class="btn" onclick="simulateConsensus()">Simulate Consensus</button>
+                    <button class="btn danger" onclick="simulateByzantine()">Simulate Byzantine Fault</button>
+                    <button class="btn" onclick="recoverPartition()">Recover Partition</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Event Log</div>
+                <div class="event-log" id="event-log"></div>
+            </div>
+        </div>
+
+        <div class="right-column">
+            <div class="panel">
+                <div class="panel-title">Network Metrics</div>
+                <div class="metrics-grid">
+                    <div class="metric">
+                        <div class="metric-label">Active Nodes</div>
+                        <div class="metric-value success" id="active-nodes">4</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Consensus Height</div>
+                        <div class="metric-value" id="consensus-height">142</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Messages/sec</div>
+                        <div class="metric-value" id="message-rate">47</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Avg Latency</div>
+                        <div class="metric-value warning" id="avg-latency">23ms</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Success Rate</div>
+                        <div class="metric-value success" id="success-rate">99.7%</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Byzantine Faults</div>
+                        <div class="metric-value error" id="byzantine-faults">2</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Connected Peers</div>
+                <div class="peer-list" id="peer-list">
+                    <div class="peer-item">
+                        <div>
+                            <span class="peer-status connected"></span>
+                            <span>Node Alice (Proposer)</span>
+                        </div>
+                        <span class="peer-latency">12ms</span>
+                    </div>
+                    <div class="peer-item">
+                        <div>
+                            <span class="peer-status connected"></span>
+                            <span>Node Bob</span>
+                        </div>
+                        <span class="peer-latency">15ms</span>
+                    </div>
+                    <div class="peer-item">
+                        <div>
+                            <span class="peer-status connected"></span>
+                            <span>Node Charlie</span>
+                        </div>
+                        <span class="peer-latency">18ms</span>
+                    </div>
+                    <div class="peer-item">
+                        <div>
+                            <span class="peer-status partitioned"></span>
+                            <span>Node Eve</span>
+                        </div>
+                        <span class="peer-latency">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Network visualization
+        const nodes = [
+            { id: 'alice', x: 50, y: 50, type: 'proposer', label: 'Alice' },
+            { id: 'bob', x: 150, y: 150, type: 'validator', label: 'Bob' },
+            { id: 'charlie', x: 250, y: 50, type: 'validator', label: 'Charlie' },
+            { id: 'eve', x: 350, y: 150, type: 'byzantine', label: 'Eve' }
+        ];
+
+        const connections = [
+            { from: 'alice', to: 'bob' },
+            { from: 'alice', to: 'charlie' },
+            { from: 'bob', to: 'charlie' },
+            { from: 'charlie', to: 'eve' }
+        ];
+
+        function initializeNetwork() {
+            const graph = document.getElementById('network-graph');
+
+            // Draw connections
+            connections.forEach(conn => {
+                const fromNode = nodes.find(n => n.id === conn.from);
+                const toNode = nodes.find(n => n.id === conn.to);
+
+                const line = document.createElement('div');
+                line.className = 'connection active';
+
+                const dx = toNode.x - fromNode.x;
+                const dy = toNode.y - fromNode.y;
+                const length = Math.sqrt(dx * dx + dy * dy);
+                const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+                line.style.width = length + 'px';
+                line.style.left = fromNode.x + 30 + 'px';
+                line.style.top = fromNode.y + 30 + 'px';
+                line.style.transform = `rotate(${angle}deg)`;
+
+                graph.appendChild(line);
+            });
+
+            // Draw nodes
+            nodes.forEach(node => {
+                const div = document.createElement('div');
+                div.className = `node ${node.type}`;
+                div.style.left = node.x + 'px';
+                div.style.top = node.y + 'px';
+                div.textContent = node.label;
+                div.onclick = () => showNodeInfo(node);
+                graph.appendChild(div);
+            });
+        }
+
+        function addEvent(message, type = 'consensus') {
+            const log = document.getElementById('event-log');
+            const event = document.createElement('div');
+            event.className = `event ${type}`;
+
+            const time = new Date().toLocaleTimeString();
+            event.innerHTML = `
+                <span class="event-time">${time}</span>
+                <span class="event-message">${message}</span>
+            `;
+
+            log.insertBefore(event, log.firstChild);
+
+            // Keep only last 50 events
+            while (log.children.length > 50) {
+                log.removeChild(log.lastChild);
+            }
+        }
+
+        function updateMetrics() {
+            // Simulate metric updates
+            const activeNodes = 3 + Math.floor(Math.random() * 2);
+            const height = parseInt(document.getElementById('consensus-height').textContent) + 1;
+            const messageRate = 30 + Math.floor(Math.random() * 40);
+            const latency = 10 + Math.floor(Math.random() * 30);
+            const successRate = (95 + Math.random() * 4.9).toFixed(1);
+
+            document.getElementById('active-nodes').textContent = activeNodes;
+            document.getElementById('consensus-height').textContent = height;
+            document.getElementById('message-rate').textContent = messageRate;
+            document.getElementById('avg-latency').textContent = latency + 'ms';
+            document.getElementById('success-rate').textContent = successRate + '%';
+
+            // Update latency color
+            const latencyEl = document.getElementById('avg-latency');
+            latencyEl.className = latency < 20 ? 'metric-value success' :
+                                  latency < 50 ? 'metric-value warning' :
+                                  'metric-value error';
+        }
+
+        function simulateConsensus() {
+            addEvent('Proposing new block at height 143', 'consensus');
+
+            let progress = 0;
+            const progressBar = document.getElementById('consensus-progress');
+
+            const interval = setInterval(() => {
+                progress += 10;
+                progressBar.style.width = progress + '%';
+                progressBar.textContent = `Consensus Progress: ${progress}%`;
+
+                if (progress === 30) {
+                    addEvent('Received vote from Bob', 'consensus');
+                } else if (progress === 60) {
+                    addEvent('Received vote from Charlie', 'consensus');
+                } else if (progress === 90) {
+                    addEvent('Threshold reached (3/4 votes)', 'consensus');
+                } else if (progress >= 100) {
+                    addEvent('✅ Consensus achieved! Block committed', 'consensus');
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        progressBar.style.width = '0%';
+                        progressBar.textContent = 'Consensus Progress: 0%';
+                    }, 2000);
+                }
+            }, 500);
+        }
+
+        function simulateByzantine() {
+            addEvent('⚠️ Byzantine fault detected from Eve!', 'byzantine');
+            addEvent('Eve sent conflicting votes for same height', 'error');
+            addEvent('Quarantining Eve from consensus', 'error');
+
+            const faults = parseInt(document.getElementById('byzantine-faults').textContent) + 1;
+            document.getElementById('byzantine-faults').textContent = faults;
+
+            // Update Eve's status
+            const peerList = document.getElementById('peer-list');
+            const evePeer = peerList.children[3];
+            evePeer.querySelector('.peer-status').className = 'peer-status failed';
+        }
+
+        function recoverPartition() {
+            addEvent('Starting partition recovery...', 'consensus');
+            addEvent('Detected 1 partitioned peer', 'consensus');
+            addEvent('Attempting reconnection to Eve', 'consensus');
+
+            setTimeout(() => {
+                addEvent('✅ Partition recovery successful', 'consensus');
+                addEvent('Eve rejoined consensus network', 'consensus');
+
+                // Update Eve's status
+                const peerList = document.getElementById('peer-list');
+                const evePeer = peerList.children[3];
+                evePeer.querySelector('.peer-status').className = 'peer-status connected';
+                evePeer.querySelector('.peer-latency').textContent = '22ms';
+            }, 2000);
+        }
+
+        function showNodeInfo(node) {
+            addEvent(`Inspecting ${node.label}: ${node.type}`, 'consensus');
+        }
+
+        // Initialize
+        initializeNetwork();
+        addEvent('Monitor connected to XLN consensus network', 'consensus');
+        addEvent('Network initialized with 4 nodes', 'consensus');
+
+        // Periodic updates
+        setInterval(updateMetrics, 3000);
+
+        // Simulate some activity
+        setTimeout(() => simulateConsensus(), 2000);
+        setTimeout(() => addEvent('Heartbeat from all nodes', 'consensus'), 5000);
+        setTimeout(() => addEvent('Channel update processed', 'consensus'), 8000);
+    </script>
+</body>
+</html>

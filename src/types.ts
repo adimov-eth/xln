@@ -17,6 +17,8 @@ export interface ConsensusConfig {
   validators: string[];
   shares: { [validatorId: string]: bigint };
   jurisdiction?: JurisdictionConfig;
+  viewChangeTimeout?: number; // Timeout before starting view change (ms)
+  newViewTimeout?: number; // Timeout for new view confirmation (ms)
 }
 
 export interface ServerInput {
@@ -40,6 +42,8 @@ export interface EntityInput {
   entityTxs?: EntityTx[];
   precommits?: Map<string, string>; // signerId -> signature
   proposedFrame?: ProposedEntityFrame;
+  viewChangeRequest?: ViewChangeRequest;
+  newViewConfirmation?: NewViewConfirmation;
 }
 
 export interface Proposal {
@@ -141,6 +145,59 @@ export interface ProposedEntityFrame {
   hash: string;
   newState: EntityState;
   signatures: Map<string, string>; // signerId -> signature
+  view?: number; // View number when this frame was proposed
+}
+
+export interface ViewChangeRequest {
+  newView: number;
+  lastCommittedHeight: number;
+  lastCommittedHash?: string;
+  reason: 'timeout' | 'byzantine' | 'network_partition';
+  timestamp: number;
+}
+
+export interface NewViewConfirmation {
+  newView: number;
+  newProposer: string;
+  viewChangeProofs: Map<string, string>; // signerId -> signature of view change request
+  prepareCertificate?: ProposedEntityFrame; // Last prepared frame (if any)
+}
+
+export interface SlashingCondition {
+  type: 'double_signing' | 'invalid_proposal' | 'premature_commit' | 'conflicting_votes' | 'invalid_view_change' | 'equivocation';
+  validator: string;
+  evidence: any;
+  timestamp: number;
+  severity: 'minor' | 'major' | 'critical';
+  penalty: 'warning' | 'stake_reduction' | 'ejection';
+}
+
+export interface SlashingEvidence {
+  doubleSigning?: {
+    signature1: string;
+    signature2: string;
+    proposal1: ProposedEntityFrame;
+    proposal2: ProposedEntityFrame;
+  };
+  invalidProposal?: {
+    proposal: ProposedEntityFrame;
+    reason: string;
+  };
+  prematureCommit?: {
+    proposal: ProposedEntityFrame;
+    commitTime: number;
+    expectedCommitTime: number;
+  };
+  conflictingVotes?: {
+    vote1: string;
+    vote2: string;
+    proposal: string;
+  };
+  equivocation?: {
+    message1: string;
+    message2: string;
+    context: string;
+  };
 }
 
 export interface EntityReplica {
@@ -151,6 +208,16 @@ export interface EntityReplica {
   proposal?: ProposedEntityFrame;
   lockedFrame?: ProposedEntityFrame; // Frame this validator is locked/precommitted to
   isProposer: boolean;
+  // View change state
+  currentView: number;
+  viewChangeRequests: Map<string, ViewChangeRequest>; // signerId -> view change request
+  lastProposalTime?: number; // When last proposal was received (for timeout detection)
+  viewChangeTimer?: NodeJS.Timeout; // Timer for proposer failure detection
+  // Slashing state
+  slashingConditions: SlashingCondition[]; // Record of detected misbehavior
+  signatureHistory: Map<string, string[]>; // proposalHash -> signatures for double-signing detection
+  votingHistory: Map<string, string[]>; // proposalId -> votes for conflicting vote detection
+  proposalHistory: ProposedEntityFrame[]; // Recent proposals for validation
 }
 
 export interface Env {

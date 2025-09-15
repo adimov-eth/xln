@@ -25,12 +25,12 @@ import {
   registerNumberedEntityOnChain, assignNameOnChain, getEntityInfoFromChain, getNextEntityNumber, transferNameBetweenEntities, connectToEthereum,
   getJurisdictions, getAvailableJurisdictions, getJurisdictionByAddress
 } from './evm.js';
-import { runDemo } from './rundemo.js';
+import { runDemo } from '../examples/demos/rundemo.js';
 
 import { testFullCycle } from './hanko-real.js';
-import { runDepositoryHankoTests } from './test-depository-hanko.js';
-import { runBasicHankoTests } from './test-hanko-basic.js';
-import { runAllTests as runCompleteHankoTests } from './test-hanko-complete.js';
+import { runDepositoryHankoTests } from '../test/test-depository-hanko.js';
+import { runBasicHankoTests } from '../test/test-hanko-basic.js';
+import { runAllTests as runCompleteHankoTests } from '../test/test-hanko-complete.js';
 import {
   getProfile, storeProfile,
   searchEntityNames as searchEntityNamesOriginal,
