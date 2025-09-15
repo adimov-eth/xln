@@ -43,6 +43,10 @@ contract EntityProvider is ERC1155 {
   // Core entity storage - single mapping for all entities
   mapping(bytes32 => Entity) public entities;
   
+  // Fast reverse index: board hash => entity number (0 if none)
+  // If multiple entities share a board hash, the latest will be stored.
+  mapping(bytes32 => uint256) public boardHashToEntity;
+  
   // Sequential numbering for registered entities
   uint256 public nextNumber = 1;
   
@@ -101,6 +105,8 @@ contract EntityProvider is ERC1155 {
         controlThreshold: 51
       })))
     });
+    // Index foundation board hash for O(1) recovery
+    boardHashToEntity[foundationQuorum] = FOUNDATION_ENTITY;
     
     // Setup governance for foundation entity
     (uint256 controlTokenId, uint256 dividendTokenId) = getTokenIds(FOUNDATION_ENTITY);
@@ -150,6 +156,8 @@ contract EntityProvider is ERC1155 {
       proposerType: ProposerType.BOARD,
       articlesHash: keccak256(abi.encode(defaultArticles))
     });
+    // Index board hash for O(1) recovery
+    boardHashToEntity[boardHash] = entityNumber;
     
     // Automatically setup governance with fixed supply
     (uint256 controlTokenId, uint256 dividendTokenId) = getTokenIds(entityNumber);
@@ -266,9 +274,18 @@ contract EntityProvider is ERC1155 {
     require(entities[entityId].proposedBoardHash != bytes32(0), "No proposed board");
     require(block.number >= entities[entityId].activateAtBlock, "Delay period not met");
     
-    entities[entityId].currentBoardHash = entities[entityId].proposedBoardHash;
+    // Update reverse index: remove old hash, set new hash
+    bytes32 oldHash = entities[entityId].currentBoardHash;
+    bytes32 newHash = entities[entityId].proposedBoardHash;
+
+    entities[entityId].currentBoardHash = newHash;
     entities[entityId].proposedBoardHash = bytes32(0);
     entities[entityId].activateAtBlock = 0;
+    // Best-effort cleanup and set mapping
+    if (oldHash != bytes32(0)) {
+      delete boardHashToEntity[oldHash];
+    }
+    boardHashToEntity[newHash] = uint256(entityId);
     
     emit BoardActivated(entityId, entities[entityId].currentBoardHash);
   }
@@ -314,15 +331,12 @@ contract EntityProvider is ERC1155 {
   ) public view returns (uint256 entityId) {
     bytes32 boardHash = keccak256(encodedBoard);
     
-    // First try to find registered entity with this board hash
-    for (uint256 i = 1; i < nextNumber; i++) {
-      bytes32 candidateEntityId = bytes32(i);
-      if (entities[candidateEntityId].currentBoardHash != bytes32(0) && entities[candidateEntityId].currentBoardHash == boardHash) {
-        // Verify signature for this registered entity
-        uint16 boardResult = _verifyBoard(hash, encodedBoard, encodedSignature);
-        if (boardResult > 0) {
-          return i; // Return entity number
-        }
+    // Fast path: try indexed registered entity with this board hash
+    uint256 mapped = boardHashToEntity[boardHash];
+    if (mapped != 0) {
+      uint16 boardResult = _verifyBoard(hash, encodedBoard, encodedSignature);
+      if (boardResult > 0) {
+        return mapped;
       }
     }
     
@@ -926,6 +940,9 @@ contract EntityProvider is ERC1155 {
     
     totalControlSupply[entityId] = TOTAL_CONTROL_SUPPLY;
     totalDividendSupply[entityId] = TOTAL_DIVIDEND_SUPPLY;
+    
+    // Index board hash for O(1) recovery
+    boardHashToEntity[boardHash] = entityNumber;
     
     emit EntityRegistered(entityId, entityNumber, boardHash);
     emit GovernanceEnabled(entityId, controlTokenId, dividendTokenId);

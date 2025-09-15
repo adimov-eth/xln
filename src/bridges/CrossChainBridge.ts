@@ -18,6 +18,7 @@ import { Subchannel } from '../../old_src/types/Subchannel.js';
 import { BaseTransformer, TransformContext, TransformResult } from '../transformers/BaseTransformer.js';
 import { createHash } from 'crypto';
 import { encode } from 'rlp';
+import { MerkleTree, MerkleProof, ChannelStateMerkleTree } from '../merkle/MerkleTree.js';
 
 export interface ChainConfig {
   chainId: number;
@@ -69,6 +70,7 @@ export interface BridgeState {
   chainConfigs: Map<number, ChainConfig>;
   pendingProofs: Map<string, MerkleProof>;
   settlementQueue: CrossChainTransfer[];
+  transferTrees: Map<number, MerkleTree>; // Merkle trees per chain
 }
 
 /**
@@ -141,7 +143,8 @@ export class CrossChainBridge extends BaseTransformer {
         CrossChainBridge.CHAIN_CONFIGS.map(c => [c.chainId, c])
       ),
       pendingProofs: new Map(),
-      settlementQueue: []
+      settlementQueue: [],
+      transferTrees: new Map()
     };
   }
 
@@ -348,6 +351,9 @@ export class CrossChainBridge extends BaseTransformer {
     channel.pendingTransfers.push(transfer);
     channel.bridgeNonce++;
 
+    // Update merkle tree for source chain
+    this.updateTransferTree(channel.sourceChain.chainId, transfer);
+
     const afterState = this.hashChannel(channel);
 
     return {
@@ -528,6 +534,61 @@ export class CrossChainBridge extends BaseTransformer {
   }
 
   /**
+   * Update merkle tree with new transfer
+   */
+  private updateTransferTree(chainId: number, transfer: CrossChainTransfer): void {
+    let tree = this.state.transferTrees.get(chainId);
+
+    if (!tree) {
+      tree = new MerkleTree();
+      this.state.transferTrees.set(chainId, tree);
+    }
+
+    // Get all transfers for this chain
+    const chainTransfers: any[] = [];
+    for (const channel of this.state.channels.values()) {
+      if (channel.sourceChain.chainId === chainId || channel.targetChain.chainId === chainId) {
+        for (const t of channel.pendingTransfers) {
+          chainTransfers.push({
+            id: t.id,
+            amount: t.amount.toString(),
+            tokenId: t.tokenId,
+            sourceChain: t.sourceChain,
+            targetChain: t.targetChain,
+            status: t.status,
+            createdAt: t.createdAt
+          });
+        }
+      }
+    }
+
+    // Rebuild tree with all transfers
+    tree.build(chainTransfers);
+  }
+
+  /**
+   * Generate merkle proof for transfer
+   */
+  private generateTransferProof(chainId: number, transfer: CrossChainTransfer): MerkleProof | null {
+    const tree = this.state.transferTrees.get(chainId);
+    if (!tree) {
+      return null;
+    }
+
+    const transferData = {
+      id: transfer.id,
+      amount: transfer.amount.toString(),
+      tokenId: transfer.tokenId,
+      sourceChain: transfer.sourceChain,
+      targetChain: transfer.targetChain,
+      status: transfer.status,
+      createdAt: transfer.createdAt
+    };
+
+    return tree.getProof(transferData);
+  }
+
+  /**
    * Generate cross-chain channel key
    */
   private generateCrossChainKey(
@@ -566,14 +627,11 @@ export class CrossChainBridge extends BaseTransformer {
   }
 
   /**
-   * Verify merkle proof (simplified)
+   * Verify merkle proof using real verification
    */
   private verifyMerkleProof(proof: MerkleProof): boolean {
-    // In production, this would verify against on-chain merkle root
-    // For now, basic validation
-    return proof.root.length === 66 && // 0x + 64 hex chars
-           proof.proof.length > 0 &&
-           proof.leaf.length === 66;
+    // Verify the proof cryptographically
+    return MerkleTree.verifyProof(proof);
   }
 
   /**

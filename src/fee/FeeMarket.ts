@@ -422,9 +422,18 @@ export class FeeMarket extends BaseTransformer {
       return 1.0;
     }
 
-    // Exponential increase after threshold
-    const excess = utilization - FeeMarket.CONGESTION_THRESHOLD;
-    const multiplier = 1 + Math.pow(excess * 10, 2);
+    // Sigmoid curve for smooth, bounded growth
+    // Maps [0.7, 1.0] utilization to [1.0, MAX_CONGESTION_MULTIPLIER]
+    const excess = Math.min(utilization - FeeMarket.CONGESTION_THRESHOLD, 0.3);
+
+    // Use tanh for smooth S-curve: grows quickly then plateaus
+    // tanh(x) ranges from 0 to ~1 for x in [0, 3]
+    const normalized = excess / 0.3; // Normalize to [0, 1]
+    const tanhInput = normalized * 3; // Scale to [0, 3] for good tanh response
+    const smoothed = Math.tanh(tanhInput);
+
+    // Scale from [0, 1] to [1, MAX_CONGESTION_MULTIPLIER]
+    const multiplier = 1 + smoothed * (FeeMarket.MAX_CONGESTION_MULTIPLIER - 1);
 
     return Math.min(multiplier, FeeMarket.MAX_CONGESTION_MULTIPLIER);
   }

@@ -1,0 +1,80 @@
+{
+  "timestamp": "2025-09-15T03:43:11.137Z",
+  "environment": "mock",
+  "deployments": [
+    {
+      "network": "sepolia",
+      "chainId": 11155111,
+      "contracts": {
+        "Depository": "0x7d1d8fbc54545800000000000000000000000000",
+        "EntityProvider": "0xe9122e80f3748000000000000000000000000000",
+        "SubcontractProvider": "0x84be8922c6b6f000000000000000000000000000"
+      },
+      "deployer": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
+      "blockNumber": 354475,
+      "timestamp": 1757907788133,
+      "gasUsed": "842378",
+      "transactionHashes": [
+        "0xdb35de5fe49838",
+        "0x863aa92a453bb8",
+        "0xdade99aeea8938"
+      ]
+    },
+    {
+      "network": "mumbai",
+      "chainId": 80001,
+      "contracts": {
+        "Depository": "0x6c2c2327df96a800000000000000000000000000",
+        "EntityProvider": "0x6f1a66e241fc4800000000000000000000000000",
+        "SubcontractProvider": "0x8fa18bcc73e72800000000000000000000000000"
+      },
+      "deployer": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
+      "blockNumber": 815908,
+      "timestamp": 1757907789635,
+      "gasUsed": "736926",
+      "transactionHashes": [
+        "0x65f7e55e1751b",
+        "0x755138d4de22a8",
+        "0x5ddf7d16720258"
+      ]
+    },
+    {
+      "network": "arbitrumSepolia",
+      "chainId": 421614,
+      "contracts": {
+        "Depository": "0x9fdbf3f6c4bb8800000000000000000000000000",
+        "EntityProvider": "0x98249fb087081800000000000000000000000000",
+        "SubcontractProvider": "0xcf2b72b3720c9000000000000000000000000000"
+      },
+      "deployer": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb0",
+      "blockNumber": 308391,
+      "timestamp": 1757907791137,
+      "gasUsed": "705195",
+      "transactionHashes": [
+        "0x76939ade0d5c98",
+        "0x015901ced49c78",
+        "0x97d9c7e258f918"
+      ]
+    }
+  ],
+  "crossChainConfig": [
+    {
+      "chainId": 11155111,
+      "network": "sepolia",
+      "depository": "0x7d1d8fbc54545800000000000000000000000000",
+      "entityProvider": "0xe9122e80f3748000000000000000000000000000"
+    },
+    {
+      "chainId": 80001,
+      "network": "mumbai",
+      "depository": "0x6c2c2327df96a800000000000000000000000000",
+      "entityProvider": "0x6f1a66e241fc4800000000000000000000000000"
+    },
+    {
+      "chainId": 421614,
+      "network": "arbitrumSepolia",
+      "depository": "0x9fdbf3f6c4bb8800000000000000000000000000",
+      "entityProvider": "0x98249fb087081800000000000000000000000000"
+    }
+  ]
+}
