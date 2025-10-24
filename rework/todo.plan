@@ -1,6 +1,23 @@
 # XLN Scheme Reimplementation Plan
 # Target: Racket - Feature-complete - Fresh redesign
 
+## 📊 Current Status (2025-10-24)
+
+**Phase 1: Foundation** - 🚧 30% Complete
+- ✅ types.rkt: State machines, domain types, RCPAN invariant
+- ✅ Working demo proving concepts
+- 🚧 Next: crypto.rkt, rlp.rkt, merkle.rkt
+
+**Latest Commit:** `41f5e39 - feat: xln-scheme foundation - homoiconic consensus`
+
+**Run Demo:**
+```bash
+cd rework/xln-scheme
+racket examples/basic-channel.rkt
+```
+
+---
+
 ## Core Principles
 
 1. **Homoiconic**: State machines as data structures
@@ -11,28 +28,48 @@
 
 ---
 
-## Phase 1: Foundation (Week 1-2)
+## Phase 1: Foundation (Week 1-2) 🚧 IN PROGRESS
 
 ### Core Abstractions
 ```
 xln-scheme/core/
-├── types.rkt           # Record types, state machine definitions
-├── crypto.rkt          # ECDSA (secp256k1), SHA256, Keccak256
-├── rlp.rkt             # Ethereum-compatible serialization
-├── merkle.rkt          # Merkle tree + proof verification
-└── monad.rkt           # Free monad for effects
+├── types.rkt           ✅ DONE - Record types, state machine definitions
+├── crypto.rkt          🚧 TODO - ECDSA (secp256k1), SHA256, Keccak256
+├── rlp.rkt             🚧 TODO - Ethereum-compatible serialization
+├── merkle.rkt          🚧 TODO - Merkle tree + proof verification
+└── monad.rkt           🚧 TODO - Free monad for effects
 ```
 
-**Deliverables:**
-- [ ] State machine macro: `(define-machine name states transitions)`
+### Completed ✅
+- [x] **State machine macro**: `(define-machine name states transitions)` - WORKING
+- [x] **Domain types**: entity-id, account-key, delta, frame - WORKING
+- [x] **RCPAN invariant**: Enforced at construction time - PROVEN
+- [x] **Pattern matching**: Transition functions using match - WORKING
+- [x] **Perspective calculations**: derive-capacity for left/right view - WORKING
+- [x] **Working demo**: `examples/basic-channel.rkt` runs successfully
+
+### In Progress 🚧
 - [ ] Effect algebra: `(define-effect-algebra XLN-Effects ...)`
 - [ ] RLP encoder/decoder with round-trip tests
 - [ ] ECDSA sign/verify via FFI (libsecp256k1)
 - [ ] Merkle root computation + proof generation
 - [ ] Property-based tests for determinism
 
-**Key Innovation:**
-State machines ARE S-expressions. Introspectable, composable, verifiable.
+**Status:** Foundation proven with working code. Demo shows:
+- Canonical channel key construction
+- RCPAN invariant validation (compile-time enforcement)
+- Perspective-aware capacity symmetry
+- State machine introspection
+- Pure transition functions
+
+**Run it:**
+```bash
+cd rework/xln-scheme
+racket examples/basic-channel.rkt
+```
+
+**Key Innovation Achieved:**
+State machines ARE S-expressions. Already introspectable, composable, verifiable.
 
 ---
 
