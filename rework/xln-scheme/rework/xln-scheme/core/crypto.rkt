@@ -1,16 +1,17 @@
 #lang racket/base
 
 ;; ═══════════════════════════════════════════════════════════════════
-;; XLN Cryptography - SHA256 (Built-in, No FFI)
+;; XLN Cryptography - SHA256, Keccak256 (MVP - Hashing Only)
 ;; ═══════════════════════════════════════════════════════════════════
 ;;
-;; MVP: Hashing functions using Racket's built-in sha256-bytes
-;; Proves the consensus pattern works without external dependencies.
+;; MVP: Hashing functions only to prove consensus pattern works.
+;; TODO: Add ECDSA signing after installing full Racket with crypto support.
 ;;
 ;; ═══════════════════════════════════════════════════════════════════
 
-(require file/sha1
-         racket/contract)
+(require crypto
+         racket/contract
+         racket/random)
 
 (provide (all-defined-out))
 
@@ -18,19 +19,19 @@
 ;; Hash Functions
 ;; ─────────────────────────────────────────────────────────────────
 
-;; SHA256 - using Racket's built-in function
+;; SHA256 - used for channel key generation
 (define/contract (sha256 data)
   (-> bytes? bytes?)
-  (sha256-bytes data))
+  (digest 'sha256 data))
 
 ;; Keccak256 - Ethereum compatibility
-;; Note: Using SHA256 as placeholder (keccak256 ≠ SHA256)
-;; TODO: Implement proper Keccak-256 once crypto support available
+;; Note: Using SHA3-256 as placeholder (keccak256 ≠ SHA3-256 due to padding)
+;; TODO: Implement proper Keccak-256 (pre-FIPS SHA3)
 (define/contract (keccak256 data)
   (-> bytes? bytes?)
-  ;; For MVP, using SHA256 as approximation
-  ;; Real Keccak-256 differs from SHA3-256 in padding
-  (sha256-bytes data))
+  ;; keccak256 ≠ SHA3-256 (different padding)
+  ;; For MVP, using SHA3-256 as approximation
+  (digest 'sha3-256 data))
 
 ;; Hash arbitrary S-expression (for frame hashing)
 (define/contract (hash-sexp sexp)
@@ -54,8 +55,8 @@
 ;; ═══════════════════════════════════════════════════════════════════
 
 ;; What works:
-;; - SHA256 hashing (built-in, no FFI)
-;; - SHA256 as Keccak approximation
+;; - SHA256 hashing
+;; - SHA3-256 hashing (Keccak approximation)
 ;; - S-expression hashing for frames
 ;; - Deterministic channel key derivation
 ;;

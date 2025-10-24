@@ -31,10 +31,10 @@
 (displayln (format "Deterministic? ~a ✓\n" (equal? message-hash message-hash-2)))
 
 ;; ─────────────────────────────────────────────────────────────────
-;; Demo 2: Keccak256 (SHA256 approximation)
+;; Demo 2: Keccak256 (SHA3-256 approximation)
 ;; ─────────────────────────────────────────────────────────────────
 
-(displayln "=== Demo 2: Keccak256 (SHA256 approx) ===\n")
+(displayln "=== Demo 2: Keccak256 (SHA3-256) ===\n")
 
 (define data #"XLN consensus")
 (define sha-hash (sha256 data))
@@ -43,7 +43,7 @@
 (displayln (format "Data: ~a" data))
 (displayln (format "SHA256:   ~a" (bytes->hex-string sha-hash)))
 (displayln (format "Keccak256: ~a" (bytes->hex-string keccak-hash)))
-(displayln (format "Same hash? ~a (MVP uses SHA256 for both)\n" (equal? sha-hash keccak-hash)))
+(displayln (format "Different algorithms? ~a ✓\n" (not (equal? sha-hash keccak-hash))))
 
 ;; ─────────────────────────────────────────────────────────────────
 ;; Demo 3: S-Expression Hashing (Frame Hashing)
@@ -96,7 +96,7 @@
 
 (displayln "=== Summary ===")
 (displayln "✓ SHA256 hashing working")
-(displayln "✓ Keccak256 (SHA256 approximation for MVP)")
+(displayln "✓ Keccak256 (SHA3-256 approximation)")
 (displayln "✓ S-expression hashing for frames")
 (displayln "✓ Deterministic channel keys")
 (displayln "\nCryptography foundation (hashing) proven. Ready for consensus.")
