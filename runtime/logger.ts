@@ -94,16 +94,16 @@ export function logError(category: keyof LogConfig, ...args: unknown[]): void {
 
 // Debug helper to show current config
 export function showLogConfig(): void {
-  console.log('📊 Current Log Configuration:');
+  console.log('[STATS] Current Log Configuration:');
   Object.entries(LOG_CONFIG).forEach(([key, enabled]) => {
-    console.log(`  ${enabled ? '✅' : '❌'} ${key}`);
+    console.log(`  ${enabled ? '[OK]' : '[X]'} ${key}`);
   });
 }
 
 // Runtime config setter (for debugging from console)
 export function setLogConfig(category: keyof LogConfig, enabled: boolean): void {
   LOG_CONFIG[category] = enabled;
-  console.log(`🔧 Log category "${category}" set to ${enabled ? 'ON' : 'OFF'}`);
+  console.log(`[TOOL] Log category "${category}" set to ${enabled ? 'ON' : 'OFF'}`);
 }
 
 // Enable all logs
@@ -111,7 +111,7 @@ export function enableAllLogs(): void {
   Object.keys(LOG_CONFIG).forEach(key => {
     LOG_CONFIG[key as keyof LogConfig] = true;
   });
-  console.log('✅ All logs enabled');
+  console.log('[OK] All logs enabled');
 }
 
 // Disable all logs
@@ -119,7 +119,7 @@ export function disableAllLogs(): void {
   Object.keys(LOG_CONFIG).forEach(key => {
     LOG_CONFIG[key as keyof LogConfig] = false;
   });
-  console.log('❌ All logs disabled');
+  console.log('[X] All logs disabled');
 }
 
 // Extend Window interface for debugging
@@ -144,5 +144,5 @@ if (typeof window !== 'undefined') {
     disableAll: disableAllLogs,
     config: LOG_CONFIG,
   };
-  console.log('🔧 Log config available at window.logConfig');
+  console.log('[TOOL] Log config available at window.logConfig');
 }

@@ -14,22 +14,22 @@
   const vrTools: VRTool[] = [
     {
       id: 'hammer',
-      name: '⚖️ Dispute Hammer',
-      icon: '🔨',
+      name: '[SCALES] Dispute Hammer',
+      icon: '[HAMMER]',
       description: 'Punch accounts to dispute and fragment network',
       color: '#ff4444'
     },
     {
       id: 'healer',
-      name: '💚 Network Healer',
-      icon: '🩹',
+      name: '[GREEN] Network Healer',
+      icon: '[BANDAGE]',
       description: 'Restore disputed accounts and heal network',
       color: '#00ff88'
     },
     {
       id: 'spawner',
-      name: '✨ Entity Spawner',
-      icon: '➕',
+      name: '* Entity Spawner',
+      icon: '+',
       description: 'Place new entities in 3D space',
       color: '#00ccff'
     }
@@ -37,23 +37,23 @@
 
   function selectTool(toolId: typeof selectedTool) {
     selectedTool = toolId;
-    console.log(`🎮 VR Tool selected: ${toolId}`);
+    console.log(`[GAME] VR Tool selected: ${toolId}`);
   }
 
   async function quickSpawnGrid() {
     // Trigger grid 2 2 2 via command
-    console.log('🎲 Quick spawn: Grid 2x2x2');
+    console.log('[DICE] Quick spawn: Grid 2x2x2');
     // TODO: Implement grid spawn
   }
 
   async function quickPaymentWave() {
-    console.log('💸 Quick payment wave triggered');
+    console.log('[$$] Quick payment wave triggered');
   }
 </script>
 
 {#if isVRActive}
 <div class="vr-scenario-builder">
-  <h3>🎮 VR Scenario Builder</h3>
+  <h3>[GAME] VR Scenario Builder</h3>
 
   <div class="tool-selection">
     <h4>Select Tool:</h4>
@@ -74,17 +74,17 @@
   <div class="quick-actions">
     <h4>Quick Actions:</h4>
     <button class="action-btn" on:click={quickSpawnGrid}>
-      🎲 Spawn Grid 2x2x2
+      [DICE] Spawn Grid 2x2x2
     </button>
     <button class="action-btn" on:click={quickPaymentWave}>
-      💸 Payment Wave
+      [$$] Payment Wave
     </button>
   </div>
 
   <div class="active-tool-info">
     {#if selectedTool}
       <div class="info-box" style="border-color: {vrTools.find(t => t.id === selectedTool)?.color};">
-        ✓ Active: <strong>{vrTools.find(t => t.id === selectedTool)?.name}</strong>
+        [CHECK] Active: <strong>{vrTools.find(t => t.id === selectedTool)?.name}</strong>
       </div>
     {:else}
       <div class="info-box">

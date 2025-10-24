@@ -22,10 +22,10 @@ const tabOperations = {
         tabs.set(tabData.tabs || []);
         activeTabId.set(tabData.activeTabId || null);
         nextTabId.set(tabData.nextTabId || 1);
-        console.log('📁 Tabs loaded from localStorage:', tabData);
+        console.log('[FOLDER] Tabs loaded from localStorage:', tabData);
       }
     } catch (error) {
-      console.error('❌ Failed to load tabs:', error);
+      console.error('[X] Failed to load tabs:', error);
       // Initialize with empty tab system on error
       tabs.set([]);
       activeTabId.set(null);
@@ -44,9 +44,9 @@ const tabOperations = {
         nextTabId: get(nextTabId)
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(tabData));
-      console.log('💾 Tabs saved to localStorage:', tabData);
+      console.log('[DISK] Tabs saved to localStorage:', tabData);
     } catch (error) {
-      console.error('❌ Failed to save tabs:', error);
+      console.error('[X] Failed to save tabs:', error);
     }
   },
 
@@ -75,17 +75,17 @@ const tabOperations = {
     this.setActiveTab(newTab.id);
     this.saveToStorage();
 
-    console.log('➕ Added new panel:', newTab);
+    console.log('+ Added new panel:', newTab);
     return newTab;
   },
 
   // Close tab
   closeTab(tabId: string) {
     const currentTabs = get(tabs);
-    console.log('❌ Closing tab:', tabId);
+    console.log('[X] Closing tab:', tabId);
     
     if (currentTabs.length <= 1) {
-      console.log('⚠️ Cannot close last tab');
+      console.log('[WARN] Cannot close last tab');
       return; // Keep at least one tab
     }
 
@@ -106,7 +106,7 @@ const tabOperations = {
 
   // Set active tab
   setActiveTab(tabId: string) {
-    console.log('🎯 Setting active tab:', tabId);
+    console.log('[GOAL] Setting active tab:', tabId);
     
     tabs.update(currentTabs => 
       currentTabs.map(tab => ({
@@ -145,7 +145,7 @@ const tabOperations = {
   // Initialize with default tabs
   initializeDefaultTabs() {
     // Start with 0 panels - user creates entities to get panels
-    console.log('📋 Starting with 0 panels by default');
+    console.log('[LIST] Starting with 0 panels by default');
   },
 
   // Clear all tabs and reset

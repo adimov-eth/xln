@@ -122,8 +122,8 @@ Located in `/scenarios/`:
 The player includes YouTube-style controls:
 
 **Playback:**
-- ▶ Play / ⏸ Pause
-- ↻ Restart
+- > Play / || Pause
+- [CLOCKWISE] Restart
 - Progress bar (click to seek)
 
 **Options:**
@@ -169,7 +169,7 @@ Use clickable thumbnail:
 ```markdown
 [![XLN Network Demo](https://xln.finance/embed-thumbnail?scenario=phantom-grid)](https://xln.finance/embed?scenario=phantom-grid)
 
-👆 Click to view interactive 3D visualization
+[UP] Click to view interactive 3D visualization
 ```
 
 ---

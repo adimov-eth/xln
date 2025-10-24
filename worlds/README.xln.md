@@ -186,15 +186,15 @@ All synced to same timeline.
 ## Why JavaScript?
 
 **vs. DSL:**
-- ✅ No parser needed
-- ✅ Full programming power (loops, conditions)
-- ✅ Type checking (with JSDoc or TS conversion)
-- ✅ IDE autocomplete
-- ✅ Debuggable (breakpoints, console.log)
+- [OK] No parser needed
+- [OK] Full programming power (loops, conditions)
+- [OK] Type checking (with JSDoc or TS conversion)
+- [OK] IDE autocomplete
+- [OK] Debuggable (breakpoints, console.log)
 
 **vs. TypeScript:**
-- ✅ Browser-native (import directly, no compilation)
-- ✅ Simpler for non-programmers
-- ✅ Can upgrade to .ts later (just rename)
+- [OK] Browser-native (import directly, no compilation)
+- [OK] Simpler for non-programmers
+- [OK] Can upgrade to .ts later (just rename)
 
 **The `.xln.js` extension** signals: "This is executable XLN financial logic"

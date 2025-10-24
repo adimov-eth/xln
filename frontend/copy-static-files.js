@@ -19,18 +19,18 @@ for (const file of files) {
     mkdirSync(destDir, { recursive: true });
 
     copyFileSync(srcPath, destPath);
-    console.log(`✅ Copied ${file.src} → ${file.dest}`);
+    console.log(`[OK] Copied ${file.src} [RIGHTWARDS] ${file.dest}`);
   } else {
-    console.log(`⚠️ Source file not found: ${file.src}`);
+    console.log(`[WARN] Source file not found: ${file.src}`);
   }
 }
 
 // Verify server.js exists (it should already be built there)
 const serverJsPath = resolve('static/server.js');
 if (existsSync(serverJsPath)) {
-  console.log(`✅ static/server.js exists (built directly)`);
+  console.log(`[OK] static/server.js exists (built directly)`);
 } else {
-  console.log(`⚠️ static/server.js missing - run 'bun run build' first`);
+  console.log(`[WARN] static/server.js missing - run 'bun run build' first`);
 }
 
 // Copy scenarios directory (skip if already symlinked)
@@ -40,7 +40,7 @@ try {
   const { lstatSync } = await import('fs');
   const stats = lstatSync(scenariosDest);
   if (stats.isSymbolicLink()) {
-    console.log(`ℹ️  static/scenarios is symlinked - skipping copy`);
+    console.log(`[INFO]  static/scenarios is symlinked - skipping copy`);
   } else {
     throw new Error('Not a symlink');
   }
@@ -49,7 +49,7 @@ try {
   if (existsSync(scenariosSrc)) {
     mkdirSync(scenariosDest, { recursive: true });
     cpSync(scenariosSrc, scenariosDest, { recursive: true });
-    console.log(`✅ Copied scenarios/ → static/scenarios/`);
+    console.log(`[OK] Copied scenarios/ [RIGHTWARDS] static/scenarios/`);
   }
 }
 
@@ -59,9 +59,9 @@ const docsDest = resolve('static/docs-static');
 if (existsSync(docsSrc)) {
   mkdirSync(docsDest, { recursive: true });
   cpSync(docsSrc, docsDest, { recursive: true });
-  console.log(`✅ Copied docs/ → static/docs-static/`);
+  console.log(`[OK] Copied docs/ [RIGHTWARDS] static/docs-static/`);
 } else {
-  console.log(`⚠️ Source directory not found: ${docsSrc}`);
+  console.log(`[WARN] Source directory not found: ${docsSrc}`);
 }
 
-console.log('📦 Static files copied for build');
+console.log('[PKG] Static files copied for build');

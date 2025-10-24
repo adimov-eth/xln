@@ -76,27 +76,27 @@
 
   // Initialize the application
   onMount(async () => {
-    console.log('🔄 ONMOUNT-DEBUG: +page.svelte onMount() called - this should only happen ONCE');
-    console.log('🔍 ONMOUNT-DEBUG: Current timestamp:', new Date().toISOString());
+    console.log('[ANTICLOCKWISE] ONMOUNT-DEBUG: +page.svelte onMount() called - this should only happen ONCE');
+    console.log('[FIND] ONMOUNT-DEBUG: Current timestamp:', new Date().toISOString());
 
     // Add keyboard listener for zen mode
     window.addEventListener('keydown', handleKeyboard);
 
     // Set up global error handlers FIRST
     window.addEventListener('error', (event) => {
-      console.error('❌ Global error caught:', event.error);
+      console.error('[X] Global error caught:', event.error);
       const errorMsg = event.error?.message || event.message || 'An unknown error occurred';
       error.set(`${errorMsg} (Source: ${event.filename || 'Unknown'})`);
     });
 
     window.addEventListener('unhandledrejection', (event) => {
-      console.error('❌ Unhandled promise rejection:', event.reason);
+      console.error('[X] Unhandled promise rejection:', event.reason);
       const errorMsg = event.reason?.message || String(event.reason) || 'Unhandled promise rejection';
       error.set(`${errorMsg} (Source: Promise)`);
     });
 
     try {
-      console.log('🚀 Initializing XLN Svelte application...');
+      console.log('[LAUNCH] Initializing XLN Svelte application...');
 
       // Initialize settings first
       settingsOperations.initialize();
@@ -121,15 +121,15 @@
         if (firstReplicaKey && typeof firstReplicaKey === 'string') {
           const firstEntityId = firstReplicaKey.split(':')[0];
           if (firstEntityId) {
-            console.log(`📋 Auto-opening panel for first entity: ${firstEntityId.slice(0,10)}...`);
+            console.log(`[LIST] Auto-opening panel for first entity: ${firstEntityId.slice(0,10)}...`);
             tabOperations.addTab(firstEntityId);
           }
         }
       }
 
-      console.log('✅ XLN application initialized');
+      console.log('[OK] XLN application initialized');
     } catch (err) {
-      console.error('❌ Failed to initialize XLN application:', err);
+      console.error('[X] Failed to initialize XLN application:', err);
       const errorMsg = (err as Error)?.message || 'Failed to initialize application';
       error.set(`${errorMsg} (Source: Initialization)`);
     }
@@ -171,12 +171,12 @@
     </div>
   {:else if $error && $viewMode !== 'settings'}
     <div class="error-container">
-      <div class="error-icon">❌</div>
+      <div class="error-icon">[X]</div>
       <div class="error-text">Failed to load XLN Environment</div>
       <div class="error-details">{$error}</div>
       <button class="retry-btn" on:click={() => initializeXLN()}> Retry </button>
       <button class="settings-btn" on:click={() => viewMode.set('settings')}>
-        ⚙️ Open Settings
+        [SET] Open Settings
       </button>
     </div>
   {:else if $viewMode === 'settings'}
@@ -313,7 +313,7 @@
             on:click={() => switchTab('formation')}
             id="formationTab"
           >
-            🏗️ Entity Formation
+            [BUILD] Entity Formation
           </button>
           <button
             class="tab-button"
@@ -321,7 +321,7 @@
             on:click={() => switchTab('jurisdictions')}
             id="jurisdictionsTab"
           >
-            🏛️ Jurisdictions
+            [COURT] Jurisdictions
           </button>
           <button
             class="tab-button"
@@ -329,7 +329,7 @@
             on:click={() => switchTab('network')}
             id="networkTab"
           >
-            🌐 Network
+            [WEB] Network
           </button>
           <button
             class="tab-button"
@@ -337,7 +337,7 @@
             on:click={() => switchTab('scenarios')}
             id="scenariosTab"
           >
-            🎬 Scenarios
+            [TAKE] Scenarios
           </button>
           <button
             class="tab-button"
@@ -345,7 +345,7 @@
             on:click={() => switchTab('admin')}
             id="adminTab"
           >
-            🔧 Admin
+            [TOOL] Admin
           </button>
         </div>
 

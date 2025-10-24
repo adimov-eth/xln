@@ -236,10 +236,10 @@
 
 <div class="animation-controls">
   <button on:click={() => animationEnabled = !animationEnabled} class="control-btn">
-    {animationEnabled ? '⏸ Pause Animation' : '▶ Play Animation'}
+    {animationEnabled ? '|| Pause Animation' : '> Play Animation'}
   </button>
   <button on:click={onToggleDarkMode} class="control-btn">
-    {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+    {darkMode ? '[SUN] Light Mode' : '[MOON] Dark Mode'}
   </button>
 </div>
 

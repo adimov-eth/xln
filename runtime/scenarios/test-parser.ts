@@ -6,7 +6,7 @@ import { loadScenarioFromFile, validateScenario } from './loader.js';
 import { safeStringify } from '../serialization-utils.js';
 
 async function main() {
-  console.log('🧪 Testing Scenario Parser\n');
+  console.log('[TEST] Testing Scenario Parser\n');
 
   const scenarioPath = './scenarios/diamond-dybvig.scenario.txt';
 
@@ -58,9 +58,9 @@ async function main() {
       console.log('');
     }
 
-    console.log('✅ Parser test completed successfully!');
+    console.log('[OK] Parser test completed successfully!');
   } catch (error) {
-    console.error('❌ Parser test failed:', error);
+    console.error('[X] Parser test failed:', error);
     process.exit(1);
   }
 }

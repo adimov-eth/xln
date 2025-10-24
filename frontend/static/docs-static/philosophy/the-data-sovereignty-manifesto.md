@@ -1,6 +1,6 @@
 # The Data Sovereignty Manifesto: Building the Superset of Financial Systems
 
-## 🎯 **The Evolution, Not Revolution**
+## [GOAL] **The Evolution, Not Revolution**
 
 Traditional finance mastered hierarchical control but failed at global accessibility. DeFi achieved permissionless innovation but failed at organizational complexity. 
 
@@ -8,13 +8,13 @@ XLN doesn't pick sides — it delivers both: **TradFi + DeFi = XLN**
 
 This document explains how bilateral sovereignty creates the superset of both systems, delivering institutional sophistication with crypto-native innovation.
 
-## 📚 **The Historical Pattern: "More of the Same"**
+## [DOCS] **The Historical Pattern: "More of the Same"**
 
 ### **The Broken Timeline**
 ```
-2017: Plasma    → "Let's create L2 with shared state"
-2020: Rollups   → "Let's create L2 with shared state, but better"
-2024: Sharding  → "Let's create multiple L1s with shared state"
+2017: Plasma    [RIGHTWARDS] "Let's create L2 with shared state"
+2020: Rollups   [RIGHTWARDS] "Let's create L2 with shared state, but better"
+2024: Sharding  [RIGHTWARDS] "Let's create multiple L1s with shared state"
 
 Pattern: Every solution focuses on creating a SECOND shared state
          that gets enforced by the first shared state (L1)
@@ -29,7 +29,7 @@ The Ethereum leadership fell into three interconnected assumptions:
 
 This led to an **architectural cul-de-sac** where every scaling solution inherits the fundamental vulnerabilities of shared systems.
 
-## 💡 **The CPU vs GPU Revolution**
+## [IDEA] **The CPU vs GPU Revolution**
 
 ### **The Perfect Analogy**
 
@@ -38,7 +38,7 @@ This led to an **architectural cul-de-sac** where every scaling solution inherit
 ┌─────────────────────────────────────┐
 │    Single Global Processor         │
 │  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐   │
-│  │Task1│→│Task2│→│Task3│→│Task4│   │ Sequential Processing
+│  │Task1│[RIGHTWARDS]│Task2│[RIGHTWARDS]│Task3│[RIGHTWARDS]│Task4│   │ Sequential Processing
 │  └─────┘ └─────┘ └─────┘ └─────┘   │ Single Point of Failure
 │         Global State Dependencies   │ Shared Memory Bottleneck
 └─────────────────────────────────────┘
@@ -52,7 +52,7 @@ This led to an **architectural cul-de-sac** where every scaling solution inherit
 │ │Core1│ │Core2│ │Core3│ │Core4│     │ Parallel Processing
 │ │State│ │State│ │State│ │State│     │ Independent Memory
 │ └─────┘ └─────┘ └─────┘ └─────┘     │ Message Passing
-│ ↕       ↕       ↕       ↕           │
+│ <->       <->       <->       <->           │
 │ Local   Local   Local   Local       │
 │ Data    Data    Data    Data        │
 └─────────────────────────────────────┘
@@ -66,34 +66,34 @@ This led to an **architectural cul-de-sac** where every scaling solution inherit
 
 **The same principles apply to economic systems.**
 
-## 🔒 **The Unsolvable Data Availability Problem**
+## [LOCK] **The Unsolvable Data Availability Problem**
 
 ### **The Universal Equation**
 ```
 For ANY shared system:
-If you don't have the data → You don't have your money
+If you don't have the data [RIGHTWARDS] You don't have your money
 
 This applies to ALL scaling solutions:
-• Plasma: Operator disappears → funds locked
-• Rollups: Sequencer disappears → funds locked  
-• Sharding: Shard disappears → funds locked
+• Plasma: Operator disappears [RIGHTWARDS] funds locked
+• Rollups: Sequencer disappears [RIGHTWARDS] funds locked  
+• Sharding: Shard disappears [RIGHTWARDS] funds locked
 ```
 
 ### **The 32-Byte Rule**
 ```
 The moment you delegate even 32 bytes of data 
-required to spend your assets → You're trapped:
+required to spend your assets [RIGHTWARDS] You're trapped:
 
-❌ Merkle proof for balance → Dependency on tree
-❌ State root for account → Dependency on validator
-❌ Signature aggregation → Dependency on aggregator  
-❌ State compression → Dependency on decompressor
-❌ Fraud proof → Dependency on challenge period
+[X] Merkle proof for balance [RIGHTWARDS] Dependency on tree
+[X] State root for account [RIGHTWARDS] Dependency on validator
+[X] Signature aggregation [RIGHTWARDS] Dependency on aggregator  
+[X] State compression [RIGHTWARDS] Dependency on decompressor
+[X] Fraud proof [RIGHTWARDS] Dependency on challenge period
 ```
 
 **Every optimization becomes a new attack vector.**
 
-## 🏛️ **Architecture Philosophy: Bilateral vs Shared**
+## [COURT] **Architecture Philosophy: Bilateral vs Shared**
 
 ### **The Wrong Approach: Shared State Scaling**
 ```
@@ -101,8 +101,8 @@ Traditional Scaling Thinking:
 "How do we make Ethereum handle more transactions?"
 
 Solution Pattern:
-User → Shared L2 State → Shared L1 State
-  ↑         ↑              ↑
+User [RIGHTWARDS] Shared L2 State [RIGHTWARDS] Shared L1 State
+  [UPWARDS]         [UPWARDS]              [UPWARDS]
 Depends   Depends        Depends
   on        on            on
 Others    Others        Others
@@ -114,14 +114,14 @@ XLN Sovereignty Thinking:
 "How do we make each participant sovereign?"
 
 Solution Pattern:
-Account A ←→ Direct Messages ←→ Account B
-    ↑                              ↑
+Account A [LEFTWARDS][RIGHTWARDS] Direct Messages [LEFTWARDS][RIGHTWARDS] Account B
+    [UPWARDS]                              [UPWARDS]
 Complete                       Complete
 History                        History
 & State                        & State
 ```
 
-## 🌐 **Parallel Metaphors for Understanding**
+## [WEB] **Parallel Metaphors for Understanding**
 
 ### **1. Internet vs Telephone Network**
 ```
@@ -183,7 +183,7 @@ Democracy (Distributed Sovereignty):
 • Power distributed among many
 ```
 
-## ✅ **XLN: The Sovereignty Solution**
+## [OK] **XLN: The Sovereignty Solution**
 
 ### **Core Principle: Data Always in User's Loop**
 ```solidity
@@ -204,8 +204,8 @@ function spendAssets() external {
 
 ### **Bilateral Account Architecture**
 ```
-Instead of: User → Shared State ← Other User (dependency)
-XLN uses:   User ↔ Direct Channel ↔ Other User (independence)
+Instead of: User [RIGHTWARDS] Shared State [LEFTWARDS] Other User (dependency)
+XLN uses:   User <-> Direct Channel <-> Other User (independence)
 
 Each bilateral relationship is a complete state machine:
 • Full transaction history
@@ -229,7 +229,7 @@ Personal Consensus (XLN):
 • Each entity is sovereign
 ```
 
-## 🎯 **Why This Works: The Physics of Information**
+## [GOAL] **Why This Works: The Physics of Information**
 
 ### **Information Theory Perspective**
 ```
@@ -261,7 +261,7 @@ Bilateral Sovereignty eliminates coordination problems:
 • Uncorrelated risk (isolated failures)
 ```
 
-## 🔮 **The Inevitable Future**
+## [CRYSTAL] **The Inevitable Future**
 
 ### **Why XLN Architecture Will Prevail**
 1. **Physics**: Parallel systems are fundamentally more efficient than sequential
@@ -279,7 +279,7 @@ Future State: Sovereign systems prevail (like p2p internet in 2000s)
 We're at the "client-server" moment for financial systems
 ```
 
-## 💡 **Key Insights**
+## [IDEA] **Key Insights**
 
 ### **1. Sovereignty > Performance**
 "Better to have your own slow computer than fast access to someone else's computer"
@@ -293,7 +293,7 @@ We're at the "client-server" moment for financial systems
 ### **4. Personal > Shared**
 "Better to have personal consensus with people you trust than global consensus with people you don't"
 
-## 🏆 **Conclusion: The Paradigm Shift**
+## [TROPHY] **Conclusion: The Paradigm Shift**
 
 **Rollups tried to solve the throughput problem without solving the sovereignty problem.**
 
@@ -309,8 +309,8 @@ Result: XLN is naturally faster because there are no
 
 **The fundamental insight:** Architecture determines destiny. 
 
-Choose shared state → Get shared risks.  
-Choose personal sovereignty → Get personal security.
+Choose shared state [RIGHTWARDS] Get shared risks.  
+Choose personal sovereignty [RIGHTWARDS] Get personal security.
 
 **XLN doesn't just scale Ethereum. XLN replaces the need for Ethereum.**
 

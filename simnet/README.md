@@ -8,11 +8,11 @@ Simnet is XLN's offline testing ground - a complete blockchain running in your b
 
 ## Features
 
-- ✅ **Offline**: No localhost:8545, no cloud RPC, works on airplane
-- ✅ **Instant Reset**: Refresh page = new economy
-- ✅ **Deterministic**: Same genesis every time (perfect for tutorials)
-- ✅ **Persistent**: Optional IndexedDB storage (resume sessions)
-- ✅ **Fast**: 1ms blocks, instant finality
+- [OK] **Offline**: No localhost:8545, no cloud RPC, works on airplane
+- [OK] **Instant Reset**: Refresh page = new economy
+- [OK] **Deterministic**: Same genesis every time (perfect for tutorials)
+- [OK] **Persistent**: Optional IndexedDB storage (resume sessions)
+- [OK] **Fast**: 1ms blocks, instant finality
 
 ## Configuration
 
@@ -78,7 +78,7 @@ await browserVMProvider.importState(state);
 
 ```
 [Simnet] [Testnet (Sepolia)] [Mainnet (Ethereum)]
-   ↑          ↓                      ↓
+   [UPWARDS]          [DOWNWARDS]                      [DOWNWARDS]
 Local    Shared state          Production
 ```
 

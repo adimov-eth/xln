@@ -1,4 +1,4 @@
-🧠 XLN Architecture: The Superset of Traditional and Decentralized Finance
+[BRAIN] XLN Architecture: The Superset of Traditional and Decentralized Finance
 
 **"TradFi + DeFi = XLN"** — We're not choosing sides. We're building the infrastructure that makes both obsolete.
 
@@ -8,7 +8,7 @@ Welcome to XLN — where every organization, from a solo trader to a nation-stat
 
 ⸻
 
-## JEA: Jurisdiction → Entity → Account (J/E/A machines)
+## JEA: Jurisdiction [RIGHTWARDS] Entity [RIGHTWARDS] Account (J/E/A machines)
 
 XLN models the world as layered, composable machines:
 
@@ -20,7 +20,7 @@ XLN models the world as layered, composable machines:
 
 ⸻
 
-🧱 1. Server: The Simulated Ground Layer
+[BRICK] 1. Server: The Simulated Ground Layer
 
 Think of the Server as the simulation matrix. It’s not a coordinator. It’s not a validator. It’s your own personal universe where Entities evolve over time.
 
@@ -44,7 +44,7 @@ Like a hypervisor running isolated VMs (Entities), the Server executes without g
 
 ⸻
 
-🏛️ 2. Entity: The Sovereign Machine
+[COURT] 2. Entity: The Sovereign Machine
 
 The Entity is the real heart of XLN. It’s like a DAO, but it has memory, makes commitments, and progresses in blocks. Think of it as a programmable company, state, or institution.
 
@@ -57,7 +57,7 @@ Anatomy
 
 Execution Flow
 
-1. Propose → 2. Collect Signatures → 3. Execute → 4. Finalize in Block
+1. Propose [RIGHTWARDS] 2. Collect Signatures [RIGHTWARDS] 3. Execute [RIGHTWARDS] 4. Finalize in Block
 
 Programmability
 
@@ -75,7 +75,7 @@ If Ethereum smart contracts are calculators, Entities are living spreadsheets wi
 
 ⸻
 
-👥 3. Signer: The Flesh and Blood Layer
+[TEAM] 3. Signer: The Flesh and Blood Layer
 
 Signers are the human or device actors powering the system. They:
 	•	Hold keys
@@ -89,7 +89,7 @@ Signers don’t broadcast intents. They sign proposals or actions, and they do s
 
 ⸻
 
-🔄 4. Channels (Coming Later)
+[ANTICLOCKWISE] 4. Channels (Coming Later)
 
 While omitted from MVP, Channels are submachines that manage trust-based contracts. They:
 	•	Track balances, deltas, subcontracts
@@ -104,28 +104,28 @@ Channels allow:
 
 ⸻
 
-🪙 5. DeFi & Economic Logic
+[COIN] 5. DeFi & Economic Logic
 
 XLN Entities can implement advanced DeFi behaviors natively. Examples:
 
-🔐 Credit & Trust
+[LOCK] Credit & Trust
 	•	Credit lines are user-initiated
 	•	No reserve required to receive payments
 	•	Channels become asymmetric credit contracts
 
-💰 AMMs & Token Swaps
+[$] AMMs & Token Swaps
 	•	Entities can host internal AMM machines
 	•	Token swaps settle instantly via internal state updates
 
-🏦 Reserve & Collateral
+[BANK] Reserve & Collateral
 	•	Reserve deposits tracked via Jurisdiction
 	•	Entities interact with Depository.sol contracts for collateralization
 
-📈 Oracles & Price Feeds
+[UP] Oracles & Price Feeds
 	•	Entity can define setOracle(address)
 	•	Price updates come via signed messages from trusted oracle entities
 
-⚖️ DAO Governance
+[SCALES] DAO Governance
 	•	Proposals are actions
 	•	Signers are the quorum
 	•	Emergency votes via override tokens (e.g., EmergencyShare)
@@ -134,7 +134,7 @@ XLN Entities can implement advanced DeFi behaviors natively. Examples:
 
 ⸻
 
-🔐 Security & Integrity
+[LOCK] Security & Integrity
 	•	All actions are signed via Hanko hierarchical signature system
 	•	All blocks are replayable and deterministic
 	•	State is stored as RLP + Merkle trees
@@ -145,7 +145,7 @@ XLN Entities can implement advanced DeFi behaviors natively. Examples:
 
 ⸻
 
-🛰️ Jurisdiction (External Observer)
+[SAT] Jurisdiction (External Observer)
 
 Entities can publish:
 	•	Reserve movements
@@ -207,7 +207,7 @@ Example: Multinational with 50 country operations
 
 ⸻
 
-🌍 Final Thoughts
+[EARTH] Final Thoughts
 
 XLN is not a smart contract platform.
 It’s not a rollup.

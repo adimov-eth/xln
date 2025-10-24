@@ -3,7 +3,7 @@
 ## Project Overview
 XLN: The Organizational Layer for Digital Finance — Where TradFi meets DeFi. 
 
-XLN delivers institutional-grade governance with crypto-native innovation through hierarchical state machines. Core functionality: propose→sign→commit flow with cryptographic hierarchies enabling both enterprise compliance and DeFi composability.
+XLN delivers institutional-grade governance with crypto-native innovation through hierarchical state machines. Core functionality: propose[RIGHTWARDS]sign[RIGHTWARDS]commit flow with cryptographic hierarchies enabling both enterprise compliance and DeFi composability.
 
 ## Core Architecture Rules
 
@@ -31,10 +31,10 @@ XLN delivers institutional-grade governance with crypto-native innovation throug
 **Problem**: Using `input.from` instead of `input.to` in message routing
 **Fix**: Always route messages to intended recipients
 ```typescript
-// ❌ Wrong - routes to sender
+// [X] Wrong - routes to sender
 signerId: entityReplica.signerId
 
-// ✅ Correct - routes to proposer
+// [OK] Correct - routes to proposer
 signerId: proposerId
 ```
 
@@ -89,7 +89,7 @@ entityReplica.state.validators.forEach(validatorId => {
 ```typescript
 let DEBUG = true;
 // Use throughout code without parameter passing
-if (DEBUG) console.log(`→ Operation details`);
+if (DEBUG) console.log(`[RIGHTWARDS] Operation details`);
 ```
 
 ### 2. Comprehensive Logging
@@ -172,9 +172,9 @@ if (DEBUG) console.log(`→ Operation details`);
 8. **Complex abstractions**: Prefer simple, clear implementations
 
 ## Success Metrics
-- ✅ All replicas have identical final state
-- ✅ Consensus completes within reasonable time
-- ✅ All transactions are properly ordered
-- ✅ Tests pass consistently
-- ✅ Code is clean and maintainable
-- ✅ Debug output provides clear visibility 
+- [OK] All replicas have identical final state
+- [OK] Consensus completes within reasonable time
+- [OK] All transactions are properly ordered
+- [OK] Tests pass consistently
+- [OK] Code is clean and maintainable
+- [OK] Debug output provides clear visibility 

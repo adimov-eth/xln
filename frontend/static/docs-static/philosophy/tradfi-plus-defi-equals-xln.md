@@ -21,24 +21,24 @@ Most "hybrid" solutions fail because they compromise. They take the worst of bot
 ## The Superset Advantage
 
 ### From Traditional Finance, We Take the Best:
-✅ **Hierarchical Governance** — Because real organizations aren't flat  
-✅ **Audit Trails** — Every decision cryptographically recorded  
-✅ **Dual-Class Shares** — Separate control from economics like Meta/Alphabet  
-✅ **Compliance Hooks** — KYC/AML at the registry layer when needed  
-✅ **Sophisticated Controls** — Risk committees, approval chains, limits  
+[OK] **Hierarchical Governance** — Because real organizations aren't flat  
+[OK] **Audit Trails** — Every decision cryptographically recorded  
+[OK] **Dual-Class Shares** — Separate control from economics like Meta/Alphabet  
+[OK] **Compliance Hooks** — KYC/AML at the registry layer when needed  
+[OK] **Sophisticated Controls** — Risk committees, approval chains, limits  
 
 ### From DeFi, We Take the Best:
-✅ **Zero-Cost Creation** — Spawn 1000 entities for free  
-✅ **Permissionless Innovation** — Anyone can build  
-✅ **Atomic Execution** — Complex operations in one transaction  
-✅ **Global Accessibility** — No geographic restrictions  
-✅ **Cryptographic Guarantees** — Math > trust  
+[OK] **Zero-Cost Creation** — Spawn 1000 entities for free  
+[OK] **Permissionless Innovation** — Anyone can build  
+[OK] **Atomic Execution** — Complex operations in one transaction  
+[OK] **Global Accessibility** — No geographic restrictions  
+[OK] **Cryptographic Guarantees** — Math > trust  
 
 ### What Makes XLN the Superset:
-🚀 **State Machines > Smart Contracts** — More powerful computational model  
-🚀 **Bilateral Sovereignty > Global Consensus** — Better scaling properties  
-🚀 **Hierarchical Composition > Flat Structures** — Matches reality  
-🚀 **Zero Marginal Cost > Gas Optimization** — Paradigm shift  
+[LAUNCH] **State Machines > Smart Contracts** — More powerful computational model  
+[LAUNCH] **Bilateral Sovereignty > Global Consensus** — Better scaling properties  
+[LAUNCH] **Hierarchical Composition > Flat Structures** — Matches reality  
+[LAUNCH] **Zero Marginal Cost > Gas Optimization** — Paradigm shift  
 
 ## Real Examples: The Best of Both Worlds
 
@@ -47,8 +47,8 @@ Most "hybrid" solutions fail because they compromise. They take the worst of bot
 **DeFi Approach**: Multisig with no hierarchy, all-or-nothing execution  
 **XLN Approach**: Cryptographic hierarchy with atomic execution
 ```
-Risk Committee sets parameters → CFO approves strategy → 
-Treasury executes across 10 protocols → All in one Hanko signature
+Risk Committee sets parameters [RIGHTWARDS] CFO approves strategy [RIGHTWARDS] 
+Treasury executes across 10 protocols [RIGHTWARDS] All in one Hanko signature
 ```
 
 ### Investment Fund Structure  
@@ -66,7 +66,7 @@ Automated capital calls, distributions, and reporting
 **DeFi Approach**: Can't model subsidiaries at all  
 **XLN Approach**: Instant subsidiary creation at zero cost
 ```
-Parent Entity → Regional Entity → Country Entity → Local Operations
+Parent Entity [RIGHTWARDS] Regional Entity [RIGHTWARDS] Country Entity [RIGHTWARDS] Local Operations
 All created in seconds, all cryptographically linked
 ```
 

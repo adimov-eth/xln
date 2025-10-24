@@ -10,7 +10,7 @@ test('Time machine step controls and slider mapping', async ({ page }) => {
 
   // create a quick lazy entity
   await page.locator('#entityNameInput').fill('TimeTest');
-  await page.getByRole('button', { name: '➕ Add Validator' }).click();
+  await page.getByRole('button', { name: '+ Add Validator' }).click();
   await page.getByRole('combobox').nth(2).selectOption('alice');
   await page.getByRole('combobox').nth(3).selectOption('bob');
   await page.getByRole('button', { name: 'Create Entity' }).click();
@@ -26,7 +26,7 @@ test('Time machine step controls and slider mapping', async ({ page }) => {
   await firstPanel.locator('.unified-dropdown-content .dropdown-item.indent-2').first().click({ force: true });
 
   // produce two history frames via chat + propose
-  await firstPanel.getByRole('button', { name: '⚙️ Controls ▼' }).click();
+  await firstPanel.getByRole('button', { name: '[SET] Controls ▼' }).click();
   await expect(firstPanel.locator('.controls-section').first()).toBeVisible();
   await firstPanel.locator('textarea').fill('hi1');
   await firstPanel.getByRole('button', { name: 'Send Message' }).first().click();
@@ -41,13 +41,13 @@ test('Time machine step controls and slider mapping', async ({ page }) => {
   await slider.fill('0');
   await page.waitForTimeout(50);
 
-  await firstPanel.getByRole('button', { name: '🗂️ History ▼' }).click();
+  await firstPanel.getByRole('button', { name: '[FILES] History ▼' }).click();
   await expect(firstPanel.locator('.transaction-history')).toBeVisible();
   // label should show Frame 1 /
   await expect(firstPanel.locator('.transaction-history .current-frame')).toContainText('Frame 0');
 
   // step forward updates frame or moves to live
-  await page.getByTitle('Step Forward (→ arrow)').click();
+  await page.getByTitle('Step Forward ([RIGHTWARDS] arrow)').click();
   await page.waitForTimeout(50);
   await expect(firstPanel.locator('.transaction-history .current-frame')).not.toHaveText('Frame 1', { timeout: 2000 });
 });

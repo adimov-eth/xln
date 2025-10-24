@@ -30,11 +30,11 @@ Example (leftCreditLimit = 3, rightCreditLimit = 3):
 [---.Δ---]
 
 Payments pull Δ toward the payer’s side (away from the receiver) while the receiver’s allocation increases.
-L pays 2 to R → Δ = −2:
+L pays 2 to R [RIGHTWARDS] Δ = −2:
 
 [-Δ**.---]
 
-R pays back 3 → Δ = +1:
+R pays back 3 [RIGHTWARDS] Δ = +1:
 
 [---.*∆--]
 
@@ -77,4 +77,4 @@ Practical consequences: no inbound liquidity wall and no unbounded hub risk—lo
 
 Follow for news, analysis, and a verification-first roadmap (proof sketch, benchmarks, economic spec, security playbook). xln is layer-2 done right.
 
-🔗 https://github.com/xlnfinance/xln
+[LINK] https://github.com/xlnfinance/xln

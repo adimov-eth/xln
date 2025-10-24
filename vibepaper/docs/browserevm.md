@@ -1,6 +1,6 @@
 # Browser EVM Execution Environment Plan
 
-**⚠️ ARCHIVED:** This specification has been merged into **docs/xlnview.md** (Phase 1: BrowserEVM Integration)
+**[WARN] ARCHIVED:** This specification has been merged into **docs/xlnview.md** (Phase 1: BrowserEVM Integration)
 
 See **docs/xlnview.md** for the complete unified specification including BrowserEVM, XLNView component architecture, and CommandCenter implementation.
 

@@ -8,9 +8,9 @@
 
 When Vite detects HTTPS certificates (in `/certs` or `/frontend`), it:
 
-1. ✅ Starts HTTPS server on port 8080
-2. ❌ Does NOT start HTTP server
-3. ❌ Does NOT redirect HTTP → HTTPS
+1. [OK] Starts HTTPS server on port 8080
+2. [X] Does NOT start HTTP server
+3. [X] Does NOT redirect HTTP [RIGHTWARDS] HTTPS
 
 This is **correct behavior** for security.
 
@@ -18,8 +18,8 @@ This is **correct behavior** for security.
 
 | URL | Result |
 |-----|--------|
-| `http://localhost:8080` | ❌ Connection refused / Empty reply |
-| `https://localhost:8080` | ✅ XLN loads correctly |
+| `http://localhost:8080` | [X] Connection refused / Empty reply |
+| `https://localhost:8080` | [OK] XLN loads correctly |
 
 ## Why HTTPS-Only?
 
@@ -37,7 +37,7 @@ This is **correct behavior** for security.
 **Development convenience:**
 - Same security model as production
 - Test HTTPS issues early
-- No HTTP→HTTPS redirect complexity
+- No HTTP[RIGHTWARDS]HTTPS redirect complexity
 
 ## Certificate Details
 
@@ -93,7 +93,7 @@ bun run dev
 
 ### Option 2: Reverse Proxy (overkill)
 
-Run nginx to redirect HTTP→HTTPS. Not worth it for dev.
+Run nginx to redirect HTTP[RIGHTWARDS]HTTPS. Not worth it for dev.
 
 ### Option 3: Just Use HTTPS (recommended)
 
@@ -110,7 +110,7 @@ https://localhost:8080
 
 Never use:
 ```
-http://localhost:8080  ❌
+http://localhost:8080  [X]
 ```
 
 ## Vite Configuration

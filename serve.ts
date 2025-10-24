@@ -38,7 +38,7 @@ const handler = async (request: Request): Promise<Response> => {
   const url = new URL(request.url);
   const path = url.pathname;
 
-  console.log(`➡️  ${request.method} ${path}`);
+  console.log(`->  ${request.method} ${path}`);
 
   // Health check
   if (path === '/healthz') return new Response('ok');
@@ -63,6 +63,6 @@ const handler = async (request: Request): Promise<Response> => {
 
 const port = Number(process.env.PORT || 8080);
 Bun.serve({ port, fetch: handler });
-console.log(`🌐 HTTP server listening on http://localhost:${port}`);
+console.log(`[WEB] HTTP server listening on http://localhost:${port}`);
 
 

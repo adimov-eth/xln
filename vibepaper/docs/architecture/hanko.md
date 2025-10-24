@@ -1,32 +1,32 @@
 # Hanko: The Bridge Between Traditional and Decentralized Governance
 
-## 🌉 **TradFi + DeFi = XLN's Hanko**
+## [BRIDGE] **TradFi + DeFi = XLN's Hanko**
 
 **The Universal Problem**: Both traditional and decentralized organizations struggle with complexity
 
 **Traditional Finance Says:**
-- "We need hierarchical approvals" ✅ Hanko delivers
-- "We need audit trails" ✅ Every signature recorded  
-- "We need dual-class shares" ✅ Native support
-- "We need compliance" ✅ Built-in hooks
+- "We need hierarchical approvals" [OK] Hanko delivers
+- "We need audit trails" [OK] Every signature recorded  
+- "We need dual-class shares" [OK] Native support
+- "We need compliance" [OK] Built-in hooks
 
 **DeFi Says:**
-- "We need low costs" ✅ Zero gas for entities
-- "We need composability" ✅ Universal standard
-- "We need permissionless" ✅ Anyone can create
-- "We need on-chain" ✅ Cryptographically verified
+- "We need low costs" [OK] Zero gas for entities
+- "We need composability" [OK] Universal standard
+- "We need permissionless" [OK] Anyone can create
+- "We need on-chain" [OK] Cryptographically verified
 
 **The Revolutionary Insight**: Organizations are signatures, not contracts. One innovation solves both worlds' problems.
 
-## 🎯 **Hanko vs Traditional DAO Frameworks**
+## [GOAL] **Hanko vs Traditional DAO Frameworks**
 
 | Framework | Cost per Entity | Hierarchy | Your Protocol Integration |
 |-----------|----------------|-----------|--------------------------|
-| **Hanko (Lazy)** | **$0** | ✅ Unlimited | `EntityProvider.verifyHanko(entityId, hash, hanko)` |
-| **Hanko (Registered)** | **$1.50** | ✅ Unlimited | `EntityProvider.verifyHanko(entityId, hash, hanko)` |
-| Compound Governor | $50+ | ❌ Flat | Complete protocol rewrite required |
-| Gnosis Safe | $12+ | ❌ Flat | Complete protocol rewrite required |
-| Aragon | $24+ | ⚠️ Limited | Aragon framework lock-in |
+| **Hanko (Lazy)** | **$0** | [OK] Unlimited | `EntityProvider.verifyHanko(entityId, hash, hanko)` |
+| **Hanko (Registered)** | **$1.50** | [OK] Unlimited | `EntityProvider.verifyHanko(entityId, hash, hanko)` |
+| Compound Governor | $50+ | [X] Flat | Complete protocol rewrite required |
+| Gnosis Safe | $12+ | [X] Flat | Complete protocol rewrite required |
+| Aragon | $24+ | [WARN] Limited | Aragon framework lock-in |
 
 ### **1. Entity Address Formation & Contract Integration**
 
@@ -84,28 +84,28 @@ Hanko Approach:
 
 **Corporate Structure**:
 ```
-🏢 Tesla DAO (registered)
-├── 🏛️ Board of Directors (lazy)
-│   ├── 👤 Elon (CEO)
-│   ├── 👤 Robyn (Chairperson)  
-│   └── 👤 Drew (Independent Director)
-├── 🏛️ Finance Committee (lazy)
-│   ├── 👤 Zachary (CFO)
-│   └── 🏛️ Treasury Subcommittee (lazy)
-│       ├── 👤 Treasury Manager
-│       └── 🤖 Auto-rebalancing Bot
-└── 🏛️ Engineering (lazy)
-    ├── 👤 Head of AI
-    └── 🏛️ Autopilot Team (lazy)
+[OFFICE] Tesla DAO (registered)
+├── [COURT] Board of Directors (lazy)
+│   ├── [USER] Elon (CEO)
+│   ├── [USER] Robyn (Chairperson)  
+│   └── [USER] Drew (Independent Director)
+├── [COURT] Finance Committee (lazy)
+│   ├── [USER] Zachary (CFO)
+│   └── [COURT] Treasury Subcommittee (lazy)
+│       ├── [USER] Treasury Manager
+│       └── [BOT] Auto-rebalancing Bot
+└── [COURT] Engineering (lazy)
+    ├── [USER] Head of AI
+    └── [COURT] Autopilot Team (lazy)
 ```
 
 **DeFi Protocol Governance**:
 ```
-🏛️ Aave DAO (registered)
-├── 🏛️ Risk Committee (lazy) → Sets lending parameters
-├── 🏛️ Treasury Committee (lazy) → Manages protocol fees  
-├── 🏛️ Emergency Committee (lazy) → Pause functions
-└── 🏛️ Community (lazy) → General governance token holders
+[COURT] Aave DAO (registered)
+├── [COURT] Risk Committee (lazy) [RIGHTWARDS] Sets lending parameters
+├── [COURT] Treasury Committee (lazy) [RIGHTWARDS] Manages protocol fees  
+├── [COURT] Emergency Committee (lazy) [RIGHTWARDS] Pause functions
+└── [COURT] Community (lazy) [RIGHTWARDS] General governance token holders
 ```
 
 ### **4. BCD Governance & Tradeable Shares**
@@ -143,7 +143,7 @@ struct InvestmentDAOBoard {
 
 ---
 
-## 📈 **Market Opportunity**
+## [UP] **Market Opportunity**
 
 **Current Market**: ~$10B TVL across 4,000+ DAOs, all using expensive, flat governance structures.
 
@@ -153,7 +153,7 @@ struct InvestmentDAOBoard {
 
 ---
 
-## 💡 **Ready to Integrate?**
+## [IDEA] **Ready to Integrate?**
 
 **For Protocol Developers**: Add one line to enable Hanko governance in your protocol.
 **For Organizations**: Start with lazy entities (0 cost) to experiment with hierarchical governance.
@@ -161,7 +161,7 @@ struct InvestmentDAOBoard {
 
 ---
 
-## 📚 **Appendix: Technical Implementation Details**
+## [DOCS] **Appendix: Technical Implementation Details**
 
 ### **Data Structures**
 ```solidity
@@ -209,9 +209,9 @@ struct AaveGovernance {
 ```
 
 ### **2. Corporate DeFi Treasury Management**
-- **Tesla DAO**: Board → CFO → Treasury Committee → Individual approvers
-- **Automatic approval chains**: Small amounts (<$10k) → Committee approval, Large amounts (>$100k) → Board approval
-- **Multi-jurisdiction compliance**: US entity → EU subsidiary → Asian operations
+- **Tesla DAO**: Board [RIGHTWARDS] CFO [RIGHTWARDS] Treasury Committee [RIGHTWARDS] Individual approvers
+- **Automatic approval chains**: Small amounts (<$10k) [RIGHTWARDS] Committee approval, Large amounts (>$100k) [RIGHTWARDS] Board approval
+- **Multi-jurisdiction compliance**: US entity [RIGHTWARDS] EU subsidiary [RIGHTWARDS] Asian operations
 - **Real-time audit trails**: Every signature cryptographically linked to corporate hierarchy
 
 ### **3. Breakthrough: Zero-Deployment DAO Proliferation** 
@@ -258,7 +258,7 @@ bytes32 teslaEntityId = keccak256("tesla_treasury_dao");
 
 **Institutional DeFi Strategies**: Investment DAOs can implement complex strategies where different committees handle different aspects - risk committee sets parameters, investment committee selects protocols, operations committee executes trades, all coordinated through hierarchical Hanko signatures that maintain institutional governance standards while enabling rapid DeFi execution.
 
-## 📈 **Market Opportunity**
+## [UP] **Market Opportunity**
 
 ### **Vs EIP-4337 Account Abstraction**
 | Metric | EIP-4337 Smart Accounts | Hanko Entities |
@@ -275,10 +275,10 @@ bytes32 teslaEntityId = keccak256("tesla_treasury_dao");
 - **Accessibility**: Removes $40+ barrier to DAO creation on Ethereum
 
 ### **Ecosystem Network Effects**
-1. **Protocols Adopt**: Lower integration costs → More adopters
-2. **Entities Proliferate**: Zero-cost creation → Explosive growth
-3. **Standards Converge**: Universal format → Network effects
-4. **Innovation Unlocks**: Hierarchical composability → New use cases
+1. **Protocols Adopt**: Lower integration costs [RIGHTWARDS] More adopters
+2. **Entities Proliferate**: Zero-cost creation [RIGHTWARDS] Explosive growth
+3. **Standards Converge**: Universal format [RIGHTWARDS] Network effects
+4. **Innovation Unlocks**: Hierarchical composability [RIGHTWARDS] New use cases
 
 
 
@@ -286,7 +286,7 @@ bytes32 teslaEntityId = keccak256("tesla_treasury_dao");
 
 ---
 
-## 🎯 **Why This Changes Everything**
+## [GOAL] **Why This Changes Everything**
 
 **Hanko doesn't just optimize governance - it fundamentally reimagines how organizations operate on-chain.**
 
@@ -302,7 +302,7 @@ Hanko eliminates this trade-off, enabling:
 
 ---
 
-## 💡 **Innovative Future Applications**
+## [IDEA] **Innovative Future Applications**
 
 **Regulatory Compliance Automation**: XLN entities can encode complex regulatory requirements directly into their governance structures. For example, a bank's DeFi treasury could require both internal risk committee approval AND external auditor verification for transactions above certain thresholds, all validated cryptographically through nested Hanko signatures.
 

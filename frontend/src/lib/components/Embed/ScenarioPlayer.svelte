@@ -144,7 +144,7 @@
 <div class="scenario-player" style="width: {width}; height: {height};">
   {#if error}
     <div class="error-state">
-      <p>⚠️ {error}</p>
+      <p>[WARN] {error}</p>
     </div>
   {:else if scenarioLoaded}
     <div class="player-container">
@@ -164,15 +164,15 @@
           <div class="control-group">
             {#if playing}
               <button class="control-btn" on:click={pause} title="Pause">
-                ⏸
+                ||
               </button>
             {:else}
               <button class="control-btn" on:click={play} title="Play">
-                ▶
+                >
               </button>
             {/if}
             <button class="control-btn" on:click={restart} title="Restart">
-              ↻
+              [CLOCKWISE]
             </button>
             <span class="time-display">
               {$currentTimeIndex} / {$maxTimeIndex}

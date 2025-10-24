@@ -36,12 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Repository Restructure** - Essence-driven naming
-  - `/docs` → `/vibepaper` (eternal documentation)
-  - `/src` → `/runtime` (consensus engine)
-  - `/contracts` → `/jurisdictions` (multi-chain contracts)
-  - `/scenarios` → `/worlds` (economic simulations)
-  - `/e2e` → `/proofs` (validation tests)
-  - `install.sh` → `bootstrap.sh`
+  - `/docs` [RIGHTWARDS] `/vibepaper` (eternal documentation)
+  - `/src` [RIGHTWARDS] `/runtime` (consensus engine)
+  - `/contracts` [RIGHTWARDS] `/jurisdictions` (multi-chain contracts)
+  - `/scenarios` [RIGHTWARDS] `/worlds` (economic simulations)
+  - `/e2e` [RIGHTWARDS] `/proofs` (validation tests)
+  - `install.sh` [RIGHTWARDS] `bootstrap.sh`
 
 - **Cleanup**
   - Archived: 2019_docs, 2024_src, reference, brainvault, orderbook, visualization
@@ -67,7 +67,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Planned
 - Wire BrowserVM into live Depository panel (real queries, not mock data)
-- Extract Graph3D from NetworkTopology → view/panels/Graph3DPanel.svelte
+- Extract Graph3D from NetworkTopology [RIGHTWARDS] view/panels/Graph3DPanel.svelte
 - Implement complete 4-panel workspace in XLNView.svelte
 - Add WebGPU toggle to production NetworkTopology
 - Multi-network tabs (Simnet | Testnet | Mainnet switcher)

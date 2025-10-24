@@ -5,14 +5,14 @@
 ## Changes
 
 ```
-OLD                  →  NEW                   ESSENCE
+OLD                  [RIGHTWARDS]  NEW                   ESSENCE
 ─────────────────────────────────────────────────────────────────
-/docs                →  /vibepaper            Philosophy, vision, specs
-/src                 →  /runtime              Consensus engine + state machines
-/contracts           →  /jurisdictions        On-chain J-machine layer
-/scenarios           →  /worlds               Economic simulations
-/e2e                 →  /proofs               E2E validation tests
-                     →  /simnet (NEW)         BrowserVM genesis configs
+/docs                [RIGHTWARDS]  /vibepaper            Philosophy, vision, specs
+/src                 [RIGHTWARDS]  /runtime              Consensus engine + state machines
+/contracts           [RIGHTWARDS]  /jurisdictions        On-chain J-machine layer
+/scenarios           [RIGHTWARDS]  /worlds               Economic simulations
+/e2e                 [RIGHTWARDS]  /proofs               E2E validation tests
+                     [RIGHTWARDS]  /simnet (NEW)         BrowserVM genesis configs
 ```
 
 ## Why
@@ -31,19 +31,19 @@ OLD                  →  NEW                   ESSENCE
 
 ## Migration Complete
 
-✅ All git history preserved (`git mv`)
-✅ Import paths updated (30+ references)
-✅ Build scripts fixed (package.json, *.sh)
-✅ Frontend fetch paths updated (/worlds/)
-✅ TypeScript check passes
+[OK] All git history preserved (`git mv`)
+[OK] Import paths updated (30+ references)
+[OK] Build scripts fixed (package.json, *.sh)
+[OK] Frontend fetch paths updated (/worlds/)
+[OK] TypeScript check passes
 
 ## Updated References
 
-- `bun run build` → builds `runtime/runtime.ts`
-- `bun run check` → validates `runtime/` + `frontend/`
-- Contract scripts → use `cd jurisdictions`
-- Scenario loading → fetches from `/worlds/`
-- Docs → live in `vibepaper/`
+- `bun run build` [RIGHTWARDS] builds `runtime/runtime.ts`
+- `bun run check` [RIGHTWARDS] validates `runtime/` + `frontend/`
+- Contract scripts [RIGHTWARDS] use `cd jurisdictions`
+- Scenario loading [RIGHTWARDS] fetches from `/worlds/`
+- Docs [RIGHTWARDS] live in `vibepaper/`
 
 ## New Structure Benefits
 

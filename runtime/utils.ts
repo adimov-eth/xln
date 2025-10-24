@@ -117,12 +117,12 @@ const debug = isBrowser ? createDebug : require('debug');
 
 // Configure debug logging with functional approach
 export const log = {
-  state: debug('state:🔵'),
-  tx: debug('tx:🟡'),
-  block: debug('block:🟢'),
-  error: debug('error:🔴'),
-  diff: debug('diff:🟣'),
-  info: debug('info:ℹ️'),
+  state: debug('state:o'),
+  tx: debug('tx:o'),
+  block: debug('block:o'),
+  error: debug('error:o'),
+  diff: debug('diff:o'),
+  info: debug('info:[INFO]'),
 };
 
 // Hash utility function
@@ -142,7 +142,7 @@ export const clearDatabase = async (db?: any) => {
   if (db) {
     // High-level: Use the provided database instance (Level polyfill)
     await db.clear();
-    console.log('✅ Database cleared via provided instance');
+    console.log('[OK] Database cleared via provided instance');
   } else {
     // Fallback: Clear the correct database name based on environment
     if (typeof indexedDB !== 'undefined') {
@@ -155,22 +155,22 @@ export const clearDatabase = async (db?: any) => {
           return new Promise<void>(resolve => {
             const deleteReq = indexedDB.deleteDatabase(dbName);
             deleteReq.onsuccess = () => {
-              console.log(`✅ Cleared IndexedDB: ${dbName}`);
+              console.log(`[OK] Cleared IndexedDB: ${dbName}`);
               resolve();
             };
             deleteReq.onerror = () => {
-              console.log(`⚠️ Could not clear IndexedDB: ${dbName} (may not exist)`);
+              console.log(`[WARN] Could not clear IndexedDB: ${dbName} (may not exist)`);
               resolve(); // Don't fail if database doesn't exist
             };
             deleteReq.onblocked = () => {
-              console.log(`⚠️ IndexedDB deletion blocked: ${dbName}`);
+              console.log(`[WARN] IndexedDB deletion blocked: ${dbName}`);
               resolve();
             };
           });
         });
 
         await Promise.all(clearPromises);
-        console.log('✅ All databases cleared, re-initializing...');
+        console.log('[OK] All databases cleared, re-initializing...');
 
         // Trigger re-initialization instead of page reload
         // TODO: delete deprecated reinitializeAfterClear
@@ -179,7 +179,7 @@ export const clearDatabase = async (db?: any) => {
         }
         return;
       } catch (error) {
-        console.log('❌ Error clearing IndexedDB:', error);
+        console.log('[X] Error clearing IndexedDB:', error);
         if (typeof window !== 'undefined' && window.reinitializeAfterClear) {
           window.reinitializeAfterClear();
         }
@@ -221,7 +221,7 @@ export const getEntityDisplayInfo = (entityId: string): { name: string; avatar: 
   if (!entityId) {
     return {
       name: 'Entity (undefined)',
-      avatar: '❓',
+      avatar: '[?]',
       type: 'numbered',
     };
   }
@@ -279,7 +279,7 @@ export const formatSignerDisplay = (signerId: string): string => {
   const signerInfo = DEMO_SIGNERS[signerId as keyof typeof DEMO_SIGNERS];
   if (signerInfo) {
     // Add avatar emoji as visual indicator (would be actual image in UI)
-    return `👤 ${signerInfo.name}`;
+    return `[USER] ${signerInfo.name}`;
   }
   // If not a demo signer, assume it's already an address
   return signerId;

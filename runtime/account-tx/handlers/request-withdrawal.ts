@@ -1,6 +1,6 @@
 /**
  * Request Withdrawal Handler
- * Entity requests to withdraw collateral → reserve (bilateral approval required)
+ * Entity requests to withdraw collateral [RIGHTWARDS] reserve (bilateral approval required)
  * Reference: 2019src.txt lines 904-978 (requestWithdrawal + giveWithdrawal)
  */
 
@@ -44,7 +44,7 @@ export function handleRequestWithdrawal(
       direction: 'outgoing',
       status: 'pending',
     });
-    events.push(`📤 Withdrawal requested: ${amount} token ${tokenId} (${requestId.slice(-4)})`);
+    events.push(`[OUT] Withdrawal requested: ${amount} token ${tokenId} (${requestId.slice(-4)})`);
   } else {
     // They are requesting - auto-approve if valid
     accountMachine.pendingWithdrawals.set(requestId, {
@@ -55,7 +55,7 @@ export function handleRequestWithdrawal(
       direction: 'incoming',
       status: 'pending',
     });
-    events.push(`📥 Withdrawal request received: ${amount} token ${tokenId} (${requestId.slice(-4)})`);
+    events.push(`[INBOX] Withdrawal request received: ${amount} token ${tokenId} (${requestId.slice(-4)})`);
 
     // Return approval needed (will be sent in response frame)
     return {

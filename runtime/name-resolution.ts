@@ -24,7 +24,7 @@ export const storeProfile = async (db: any, profile: EntityProfile): Promise<voi
     // Update name index for autocomplete
     await updateNameIndex(db, profile.name, profile.entityId);
 
-    console.log(`📝 Stored profile for ${profile.name} (${formatEntityDisplay(profile.entityId)})`);
+    console.log(`[MEMO] Stored profile for ${profile.name} (${formatEntityDisplay(profile.entityId)})`);
   } catch {
     // Silent skip - DB unavailable or in-memory mode
   }
@@ -146,7 +146,7 @@ export const processProfileUpdate = async (
   hankoSignature: string,
   env?: Env,
 ): Promise<void> => {
-  console.log(`🏷️ processProfileUpdate called for ${entityId} with updates:`, updates);
+  console.log(`[TAG] processProfileUpdate called for ${entityId} with updates:`, updates);
   try {
     // Get existing profile or create new one
     let profile = await getProfile(db, entityId);
@@ -187,16 +187,16 @@ export const processProfileUpdate = async (
             hankoSignature: profile.hankoSignature,
           },
         });
-        console.log(`📡 Synced profile update to gossip: ${entityId}`);
+        console.log(`[ANTENNA] Synced profile update to gossip: ${entityId}`);
       } catch (gossipError) {
-        console.error(`❌ Failed to sync profile to gossip layer for ${entityId}:`, gossipError);
+        console.error(`[X] Failed to sync profile to gossip layer for ${entityId}:`, gossipError);
       }
     }
 
     // Store updated profile to database after gossip sync
     await storeProfile(db, profile);
 
-    console.log(`✅ Updated profile for ${profile.name} (${formatEntityDisplay(entityId)})`);
+    console.log(`[OK] Updated profile for ${profile.name} (${formatEntityDisplay(entityId)})`);
   } catch (error) {
     console.error('Error processing profile update:', error);
   }

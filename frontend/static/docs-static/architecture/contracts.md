@@ -77,7 +77,7 @@ Stored as `keccak256(abi.encode(articles))`:
 
 ### Step 1: Entity Registration
 ```solidity
-registerNumberedEntity(boardHash) → entityNumber = 42
+registerNumberedEntity(boardHash) [RIGHTWARDS] entityNumber = 42
 ```
 
 ### Step 2: Governance Setup
@@ -140,7 +140,7 @@ executeQuorumReplacement(
 
 ## Emergency Scenarios
 
-### 🚨 Hostile Takeover Prevention
+### [ALERT] Hostile Takeover Prevention
 1. Hostile entity buys 40% control tokens
 2. Proposes quorum replacement (delay = 1000 blocks)
 3. During delay, incumbent holders can:
@@ -148,17 +148,17 @@ executeQuorumReplacement(
    - Organize defensive coalition
    - Propose alternative quorum
 
-### 🚨 Dividend Shareholder Coordination
+### [ALERT] Dividend Shareholder Coordination
 1. Dividend holders dissatisfied with management
 2. Organize 51%+ coalition
 3. Propose new quorum (delay = 3000 blocks)
 4. Control holders can cancel and propose their own
 
-### 🚨 Foundation Emergency Intervention
+### [ALERT] Foundation Emergency Intervention
 1. All shareholders unavailable/disappeared
 2. Entity paralyzed > 1 month
 3. Foundation proposes new quorum (delay = 10000 blocks)
-4. No one can cancel → executes
+4. No one can cancel [RIGHTWARDS] executes
 
 ---
 
@@ -166,15 +166,15 @@ executeQuorumReplacement(
 
 ### Entity & Governance
 ```solidity
-registerNumberedEntity(boardHash) → entityNumber
+registerNumberedEntity(boardHash) [RIGHTWARDS] entityNumber
 setupGovernance(entityNumber, holders[], controlAmounts[], dividendAmounts[], articles)
 ```
 
 ### Token Operations (ERC1155)
 ```solidity
-balanceOf(holder, tokenId) → amount
+balanceOf(holder, tokenId) [RIGHTWARDS] amount
 safeTransferFrom(from, to, tokenId, amount, data)
-getTokenIds(entityNumber) → (controlTokenId, dividendTokenId)
+getTokenIds(entityNumber) [RIGHTWARDS] (controlTokenId, dividendTokenId)
 ```
 
 ### Quorum Replacement
@@ -185,8 +185,8 @@ executeQuorumReplacement(entityNumber, supporters[], articles)
 
 ### View Functions
 ```solidity
-getGovernanceInfo(entityNumber) → (controlTokenId, dividendTokenId, supplies, hasProposal, articlesHash)
-getEntityFromToken(tokenId) → entityNumber
+getGovernanceInfo(entityNumber) [RIGHTWARDS] (controlTokenId, dividendTokenId, supplies, hasProposal, articlesHash)
+getEntityFromToken(tokenId) [RIGHTWARDS] entityNumber
 ```
 
 ---
@@ -195,8 +195,8 @@ getEntityFromToken(tokenId) → entityNumber
 
 | Contract       | Current Lines | With Libraries | Target  | Status |
 |----------------|---------------|----------------|---------|--------|
-| EntityProvider | 605           | ~450           | < 800   | ✅     |
-| Depository     | 991           | 991            | < 1000  | ✅     |
+| EntityProvider | 605           | ~450           | < 800   | [OK]     |
+| Depository     | 991           | 991            | < 1000  | [OK]     |
 
 **Both within reasonable limits.**
 
@@ -218,32 +218,32 @@ getEntityFromToken(tokenId) → entityNumber
 ## XLN vs Traditional DAOs
 
 ### Traditional DAO Limitations
-- ❌ One token = control + economics
-- ❌ Can't sell economics separately
-- ❌ Whale governance inevitable
-- ❌ Expensive ERC20 transfers
-- ❌ No emergency coordination
+- [X] One token = control + economics
+- [X] Can't sell economics separately
+- [X] Whale governance inevitable
+- [X] Expensive ERC20 transfers
+- [X] No emergency coordination
 
 ### XLN Advantages
-- ✅ Control/dividend separation (Meta/Alphabet style)
-- ✅ ERC1155 gas efficiency
-- ✅ Multi-layer emergency system
-- ✅ Priority-based proposal cancellation
-- ✅ Immutable articles of incorporation
-- ✅ Foundation fallback protection
-- ✅ Automatic token supply tracking
+- [OK] Control/dividend separation (Meta/Alphabet style)
+- [OK] ERC1155 gas efficiency
+- [OK] Multi-layer emergency system
+- [OK] Priority-based proposal cancellation
+- [OK] Immutable articles of incorporation
+- [OK] Foundation fallback protection
+- [OK] Automatic token supply tracking
 
 ---
 
 ## Deployment Checklist
 
-- ✅ EntityProvider inherits ERC1155
-- ✅ Foundation entity #1 created automatically
-- ✅ nextNumber starts at 2
-- ✅ Token ID scheme with first bit differentiation
-- ✅ Priority system for cancellation
-- ✅ Articles hash verification
-- ✅ Multi-delay system
-- ✅ Automatic supply tracking
-- ✅ Event emissions for indexing
-- ✅ Gas optimizations
+- [OK] EntityProvider inherits ERC1155
+- [OK] Foundation entity #1 created automatically
+- [OK] nextNumber starts at 2
+- [OK] Token ID scheme with first bit differentiation
+- [OK] Priority system for cancellation
+- [OK] Articles hash verification
+- [OK] Multi-delay system
+- [OK] Automatic supply tracking
+- [OK] Event emissions for indexing
+- [OK] Gas optimizations

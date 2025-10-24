@@ -18,19 +18,19 @@ import { logError } from '../logger';
 
 export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx: EntityTx): Promise<{ newState: EntityState, outputs: EntityInput[] }> => {
   if (!entityTx) {
-    logError("ENTITY_TX", `❌ EntityTx is undefined!`);
+    logError("ENTITY_TX", `[X] EntityTx is undefined!`);
     return { newState: entityState, outputs: [] };
   }
 
-  //console.log(`🚨🚨 APPLY-ENTITY-TX: type="${entityTx?.type}" (typeof: ${typeof entityTx?.type})`);
-  //console.log(`🚨🚨 APPLY-ENTITY-TX: data=`, safeStringify(entityTx?.data, 2));
-  //console.log(`🚨🚨 APPLY-ENTITY-TX: Available types: profile-update, j_event, accountInput, openAccount, directPayment`);
+  //console.log(`[ALERT][ALERT] APPLY-ENTITY-TX: type="${entityTx?.type}" (typeof: ${typeof entityTx?.type})`);
+  //console.log(`[ALERT][ALERT] APPLY-ENTITY-TX: data=`, safeStringify(entityTx?.data, 2));
+  //console.log(`[ALERT][ALERT] APPLY-ENTITY-TX: Available types: profile-update, j_event, accountInput, openAccount, directPayment`);
   try {
     if (entityTx.type === 'chat') {
       const { from, message } = entityTx.data;
 
       if (!validateMessage(message)) {
-        log.error(`❌ Invalid chat message from ${from}`);
+        log.error(`[X] Invalid chat message from ${from}`);
         return { newState: entityState, outputs: [] }; // Return unchanged state
       }
 
@@ -59,7 +59,7 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
       const { action, proposer } = entityTx.data;
       const proposalId = generateProposalId(action, proposer, entityState);
 
-      if (DEBUG) console.log(`    📝 Creating proposal ${proposalId} by ${proposer}: ${action.data.message}`);
+      if (DEBUG) console.log(`    [MEMO] Creating proposal ${proposalId} by ${proposer}: ${action.data.message}`);
 
       const proposal: Proposal = {
         id: proposalId,
@@ -83,12 +83,12 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
         newEntityState = executeProposal(newEntityState, proposal);
         if (DEBUG)
           console.log(
-            `    ⚡ Proposal executed immediately - proposer has ${proposerPower} >= ${entityState.config.threshold} threshold`,
+            `    [FAST] Proposal executed immediately - proposer has ${proposerPower} >= ${entityState.config.threshold} threshold`,
           );
       } else {
         if (DEBUG)
           console.log(
-            `    ⏳ Proposal pending votes - proposer has ${proposerPower} < ${entityState.config.threshold} threshold`,
+            `    [WAIT] Proposal pending votes - proposer has ${proposerPower} < ${entityState.config.threshold} threshold`,
           );
       }
 
@@ -97,19 +97,19 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
     }
 
     if (entityTx.type === 'vote') {
-      console.log(`🗳️ PROCESSING VOTE: entityTx.data=`, entityTx.data);
+      console.log(`[VOTE] PROCESSING VOTE: entityTx.data=`, entityTx.data);
       const { proposalId, voter, choice, comment } = entityTx.data;
       const proposal = entityState.proposals.get(proposalId);
 
-      console.log(`🗳️ Vote lookup: proposalId=${proposalId}, found=${!!proposal}, status=${proposal?.status}`);
-      console.log(`🗳️ Available proposals:`, Array.from(entityState.proposals.keys()));
+      console.log(`[VOTE] Vote lookup: proposalId=${proposalId}, found=${!!proposal}, status=${proposal?.status}`);
+      console.log(`[VOTE] Available proposals:`, Array.from(entityState.proposals.keys()));
 
       if (!proposal || proposal.status !== 'pending') {
-        console.log(`    ❌ Vote ignored - proposal ${proposalId.slice(0, 12)}... not found or not pending`);
+        console.log(`    [X] Vote ignored - proposal ${proposalId.slice(0, 12)}... not found or not pending`);
         return { newState: entityState, outputs: [] };
       }
 
-      console.log(`    🗳️  Vote by ${voter}: ${choice} on proposal ${proposalId.slice(0, 12)}...`);
+      console.log(`    [VOTE]  Vote by ${voter}: ${choice} on proposal ${proposalId.slice(0, 12)}...`);
 
       const newEntityState = cloneEntityState(entityState);
 
@@ -135,7 +135,7 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
         const totalShares = Object.values(entityState.config.shares).reduce((sum, val) => sum + val, BigInt(0));
         const percentage = ((Number(totalYesPower) / Number(entityState.config.threshold)) * 100).toFixed(1);
         console.log(
-          `    🔍 Proposal votes: ${totalYesPower} / ${totalShares} [${percentage}% threshold${Number(totalYesPower) >= Number(entityState.config.threshold) ? '+' : ''}]`,
+          `    [FIND] Proposal votes: ${totalYesPower} / ${totalShares} [${percentage}% threshold${Number(totalYesPower) >= Number(entityState.config.threshold) ? '+' : ''}]`,
         );
       }
 
@@ -151,23 +151,23 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
     }
 
     if (entityTx.type === 'profile-update') {
-      console.log(`🏷️ Profile update transaction processing - data:`, entityTx.data);
+      console.log(`[TAG] Profile update transaction processing - data:`, entityTx.data);
 
       // Extract profile update data
       const profileData = entityTx.data.profile;
-      console.log(`🏷️ Extracted profileData:`, profileData);
+      console.log(`[TAG] Extracted profileData:`, profileData);
 
       if (profileData && profileData.entityId) {
-        console.log(`🏷️ Calling processProfileUpdate for entity ${profileData.entityId}`);
+        console.log(`[TAG] Calling processProfileUpdate for entity ${profileData.entityId}`);
         // Process profile update synchronously to ensure gossip is updated before snapshot
         try {
           await processProfileUpdate(db, profileData.entityId, profileData, profileData.hankoSignature || '', env);
         } catch (error) {
-          logError("ENTITY_TX", `❌ Failed to process profile update for ${profileData.entityId}:`, error);
+          logError("ENTITY_TX", `[X] Failed to process profile update for ${profileData.entityId}:`, error);
         }
       } else {
-        console.warn(`⚠️ Invalid profile-update transaction data:`, entityTx.data);
-        console.warn(`⚠️ ProfileData missing or invalid:`, profileData);
+        console.warn(`[WARN] Invalid profile-update transaction data:`, entityTx.data);
+        console.warn(`[WARN] ProfileData missing or invalid:`, profileData);
       }
 
       return { newState: entityState, outputs: [] };
@@ -184,17 +184,17 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
     }
 
     if (entityTx.type === 'openAccount') {
-      console.log(`💳 OPEN-ACCOUNT: Opening account with ${entityTx.data.targetEntityId}`);
+      console.log(`[CARD] OPEN-ACCOUNT: Opening account with ${entityTx.data.targetEntityId}`);
 
       const newState = cloneEntityState(entityState);
       const outputs: EntityInput[] = [];
 
       // Add chat message about account opening
-      addMessage(newState, `💳 Opening account with Entity ${formatEntityId(entityTx.data.targetEntityId)}...`);
+      addMessage(newState, `[CARD] Opening account with Entity ${formatEntityId(entityTx.data.targetEntityId)}...`);
 
       // STEP 1: Create local account machine
       if (!newState.accounts.has(entityTx.data.targetEntityId)) {
-        console.log(`💳 LOCAL-ACCOUNT: Creating local account with Entity ${formatEntityId(entityTx.data.targetEntityId)}...`);
+        console.log(`[CARD] LOCAL-ACCOUNT: Creating local account with Entity ${formatEntityId(entityTx.data.targetEntityId)}...`);
 
         // CONSENSUS FIX: Start with empty deltas - let all delta creation happen through transactions
         // This ensures both sides have identical delta Maps (matches Channel.ts pattern)
@@ -242,7 +242,7 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
 
       // STEP 2: Add transactions to LOCAL mempool only (Channel.ts pattern)
       // Frame proposal happens automatically on next tick via AUTO-PROPOSE
-      console.log(`💳 Adding account setup transactions to local mempool for ${formatEntityId(entityTx.data.targetEntityId)}`);
+      console.log(`[CARD] Adding account setup transactions to local mempool for ${formatEntityId(entityTx.data.targetEntityId)}`);
 
       // Get the account machine we just created
       const localAccount = newState.accounts.get(entityTx.data.targetEntityId);
@@ -269,25 +269,25 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
         data: { tokenId: usdcTokenId, amount: defaultCreditLimit, side: ourSide }
       });
 
-      console.log(`📝 Queued 2 transactions to mempool (total: ${localAccount.mempool.length})`);
-      console.log(`⏰ Frame #1 will be auto-proposed on next tick (100ms) via AUTO-PROPOSE`);
+      console.log(`[MEMO] Queued 2 transactions to mempool (total: ${localAccount.mempool.length})`);
+      console.log(`[ALARM] Frame #1 will be auto-proposed on next tick (100ms) via AUTO-PROPOSE`);
       console.log(`   Transactions: [add_delta, set_credit_limit(side=${ourSide}, amount=1M)]`);
 
       // Add success message to chat
-      addMessage(newState, `✅ Account opening request sent to Entity ${formatEntityId(entityTx.data.targetEntityId)}`);
+      addMessage(newState, `[OK] Account opening request sent to Entity ${formatEntityId(entityTx.data.targetEntityId)}`);
 
       // Broadcast updated profile to gossip layer
       if (env.gossip) {
         const profile = buildEntityProfile(newState);
         env.gossip.announce(profile);
-        console.log(`📡 Broadcast profile for ${entityState.entityId} with ${newState.accounts.size} accounts`);
+        console.log(`[ANTENNA] Broadcast profile for ${entityState.entityId} with ${newState.accounts.size} accounts`);
       }
 
       return { newState, outputs };
     }
 
     if (entityTx.type === 'directPayment') {
-      console.log(`💸 DIRECT-PAYMENT: Initiating payment to ${entityTx.data.targetEntityId}`);
+      console.log(`[$$] DIRECT-PAYMENT: Initiating payment to ${entityTx.data.targetEntityId}`);
 
       const newState = cloneEntityState(entityState);
       const outputs: EntityInput[] = [];
@@ -299,11 +299,11 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
       if (!route || route.length === 0) {
         // Check if we have a direct account with target
         if (newState.accounts.has(targetEntityId)) {
-          console.log(`💸 Direct account exists with ${formatEntityId(targetEntityId)}`);
+          console.log(`[$$] Direct account exists with ${formatEntityId(targetEntityId)}`);
           route = [entityState.entityId, targetEntityId];
         } else {
           // Find route through network using gossip
-          console.log(`💸 No direct account, finding route to ${formatEntityId(targetEntityId)}`);
+          console.log(`[$$] No direct account, finding route to ${formatEntityId(targetEntityId)}`);
 
           // Try to find a route through the network
           if (env.gossip) {
@@ -313,15 +313,15 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
             if (paths.length > 0) {
               // Use the shortest path
               route = paths[0].path;
-              console.log(`💸 Found route: ${route.map(e => formatEntityId(e)).join(' → ')}`);
+              console.log(`[$$] Found route: ${route.map(e => formatEntityId(e)).join(' [RIGHTWARDS] ')}`);
             } else {
-              logError("ENTITY_TX", `❌ No route found to ${formatEntityId(targetEntityId)}`);
-              addMessage(newState, `❌ Payment failed: No route to ${formatEntityId(targetEntityId)}`);
+              logError("ENTITY_TX", `[X] No route found to ${formatEntityId(targetEntityId)}`);
+              addMessage(newState, `[X] Payment failed: No route to ${formatEntityId(targetEntityId)}`);
               return { newState, outputs: [] };
             }
           } else {
-            logError("ENTITY_TX", `❌ Cannot find route: Gossip layer not available`);
-            addMessage(newState, `❌ Payment failed: Network routing unavailable`);
+            logError("ENTITY_TX", `[X] Cannot find route: Gossip layer not available`);
+            addMessage(newState, `[X] Payment failed: Network routing unavailable`);
             return { newState, outputs: [] };
           }
         }
@@ -329,21 +329,21 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
 
       // Validate route starts with current entity
       if (route.length < 2 || route[0] !== entityState.entityId) {
-        logError("ENTITY_TX", `❌ Invalid route: doesn't start with current entity`);
+        logError("ENTITY_TX", `[X] Invalid route: doesn't start with current entity`);
         return { newState: entityState, outputs: [] };
       }
 
       // Determine next hop
       const nextHop = route[1];
       if (!nextHop) {
-        logError("ENTITY_TX", `❌ Invalid route: no next hop specified in route`);
+        logError("ENTITY_TX", `[X] Invalid route: no next hop specified in route`);
         return { newState: entityState, outputs: [] };
       }
 
       // Check if we have an account with next hop
       if (!newState.accounts.has(nextHop)) {
-        logError("ENTITY_TX", `❌ No account with next hop: ${nextHop}`);
-        addMessage(newState, `❌ Payment failed: No account with ${formatEntityId(nextHop)}`);
+        logError("ENTITY_TX", `[X] No account with next hop: ${nextHop}`);
+        addMessage(newState, `[X] Payment failed: No account with ${formatEntityId(nextHop)}`);
         return { newState, outputs: [] };
       }
 
@@ -356,8 +356,8 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
           amount,
           route: route.slice(1), // Remove sender from route (next hop needs to see themselves in route[0])
           description: description || `Payment to ${formatEntityId(targetEntityId)}`,
-          fromEntityId: entityState.entityId, // ✅ EXPLICIT direction
-          toEntityId: nextHop,                 // ✅ EXPLICIT direction
+          fromEntityId: entityState.entityId, // [OK] EXPLICIT direction
+          toEntityId: nextHop,                 // [OK] EXPLICIT direction
         },
       };
 
@@ -365,21 +365,21 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
       const accountMachine = newState.accounts.get(nextHop);
       if (accountMachine) {
         accountMachine.mempool.push(accountTx);
-        console.log(`💸 Added payment to mempool for account with ${formatEntityId(nextHop)}`);
-        console.log(`💸 Account mempool now has ${accountMachine.mempool.length} pending transactions`);
+        console.log(`[$$] Added payment to mempool for account with ${formatEntityId(nextHop)}`);
+        console.log(`[$$] Account mempool now has ${accountMachine.mempool.length} pending transactions`);
         const isLeft = accountMachine.proofHeader.fromEntity < accountMachine.proofHeader.toEntity;
-        console.log(`💸 Is left entity: ${isLeft}, Has pending frame: ${!!accountMachine.pendingFrame}`);
+        console.log(`[$$] Is left entity: ${isLeft}, Has pending frame: ${!!accountMachine.pendingFrame}`);
 
         // Message about payment initiation
         addMessage(newState,
-          `💸 Sending ${amount} (token ${tokenId}) to ${formatEntityId(targetEntityId)} via ${route.length - 1} hops`
+          `[$$] Sending ${amount} (token ${tokenId}) to ${formatEntityId(targetEntityId)} via ${route.length - 1} hops`
         );
 
         // The payment is now in our local mempool with the next hop
         // It will be processed through bilateral consensus in the next round
         // The auto-propose logic in entity-consensus will handle proposing the frame
-        console.log(`💸 Payment queued for bilateral consensus with ${formatEntityId(nextHop)}`);
-        console.log(`💸 Account ${formatEntityId(nextHop)} should be added to proposableAccounts`);
+        console.log(`[$$] Payment queued for bilateral consensus with ${formatEntityId(nextHop)}`);
+        console.log(`[$$] Account ${formatEntityId(nextHop)} should be added to proposableAccounts`);
 
         // Note: The entity-consensus applyEntityFrame will add this account to proposableAccounts
         // and trigger bilateral frame proposal at the end of the processing round
@@ -394,7 +394,7 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
             entityTxs: [] // Empty transaction array - just triggers processing
           });
         }
-        console.log(`💸 Added processing trigger to ensure bilateral consensus runs`);
+        console.log(`[$$] Added processing trigger to ensure bilateral consensus runs`);
       }
 
       return { newState, outputs };
@@ -411,7 +411,7 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
     }
 
     if (entityTx.type === 'settleDiffs') {
-      console.log(`🏦 SETTLE-DIFFS: Processing settlement with ${entityTx.data.counterpartyEntityId}`);
+      console.log(`[BANK] SETTLE-DIFFS: Processing settlement with ${entityTx.data.counterpartyEntityId}`);
 
       const newState = cloneEntityState(entityState);
       const { counterpartyEntityId, diffs, description } = entityTx.data;
@@ -420,14 +420,14 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
       for (const diff of diffs) {
         const sum = diff.leftDiff + diff.rightDiff + diff.collateralDiff;
         if (sum !== 0n) {
-          logError("ENTITY_TX", `❌ INVARIANT-VIOLATION: leftDiff + rightDiff + collateralDiff = ${sum} (must be 0)`);
+          logError("ENTITY_TX", `[X] INVARIANT-VIOLATION: leftDiff + rightDiff + collateralDiff = ${sum} (must be 0)`);
           throw new Error(`Settlement invariant violation: ${sum} !== 0`);
         }
       }
 
       // Step 2: Validate account exists
       if (!newState.accounts.has(counterpartyEntityId)) {
-        logError("ENTITY_TX", `❌ No account exists with ${formatEntityId(counterpartyEntityId)}`);
+        logError("ENTITY_TX", `[X] No account exists with ${formatEntityId(counterpartyEntityId)}`);
         throw new Error(`No account with ${counterpartyEntityId}`);
       }
 
@@ -436,8 +436,8 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
       const leftEntity = isLeft ? entityState.entityId : counterpartyEntityId;
       const rightEntity = isLeft ? counterpartyEntityId : entityState.entityId;
 
-      console.log(`🏦 Canonical order: left=${leftEntity.slice(0,10)}..., right=${rightEntity.slice(0,10)}...`);
-      console.log(`🏦 We are: ${isLeft ? 'LEFT' : 'RIGHT'}`);
+      console.log(`[BANK] Canonical order: left=${leftEntity.slice(0,10)}..., right=${rightEntity.slice(0,10)}...`);
+      console.log(`[BANK] We are: ${isLeft ? 'LEFT' : 'RIGHT'}`);
 
       // Step 4: Get jurisdiction config
       const jurisdiction = entityState.config.jurisdiction;
@@ -454,20 +454,20 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
         ondeltaDiff: d.ondeltaDiff || 0n,
       }));
 
-      console.log(`🏦 Calling submitSettle with diffs:`, safeStringify(contractDiffs, 2));
+      console.log(`[BANK] Calling submitSettle with diffs:`, safeStringify(contractDiffs, 2));
 
       // Step 6: Call Depository.settle() - fire and forget (j-watcher handles result)
       try {
         const result = await submitSettle(jurisdiction, leftEntity, rightEntity, contractDiffs);
-        console.log(`✅ Settlement transaction sent: ${result.txHash}`);
+        console.log(`[OK] Settlement transaction sent: ${result.txHash}`);
 
         // Add message to chat
         addMessage(newState,
-          `🏦 ${description || 'Settlement'} tx: ${result.txHash.slice(0, 10)}... (block ${result.blockNumber})`
+          `[BANK] ${description || 'Settlement'} tx: ${result.txHash.slice(0, 10)}... (block ${result.blockNumber})`
         );
       } catch (error) {
-        logError("ENTITY_TX", `❌ Settlement transaction failed:`, error);
-        addMessage(newState, `❌ Settlement failed: ${(error as Error).message}`);
+        logError("ENTITY_TX", `[X] Settlement transaction failed:`, error);
+        addMessage(newState, `[X] Settlement failed: ${(error as Error).message}`);
         throw error; // Re-throw to trigger outer catch
       }
 
@@ -476,7 +476,7 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
 
     return { newState: entityState, outputs: [] };
   } catch (error) {
-    log.error(`❌ Transaction execution error: ${error}`);
+    log.error(`[X] Transaction execution error: ${error}`);
     return { newState: entityState, outputs: [] }; // Return unchanged state on error
   }
 };

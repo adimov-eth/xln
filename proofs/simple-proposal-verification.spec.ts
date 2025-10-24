@@ -4,7 +4,7 @@ import type { EntityReplica, Proposal, XLNEnvironment } from '../frontend/src/li
 
 test.describe('Simple Proposal Verification', () => {
   test('VERIFY: Proposal creation adds to backend state', async ({ page }) => {
-    console.log('🔍 Testing proposal creation in backend...');
+    console.log('[FIND] Testing proposal creation in backend...');
 
     // Navigate
     await page.goto('http://localhost:8080');
@@ -12,10 +12,10 @@ test.describe('Simple Proposal Verification', () => {
     await page.waitForFunction(() => (window as any).xlnEnv !== undefined, { timeout: 5000 });
 
     // Run demo to get entities quickly
-    await page.getByRole('button', { name: '▶️' }).click();
+    await page.getByRole('button', { name: '>' }).click();
     await page.waitForTimeout(1000);
 
-    console.log('✅ Demo run - entities created');
+    console.log('[OK] Demo run - entities created');
 
     // Check backend state before proposal
     const beforeProposals = await page.evaluate(() => {
@@ -26,7 +26,7 @@ test.describe('Simple Proposal Verification', () => {
     });
 
     console.log(
-      `📊 BEFORE: ${beforeProposals.totalProposals} proposals across ${beforeProposals.replicaCount} replicas`,
+      `[STATS] BEFORE: ${beforeProposals.totalProposals} proposals across ${beforeProposals.replicaCount} replicas`,
     );
 
     // Select first entity and alice
@@ -50,7 +50,7 @@ test.describe('Simple Proposal Verification', () => {
     await page.waitForTimeout(500);
 
     // Expand controls
-    await page.getByRole('button', { name: '⚙️ Controls ▼' }).click();
+    await page.getByRole('button', { name: '[SET] Controls ▼' }).click();
     await page.waitForTimeout(300);
 
     // Select proposal mode
@@ -104,8 +104,8 @@ test.describe('Simple Proposal Verification', () => {
       };
     });
 
-    console.log(`📊 AFTER: ${afterProposals.totalProposals} proposals across ${afterProposals.replicaCount} replicas`);
-    console.log('📋 Proposals found:', afterProposals.proposals);
+    console.log(`[STATS] AFTER: ${afterProposals.totalProposals} proposals across ${afterProposals.replicaCount} replicas`);
+    console.log('[LIST] Proposals found:', afterProposals.proposals);
 
     // Verify proposal was created
     expect(afterProposals.totalProposals).toBeGreaterThan(beforeProposals.totalProposals);
@@ -113,8 +113,8 @@ test.describe('Simple Proposal Verification', () => {
     const newProposal = afterProposals.proposals.find(p => p.title === 'Backend Test Proposal: Testing backend state');
     expect(newProposal).toBeDefined();
 
-    console.log('✅ SUCCESS: Proposal created in backend!');
-    console.log(`📝 Found: "${newProposal?.title}" by ${newProposal?.proposer}`);
+    console.log('[OK] SUCCESS: Proposal created in backend!');
+    console.log(`[MEMO] Found: "${newProposal?.title}" by ${newProposal?.proposer}`);
 
     await page.screenshot({ path: 'e2e/screenshots/backend-proposal-success.png', fullPage: true });
   });

@@ -1,13 +1,13 @@
 /**
  * Deposit Collateral Handler
  *
- * Entity moves own reserve → account collateral (unilateral on-chain action)
+ * Entity moves own reserve [RIGHTWARDS] account collateral (unilateral on-chain action)
  * Reference: 2019src.txt lines 233-239 (reserveToChannel batchAdd)
  * Reference: Depository.sol reserveToCollateral() (line 1035)
  *
  * Flow:
  * 1. Entity validates sufficient reserve
- * 2. Add R→C operation to jBatch
+ * 2. Add R[RIGHTWARDS]C operation to jBatch
  * 3. Wait for jBatch crontab to broadcast
  * 4. On-chain event triggers bilateral account state update
  */
@@ -27,7 +27,7 @@ export async function handleDepositCollateral(
   const currentReserve = entityState.reserves.get(String(tokenId)) || 0n;
   if (currentReserve < amount) {
     addMessage(newState,
-      `❌ Insufficient reserve for collateral deposit: have ${currentReserve}, need ${amount} token ${tokenId}`
+      `[X] Insufficient reserve for collateral deposit: have ${currentReserve}, need ${amount} token ${tokenId}`
     );
     return { newState, outputs };
   }
@@ -35,7 +35,7 @@ export async function handleDepositCollateral(
   // Validate: Does account exist?
   if (!entityState.accounts.has(counterpartyId)) {
     addMessage(newState,
-      `❌ Cannot deposit collateral: no account with ${counterpartyId.slice(-4)}`
+      `[X] Cannot deposit collateral: no account with ${counterpartyId.slice(-4)}`
     );
     return { newState, outputs };
   }
@@ -60,10 +60,10 @@ export async function handleDepositCollateral(
   );
 
   addMessage(newState,
-    `📦 Queued R→C: ${amount} token ${tokenId} to account with ${counterpartyId.slice(-4)} (will broadcast in next batch)`
+    `[PKG] Queued R[RIGHTWARDS]C: ${amount} token ${tokenId} to account with ${counterpartyId.slice(-4)} (will broadcast in next batch)`
   );
 
-  console.log(`✅ deposit_collateral: Added to jBatch for ${entityState.entityId.slice(-4)}`);
+  console.log(`[OK] deposit_collateral: Added to jBatch for ${entityState.entityId.slice(-4)}`);
   console.log(`   Counterparty: ${counterpartyId.slice(-4)}`);
   console.log(`   Token: ${tokenId}, Amount: ${amount}`);
 

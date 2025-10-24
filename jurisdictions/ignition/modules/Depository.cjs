@@ -1,12 +1,12 @@
 const { buildModule } = require("@nomicfoundation/hardhat-ignition/modules");
 
 const DepositoryModule = buildModule("DepositoryModule", (m) => {
-  console.log("🔍 IGNITION: Starting Depository deployment...");
-  console.log("🔍 IGNITION: About to deploy Depository contract...");
+  console.log("[FIND] IGNITION: Starting Depository deployment...");
+  console.log("[FIND] IGNITION: About to deploy Depository contract...");
 
   const depository = m.contract('Depository', [], { id: 'Depository' })
 
-  console.log("🔍 IGNITION: Depository contract deployed, address will be available after execution");
+  console.log("[FIND] IGNITION: Depository contract deployed, address will be available after execution");
   const subcontractProvider = m.contract('SubcontractProvider')
   const entityProvider = m.contract('EntityProvider')
 

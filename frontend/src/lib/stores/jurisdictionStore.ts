@@ -35,19 +35,19 @@ let cachedData: JurisdictionsData | null = null;
 export async function loadJurisdictions(): Promise<JurisdictionsData> {
   // Return cached data if already loaded
   if (cachedData) {
-    console.log('🔍 JURISDICTIONS: Returning cached data (no fetch)');
+    console.log('[FIND] JURISDICTIONS: Returning cached data (no fetch)');
     return cachedData;
   }
 
   // Return existing promise if load is in progress
   if (loadPromise) {
-    console.log('🔍 JURISDICTIONS: Reusing existing load promise');
+    console.log('[FIND] JURISDICTIONS: Reusing existing load promise');
     return loadPromise;
   }
 
   loadPromise = (async () => {
     try {
-      console.log('🔍 JURISDICTIONS: Loading ONCE from server (single source)');
+      console.log('[FIND] JURISDICTIONS: Loading ONCE from server (single source)');
 
       // Use runtime.js getAvailableJurisdictions instead of multiple fetches
       const { getXLN } = await import('../stores/xlnStore');
@@ -82,7 +82,7 @@ export async function loadJurisdictions(): Promise<JurisdictionsData> {
         };
       });
 
-      console.log('🔍 SINGLE LOAD: Loaded contracts from server:', data.jurisdictions['ethereum']?.contracts);
+      console.log('[FIND] SINGLE LOAD: Loaded contracts from server:', data.jurisdictions['ethereum']?.contracts);
 
       // Cache the data
       cachedData = data;
@@ -90,7 +90,7 @@ export async function loadJurisdictions(): Promise<JurisdictionsData> {
       jurisdictionsLoaded.set(true);
       return data;
     } catch (error) {
-      console.error('❌ Failed to load jurisdictions from server:', error);
+      console.error('[X] Failed to load jurisdictions from server:', error);
       throw error;
     }
   })();
@@ -104,5 +104,5 @@ export function clearJurisdictionsCache(): void {
   loadPromise = null;
   jurisdictions.set(null);
   jurisdictionsLoaded.set(false);
-  console.log('🔄 Frontend jurisdictions cache cleared');
+  console.log('[ANTICLOCKWISE] Frontend jurisdictions cache cleared');
 }

@@ -32,7 +32,7 @@
       isVisible = true;
 
       // Auto-hide after 10 seconds unless critical
-      if (!errorMsg.includes('💥 CRITICAL')) {
+      if (!errorMsg.includes('[BOOM] CRITICAL')) {
         setTimeout(() => {
           errors = errors.filter(e => e.id !== errors[errors.length - 1]?.id);
           if (errors.length === 0) isVisible = false;
@@ -42,7 +42,7 @@
 
     // Capture unhandled promise rejections
     window.addEventListener('unhandledrejection', (event) => {
-      console.error('🚨 Unhandled Promise Rejection:', event.reason);
+      console.error('[ALERT] Unhandled Promise Rejection:', event.reason);
     });
   });
 
@@ -56,8 +56,8 @@
   <div class="error-overlay">
     <div class="error-panel">
       <div class="error-header">
-        <span>🚨 Runtime Errors</span>
-        <button on:click={clearErrors}>✕</button>
+        <span>[ALERT] Runtime Errors</span>
+        <button on:click={clearErrors}>[MULTIPLICATION]</button>
       </div>
       {#each errors as error}
         <div class="error-item">

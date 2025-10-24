@@ -58,9 +58,9 @@ export function createGossipLayer(): GossipLayer {
 
     if (!existing || newTimestamp > existingTimestamp) {
       profiles.set(profile.entityId, profile);
-      console.log(`📡 Gossip updated for ${profile.entityId} (timestamp: ${newTimestamp})`);
+      console.log(`[ANTENNA] Gossip updated for ${profile.entityId} (timestamp: ${newTimestamp})`);
     } else {
-      console.log(`📡 Gossip ignored older update for ${profile.entityId} (${newTimestamp} <= ${existingTimestamp})`);
+      console.log(`[ANTENNA] Gossip ignored older update for ${profile.entityId} (${newTimestamp} <= ${existingTimestamp})`);
     }
   };
 

@@ -2,7 +2,7 @@
 # Generate self-signed HTTPS certificates for local development
 
 if ! command -v mkcert &> /dev/null; then
-  echo "❌ mkcert not installed"
+  echo "[X] mkcert not installed"
   echo ""
   echo "Install with:"
   echo "  macOS:   brew install mkcert"
@@ -13,14 +13,14 @@ if ! command -v mkcert &> /dev/null; then
   exit 1
 fi
 
-echo "🔐 Generating HTTPS certificates..."
+echo "[LOCK] Generating HTTPS certificates..."
 cd "$(dirname "$0")"
 
 # Generate certs for localhost and LAN IP
 mkcert localhost 127.0.0.1 ::1
 
 echo ""
-echo "✅ Certificates generated:"
+echo "[OK] Certificates generated:"
 echo "   - localhost+2.pem"
 echo "   - localhost+2-key.pem"
 echo ""

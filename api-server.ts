@@ -247,8 +247,8 @@ serve({
   },
 });
 
-console.log(`✅ XLN API Server running on http://localhost:${PORT}`);
-console.log(`📊 Data directory: ${DATA_DIR}`);
+console.log(`[OK] XLN API Server running on http://localhost:${PORT}`);
+console.log(`[STATS] Data directory: ${DATA_DIR}`);
 console.log(`\nEndpoints:`);
 console.log(`  POST /api/submit - Submit evaluation`);
 console.log(`  GET  /api/results - Get approved results`);

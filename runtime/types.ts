@@ -3,7 +3,7 @@
  * All interfaces and type definitions used across the XLN system
  *
  * ═══════════════════════════════════════════════════════════════════════
- * XLN MESSAGE FLOW: Runtime → Entity → Account (R→E→A)
+ * XLN MESSAGE FLOW: Runtime [RIGHTWARDS] Entity [RIGHTWARDS] Account (R[RIGHTWARDS]E[RIGHTWARDS]A)
  * ═══════════════════════════════════════════════════════════════════════
  *
  * 1. RuntimeInput (External trigger - 100ms tick or user action)
@@ -41,9 +41,9 @@
  *    ├─ 'direct_payment'               // Update offdelta (instant settlement)
  *    ├─ 'add_delta'                    // Add new token to account
  *    ├─ 'set_credit_limit'             // Set mutual credit limits
- *    ├─ 'request_withdrawal'           // Phase 2: C→R (collateral to reserve)
+ *    ├─ 'request_withdrawal'           // Phase 2: C[RIGHTWARDS]R (collateral to reserve)
  *    ├─ 'approve_withdrawal'           // ACK/NACK withdrawal request
- *    └─ 'reserve_to_collateral'        // Phase 1: R→C (from j_event)
+ *    └─ 'reserve_to_collateral'        // Phase 1: R[RIGHTWARDS]C (from j_event)
  *
  * 7. Delta (Per-token bilateral state - the money)
  *    ├─ collateral: bigint             // Escrowed on-chain funds
@@ -190,7 +190,7 @@ export interface Proposal {
   id: string; // hash of the proposal
   proposer: string;
   action: ProposalAction;
-  // Votes: signerId → vote (string for simple votes, object for commented votes)
+  // Votes: signerId [RIGHTWARDS] vote (string for simple votes, object for commented votes)
   // Future: Create VoteData interface for type-safe vote objects
   votes: Map<string, 'yes' | 'no' | 'abstain' | { choice: 'yes' | 'no' | 'abstain'; comment: string }>;
   status: 'pending' | 'executed' | 'rejected';
@@ -397,7 +397,7 @@ export interface AccountMachine {
     description?: string;
   };
 
-  // Withdrawal tracking (Phase 2: C→R)
+  // Withdrawal tracking (Phase 2: C[RIGHTWARDS]R)
   pendingWithdrawals: Map<string, {
     requestId: string;
     tokenId: number;
@@ -409,7 +409,7 @@ export interface AccountMachine {
   }>;
 
   // Rebalancing hints (Phase 3: Hub coordination)
-  requestedRebalance: Map<number, bigint>; // tokenId → amount entity wants rebalanced (credit→collateral)
+  requestedRebalance: Map<number, bigint>; // tokenId [RIGHTWARDS] amount entity wants rebalanced (credit[RIGHTWARDS]collateral)
 }
 
 // Account frame structure for bilateral consensus (renamed from AccountBlock)
@@ -536,19 +536,19 @@ export interface EntityState {
   proposals: Map<string, Proposal>;
   config: ConsensusConfig;
 
-  // 💰 Financial state
+  // [$] Financial state
   reserves: Map<string, bigint>; // tokenId -> amount only, metadata from TOKEN_REGISTRY
   accounts: Map<string, AccountMachine>; // counterpartyEntityId -> account state
-  // 🔭 J-machine tracking
+  // [TELESCOPE] J-machine tracking
   jBlock: number; // Last processed J-machine block number
 
-  // 🔗 Account machine integration
+  // [LINK] Account machine integration
   accountInputQueue?: AccountInput[]; // Queue of settlement events to be processed by a-machine
 
-  // ⏰ Crontab system - periodic task execution (typed in entity-crontab.ts)
+  // [ALARM] Crontab system - periodic task execution (typed in entity-crontab.ts)
   crontabState?: any; // CrontabState - avoid circular import
 
-  // 📦 J-Batch system - accumulates operations for on-chain submission (typed in j-batch.ts)
+  // [PKG] J-Batch system - accumulates operations for on-chain submission (typed in j-batch.ts)
   jBatchState?: any; // JBatchState - avoid circular import
 }
 
@@ -581,7 +581,7 @@ export interface Env {
   gossip: any; // Gossip layer for network profiles
 
   // Xlnomy system (multi-jurisdiction support)
-  xlnomies?: Map<string, Xlnomy>; // name → Xlnomy instance
+  xlnomies?: Map<string, Xlnomy>; // name [RIGHTWARDS] Xlnomy instance
   activeXlnomy?: string; // Currently active Xlnomy name
 }
 
@@ -627,7 +627,7 @@ export const ENC = 'hex' as const;
 // === HANKO BYTES SYSTEM (Final Design) ===
 export interface HankoBytes {
   placeholders: Buffer[]; // Entity IDs that failed to sign (index 0..N-1)
-  packedSignatures: Buffer; // EOA signatures → yesEntities (index N..M-1)
+  packedSignatures: Buffer; // EOA signatures [RIGHTWARDS] yesEntities (index N..M-1)
   claims: HankoClaim[]; // Entity claims to verify (index M..∞)
 }
 

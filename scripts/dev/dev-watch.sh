@@ -3,7 +3,7 @@
 # Development watch script for XLN consensus debugging
 # Compiles TypeScript to JavaScript on-the-fly and serves files
 
-echo "🔄 Starting XLN development watch mode..."
+echo "[ANTICLOCKWISE] Starting XLN development watch mode..."
 
 # Kill any existing processes
 pkill -f "bun build.*watch" || true
@@ -16,19 +16,19 @@ mkdir -p dist
 # Function to show rebuild notification
 show_rebuild() {
     echo ""
-    echo "🔄 $(date '+%H:%M:%S') - Rebuilding server.ts..."
-    echo "⚡ Changes detected, compiling..."
+    echo "[ANTICLOCKWISE] $(date '+%H:%M:%S') - Rebuilding server.ts..."
+    echo "[FAST] Changes detected, compiling..."
 }
 
 # Function to show rebuild complete
 show_rebuild_complete() {
-    echo "✅ $(date '+%H:%M:%S') - Server rebuilt successfully!"
-    echo "🚀 Latest version ready at http://localhost:8080"
+    echo "[OK] $(date '+%H:%M:%S') - Server rebuilt successfully!"
+    echo "[LAUNCH] Latest version ready at http://localhost:8080"
     echo ""
 }
 
 # Start TypeScript watch compilation with enhanced logging
-echo "📦 Starting TypeScript watch compilation..."
+echo "[PKG] Starting TypeScript watch compilation..."
 
 # Initial build with notification
 show_rebuild
@@ -37,7 +37,7 @@ if [ $? -eq 0 ]; then
     cp dist/server.js frontend/static/server.js
     show_rebuild_complete
 else
-    echo "❌ $(date '+%H:%M:%S') - Build failed!"
+    echo "[X] $(date '+%H:%M:%S') - Build failed!"
     echo ""
 fi
 
@@ -51,12 +51,12 @@ if command -v fswatch >/dev/null 2>&1; then
             cp dist/server.js frontend/static/server.js
             show_rebuild_complete
         else
-            echo "❌ $(date '+%H:%M:%S') - Build failed!"
+            echo "[X] $(date '+%H:%M:%S') - Build failed!"
             echo ""
         fi
     done &
     WATCH_PID=$!
-    echo "📁 Using fswatch for file monitoring"
+    echo "[FOLDER] Using fswatch for file monitoring"
 else
     # Fallback to bun's built-in watch with custom monitoring
     (
@@ -69,18 +69,18 @@ else
         done
     ) &
     WATCH_PID=$!
-    echo "📁 Using bun's built-in watch mode"
+    echo "[FOLDER] Using bun's built-in watch mode"
 fi
 
 # Note: This script now only handles TypeScript compilation
 # For the frontend, run: cd frontend && npm run dev
-echo "📝 Note: TypeScript compilation only - for frontend run: cd frontend && npm run dev"
+echo "[MEMO] Note: TypeScript compilation only - for frontend run: cd frontend && npm run dev"
 SERVER_PID=""
 
 # Function to cleanup on exit
 cleanup() {
     echo ""
-    echo "🛑 Stopping development server..."
+    echo "[STOP] Stopping development server..."
     kill $WATCH_PID $SERVER_PID 2>/dev/null || true
     pkill -f "fswatch" 2>/dev/null || true
     exit 0
@@ -89,11 +89,11 @@ cleanup() {
 # Set up signal handlers
 trap cleanup SIGINT SIGTERM
 
-echo "✅ Development environment ready!"
-echo "   📦 TypeScript compilation: watching src/server.ts + dependencies"
-echo "   🌐 Development server: http://localhost:8080"
-echo "   📄 Open browser to see debugging interface"
-echo "   🔄 Files will auto-reload on changes with timestamp notifications"
+echo "[OK] Development environment ready!"
+echo "   [PKG] TypeScript compilation: watching src/server.ts + dependencies"
+echo "   [WEB] Development server: http://localhost:8080"
+echo "   [DOC] Open browser to see debugging interface"
+echo "   [ANTICLOCKWISE] Files will auto-reload on changes with timestamp notifications"
 echo ""
 echo "� Look for rebuild messages with timestamps when you save files"
 echo "Press Ctrl+C to stop..."

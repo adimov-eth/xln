@@ -1,16 +1,16 @@
 /**
- * 🎯 XLN Hanko Bytes - REAL Ethereum Implementation
+ * [GOAL] XLN Hanko Bytes - REAL Ethereum Implementation
  *
- * 🚨 CRITICAL DESIGN PHILOSOPHY: "ASSUME YES" FLASHLOAN GOVERNANCE 🚨
+ * [ALERT] CRITICAL DESIGN PHILOSOPHY: "ASSUME YES" FLASHLOAN GOVERNANCE [ALERT]
  *
  * This implementation INTENTIONALLY allows entities to mutually validate without EOA signatures.
  * This is NOT a bug - it's a feature for flexible governance structures.
  *
  * KEY DESIGN PRINCIPLES:
- * 1. ✅ Protocol flexibility: Allow exotic governance structures
- * 2. ✅ UI enforcement: Policy decisions belong in application layer
- * 3. ✅ Gas efficiency: Avoid complex graph traversal on-chain
- * 4. ✅ Atomic validation: All-or-nothing verification like flashloans
+ * 1. [OK] Protocol flexibility: Allow exotic governance structures
+ * 2. [OK] UI enforcement: Policy decisions belong in application layer
+ * 3. [OK] Gas efficiency: Avoid complex graph traversal on-chain
+ * 4. [OK] Atomic validation: All-or-nothing verification like flashloans
  *
  * EXAMPLE "LOOPHOLE" THAT IS INTENDED:
  * ```
@@ -25,7 +25,7 @@
  *   ]
  * }
  * ```
- * Result: ✅ Both entities validate each other → Hanko succeeds!
+ * Result: [OK] Both entities validate each other [RIGHTWARDS] Hanko succeeds!
  *
  * WHY THIS IS INTENDED:
  * - Real entities will include EOAs for practical control
@@ -102,7 +102,7 @@ export async function createRealSignature(hash: Buffer, privateKey: Buffer): Pro
 
     return bufferConcat([Buffer.from(rPadded), Buffer.from(sPadded), Buffer.from([v])]);
   } catch (error) {
-    console.error(`❌ Failed to create signature: ${error}`);
+    console.error(`[X] Failed to create signature: ${error}`);
     throw error;
   }
 };
@@ -132,12 +132,12 @@ export const createDirectHashSignature = async (hash: Buffer, privateKey: Buffer
     sPadded.set(s, 32 - s.length);
 
     console.log(
-      `🔑 Created signature: r=${ethers.hexlify(r).slice(0, 10)}..., s=${ethers.hexlify(s).slice(0, 10)}..., v=${v}`,
+      `[KEY] Created signature: r=${ethers.hexlify(r).slice(0, 10)}..., s=${ethers.hexlify(s).slice(0, 10)}..., v=${v}`,
     );
 
     return bufferConcat([Buffer.from(rPadded), Buffer.from(sPadded), Buffer.from([v])]);
   } catch (error) {
-    console.error(`❌ Failed to create direct hash signature: ${error}`);
+    console.error(`[X] Failed to create direct hash signature: ${error}`);
     throw error;
   }
 };
@@ -162,12 +162,12 @@ export const verifySignatureRecovery = async (
 
     const matches = recoveredAddress.toLowerCase() === expectedAddress.toLowerCase();
     console.log(
-      `🔍 Recovery test: expected=${expectedAddress.slice(0, 10)}..., recovered=${recoveredAddress.slice(0, 10)}..., match=${matches}`,
+      `[FIND] Recovery test: expected=${expectedAddress.slice(0, 10)}..., recovered=${recoveredAddress.slice(0, 10)}..., match=${matches}`,
     );
 
     return matches;
   } catch (error) {
-    console.error(`❌ Failed to verify signature recovery: ${error}`);
+    console.error(`[X] Failed to verify signature recovery: ${error}`);
     return false;
   }
 };
@@ -175,7 +175,7 @@ export const verifySignatureRecovery = async (
 // === SIGNATURE PACKING (Real Version) ===
 
 export const packRealSignatures = (signatures: Buffer[]): Buffer => {
-  console.log(`📦 Packing ${signatures.length} REAL signatures...`);
+  console.log(`[PKG] Packing ${signatures.length} REAL signatures...`);
 
   if (signatures.length === 0) {
     return bufferAlloc(0);
@@ -219,7 +219,7 @@ export const packRealSignatures = (signatures: Buffer[]): Buffer => {
   }
 
   const packed = bufferConcat([rsValues, vValues]);
-  console.log(`✅ Packed ${signatures.length} real signatures: ${packed.length} bytes`);
+  console.log(`[OK] Packed ${signatures.length} real signatures: ${packed.length} bytes`);
 
   return packed;
 };
@@ -240,7 +240,7 @@ export const detectSignatureCount = (packedSignatures: Buffer): number => {
     const expectedTotal = expectedRSBytes + expectedVBytes;
 
     if (packedSignatures.length === expectedTotal) {
-      console.log(`🔍 Detected ${count} signatures from ${packedSignatures.length} bytes`);
+      console.log(`[FIND] Detected ${count} signatures from ${packedSignatures.length} bytes`);
       return count;
     }
 
@@ -255,7 +255,7 @@ export const detectSignatureCount = (packedSignatures: Buffer): number => {
 
 export const unpackRealSignatures = (packedSignatures: Buffer): Buffer[] => {
   const signatureCount = detectSignatureCount(packedSignatures);
-  console.log(`📦 Unpacking ${signatureCount} REAL signatures...`);
+  console.log(`[PKG] Unpacking ${signatureCount} REAL signatures...`);
 
   if (signatureCount === 0) return [];
 
@@ -283,47 +283,47 @@ export const unpackRealSignatures = (packedSignatures: Buffer): Buffer[] => {
     signatures.push(signature);
   }
 
-  console.log(`✅ Unpacked ${signatures.length} real signatures`);
+  console.log(`[OK] Unpacked ${signatures.length} real signatures`);
   return signatures;
 };
 
 // === REAL HANKO BUILDING ===
 
 /**
- * 💡 WHY WE DON'T TRACK SIGNATURE USAGE (Response to Junior's Concern)
+ * [IDEA] WHY WE DON'T TRACK SIGNATURE USAGE (Response to Junior's Concern)
  *
  * Question: "How do you ensure signatures are actually used in claims?"
  *
  * ANSWER: We intentionally DON'T track this because:
  *
- * 1. 🔄 CIRCULAR REFERENCE PROBLEM:
- *    EntityA → EntityB → EntityA means neither "uses" direct signatures
+ * 1. [ANTICLOCKWISE] CIRCULAR REFERENCE PROBLEM:
+ *    EntityA [RIGHTWARDS] EntityB [RIGHTWARDS] EntityA means neither "uses" direct signatures
  *    But this is VALID hierarchical governance we want to support
  *
- * 2. 💰 GAS COST EXPLOSION:
+ * 2. [$] GAS COST EXPLOSION:
  *    Tracking would require O(n²) analysis of claim dependency graphs
  *    Current approach: O(n) sequential processing with assumptions
  *
- * 3. 🎯 STILL GAMEABLE:
+ * 3. [GOAL] STILL GAMEABLE:
  *    Even with tracking, attacker can include "decoy" signatures:
  *    - Add 1 real signature that IS referenced by some claim
  *    - Add circular claims that don't use that signature
  *    - System still validates circular parts independently
  *
- * 4. 🛡️  PROTOCOL VS POLICY:
+ * 4. [SHIELD]  PROTOCOL VS POLICY:
  *    Protocol provides flexible primitive
  *    UI/Application enforces business rules (e.g., "require EOA in root")
  *
  * EXAMPLE WHY TRACKING FAILS:
  * ```
- * packedSignatures: [RealSig1]  // ← Used by ClaimC
+ * packedSignatures: [RealSig1]  // [LEFTWARDS] Used by ClaimC
  * claims: [
- *   ClaimA: refs ClaimB,    // ← Circular validation
- *   ClaimB: refs ClaimA,    // ← Still works without RealSig1!
- *   ClaimC: refs RealSig1   // ← Uses the signature
+ *   ClaimA: refs ClaimB,    // [LEFTWARDS] Circular validation
+ *   ClaimB: refs ClaimA,    // [LEFTWARDS] Still works without RealSig1!
+ *   ClaimC: refs RealSig1   // [LEFTWARDS] Uses the signature
  * ]
  * ```
- * Tracking would say "✅ RealSig1 is used" but ClaimA/B still validate circularly.
+ * Tracking would say "[OK] RealSig1 is used" but ClaimA/B still validate circularly.
  */
 export const buildRealHanko = async (
   hashToSign: Buffer,
@@ -339,7 +339,7 @@ export const buildRealHanko = async (
     }[];
   },
 ): Promise<HankoBytes> => {
-  console.log(`🖋️  Building REAL hanko: ${config.claims.length} claims, ${config.privateKeys.length} signatures`);
+  console.log(`[PEN]  Building REAL hanko: ${config.claims.length} claims, ${config.privateKeys.length} signatures`);
 
   // Create REAL Ethereum signatures
   const signatures: Buffer[] = [];
@@ -352,7 +352,7 @@ export const buildRealHanko = async (
     const wallet = new ethers.Wallet(ethers.hexlify(privateKey));
     signerAddresses.push(wallet.address);
 
-    console.log(`🔑 Signing with key ${i + 1}/${config.privateKeys.length}: ${wallet.address.slice(0, 10)}...`);
+    console.log(`[KEY] Signing with key ${i + 1}/${config.privateKeys.length}: ${wallet.address.slice(0, 10)}...`);
 
     // Create real signature
     const signature = await createDirectHashSignature(hashToSign!, privateKey);
@@ -383,22 +383,22 @@ export const buildRealHanko = async (
     claims, // Entity claims (index M..∞)
   };
 
-  console.log(`✅ Built REAL hanko with verifiable signatures`);
-  console.log(`   📋 Signers: ${signerAddresses.map(addr => addr.slice(0, 10) + '...').join(', ')}`);
-  console.log(`   📊 Signature count: ${signatures.length} (detected from length)`);
+  console.log(`[OK] Built REAL hanko with verifiable signatures`);
+  console.log(`   [LIST] Signers: ${signerAddresses.map(addr => addr.slice(0, 10) + '...').join(', ')}`);
+  console.log(`   [STATS] Signature count: ${signatures.length} (detected from length)`);
 
   return hanko;
 };
 
 /**
- * 🔥 FLASHLOAN GOVERNANCE SIMULATION - "ASSUME YES" in TypeScript
+ * [FIRE] FLASHLOAN GOVERNANCE SIMULATION - "ASSUME YES" in TypeScript
  *
  * This function mirrors the Solidity flashloan governance logic on the client side.
  * Used for gas optimization: pre-recover entities to avoid on-chain signature recovery.
  *
  * CRITICAL: This implements the SAME optimistic assumptions as Solidity:
  * - When claim X references claim Y, we assume Y = YES regardless of verification order
- * - If ANY claim later fails its threshold → entire validation should fail
+ * - If ANY claim later fails its threshold [RIGHTWARDS] entire validation should fail
  * - Enables circular references to mutually validate (INTENDED behavior)
  *
  * EXAMPLE CIRCULAR VALIDATION:
@@ -408,9 +408,9 @@ export const buildRealHanko = async (
  * ]
  *
  * Processing:
- * 1. Claim 0: Assume B=YES → 100 ≥ 100 → A passes ✅
- * 2. Claim 1: Assume A=YES → 100 ≥ 100 → B passes ✅
- * 3. Both entities added to yesEntities → circular validation succeeds!
+ * 1. Claim 0: Assume B=YES [RIGHTWARDS] 100 ≥ 100 [RIGHTWARDS] A passes [OK]
+ * 2. Claim 1: Assume A=YES [RIGHTWARDS] 100 ≥ 100 [RIGHTWARDS] B passes [OK]
+ * 3. Both entities added to yesEntities [RIGHTWARDS] circular validation succeeds!
  *
  * Recover hanko signatures and return processed entities (for gas optimization)
  */
@@ -422,7 +422,7 @@ export const recoverHankoEntities = async (
   noEntities: Buffer[];
   claims: HankoClaim[];
 }> => {
-  console.log('🔍 Recovering hanko entities with flashloan governance...');
+  console.log('[FIND] Recovering hanko entities with flashloan governance...');
 
   // Step 1: Unpack and recover signatures
   const signatures = unpackRealSignatures(hanko.packedSignatures);
@@ -443,28 +443,28 @@ export const recoverHankoEntities = async (
       const addressAsBytes32 = Buffer.from(ethers.zeroPadValue(recoveredAddress, 32).slice(2), 'hex');
 
       yesEntities.push(addressAsBytes32);
-      console.log(`✅ Recovered signer ${i + 1}: ${recoveredAddress.slice(0, 10)}...`);
+      console.log(`[OK] Recovered signer ${i + 1}: ${recoveredAddress.slice(0, 10)}...`);
     } catch (error) {
-      console.log(`❌ Failed to recover signature ${i + 1}: ${error}`);
+      console.log(`[X] Failed to recover signature ${i + 1}: ${error}`);
     }
   }
 
-  // Step 2: 🔥 FLASHLOAN GOVERNANCE - optimistically assume all claims pass
+  // Step 2: [FIRE] FLASHLOAN GOVERNANCE - optimistically assume all claims pass
   //
-  // 🚨 KEY INSIGHT: We process claims sequentially but assume ALL future claims = YES
+  // [ALERT] KEY INSIGHT: We process claims sequentially but assume ALL future claims = YES
   // This mirrors the Solidity behavior and enables circular validation
   //
   // CONCRETE EXAMPLE:
-  // Claim 0: EntityA needs EntityB (assume YES) → A gets added to yesEntities
-  // Claim 1: EntityB needs EntityA (assume YES) → B gets added to yesEntities
-  // Result: Both A and B are in yesEntities → mutual validation succeeds!
+  // Claim 0: EntityA needs EntityB (assume YES) [RIGHTWARDS] A gets added to yesEntities
+  // Claim 1: EntityB needs EntityA (assume YES) [RIGHTWARDS] B gets added to yesEntities
+  // Result: Both A and B are in yesEntities [RIGHTWARDS] mutual validation succeeds!
 
   for (let claimIndex = 0; claimIndex < hanko.claims.length; claimIndex++) {
     const claim = hanko.claims[claimIndex];
     if (!claim) continue;
 
     console.log(
-      `🔄 Processing claim ${claimIndex + 1}/${hanko.claims.length}: Entity ${ethers.hexlify(claim.entityId).slice(0, 10)}...`,
+      `[ANTICLOCKWISE] Processing claim ${claimIndex + 1}/${hanko.claims.length}: Entity ${ethers.hexlify(claim.entityId).slice(0, 10)}...`,
     );
 
     // Calculate voting power with flashloan assumptions
@@ -477,31 +477,31 @@ export const recoverHankoEntities = async (
 
       // Validate bounds
       if (entityIndex >= totalEntities) {
-        console.log(`❌ Entity index ${entityIndex} out of bounds (max: ${totalEntities})`);
+        console.log(`[X] Entity index ${entityIndex} out of bounds (max: ${totalEntities})`);
         continue;
       }
 
       // Prevent self-reference
       const referencedClaimIndex = entityIndex - hanko.placeholders.length - signatures.length;
       if (referencedClaimIndex === claimIndex) {
-        console.log(`❌ Claim ${claimIndex} cannot reference itself`);
+        console.log(`[X] Claim ${claimIndex} cannot reference itself`);
         continue;
       }
 
       if (entityIndex < hanko.placeholders.length) {
         // Index 0..N-1: Placeholder (failed entity) - contributes 0 voting power
-        console.log(`  📍 Index ${entityIndex}: Placeholder (no power)`);
+        console.log(`  [PIN] Index ${entityIndex}: Placeholder (no power)`);
         continue;
       } else if (entityIndex < hanko.placeholders.length + signatures.length) {
         // Index N..M-1: EOA signature - verified, contributes full weight
         const weight = claim.weights[i] || 0;
-        console.log(`  🔑 Index ${entityIndex}: EOA signature (power: ${weight})`);
+        console.log(`  [KEY] Index ${entityIndex}: EOA signature (power: ${weight})`);
         totalVotingPower += weight;
       } else {
         // Index M..∞: Entity claim - ASSUME YES! (flashloan governance)
         const refClaimIdx = referencedClaimIndex;
         const weight = claim.weights[i] || 0;
-        console.log(`  🔥 Index ${entityIndex}: ASSUME claim ${refClaimIdx} = YES (power: ${weight})`);
+        console.log(`  [FIRE] Index ${entityIndex}: ASSUME claim ${refClaimIdx} = YES (power: ${weight})`);
         totalVotingPower += weight;
       }
     }
@@ -509,14 +509,14 @@ export const recoverHankoEntities = async (
     // Check threshold
     if (totalVotingPower >= claim.threshold) {
       yesEntities.push(claim.entityId);
-      console.log(`✅ Claim ${claimIndex + 1} passed: ${totalVotingPower}/${claim.threshold} (flashloan assumption)`);
+      console.log(`[OK] Claim ${claimIndex + 1} passed: ${totalVotingPower}/${claim.threshold} (flashloan assumption)`);
     } else {
-      console.log(`❌ Claim ${claimIndex + 1} failed: ${totalVotingPower}/${claim.threshold}`);
+      console.log(`[X] Claim ${claimIndex + 1} failed: ${totalVotingPower}/${claim.threshold}`);
       // Note: In flashloan governance, any failure means total failure
     }
   }
 
-  console.log(`📊 Flashloan recovery complete: ${yesEntities.length} yes, ${hanko.placeholders.length} placeholders`);
+  console.log(`[STATS] Flashloan recovery complete: ${yesEntities.length} yes, ${hanko.placeholders.length} placeholders`);
 
   return {
     yesEntities,
@@ -528,7 +528,7 @@ export const recoverHankoEntities = async (
 // === FULL CYCLE TEST ===
 
 export const testFullCycle = async (): Promise<{ hanko: HankoBytes; abiEncoded: string; hashToSign: Buffer }> => {
-  console.log('\n🧪 === FULL CYCLE TEST: TypeScript → Solidity ===\n');
+  console.log('\n[TEST] === FULL CYCLE TEST: TypeScript [RIGHTWARDS] Solidity ===\n');
 
   // Generate test data
   const hashToSign = createHash('sha256').update('Test hanko message').digest();
@@ -539,9 +539,9 @@ export const testFullCycle = async (): Promise<{ hanko: HankoBytes; abiEncoded: 
   const wallet1 = new ethers.Wallet(ethers.hexlify(privateKey1));
   const wallet2 = new ethers.Wallet(ethers.hexlify(privateKey2));
 
-  console.log(`📄 Hash to sign: 0x${hashToSign.toString('hex')}`);
-  console.log(`🔑 Signer 1: ${wallet1.address}`);
-  console.log(`🔑 Signer 2: ${wallet2.address}`);
+  console.log(`[DOC] Hash to sign: 0x${hashToSign.toString('hex')}`);
+  console.log(`[KEY] Signer 1: ${wallet1.address}`);
+  console.log(`[KEY] Signer 2: ${wallet2.address}`);
 
   // Create real hanko
   const hanko = await buildRealHanko(hashToSign, {
@@ -560,12 +560,12 @@ export const testFullCycle = async (): Promise<{ hanko: HankoBytes; abiEncoded: 
 
   // Verify unpacking works
   const unpacked = unpackRealSignatures(hanko.packedSignatures);
-  console.log(`\n📦 Signature verification:`);
+  console.log(`\n[PKG] Signature verification:`);
 
   for (let i = 0; i < unpacked.length; i++) {
     const expectedAddr = i === 0 ? wallet1.address : wallet2.address;
     const verified = await verifySignatureRecovery(hashToSign, unpacked[i]!, expectedAddr);
-    console.log(`   Signature ${i + 1}: ${verified ? '✅' : '❌'} ${expectedAddr.slice(0, 10)}...`);
+    console.log(`   Signature ${i + 1}: ${verified ? '[OK]' : '[X]'} ${expectedAddr.slice(0, 10)}...`);
   }
 
   // Create ABI-encoded data for Solidity (flashloan governance format)
@@ -586,7 +586,7 @@ export const testFullCycle = async (): Promise<{ hanko: HankoBytes; abiEncoded: 
     ],
   );
 
-  console.log(`\n📋 ABI Encoded hanko: ${abiEncoded.length} bytes`);
+  console.log(`\n[LIST] ABI Encoded hanko: ${abiEncoded.length} bytes`);
 
   return { hanko, abiEncoded, hashToSign };
 };
@@ -594,13 +594,13 @@ export const testFullCycle = async (): Promise<{ hanko: HankoBytes; abiEncoded: 
 // === GAS OPTIMIZATION TEST ===
 
 export const testGasOptimization = async (): Promise<void> => {
-  console.log('\n⛽ === GAS OPTIMIZATION TEST ===\n');
+  console.log('\n[FUEL] === GAS OPTIMIZATION TEST ===\n');
 
   // Create test hanko
   const { hanko, abiEncoded, hashToSign } = await testFullCycle();
 
   // Method 1: Send full hanko (higher calldata, more gas)
-  console.log(`📊 Method 1 - Full Hanko:`);
+  console.log(`[STATS] Method 1 - Full Hanko:`);
   console.log(`   Calldata size: ${abiEncoded.length} bytes`);
   console.log(`   Solidity function: verifyHankoSignature(bytes,bytes32)`);
 
@@ -623,7 +623,7 @@ export const testGasOptimization = async (): Promise<void> => {
     ],
   );
 
-  console.log(`📊 Method 2 - Pre-recovered:`);
+  console.log(`[STATS] Method 2 - Pre-recovered:`);
   console.log(`   Calldata size: ${optimizedEncoded.length} bytes`);
   console.log(`   Solidity function: verifyQuorumClaims(bytes32[],bytes32[],HankoClaim[])`);
   console.log(
@@ -631,7 +631,7 @@ export const testGasOptimization = async (): Promise<void> => {
   );
   console.log(`   Additional savings: No signature recovery gas cost on-chain`);
 
-  console.log(`\n💡 Recommendation: Use Method 2 for gas-sensitive applications`);
+  console.log(`\n[IDEA] Recommendation: Use Method 2 for gas-sensitive applications`);
 };
 
 // All functions exported above

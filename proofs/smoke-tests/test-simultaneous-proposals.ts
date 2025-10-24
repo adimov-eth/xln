@@ -7,7 +7,7 @@ import { Env, EntityInput } from './src/types';
 import { applyServerInput } from './src/server';
 
 async function testSimultaneousProposals() {
-  console.log('🧪 Simultaneous Proposals Test\n');
+  console.log('[TEST] Simultaneous Proposals Test\n');
 
   // Create minimal environment
   const env: Env = {
@@ -22,7 +22,7 @@ async function testSimultaneousProposals() {
   const entity1Id = '0x0000000000000000000000000000000000000000000000000000000000000001';
   const entity2Id = '0x0000000000000000000000000000000000000000000000000000000000000002';
 
-  console.log('📦 Creating Entity 1 (LEFT) and Entity 2 (RIGHT)...\n');
+  console.log('[PKG] Creating Entity 1 (LEFT) and Entity 2 (RIGHT)...\n');
 
   await applyServerInput(env, {
     serverTxs: [
@@ -59,7 +59,7 @@ async function testSimultaneousProposals() {
   });
 
   // Open account
-  console.log('🔗 Opening account...\n');
+  console.log('[LINK] Opening account...\n');
   const openResult = await applyServerInput(env, {
     serverTxs: [],
     entityInputs: [
@@ -75,10 +75,10 @@ async function testSimultaneousProposals() {
     await applyServerInput(env, { serverTxs: [], entityInputs: openResult.entityOutbox });
   }
 
-  console.log('✅ Account established\n');
+  console.log('[OK] Account established\n');
 
   // SIMULTANEOUS PROPOSALS: Both send payment at same time
-  console.log('💥 SIMULTANEOUS: Both entities send payment at exact same time...\n');
+  console.log('[BOOM] SIMULTANEOUS: Both entities send payment at exact same time...\n');
 
   const simultaneousInputs: EntityInput[] = [
     {
@@ -119,7 +119,7 @@ async function testSimultaneousProposals() {
     entityInputs: simultaneousInputs,
   });
 
-  console.log(`\n📤 Generated ${simResult.entityOutbox.length} outputs\n`);
+  console.log(`\n[OUT] Generated ${simResult.entityOutbox.length} outputs\n`);
 
   // Process cascade
   let outputs = simResult.entityOutbox;
@@ -127,7 +127,7 @@ async function testSimultaneousProposals() {
 
   while (outputs.length > 0 && iteration < 20) {
     iteration++;
-    console.log(`🔄 Iteration ${iteration}: Processing ${outputs.length} outputs...\n`);
+    console.log(`[ANTICLOCKWISE] Iteration ${iteration}: Processing ${outputs.length} outputs...\n`);
 
     const result = await applyServerInput(env, {
       serverTxs: [],
@@ -144,7 +144,7 @@ async function testSimultaneousProposals() {
   const account1 = e1?.state.accounts.get(entity2Id);
   const account2 = e2?.state.accounts.get(entity1Id);
 
-  console.log('\n📊 Final State after simultaneous proposals:\n');
+  console.log('\n[STATS] Final State after simultaneous proposals:\n');
   console.log(`   Entity 1 (LEFT) account:`);
   console.log(`      Frame history: ${account1?.frameHistory?.length || 0} frames`);
   console.log(`      Pending frame: ${account1?.pendingFrame ? 'YES' : 'NO'}`);
@@ -158,22 +158,22 @@ async function testSimultaneousProposals() {
   // Eventually both should converge to same state
 
   if (account1?.pendingFrame || account2?.pendingFrame) {
-    console.log('\n⚠️  Frames stuck - rollback logic failed\n');
+    console.log('\n[WARN]  Frames stuck - rollback logic failed\n');
     process.exit(1);
   }
 
   if ((account1?.frameHistory?.length || 0) >= 1 && (account2?.frameHistory?.length || 0) >= 1) {
-    console.log('\n✅ SUCCESS: Simultaneous proposals resolved correctly!');
+    console.log('\n[OK] SUCCESS: Simultaneous proposals resolved correctly!');
     console.log('   LEFT won, RIGHT rolled back and accepted\n');
     process.exit(0);
   }
 
-  console.log('\n❌ FAILURE: Rollback logic incomplete\n');
+  console.log('\n[X] FAILURE: Rollback logic incomplete\n');
   process.exit(1);
 }
 
 testSimultaneousProposals().catch((err) => {
-  console.error('❌ Test failed:', err);
+  console.error('[X] Test failed:', err);
   console.error(err.stack);
   process.exit(1);
 });

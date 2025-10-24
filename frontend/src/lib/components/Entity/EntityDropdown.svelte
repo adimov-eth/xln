@@ -36,7 +36,7 @@
 
     dropdownContent.innerHTML = `
       <div class="dropdown-search-container">
-        <input type="text" class="dropdown-search-input" placeholder="🔍 Search jurisdictions, signers, entities..." />
+        <input type="text" class="dropdown-search-input" placeholder="[FIND] Search jurisdictions, signers, entities..." />
       </div>
       <div class="dropdown-results" id="dropdownResults">
         <!-- Results will be populated here -->
@@ -69,8 +69,8 @@
 
     resultsContainer.innerHTML = '';
 
-    console.log(`🔍 EntityDropdown: Total replicas available: ${$replicas.size}`);
-    console.log(`🔍 EntityDropdown: Replica keys:`, Array.from($replicas.keys()));
+    console.log(`[FIND] EntityDropdown: Total replicas available: ${$replicas.size}`);
+    console.log(`[FIND] EntityDropdown: Replica keys:`, Array.from($replicas.keys()));
 
     // For now, show all entities regardless of jurisdiction
     // TODO: Later we can filter by jurisdiction ID when we have multiple networks
@@ -114,7 +114,7 @@
 
         // Add signer
         const signerItem = createDropdownTreeItem(
-          `👤 ${signerId}`,
+          `[USER] ${signerId}`,
           '',
           1,
           false,
@@ -131,7 +131,7 @@
           const entityDisplay = `Entity #${entityNum}`;
 
           const entityItem = createDropdownTreeItem(
-            `🏢 ${entityDisplay}`,
+            `[OFFICE] ${entityDisplay}`,
             `${jurisdiction.name}:${signerId}:${replica.entityId}`,
             2,
             true,
@@ -152,10 +152,10 @@
       const currentReplicas = $visibleReplicas || $replicas;
       const replicasArray = Array.from(currentReplicas.values());
 
-      console.log(`🔍 EntityDropdown: ${jurisdiction.name} has ${replicasArray.length} replicas`);
+      console.log(`[FIND] EntityDropdown: ${jurisdiction.name} has ${replicasArray.length} replicas`);
       replicasArray.forEach((replica: any) => {
         if (!$xlnFunctions) return; // Safety guard
-        console.log(`  📋 Entity: #${$xlnFunctions.getEntityShortId(replica.entityId)} (${replica.signerId})`);
+        console.log(`  [LIST] Entity: #${$xlnFunctions.getEntityShortId(replica.entityId)} (${replica.signerId})`);
       });
 
       if (replicasArray.length === 0) return;
@@ -183,7 +183,7 @@
 
         // Add entity
         const entityItem = createDropdownTreeItem(
-          `🏢 ${entityDisplay}`,
+          `[OFFICE] ${entityDisplay}`,
           '',
           1,
           false,
@@ -197,7 +197,7 @@
           const isLastSigner = sIndex === (entitySigners?.length || 0) - 1;
 
           const signerItem = createDropdownTreeItem(
-            `👤 ${replica.signerId}`,
+            `[USER] ${replica.signerId}`,
             `${jurisdiction.name}:${replica.signerId}:${replica.entityId}`,
             2,
             true,
@@ -269,7 +269,7 @@
 
 <div class="unified-dropdown" class:open={isOpen}>
   <button class="unified-dropdown-btn" on:click={toggleDropdown} style="width: 100%;">
-    <span class="dropdown-icon">🏛️</span>
+    <span class="dropdown-icon">[COURT]</span>
     <span class="dropdown-text">{dropdownText}</span>
     <span class="dropdown-arrow">▼</span>
   </button>

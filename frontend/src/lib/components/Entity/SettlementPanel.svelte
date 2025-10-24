@@ -121,7 +121,7 @@
       // SIMPLE MODE: Use new deposit_collateral or request_withdrawal
       if (mode === 'simple') {
         if (simpleAction === 'fund') {
-          // R→C: Unilateral deposit (adds to jBatch, broadcasts via crontab)
+          // R[RIGHTWARDS]C: Unilateral deposit (adds to jBatch, broadcasts via crontab)
           entityTx = {
             type: 'deposit_collateral' as const,
             data: {
@@ -130,9 +130,9 @@
               amount: BigInt(simpleAmount),
             },
           };
-          console.log('📤 Sending R→C deposit_collateral');
+          console.log('[OUT] Sending R[RIGHTWARDS]C deposit_collateral');
         } else {
-          // C→R: Withdrawal request (bilateral via account consensus)
+          // C[RIGHTWARDS]R: Withdrawal request (bilateral via account consensus)
           entityTx = {
             type: 'requestWithdrawal' as const,
             data: {
@@ -141,13 +141,13 @@
               amount: BigInt(simpleAmount),
             },
           };
-          console.log('📤 Sending C→R withdrawal request');
+          console.log('[OUT] Sending C[RIGHTWARDS]R withdrawal request');
         }
       } else {
         // ADVANCED MODE: Manual settleDiffs (requires invariant)
         if (!invariantValid) {
           const error = 'Invariant violation: leftDiff + rightDiff + collateralDiff must equal 0';
-          console.error('❌ Settlement validation failed:', error);
+          console.error('[X] Settlement validation failed:', error);
           alert(error);
           sending = false;
           return;
@@ -167,7 +167,7 @@
             description: description || undefined,
           },
         };
-        console.log('📤 Sending manual settleDiffs');
+        console.log('[OUT] Sending manual settleDiffs');
       }
 
       const settlementInput = {
@@ -177,7 +177,7 @@
       };
 
       await processWithDelay(env, [settlementInput]);
-      console.log(`✅ Settlement sent`);
+      console.log(`[OK] Settlement sent`);
 
       // Reset simple mode
       if (mode === 'simple') {
@@ -193,26 +193,26 @@
 </script>
 
 <div class="settlement-panel">
-  <h3>Settlement (Reserve ⇄ Collateral + Batch Rebalancing)</h3>
+  <h3>Settlement (Reserve [RIGHTWARDS] Collateral + Batch Rebalancing)</h3>
   <p class="panel-description">
-    <strong>Fund (R→C):</strong> Deposits to jBatch, broadcasts every 5s via crontab<br>
-    <strong>Withdraw (C→R):</strong> Requires bilateral approval (use Advanced mode for now)<br>
+    <strong>Fund (R[RIGHTWARDS]C):</strong> Deposits to jBatch, broadcasts every 5s via crontab<br>
+    <strong>Withdraw (C[RIGHTWARDS]R):</strong> Requires bilateral approval (use Advanced mode for now)<br>
     <strong>Advanced:</strong> Manual settleDiffs with full control over all 4 diffs
   </p>
 
   <!-- jBatch Status -->
   {#if jBatchState}
     <div class="jbatch-status">
-      <h4>📦 Pending Batch ({batchSize} operations)</h4>
+      <h4>[PKG] Pending Batch ({batchSize} operations)</h4>
       {#if batchSize > 0}
         <div class="batch-contents">
           {#if jBatchState.batch.reserveToCollateral?.length > 0}
             <div class="batch-section">
-              <strong>R→C Deposits ({jBatchState.batch.reserveToCollateral.length}):</strong>
+              <strong>R[RIGHTWARDS]C Deposits ({jBatchState.batch.reserveToCollateral.length}):</strong>
               {#each jBatchState.batch.reserveToCollateral as r2c}
                 {#each r2c.pairs as pair}
                   <div class="batch-item">
-                    • Entity {r2c.receivingEntity.slice(-4)} → {pair.entity.slice(-4)}: {Number(pair.amount) / 1e18} token {r2c.tokenId}
+                    • Entity {r2c.receivingEntity.slice(-4)} [RIGHTWARDS] {pair.entity.slice(-4)}: {Number(pair.amount) / 1e18} token {r2c.tokenId}
                   </div>
                 {/each}
               {/each}
@@ -223,17 +223,17 @@
               <strong>Settlements ({jBatchState.batch.settlements.length}):</strong>
               {#each jBatchState.batch.settlements as settle}
                 <div class="batch-item">
-                  • {settle.leftEntity.slice(-4)}↔{settle.rightEntity.slice(-4)}: {settle.diffs.length} tokens
+                  • {settle.leftEntity.slice(-4)}<->{settle.rightEntity.slice(-4)}: {settle.diffs.length} tokens
                 </div>
               {/each}
             </div>
           {/if}
           {#if jBatchState.batch.reserveToReserve?.length > 0}
             <div class="batch-section">
-              <strong>R→R Transfers ({jBatchState.batch.reserveToReserve.length}):</strong>
+              <strong>R[RIGHTWARDS]R Transfers ({jBatchState.batch.reserveToReserve.length}):</strong>
               {#each jBatchState.batch.reserveToReserve as r2r}
                 <div class="batch-item">
-                  • → {r2r.receivingEntity.slice(-4)}: {Number(r2r.amount) / 1e18} token {r2r.tokenId}
+                  • [RIGHTWARDS] {r2r.receivingEntity.slice(-4)}: {Number(r2r.amount) / 1e18} token {r2r.tokenId}
                 </div>
               {/each}
             </div>
@@ -296,7 +296,7 @@
             on:change={updateSimpleDiffs}
             disabled={sending}
           />
-          <span>Fund from Reserve → Collateral</span>
+          <span>Fund from Reserve [RIGHTWARDS] Collateral</span>
         </label>
         <label>
           <input
@@ -306,7 +306,7 @@
             on:change={updateSimpleDiffs}
             disabled={sending}
           />
-          <span>Withdraw Collateral → Reserve</span>
+          <span>Withdraw Collateral [RIGHTWARDS] Reserve</span>
         </label>
       </div>
 
@@ -391,9 +391,9 @@
       <strong>Invariant:</strong>
       {leftDiff} + {rightDiff} + {collateralDiff} = {invariantSum.toString()}
       {#if invariantValid}
-        <span class="badge valid">✅ Valid</span>
+        <span class="badge valid">[OK] Valid</span>
       {:else}
-        <span class="badge invalid">❌ Must = 0</span>
+        <span class="badge invalid">[X] Must = 0</span>
       {/if}
     </div>
   </div>

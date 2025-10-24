@@ -40,7 +40,7 @@ const createDepositEvent = (entityId: string, signerId: string, asset: { asset: 
   };
   
   if (DEBUG) {
-    console.log(`🎭 Mock j_event created: ${eventType} ${asset.amount} ${asset.asset} for entity ${entityId.slice(0, 10)}...`);
+    console.log(`[ROLES] Mock j_event created: ${eventType} ${asset.amount} ${asset.asset} for entity ${entityId.slice(0, 10)}...`);
   }
   
   return event;
@@ -48,18 +48,18 @@ const createDepositEvent = (entityId: string, signerId: string, asset: { asset: 
 
 const runDemo = async (env: Env): Promise<Env> => {
   if (DEBUG) {
-    console.log('🚀 Starting XLN Demo: First Principles');
+    console.log('[LAUNCH] Starting XLN Demo: First Principles');
   }
 
   const arrakisJurisdiction = await getJurisdictionByAddress('arrakis');
   if (!arrakisJurisdiction) {
-    throw new Error('❌ Arrakis jurisdiction not found');
+    throw new Error('[X] Arrakis jurisdiction not found');
   }
 
   const s1 = 's1';
   const s2 = 's2';
 
-  console.log(`\n📋 Forming entities e1=[${s1}] and e2=[${s2}]...`);
+  console.log(`\n[LIST] Forming entities e1=[${s1}] and e2=[${s2}]...`);
 
   const e1_config: ConsensusConfig = {
     mode: 'proposer-based',
@@ -92,17 +92,17 @@ const runDemo = async (env: Env): Promise<Env> => {
   const e1_replica = env.replicas.get(`${e1_id}:${s1}`);
   const e2_replica = env.replicas.get(`${e2_id}:${s2}`);
   if (e1_replica) {
-    console.log(`🧹 Cleared ${e1_replica.mempool.length} leftover transactions from e1 mempool`);
+    console.log(`[CLEAN] Cleared ${e1_replica.mempool.length} leftover transactions from e1 mempool`);
     e1_replica.mempool.length = 0;
   }
   if (e2_replica) {
-    console.log(`🧹 Cleared ${e2_replica.mempool.length} leftover transactions from e2 mempool`);
+    console.log(`[CLEAN] Cleared ${e2_replica.mempool.length} leftover transactions from e2 mempool`);
     e2_replica.mempool.length = 0;
   }
 
-  console.log(`✅ Entity ${formatEntityDisplay(e1_id)} and ${formatEntityDisplay(e2_id)} created.`);
+  console.log(`[OK] Entity ${formatEntityDisplay(e1_id)} and ${formatEntityDisplay(e2_id)} created.`);
 
-  console.log(`\n💰 Prefunding entity ${formatEntityDisplay(e1_id)}...`);
+  console.log(`\n[$] Prefunding entity ${formatEntityDisplay(e1_id)}...`);
   const initialPortfolio = [
     { asset: 'USDC', amount: '100000000000000000000', decimals: 18, tokenId: 1 },
     { asset: 'ETH', amount: '100000000000000000000', decimals: 18, tokenId: 2 },
@@ -116,7 +116,7 @@ const runDemo = async (env: Env): Promise<Env> => {
   
   // Debug: Check what's actually in reserves
   if (DEBUG) {
-    console.log('📊 Debug - Reserves after funding:');
+    console.log('[STATS] Debug - Reserves after funding:');
     if (e1_replica_after_funding?.state.reserves) {
       for (const [tokenId, balance] of e1_replica_after_funding.state.reserves.entries()) {
         console.log(`  Token ${tokenId}: ${balance.toString()}`);
@@ -130,21 +130,21 @@ const runDemo = async (env: Env): Promise<Env> => {
   const expectedETHAmount = 100000000000000000000n;
   
   if (!e1_replica_after_funding) {
-    throw new Error('❌ Verification failed: e1 replica not found after funding.');
+    throw new Error('[X] Verification failed: e1 replica not found after funding.');
   }
   
   if (ethReserve === undefined) {
-    throw new Error('❌ Verification failed: e1 ETH reserve not found. Available reserves: ' +
+    throw new Error('[X] Verification failed: e1 ETH reserve not found. Available reserves: ' +
       Array.from(e1_replica_after_funding.state.reserves.keys()).join(', '));
   }
 
   if (ethReserve !== expectedETHAmount) {
-    throw new Error(`❌ Verification failed: e1 ETH amount mismatch. Expected: ${expectedETHAmount}, Got: ${ethReserve}`);
+    throw new Error(`[X] Verification failed: e1 ETH amount mismatch. Expected: ${expectedETHAmount}, Got: ${ethReserve}`);
   }
 
-  console.log(`✅ ${formatEntityDisplay(e1_id)} funded successfully with ${ethReserve / 10n**18n} ETH.`);
+  console.log(`[OK] ${formatEntityDisplay(e1_id)} funded successfully with ${ethReserve / 10n**18n} ETH.`);
 
-  console.log(`\n💸 Performing reserve transfer from ${formatEntityDisplay(e1_id)} to ${formatEntityDisplay(e2_id)}...`);
+  console.log(`\n[$$] Performing reserve transfer from ${formatEntityDisplay(e1_id)} to ${formatEntityDisplay(e2_id)}...`);
   
   const transferAmount = 1000000000000000000n; // 1 ETH
   const transferTokenId = 1;
@@ -154,20 +154,20 @@ const runDemo = async (env: Env): Promise<Env> => {
   const e2_replica_before_transfer = env.replicas.get(`${e2_id}:${s2}`);
   
   if (!e1_replica_before_transfer) {
-    throw new Error('❌ Entity 1 replica not found before transfer');
+    throw new Error('[X] Entity 1 replica not found before transfer');
   }
   
   // Demo code: Default to 0n for display if token not initialized yet
   const e1_current_balance = e1_replica_before_transfer.state.reserves.get('1') ?? 0n;
   const e2_current_balance = e2_replica_before_transfer?.state.reserves.get('1') ?? 0n;
   
-  console.log(`📊 Pre-transfer: e1=${e1_current_balance}, e2=${e2_current_balance}`);
+  console.log(`[STATS] Pre-transfer: e1=${e1_current_balance}, e2=${e2_current_balance}`);
   
   // Calculate new balances
   const e1_new_balance = e1_current_balance - transferAmount; // 100 ETH - 1 ETH = 99 ETH
   const e2_new_balance = e2_current_balance + transferAmount; // 0 ETH + 1 ETH = 1 ETH
   
-  console.log(`📊 Post-transfer: e1=${e1_new_balance}, e2=${e2_new_balance}`);
+  console.log(`[STATS] Post-transfer: e1=${e1_new_balance}, e2=${e2_new_balance}`);
   
   // Create j_events to simulate the jurisdiction updating both entities' reserves
   const transferEvents = [
@@ -187,18 +187,18 @@ const runDemo = async (env: Env): Promise<Env> => {
     }, 'TRANSFER_IN')
   ];
 
-  console.log(`💸 Simulating jurisdiction events for reserve transfer...`);
+  console.log(`[$$] Simulating jurisdiction events for reserve transfer...`);
   await applyRuntimeInput(env, { runtimeTxs: [], entityInputs: transferEvents });
   await process(env, []);
 
-  console.log('✅ Transfer transaction submitted.');
+  console.log('[OK] Transfer transaction submitted.');
   
   const e1_replica_after_transfer = env.replicas.get(`${e1_id}:${s1}`);
   const e2_replica_after_transfer = env.replicas.get(`${e2_id}:${s2}`);
   
   // Debug: Check final reserves for both entities
   if (DEBUG) {
-    console.log('📊 Debug - Final reserves after transfer:');
+    console.log('[STATS] Debug - Final reserves after transfer:');
     console.log('Entity 1 reserves:');
     if (e1_replica_after_transfer?.state.reserves) {
       for (const [tokenId, balance] of e1_replica_after_transfer.state.reserves.entries()) {
@@ -220,15 +220,15 @@ const runDemo = async (env: Env): Promise<Env> => {
   const expectedE2Balance = 1000000000000000000n; // 1 ETH transferred
 
   if (e1_final_balance !== expectedE1Balance) {
-    throw new Error(`❌ Verification failed: e1 has incorrect final ETH balance. Expected: ${expectedE1Balance}, Got: ${e1_final_balance}`);
+    throw new Error(`[X] Verification failed: e1 has incorrect final ETH balance. Expected: ${expectedE1Balance}, Got: ${e1_final_balance}`);
   }
   if (e2_final_balance !== expectedE2Balance) {
-    throw new Error(`❌ Verification failed: e2 did not receive ETH. Expected: ${expectedE2Balance}, Got: ${e2_final_balance}`);
+    throw new Error(`[X] Verification failed: e2 did not receive ETH. Expected: ${expectedE2Balance}, Got: ${e2_final_balance}`);
   }
-  console.log(`✅ State verified: e1 has ${e1_final_balance / 10n**18n} ETH, e2 has ${e2_final_balance / 10n**18n} ETH.`);
+  console.log(`[OK] State verified: e1 has ${e1_final_balance / 10n**18n} ETH, e2 has ${e2_final_balance / 10n**18n} ETH.`);
 
-  // 🆕 ACCOUNT OPENING AND DIRECT PAYMENT TEST
-  console.log(`\n💳 Opening account between ${formatEntityDisplay(e1_id)} and ${formatEntityDisplay(e2_id)}...`);
+  // [NEW] ACCOUNT OPENING AND DIRECT PAYMENT TEST
+  console.log(`\n[CARD] Opening account between ${formatEntityDisplay(e1_id)} and ${formatEntityDisplay(e2_id)}...`);
 
   // STEP 1: e1 opens account with e2
   const accountOpeningInput = {
@@ -243,10 +243,10 @@ const runDemo = async (env: Env): Promise<Env> => {
   await applyRuntimeInput(env, { runtimeTxs: [], entityInputs: [accountOpeningInput] });
   await process(env, []);
 
-  console.log(`✅ Account opened between ${formatEntityDisplay(e1_id)} and ${formatEntityDisplay(e2_id)}`);
+  console.log(`[OK] Account opened between ${formatEntityDisplay(e1_id)} and ${formatEntityDisplay(e2_id)}`);
 
   // STEP 2: e1 sends direct payment to e2 via account (using credit)
-  console.log(`\n💸 ${formatEntityDisplay(e1_id)} sending direct payment to ${formatEntityDisplay(e2_id)}...`);
+  console.log(`\n[$$] ${formatEntityDisplay(e1_id)} sending direct payment to ${formatEntityDisplay(e2_id)}...`);
 
   const directPaymentInput = {
     entityId: e1_id,
@@ -275,13 +275,13 @@ const runDemo = async (env: Env): Promise<Env> => {
   await applyRuntimeInput(env, { runtimeTxs: [], entityInputs: [directPaymentInput] });
   await process(env, []);
 
-  console.log(`✅ Direct payment sent: $500 USD from ${formatEntityDisplay(e1_id)} to ${formatEntityDisplay(e2_id)}`);
+  console.log(`[OK] Direct payment sent: $500 USD from ${formatEntityDisplay(e1_id)} to ${formatEntityDisplay(e2_id)}`);
 
   // STEP 2.5: Verify bilateral balance conservation
   const e1_final_replica = env.replicas.get(`${e1_id}:${s1}`);
   const e2_final_replica = env.replicas.get(`${e2_id}:${s2}`);
 
-  console.log(`\n🔍 BILATERAL BALANCE VERIFICATION:`);
+  console.log(`\n[FIND] BILATERAL BALANCE VERIFICATION:`);
 
   if (e1_final_replica?.state.accounts.has(e2_id) && e2_final_replica?.state.accounts.has(e1_id)) {
     const e1_account = e1_final_replica.state.accounts.get(e2_id)!;
@@ -296,26 +296,26 @@ const runDemo = async (env: Env): Promise<Env> => {
       const e2_total = e2_delta.ondelta + e2_delta.offdelta;
       const sum = e1_total + e2_total;
 
-      console.log(`💰 E1 owes E2: ${e1_total.toString()} cents ($${(Number(e1_total) / 100).toFixed(2)})`);
-      console.log(`💰 E2 owes E1: ${e2_total.toString()} cents ($${(Number(e2_total) / 100).toFixed(2)})`);
-      console.log(`💰 Sum: ${sum.toString()} cents (should be 0)`);
+      console.log(`[$] E1 owes E2: ${e1_total.toString()} cents ($${(Number(e1_total) / 100).toFixed(2)})`);
+      console.log(`[$] E2 owes E1: ${e2_total.toString()} cents ($${(Number(e2_total) / 100).toFixed(2)})`);
+      console.log(`[$] Sum: ${sum.toString()} cents (should be 0)`);
 
       if (sum === 0n) {
-        console.log(`✅ CONSERVATION LAW VERIFIED: Bilateral balance maintained in rundemo!`);
+        console.log(`[OK] CONSERVATION LAW VERIFIED: Bilateral balance maintained in rundemo!`);
       } else {
-        console.log(`❌ CONSERVATION VIOLATED: Bilateral imbalance detected!`);
+        console.log(`[X] CONSERVATION VIOLATED: Bilateral imbalance detected!`);
       }
 
       if (e1_total === 50000n && e2_total === -50000n) {
-        console.log(`✅ PAYMENT VERIFIED: $500 correctly transferred from E1 to E2`);
+        console.log(`[OK] PAYMENT VERIFIED: $500 correctly transferred from E1 to E2`);
       } else {
-        console.log(`❌ PAYMENT MISMATCH: Expected E1:+500, E2:-500, got E1:${e1_total}, E2:${e2_total}`);
+        console.log(`[X] PAYMENT MISMATCH: Expected E1:+500, E2:-500, got E1:${e1_total}, E2:${e2_total}`);
       }
     } else {
-      console.log(`⚠️ Missing deltas for verification`);
+      console.log(`[WARN] Missing deltas for verification`);
     }
   } else {
-    console.log(`⚠️ Account machines not found for verification`);
+    console.log(`[WARN] Account machines not found for verification`);
   }
 
   // STEP 3: Verify account states
@@ -324,7 +324,7 @@ const runDemo = async (env: Env): Promise<Env> => {
 
   if (e1_replica_final?.state.accounts.has(e2_id)) {
     const e1_account = e1_replica_final.state.accounts.get(e2_id)!;
-    console.log(`💳 ${formatEntityDisplay(e1_id)} account with ${formatEntityDisplay(e2_id)}:`);
+    console.log(`[CARD] ${formatEntityDisplay(e1_id)} account with ${formatEntityDisplay(e2_id)}:`);
     console.log(`   Credit limits: own=${e1_account.globalCreditLimits.ownLimit.toString()} USD, peer=${e1_account.globalCreditLimits.peerLimit.toString()} USD`);
     console.log(`   Frame ${e1_account.currentFrame.height}: tokens=[${e1_account.currentFrame.tokenIds.join(',')}], deltas=[${e1_account.currentFrame.deltas.map(d => d.toString()).join(',')}]`);
     console.log(`   Sent transitions: ${e1_account.sentTransitions}, mempool: ${e1_account.mempool.length}`);
@@ -332,16 +332,16 @@ const runDemo = async (env: Env): Promise<Env> => {
 
   if (e2_replica_final?.state.accounts.has(e1_id)) {
     const e2_account = e2_replica_final.state.accounts.get(e1_id)!;
-    console.log(`💳 ${formatEntityDisplay(e2_id)} account with ${formatEntityDisplay(e1_id)}:`);
+    console.log(`[CARD] ${formatEntityDisplay(e2_id)} account with ${formatEntityDisplay(e1_id)}:`);
     console.log(`   Credit limits: own=${e2_account.globalCreditLimits.ownLimit.toString()} USD, peer=${e2_account.globalCreditLimits.peerLimit.toString()} USD`);
     console.log(`   Frame ${e2_account.currentFrame.height}: tokens=[${e2_account.currentFrame.tokenIds.join(',')}], deltas=[${e2_account.currentFrame.deltas.map(d => d.toString()).join(',')}]`);
     console.log(`   Sent transitions: ${e2_account.sentTransitions}, mempool: ${e2_account.mempool.length}`);
   }
 
-  console.log('\n🎯 J-MOCKED Demo completed with Account System!');
-  console.log('📊 Check the dashboard to verify final reserve states and account states.');
-  console.log('💳 Account system: 1M USD credit limits, direct payment processed');
-  console.log('🌐 For REAL blockchain integration, use the "Run Demo" button in the UI!');
+  console.log('\n[GOAL] J-MOCKED Demo completed with Account System!');
+  console.log('[STATS] Check the dashboard to verify final reserve states and account states.');
+  console.log('[CARD] Account system: 1M USD credit limits, direct payment processed');
+  console.log('[WEB] For REAL blockchain integration, use the "Run Demo" button in the UI!');
 
   return env;
 };

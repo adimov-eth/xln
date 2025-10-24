@@ -35,7 +35,7 @@ test.describe('Entity Reserves Verification', () => {
     await expect(firstPanel.getByText('Signer: alice')).toBeVisible();
 
     // Find and expand the Reserves section
-    const reservesHeader = page.getByRole('button', { name: '💰 Reserves ▼' });
+    const reservesHeader = page.getByRole('button', { name: '[$] Reserves ▼' });
     await expect(reservesHeader).toBeVisible();
 
     // Click to expand reserves
@@ -114,7 +114,7 @@ test.describe('Entity Reserves Verification', () => {
     await page.waitForTimeout(500);
 
     // Expand reserves
-    const reservesHeader = firstPanel.getByRole('button', { name: '💰 Reserves ▼' });
+    const reservesHeader = firstPanel.getByRole('button', { name: '[$] Reserves ▼' });
     await reservesHeader.click();
     await page.waitForTimeout(300);
 
@@ -179,7 +179,7 @@ test.describe('Entity Reserves Verification', () => {
     await page.waitForTimeout(500);
 
     // Expand reserves
-    const reservesHeader = firstPanel.getByRole('button', { name: '💰 Reserves ▼' });
+    const reservesHeader = firstPanel.getByRole('button', { name: '[$] Reserves ▼' });
     await reservesHeader.click();
     await page.waitForTimeout(300);
 

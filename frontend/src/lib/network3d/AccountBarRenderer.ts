@@ -53,7 +53,7 @@ export function createAccountBars(
 
   // Scale bars based on token value (1px = $1 invariant)
   const decimals = 18;
-  const tokensToVisualUnits = 0.00001; // 1M tokens → 10 visual units
+  const tokensToVisualUnits = 0.00001; // 1M tokens [RIGHTWARDS] 10 visual units
   const barScale = (tokensToVisualUnits / Math.pow(10, decimals)) * (settings.portfolioScale / 5000);
 
   const segments: AccountSegments = {

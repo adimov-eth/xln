@@ -130,7 +130,7 @@
 ;; Pattern Matching Example (State Machine Transition)
 ;; ─────────────────────────────────────────────────────────────────
 
-;; Pure transition function: (state × input) → (state × outputs)
+;; Pure transition function: (state × input) [RIGHTWARDS] (state × outputs)
 (define/contract (account-transition state input)
   (-> account-state? account-input? (values account-state? (listof output?)))
 

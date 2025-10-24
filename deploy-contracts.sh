@@ -3,7 +3,7 @@ set -u
 set -o pipefail
 IFS=$'\n\t'
 
-echo "📝 Deploying EntityProvider contracts to all networks..."
+echo "[MEMO] Deploying EntityProvider contracts to all networks..."
 
 # Create deployment log directory
 mkdir -p logs
@@ -28,13 +28,13 @@ deploy_to_network() {
         8545) network_config="ethereum" ;;
         8546) network_config="polygon" ;;
         8547) network_config="arbitrum" ;;
-        *) echo "   ❌ Unknown port: $port"; return 1 ;;
+        *) echo "   [X] Unknown port: $port"; return 1 ;;
     esac
 
     local rpc_url="http://localhost:$port"
 
     echo ""
-    echo "🔄 Deploying to $network_name (port $port)..."
+    echo "[ANTICLOCKWISE] Deploying to $network_name (port $port)..."
 
     # Check if network is available, retry for up to 30s
     local tries=0
@@ -51,7 +51,7 @@ deploy_to_network() {
         sleep 3
     done
     if [ $ok -ne 0 ]; then
-        echo "   ❌ Network not available at $rpc_url after $((max_tries*3))s"
+        echo "   [X] Network not available at $rpc_url after $((max_tries*3))s"
         return 1
     fi
 
@@ -61,94 +61,94 @@ deploy_to_network() {
     mkdir -p ../logs
     
     # COMPREHENSIVE cache clearing for this network
-    echo "   🧹 Clearing ALL caches for $network_name..."
+    echo "   [CLEAN] Clearing ALL caches for $network_name..."
     rm -rf cache/ 2>/dev/null || true
     rm -rf artifacts/ 2>/dev/null || true
     rm -rf typechain-types/ 2>/dev/null || true
     rm -rf ignition/deployments/chain-1337/ 2>/dev/null || true
-    echo "   ✅ All caches cleared"
+    echo "   [OK] All caches cleared"
     
     # Force fresh compilation with typechain
-    echo "   🔧 Compiling contracts and generating TypeChain types..."
+    echo "   [TOOL] Compiling contracts and generating TypeChain types..."
     if ! npx hardhat compile --force 2>&1; then
-        echo "   ❌ Contract compilation failed"
+        echo "   [X] Contract compilation failed"
         cd ..
         return 1
     fi
 
     # TypeChain types are automatically generated during compilation with hardhat-toolbox
-    echo "   🔧 TypeChain types generated automatically during compilation"
+    echo "   [TOOL] TypeChain types generated automatically during compilation"
 
     # Verify TypeChain types were generated
     if [ -d "typechain-types" ]; then
-        echo "   ✅ TypeChain types directory exists"
+        echo "   [OK] TypeChain types directory exists"
         # Check if index file exists and create it if missing
         if [ ! -f "typechain-types/index.ts" ]; then
-            echo "   🔧 Creating missing TypeChain index.ts..."
+            echo "   [TOOL] Creating missing TypeChain index.ts..."
             echo 'export * from "./contracts";' > typechain-types/index.ts
         fi
     else
-        echo "   ⚠️ TypeChain types directory missing, but continuing..."
+        echo "   [WARN] TypeChain types directory missing, but continuing..."
     fi
 
     # Run tests before deployment
-    echo "   🧪 Running contract tests before deployment..."
-    echo "   🔍 Running EntityProvider tests..."
+    echo "   [TEST] Running contract tests before deployment..."
+    echo "   [FIND] Running EntityProvider tests..."
     if ls test/EntityProvider* >/dev/null 2>&1; then
         if ! npx hardhat test test/EntityProvider* --network hardhat 2>&1 | tee "../logs/test-entityprovider-$port.log"; then
-            echo "   ❌ EntityProvider tests failed! Stopping deployment."
+            echo "   [X] EntityProvider tests failed! Stopping deployment."
             cd ..
             return 1
         fi
-        echo "   ✅ EntityProvider tests passed"
+        echo "   [OK] EntityProvider tests passed"
     else
-        echo "   💡 EntityProvider tests not found, skipping..."
+        echo "   [IDEA] EntityProvider tests not found, skipping..."
     fi
 
     # Skip Depository unit tests for now - use R2R smoke test instead
-    echo "   💡 Skipping Depository unit tests (use R2R smoke test for verification)"
+    echo "   [IDEA] Skipping Depository unit tests (use R2R smoke test for verification)"
     
     # Verify critical functions are in compiled ABI
-    echo "   🔍 Verifying critical functions in compiled ABI..."
+    echo "   [FIND] Verifying critical functions in compiled ABI..."
     if grep -q "debugBulkFundEntities" artifacts/contracts/Depository.sol/Depository.json 2>/dev/null; then
-        echo "   ✅ debugBulkFundEntities function found in compiled ABI"
+        echo "   [OK] debugBulkFundEntities function found in compiled ABI"
     else
-        echo "   ❌ debugBulkFundEntities function missing from compiled ABI"
+        echo "   [X] debugBulkFundEntities function missing from compiled ABI"
         cd ..
         return 1
     fi
 
     if grep -q "processBatch" artifacts/contracts/Depository.sol/Depository.json 2>/dev/null; then
-        echo "   ✅ processBatch function found in compiled ABI"
+        echo "   [OK] processBatch function found in compiled ABI"
     else
-        echo "   ❌ processBatch function missing from compiled ABI"
-        echo "   🔍 This explains the R2R transaction failures!"
+        echo "   [X] processBatch function missing from compiled ABI"
+        echo "   [FIND] This explains the R2R transaction failures!"
         cd ..
         return 1
     fi
 
     if grep -q "settle" artifacts/contracts/Depository.sol/Depository.json 2>/dev/null; then
-        echo "   ✅ settle function found in compiled ABI"
+        echo "   [OK] settle function found in compiled ABI"
     else
-        echo "   ❌ settle function missing from compiled ABI"
+        echo "   [X] settle function missing from compiled ABI"
         cd ..
         return 1
     fi
 
     # Verify script exists before attempting deployment
     if [ ! -f "scripts/deploy-entity-provider.cjs" ]; then
-        echo "   ❌ scripts/deploy-entity-provider.cjs not found in $(pwd)"
-        echo "   📂 Contents of scripts directory:"
+        echo "   [X] scripts/deploy-entity-provider.cjs not found in $(pwd)"
+        echo "   [FOLDER] Contents of scripts directory:"
         ls -la scripts/ || echo "   scripts/ directory not found"
         cd ..
         return 1
     fi
 
     # Deploy both EntityProvider and Depository
-    echo "   🔧 Deploying EntityProvider..."
+    echo "   [TOOL] Deploying EntityProvider..."
     # Run deployment and capture logs
     if ! entityprovider_output=$(bunx hardhat run scripts/deploy-entity-provider.cjs --network "$network_config" 2>&1); then
-        echo "   ❌ EntityProvider deployment failed"
+        echo "   [X] EntityProvider deployment failed"
         echo "$entityprovider_output"
         echo "$entityprovider_output" > "../logs/deploy-entityprovider-$port.log" 2>/dev/null || true
         cd ..
@@ -157,19 +157,19 @@ deploy_to_network() {
     echo "$entityprovider_output" > "../logs/deploy-entityprovider-$port.log" 2>/dev/null || true
 
     if ! echo "$entityprovider_output" | grep -q "DEPLOYED_ADDRESS="; then
-        echo "   ❌ EntityProvider deployment did not return DEPLOYED_ADDRESS"
+        echo "   [X] EntityProvider deployment did not return DEPLOYED_ADDRESS"
         cd ..
         return 1
     fi
     # Extract EntityProvider address
     local entityprovider_address
     entityprovider_address=$(echo "$entityprovider_output" | grep "DEPLOYED_ADDRESS=" | cut -d'=' -f2)
-    echo "   ✅ EntityProvider: $entityprovider_address"
+    echo "   [OK] EntityProvider: $entityprovider_address"
 
-    echo "   🔧 Deploying Depository..."
+    echo "   [TOOL] Deploying Depository..."
     # Deploy Depository using ignition; accept prompts if any
     if ! depository_output=$(printf "y\n" | bunx hardhat ignition deploy ignition/modules/Depository.cjs --network "$network_config" 2>&1); then
-        echo "   ❌ Depository deployment failed"
+        echo "   [X] Depository deployment failed"
         echo "$depository_output"
         echo "$depository_output" > "../logs/deploy-depository-$port.log" 2>/dev/null || true
         cd ..
@@ -179,90 +179,90 @@ deploy_to_network() {
     
     # Wait for ignition to create deployment artifacts
     local deployment_file="ignition/deployments/chain-1337/deployed_addresses.json"
-    echo "   🔍 Waiting for deployment file: $deployment_file"
+    echo "   [FIND] Waiting for deployment file: $deployment_file"
     local tries=0
     while [ ! -f "$deployment_file" ] && [ $tries -lt 10 ]; do
         sleep 1
         tries=$((tries+1))
-        echo "   ⏳ Waiting for deployment file... (try $tries/10)"
+        echo "   [WAIT] Waiting for deployment file... (try $tries/10)"
     done
     
     # Extract Depository address from deployed_addresses.json
     local depository_address
     if [ -f "$deployment_file" ]; then
-        echo "   ✅ Deployment file found, extracting addresses..."
+        echo "   [OK] Deployment file found, extracting addresses..."
         cat "$deployment_file"
         depository_address=$(jq -r '.["DepositoryModule#Depository"]' "$deployment_file" 2>/dev/null || true)
-        echo "   🔍 Extracted Depository: $depository_address"
+        echo "   [FIND] Extracted Depository: $depository_address"
     else
-        echo "   ❌ Deployment file not found after waiting"
+        echo "   [X] Deployment file not found after waiting"
     fi
     if [ -z "$depository_address" ] || [ "$depository_address" = "null" ]; then
         # Fallback to old method
         depository_address=$(echo "$depository_output" | grep -o '0x[a-fA-F0-9]\{40\}' | tail -1 || true)
-        echo "   🔍 Fallback extraction: $depository_address"
+        echo "   [FIND] Fallback extraction: $depository_address"
     fi
     if [ -z "$depository_address" ] || [ "$depository_address" = "null" ]; then
-        echo "   ❌ Could not extract Depository address"
+        echo "   [X] Could not extract Depository address"
         return 1
     fi
-    echo "   ✅ Depository: $depository_address"
+    echo "   [OK] Depository: $depository_address"
 
     # CRITICAL: Verify processBatch function exists in deployed contract
-    echo "   🚨 CRITICAL: Verifying processBatch function in deployed contract..."
-    echo "   🔍 Using freshly deployed address: $depository_address"
+    echo "   [ALERT] CRITICAL: Verifying processBatch function in deployed contract..."
+    echo "   [FIND] Using freshly deployed address: $depository_address"
 
     # Pass the address to verification script
     export DEPOSITORY_ADDRESS="$depository_address"
     if ! verification_output=$(bunx hardhat run scripts/verify-contract-functions.cjs --network "$network_config" 2>&1); then
-        echo "   ❌ CRITICAL: Contract verification script FAILED!"
+        echo "   [X] CRITICAL: Contract verification script FAILED!"
         echo "$verification_output"
-        echo "   🚫 DEPLOYMENT FAILED - Cannot verify deployed contract"
+        echo "   [BLOCK] DEPLOYMENT FAILED - Cannot verify deployed contract"
         cd ..
         return 1
     fi
 
     echo "$verification_output"
-    if echo "$verification_output" | grep -q "❌.*MISSING"; then
-        echo "   ❌ CRITICAL: Essential functions MISSING from deployed contract!"
-        echo "   🚫 DEPLOYMENT FAILED - Contract is broken"
+    if echo "$verification_output" | grep -q "[X].*MISSING"; then
+        echo "   [X] CRITICAL: Essential functions MISSING from deployed contract!"
+        echo "   [BLOCK] DEPLOYMENT FAILED - Contract is broken"
         cd ..
         return 1
     fi
 
-    if echo "$verification_output" | grep -q "✅ ALL CRITICAL FUNCTIONS VERIFIED"; then
-        echo "   ✅ CRITICAL: All functions verified in deployed contract"
+    if echo "$verification_output" | grep -q "[OK] ALL CRITICAL FUNCTIONS VERIFIED"; then
+        echo "   [OK] CRITICAL: All functions verified in deployed contract"
     else
-        echo "   ❌ CRITICAL: Function verification FAILED!"
-        echo "   🚫 DEPLOYMENT FAILED - Contract incomplete"
+        echo "   [X] CRITICAL: Function verification FAILED!"
+        echo "   [BLOCK] DEPLOYMENT FAILED - Contract incomplete"
         cd ..
         return 1
     fi
 
     # CRITICAL: Run R2R smoke test - FAIL deployment if it doesn't work
-    echo "   🧪 Running CRITICAL Reserve-to-Reserve (R2R) smoke test..."
-    echo "   🚨 This test MUST PASS or deployment will FAIL"
+    echo "   [TEST] Running CRITICAL Reserve-to-Reserve (R2R) smoke test..."
+    echo "   [ALERT] This test MUST PASS or deployment will FAIL"
     if ! bunx hardhat run test-r2r-post-deployment.cjs --network "$network_config" 2>&1; then
-        echo "   ❌ CRITICAL: R2R smoke test FAILED!"
-        echo "   🚫 DEPLOYMENT FAILED - R2R functionality broken"
-        echo "   💡 This means the UI won't work with these contracts"
+        echo "   [X] CRITICAL: R2R smoke test FAILED!"
+        echo "   [BLOCK] DEPLOYMENT FAILED - R2R functionality broken"
+        echo "   [IDEA] This means the UI won't work with these contracts"
         cd ..
         return 1
     fi
-    echo "   ✅ CRITICAL: R2R smoke test PASSED - Contracts fully functional"
+    echo "   [OK] CRITICAL: R2R smoke test PASSED - Contracts fully functional"
 
     # Build and update frontend bundle with latest runtime.js
-    echo "   🔧 Updating frontend bundle with latest runtime code..."
+    echo "   [TOOL] Updating frontend bundle with latest runtime code..."
     cd ..
     if bun build runtime/runtime.ts --target=browser --outdir=dist --minify --external http --external https --external zlib --external fs --external path --external crypto --external stream --external buffer --external url --external net --external tls --external os --external util; then
-        echo "   ✅ Runtime built successfully"
+        echo "   [OK] Runtime built successfully"
         if cp dist/runtime.js frontend/static/runtime.js; then
-            echo "   ✅ Frontend bundle updated with latest runtime.js"
+            echo "   [OK] Frontend bundle updated with latest runtime.js"
         else
-            echo "   ⚠️ Failed to copy runtime.js to frontend (continuing anyway)"
+            echo "   [WARN] Failed to copy runtime.js to frontend (continuing anyway)"
         fi
     else
-        echo "   ⚠️ Runtime build failed (continuing anyway)"
+        echo "   [WARN] Runtime build failed (continuing anyway)"
     fi
     cd jurisdictions
 
@@ -282,7 +282,7 @@ deploy_to_network() {
             ;;
     esac
 
-    echo "   ✅ $network_name deployment complete"
+    echo "   [OK] $network_name deployment complete"
 
     cd ..
     return 0
@@ -305,12 +305,12 @@ fi
 # fi
 
 echo ""
-echo "📊 Deployment Summary:"
-echo "   ✅ Successful: $success_count/1 networks (Ethereum only)"
+echo "[STATS] Deployment Summary:"
+echo "   [OK] Successful: $success_count/1 networks (Ethereum only)"
 
 if [ $success_count -gt 0 ]; then
     echo ""
-    echo "📍 Contract Addresses:"
+    echo "[PIN] Contract Addresses:"
 
     if [ -n "$CONTRACT_8545_EP" ]; then
         echo "   $NETWORK_8545 (port 8545):"
@@ -320,16 +320,16 @@ if [ $success_count -gt 0 ]; then
 
     # Update server configuration
     echo ""
-    echo "🔧 Creating unified jurisdiction configuration..."
+    echo "[TOOL] Creating unified jurisdiction configuration..."
     
     # DEBUG: Show what variables we actually have (Ethereum only)
-    echo "🔍 DEBUG: Contract variables before jurisdictions.json generation:"
+    echo "[FIND] DEBUG: Contract variables before jurisdictions.json generation:"
     echo "   CONTRACT_8545_EP='$CONTRACT_8545_EP'"
     echo "   CONTRACT_8545_DEP='$CONTRACT_8545_DEP'"
     echo ""
 
     # Create fresh jurisdictions.json with Arrakis and Wakanda
-    # Use /rpc/* proxy paths for HTTPS → HTTP proxying (eliminates SSL errors)
+    # Use /rpc/* proxy paths for HTTPS [RIGHTWARDS] HTTP proxying (eliminates SSL errors)
     cat > jurisdictions.json << EOF
 {
   "version": "2.0.0",
@@ -370,29 +370,29 @@ if [ $success_count -gt 0 ]; then
 }
 EOF
 
-    echo "   ✅ Created fresh jurisdictions.json with:"
+    echo "   [OK] Created fresh jurisdictions.json with:"
     echo "     Arrakis (port 8545): EntityProvider=$CONTRACT_8545_EP, Depository=$CONTRACT_8545_DEP"
     echo "     Wakanda (port 8546): Coming soon (same contracts for now)"
 
 
 
-    echo "   ✅ Unified jurisdictions configuration saved"
+    echo "   [OK] Unified jurisdictions configuration saved"
 
     # Update ALL jurisdiction files to prevent sync issues
-    echo "   🔄 Syncing jurisdictions to all frontend locations..."
+    echo "   [ANTICLOCKWISE] Syncing jurisdictions to all frontend locations..."
     cp jurisdictions.json frontend/static/jurisdictions.json 2>/dev/null || true
     cp jurisdictions.json frontend/build/jurisdictions.json 2>/dev/null || true
     if [ -f "frontend/.svelte-kit/output/client/jurisdictions.json" ]; then
         cp jurisdictions.json frontend/.svelte-kit/output/client/jurisdictions.json 2>/dev/null || true
-        echo "   ✅ Updated SvelteKit output file"
+        echo "   [OK] Updated SvelteKit output file"
     fi
-    echo "   ✅ All jurisdiction files synchronized"
+    echo "   [OK] All jurisdiction files synchronized"
     echo ""
-    echo "🎯 Deployment complete!"
-    echo "📋 Next: Restart server to use new contracts"
+    echo "[GOAL] Deployment complete!"
+    echo "[LIST] Next: Restart server to use new contracts"
 
 else
     echo ""
-    echo "❌ No successful deployments. Check network status and try again."
+    echo "[X] No successful deployments. Check network status and try again."
     exit 1
 fi

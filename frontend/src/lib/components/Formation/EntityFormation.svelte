@@ -131,23 +131,23 @@
         const isDuplicate = existingReplicas.some((key: string) => key.startsWith(entityId + ':'));
         
         if (isDuplicate) {
-          throw new Error(`⚠️ This validator configuration already exists! Entity #${$xlnFunctions!.getEntityShortId(entityId)} is already in use. Try different validators or weights to create a unique entity.`);
+          throw new Error(`[WARN] This validator configuration already exists! Entity #${$xlnFunctions!.getEntityShortId(entityId)} is already in use. Try different validators or weights to create a unique entity.`);
         }
         
         const { config: lazyConfig, executionTimeMs } = xln.createLazyEntity(formData.entityName, validatorNames, threshold, formattedJurisdiction);
         config = lazyConfig;
-        console.log(`⚡ Lazy entity created in ${executionTimeMs.toFixed(3)}ms (pure in-memory)`);
-        console.log('✅ Lazy entity config created:', config);
-        console.log('✅ Entity ID: #', $xlnFunctions!.getEntityShortId(entityId));
+        console.log(`[FAST] Lazy entity created in ${executionTimeMs.toFixed(3)}ms (pure in-memory)`);
+        console.log('[OK] Lazy entity config created:', config);
+        console.log('[OK] Entity ID: #', $xlnFunctions!.getEntityShortId(entityId));
       } else {
         const creation = await xln.createNumberedEntity(formData.entityName, validatorNames, threshold, formattedJurisdiction);
         config = creation.config;
         entityId = creation.entityId; // Use the returned entityId
-        console.log('✅ Numbered entity config created:', creation);
+        console.log('[OK] Numbered entity config created:', creation);
       }
       
       // Create serverTxs to import replicas for each validator  
-      console.log(`🔍 Creating serverTxs with entityId: ${entityId}`);
+      console.log(`[FIND] Creating serverTxs with entityId: ${entityId}`);
       const serverTxs = validatorNames.map((signerId, index) => ({
         type: 'importReplica' as const,
         entityId: entityId,
@@ -158,7 +158,7 @@
         }
       }));
       
-      console.log(`🔍 Generated ${serverTxs.length} serverTxs:`, serverTxs);
+      console.log(`[FIND] Generated ${serverTxs.length} serverTxs:`, serverTxs);
       
       // Apply to server and process until empty
       const result = await xln.applyServerInput(env, {
@@ -166,26 +166,26 @@
         entityInputs: []
       });
       
-      console.log('🔥 Processing entity creation through server...');
+      console.log('[FIRE] Processing entity creation through server...');
       await xln.process(env, result.entityOutbox);
-      console.log('✅ Entity creation complete!');
+      console.log('[OK] Entity creation complete!');
 
-      console.log(`💰 Entity #${$xlnFunctions!.getEntityShortId(entityId)} automatically prefunded by Depository.sol contract during deployment`);
-      console.log(`🔄 J-Watcher will sync historical ReserveUpdated events to populate reserves`);
+      console.log(`[$] Entity #${$xlnFunctions!.getEntityShortId(entityId)} automatically prefunded by Depository.sol contract during deployment`);
+      console.log(`[ANTICLOCKWISE] J-Watcher will sync historical ReserveUpdated events to populate reserves`);
 
       // Auto-create panels with entity and signers pre-selected
       const jurisdictionName = jurisdictionConfig?.name || 'Unknown';
       
-      console.log(`🎯 Auto-creating ${validatorNames.length} panels with entity and signers pre-selected`);
-      console.log(`🌐 Jurisdiction: ${formData.jurisdiction} → ${jurisdictionName}`);
+      console.log(`[GOAL] Auto-creating ${validatorNames.length} panels with entity and signers pre-selected`);
+      console.log(`[WEB] Jurisdiction: ${formData.jurisdiction} [RIGHTWARDS] ${jurisdictionName}`);
       
       for (let i = 0; i < validatorNames.length; i++) {
         const signer = validatorNames[i];
-        console.log(`📋 Creating panel ${i + 1} for Entity #${$xlnFunctions!.getEntityShortId(entityId as string)} with signerId: ${signer} on ${jurisdictionName}`);
+        console.log(`[LIST] Creating panel ${i + 1} for Entity #${$xlnFunctions!.getEntityShortId(entityId as string)} with signerId: ${signer} on ${jurisdictionName}`);
         tabOperations.addTab(entityId as string, signer, jurisdictionName);
       }
       
-      console.log(`✅ ${validatorNames.length} panels auto-created with replicas selected!`);
+      console.log(`[OK] ${validatorNames.length} panels auto-created with replicas selected!`);
 
       // Reset form on success
       clearForm();
@@ -282,12 +282,12 @@
       if (jurisdictionOptions.length > 0 && !formData.jurisdiction) {
         const ethereumOption = jurisdictionOptions.find(j => j.label.includes('Ethereum'));
         formData.jurisdiction = ethereumOption ? ethereumOption.value : (jurisdictionOptions[0]?.value || '');
-        console.log('🔍 Defaulted jurisdiction to:', formData.jurisdiction);
+        console.log('[FIND] Defaulted jurisdiction to:', formData.jurisdiction);
       }
 
-      console.log(`✅ Loaded ${jurisdictionOptions.length} jurisdiction options from store:`, jurisdictionOptions);
+      console.log(`[OK] Loaded ${jurisdictionOptions.length} jurisdiction options from store:`, jurisdictionOptions);
     } catch (error) {
-      console.error('❌ Failed to load jurisdiction options:', error);
+      console.error('[X] Failed to load jurisdiction options:', error);
       jurisdictionOptions = [];
     }
   }
@@ -297,7 +297,7 @@
 <div class="entity-formation">
   <div class="formation-panel">
     <div class="formation-group">
-      <label for="jurisdictionSelect">🏛️ Jurisdiction:</label>
+      <label for="jurisdictionSelect">[COURT] Jurisdiction:</label>
       <select id="jurisdictionSelect" bind:value={formData.jurisdiction}>
         {#each jurisdictionOptions as option}
           <option value={option.value}>{option.label}</option>
@@ -305,34 +305,34 @@
       </select>
       <div class="jurisdiction-info">
         <small>
-          <strong>📡 Network:</strong> {jurisdictionOptions.find(j => j.value === formData.jurisdiction)?.label.split(' (')[0] || 'Unknown'}<br>
-          <strong>🔗 RPC Port:</strong> {formData.jurisdiction}
+          <strong>[ANTENNA] Network:</strong> {jurisdictionOptions.find(j => j.value === formData.jurisdiction)?.label.split(' (')[0] || 'Unknown'}<br>
+          <strong>[LINK] RPC Port:</strong> {formData.jurisdiction}
         </small>
       </div>
     </div>
 
     <div class="formation-group">
-      <label for="entityTypeSelect">🆔 Entity Type:</label>
+      <label for="entityTypeSelect">[ID] Entity Type:</label>
       <select id="entityTypeSelect" bind:value={formData.entityType}>
-        <option value="numbered">🔢 Numbered Entity (Gas Required - Sequential ID) [PREFUNDED]</option>
-        <option value="lazy">🔒 Lazy Entity (Free - ID = Quorum Hash)</option>
-        <option value="named">🏷️ Named Entity (Premium Gas + Admin Approval)</option>
+        <option value="numbered">[123] Numbered Entity (Gas Required - Sequential ID) [PREFUNDED]</option>
+        <option value="lazy">[LOCK] Lazy Entity (Free - ID = Quorum Hash)</option>
+        <option value="named">[TAG] Named Entity (Premium Gas + Admin Approval)</option>
       </select>
       <div class="entity-type-info">
         <small>
           {#if formData.entityType === 'lazy'}
-            <strong>🔒 Lazy:</strong> Free to create, entityId = hash(validators), works immediately.
+            <strong>[LOCK] Lazy:</strong> Free to create, entityId = hash(validators), works immediately.
           {:else if formData.entityType === 'numbered'}
-            <strong>🔢 Numbered:</strong> Small gas cost, get sequential number like #42, on-chain registered. <strong>✨ PREFUNDED with 1M tokens for testing!</strong>
+            <strong>[123] Numbered:</strong> Small gas cost, get sequential number like #42, on-chain registered. <strong>* PREFUNDED with 1M tokens for testing!</strong>
           {:else}
-            <strong>🏷️ Named:</strong> Premium gas + admin approval, get custom name like "coinbase".
+            <strong>[TAG] Named:</strong> Premium gas + admin approval, get custom name like "coinbase".
           {/if}
         </small>
       </div>
     </div>
     
     <div class="formation-group">
-      <label for="entityNameInput">🏷️ Entity Name:</label>
+      <label for="entityNameInput">[TAG] Entity Name:</label>
       <input 
         type="text" 
         id="entityNameInput" 
@@ -343,7 +343,7 @@
     </div>
     
     <div class="validators-section">
-      <h4>👥 Validators:</h4>
+      <h4>[TEAM] Validators:</h4>
       <div class="validators-list">
         {#each formData.validators as validator, index}
           <div class="validator-row">
@@ -372,21 +372,21 @@
                 class="btn btn-danger btn-small" 
                 on:click={() => removeValidator(index)}
               >
-                ❌
+                [X]
               </button>
             {/if}
           </div>
         {/each}
       </div>
       <button type="button" class="btn btn-secondary" on:click={addValidator}>
-        ➕ Add Validator
+        + Add Validator
       </button>
-      <small>💡 Start with a single signer for personal use, or add more for multisig/corporate entities</small>
+      <small>[IDEA] Start with a single signer for personal use, or add more for multisig/corporate entities</small>
     </div>
     
     {#if formData.validators.length > 1}
       <div class="threshold-section">
-        <label for="thresholdSlider">🎯 Threshold: {formData.threshold}</label>
+        <label for="thresholdSlider">[GOAL] Threshold: {formData.threshold}</label>
         <input 
           type="range" 
           id="thresholdSlider" 
@@ -405,7 +405,7 @@
 
     {#if formData.entityType === 'lazy'}
       <div class="quorum-hash-section">
-        <h4>🔐 Quorum Hash</h4>
+        <h4>[LOCK] Quorum Hash</h4>
         <div class="hash-display">
           <code>{quorumHash}</code>
         </div>
@@ -414,7 +414,7 @@
     {/if}
 
     <div class="expected-id-section">
-      <h4>🆔 Expected Entity ID</h4>
+      <h4>[ID] Expected Entity ID</h4>
       <div class="id-display">
         <code>{expectedEntityId}</code>
       </div>
@@ -431,7 +431,7 @@
     
     {#if error}
       <div class="error-message">
-        ❌ {error}
+        [X] {error}
       </div>
     {/if}
     
@@ -441,10 +441,10 @@
         on:click={createEntity}
         disabled={isCreating}
       >
-        {isCreating ? '🔄 Creating...' : '🚀 Create Entity'}
+        {isCreating ? '[ANTICLOCKWISE] Creating...' : '[LAUNCH] Create Entity'}
       </button>
       <button class="btn btn-secondary" on:click={clearForm} disabled={isCreating}>
-        🗑️ Clear Form
+        [TRASH] Clear Form
       </button>
     </div>
   </div>

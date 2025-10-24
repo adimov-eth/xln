@@ -11,13 +11,13 @@
 ## Two Player Components
 
 ### 1. ScenarioPlayer.svelte (Deprecated)
-❌ **Don't use** - Uses global xlnStore, timeStore, IndexedDB
+[X] **Don't use** - Uses global xlnStore, timeStore, IndexedDB
 - Shares state with main app
 - Can't have multiple instances
 - Conflicts with main app state
 
-### 2. IsolatedScenarioPlayer.svelte ✅
-✅ **Use this** - Fully isolated per instance
+### 2. IsolatedScenarioPlayer.svelte [OK]
+[OK] **Use this** - Fully isolated per instance
 - Creates own XLN environment
 - Own Three.js scene
 - Own playback state
@@ -32,9 +32,9 @@
 ### Global State (Main App)
 ```typescript
 // Single shared environment
-xlnStore → xlnEnvironment (global)
-timeStore → currentTimeIndex (global)
-IndexedDB → persistent history (global)
+xlnStore [RIGHTWARDS] xlnEnvironment (global)
+timeStore [RIGHTWARDS] currentTimeIndex (global)
+IndexedDB [RIGHTWARDS] persistent history (global)
 
 // Main Graph 3D uses this
 <NetworkTopology /> // Reads from global stores
@@ -99,11 +99,11 @@ import alice, bob
 ```
 
 Each player:
-- ✅ Has own timeline
-- ✅ Independent play/pause
-- ✅ Separate 3D scene
-- ✅ No state conflicts
-- ✅ No localStorage pollution
+- [OK] Has own timeline
+- [OK] Independent play/pause
+- [OK] Separate 3D scene
+- [OK] No state conflicts
+- [OK] No localStorage pollution
 
 ---
 
@@ -194,8 +194,8 @@ function play() {
 | **History** | IndexedDB | Local `localHistory[]` |
 | **Persistence** | localStorage | None (ephemeral) |
 | **Three.js** | Shared scene | Own scene per instance |
-| **Conflicts** | ❌ Shares state | ✅ Fully isolated |
-| **Multiple instances** | ❌ Impossible | ✅ Unlimited |
+| **Conflicts** | [X] Shares state | [OK] Fully isolated |
+| **Multiple instances** | [X] Impossible | [OK] Unlimited |
 
 ---
 
@@ -269,7 +269,7 @@ import IsolatedScenarioPlayer from '$lib/components/Embed/IsolatedScenarioPlayer
 
 ## Summary
 
-✅ **IsolatedScenarioPlayer = True Embeddability**
+[OK] **IsolatedScenarioPlayer = True Embeddability**
 - No global stores
 - No persistence
 - No conflicts

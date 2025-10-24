@@ -52,15 +52,15 @@ Censorship resistance, permissionlessness.
 
 | Metric | Score | Reasoning |
 |--------|-------|-----------|
-| Organizational Expressiveness | 18/20 | ✅ Unmatched: hierarchies, subsidiaries, dual-class shares, board structures. Legal system enables any organizational pattern. |
-| Economic Efficiency | 4/15 | ❌ $40 wire fees, 3% interchange, T+2 settlement, 5% FX spreads. |
-| Sovereignty & Control | 8/15 | ⚠️ Partial: You own accounts but banks can freeze, regulators can seize. |
-| Scalability | 6/10 | ⚠️ SWIFT does 44M msgs/day (~500 TPS), but requires correspondent banking intermediaries. |
-| Regulatory Compatibility | 10/10 | ✅ Perfect: Banks **are** the regulatory framework. |
-| Security Model | 5/10 | ⚠️ Central points of failure, but FDIC insurance + legal recourse. |
-| Interoperability | 3/10 | ❌ SWIFT, but not real-time. ACH limited to US. No programmable hooks. |
-| User Experience | 5/5 | ✅ Mature UX: mobile apps, cards, ATMs. |
-| Decentralization | 3/5 | ❌ Centralized: banks can deplatform, freeze, censor. |
+| Organizational Expressiveness | 18/20 | [OK] Unmatched: hierarchies, subsidiaries, dual-class shares, board structures. Legal system enables any organizational pattern. |
+| Economic Efficiency | 4/15 | [X] $40 wire fees, 3% interchange, T+2 settlement, 5% FX spreads. |
+| Sovereignty & Control | 8/15 | [WARN] Partial: You own accounts but banks can freeze, regulators can seize. |
+| Scalability | 6/10 | [WARN] SWIFT does 44M msgs/day (~500 TPS), but requires correspondent banking intermediaries. |
+| Regulatory Compatibility | 10/10 | [OK] Perfect: Banks **are** the regulatory framework. |
+| Security Model | 5/10 | [WARN] Central points of failure, but FDIC insurance + legal recourse. |
+| Interoperability | 3/10 | [X] SWIFT, but not real-time. ACH limited to US. No programmable hooks. |
+| User Experience | 5/5 | [OK] Mature UX: mobile apps, cards, ATMs. |
+| Decentralization | 3/5 | [X] Centralized: banks can deplatform, freeze, censor. |
 
 **Strengths:** Organizational sophistication, mature UX, regulatory acceptance.
 **Weaknesses:** Expensive, slow, centralized control, no programmability.
@@ -73,15 +73,15 @@ Censorship resistance, permissionlessness.
 
 | Metric | Score | Reasoning |
 |--------|-------|-----------|
-| Organizational Expressiveness | 2/20 | ❌ **Fatal flaw**: Only peer-to-peer channels. No entities, no hierarchies, no sub-accounts. Can't model Visa, Goldman Sachs, or even a 3-person LLC. |
-| Economic Efficiency | 10/15 | ✅ Sub-cent transactions, instant settlement. But: liquidity fragmentation, rebalancing costs. |
-| Sovereignty & Control | 12/15 | ✅ Self-custody via Bitcoin keys. But: online requirement, watchtowers. |
-| Scalability | 8/10 | ✅ Theoretical billions TPS (unbounded parallel channels). But: routing complexity grows with network. |
-| Regulatory Compatibility | 2/10 | ❌ **Deal-breaker for institutions**: No AML hooks, no access controls, no audit trails. |
-| Security Model | 7/10 | ✅ Bitcoin-backed fraud proofs. But: griefing attacks, forced closures. |
-| Interoperability | 3/10 | ❌ Bitcoin-only. Some cross-chain hacks exist but fragile. |
-| User Experience | 2/5 | ❌ Channel management hell: inbound liquidity, routing failures, online requirement. |
-| Decentralization | 2/5 | ⚠️ Centralizing around hubs. Watchtowers introduce trust. |
+| Organizational Expressiveness | 2/20 | [X] **Fatal flaw**: Only peer-to-peer channels. No entities, no hierarchies, no sub-accounts. Can't model Visa, Goldman Sachs, or even a 3-person LLC. |
+| Economic Efficiency | 10/15 | [OK] Sub-cent transactions, instant settlement. But: liquidity fragmentation, rebalancing costs. |
+| Sovereignty & Control | 12/15 | [OK] Self-custody via Bitcoin keys. But: online requirement, watchtowers. |
+| Scalability | 8/10 | [OK] Theoretical billions TPS (unbounded parallel channels). But: routing complexity grows with network. |
+| Regulatory Compatibility | 2/10 | [X] **Deal-breaker for institutions**: No AML hooks, no access controls, no audit trails. |
+| Security Model | 7/10 | [OK] Bitcoin-backed fraud proofs. But: griefing attacks, forced closures. |
+| Interoperability | 3/10 | [X] Bitcoin-only. Some cross-chain hacks exist but fragile. |
+| User Experience | 2/5 | [X] Channel management hell: inbound liquidity, routing failures, online requirement. |
+| Decentralization | 2/5 | [WARN] Centralizing around hubs. Watchtowers introduce trust. |
 
 **Strengths:** Fast, cheap, Bitcoin-secured.
 **Weaknesses:** No organizational model, terrible UX, regulatory non-starter, liquidity fragmentation.
@@ -96,15 +96,15 @@ Censorship resistance, permissionlessness.
 
 | Metric | Score | Reasoning |
 |--------|-------|-----------|
-| Organizational Expressiveness | 12/20 | ⚠️ Smart contracts can model some org structures (multi-sig, DAOs). But: no native hierarchies, expensive state. |
-| Economic Efficiency | 9/15 | ⚠️ $0.10-$1.00 per tx (better than L1 but not "free"). State rent still a problem. |
-| Sovereignty & Control | 11/15 | ✅ Self-custody via private keys. Fraud proofs enable exit. But: sequencer centralization. |
-| Scalability | 7/10 | ⚠️ ~4000 TPS per rollup. Needs multiple rollups for Visa-scale. DA bottleneck. |
-| Regulatory Compatibility | 6/10 | ⚠️ Partial: Can implement access controls in contracts, but gas makes compliance expensive. |
-| Security Model | 8/10 | ✅ Ethereum-backed fraud proofs. 7-day exit window. |
-| Interoperability | 4/10 | ❌ Cross-rollup messaging is slow (days) and complex. |
-| User Experience | 3/5 | ⚠️ Better than L1, but still gas fees, wallet setup, bridge delays. |
-| Decentralization | 3/5 | ❌ Centralized sequencers. Decentralized sequencing is vaporware. |
+| Organizational Expressiveness | 12/20 | [WARN] Smart contracts can model some org structures (multi-sig, DAOs). But: no native hierarchies, expensive state. |
+| Economic Efficiency | 9/15 | [WARN] $0.10-$1.00 per tx (better than L1 but not "free"). State rent still a problem. |
+| Sovereignty & Control | 11/15 | [OK] Self-custody via private keys. Fraud proofs enable exit. But: sequencer centralization. |
+| Scalability | 7/10 | [WARN] ~4000 TPS per rollup. Needs multiple rollups for Visa-scale. DA bottleneck. |
+| Regulatory Compatibility | 6/10 | [WARN] Partial: Can implement access controls in contracts, but gas makes compliance expensive. |
+| Security Model | 8/10 | [OK] Ethereum-backed fraud proofs. 7-day exit window. |
+| Interoperability | 4/10 | [X] Cross-rollup messaging is slow (days) and complex. |
+| User Experience | 3/5 | [WARN] Better than L1, but still gas fees, wallet setup, bridge delays. |
+| Decentralization | 3/5 | [X] Centralized sequencers. Decentralized sequencing is vaporware. |
 
 **Strengths:** Ethereum security, programmability, ecosystem.
 **Weaknesses:** Still too expensive for payments, cross-rollup fragmentation, sequencer centralization.
@@ -117,15 +117,15 @@ Censorship resistance, permissionlessness.
 
 | Metric | Score | Reasoning |
 |--------|-------|-----------|
-| Organizational Expressiveness | 8/20 | ⚠️ Programs can model some structures, but state is global and expensive. No native organizational primitives. |
-| Economic Efficiency | 11/15 | ✅ $0.00025 per tx. Fast finality (400ms). But: rent for state. |
-| Sovereignty & Control | 9/15 | ⚠️ Self-custody via keys. But: network outages freeze funds. |
-| Scalability | 6/10 | ⚠️ ~50,000 TPS claimed, but: requires $10k+ hardware. Centralization. |
-| Regulatory Compatibility | 5/10 | ⚠️ Possible but expensive and non-standard. |
-| Security Model | 4/10 | ❌ **Major issue**: 7+ network outages. MEV. Byzantine assumptions questionable. |
-| Interoperability | 3/10 | ❌ Wormhole bridge hacks. No native cross-chain. |
-| User Experience | 4/5 | ✅ Fast, cheap when working. But: outages kill UX. |
-| Decentralization | 2/5 | ❌ **Deal-breaker**: 1900+ validators but hardware costs create oligarchy. Lido controls >30%. |
+| Organizational Expressiveness | 8/20 | [WARN] Programs can model some structures, but state is global and expensive. No native organizational primitives. |
+| Economic Efficiency | 11/15 | [OK] $0.00025 per tx. Fast finality (400ms). But: rent for state. |
+| Sovereignty & Control | 9/15 | [WARN] Self-custody via keys. But: network outages freeze funds. |
+| Scalability | 6/10 | [WARN] ~50,000 TPS claimed, but: requires $10k+ hardware. Centralization. |
+| Regulatory Compatibility | 5/10 | [WARN] Possible but expensive and non-standard. |
+| Security Model | 4/10 | [X] **Major issue**: 7+ network outages. MEV. Byzantine assumptions questionable. |
+| Interoperability | 3/10 | [X] Wormhole bridge hacks. No native cross-chain. |
+| User Experience | 4/5 | [OK] Fast, cheap when working. But: outages kill UX. |
+| Decentralization | 2/5 | [X] **Deal-breaker**: 1900+ validators but hardware costs create oligarchy. Lido controls >30%. |
 
 **Strengths:** Fast, cheap, modern architecture.
 **Weaknesses:** Centralization, outages, no organizational primitives, hardware requirements.
@@ -140,15 +140,15 @@ Censorship resistance, permissionlessness.
 
 | Metric | Score | Reasoning |
 |--------|-------|-----------|
-| Organizational Expressiveness | 10/20 | ⚠️ Each zone can implement custom logic, but no standard organizational model. |
-| Economic Efficiency | 10/15 | ✅ Cheap within zones ($0.01-$0.10). IBC bridging adds complexity. |
-| Sovereignty & Control | 13/15 | ✅ Excellent: Each zone is sovereign. Custom validators, custom rules. |
-| Scalability | 8/10 | ✅ Good: Horizontal scaling via zones. But: IBC introduces latency. |
-| Regulatory Compatibility | 6/10 | ⚠️ Possible per zone, but heterogeneous compliance is complex. |
-| Security Model | 7/10 | ✅ Tendermint BFT per zone. But: each zone needs its own validator set. |
-| Interoperability | 5/10 | ⚠️ IBC is powerful but complex. Slow cross-zone finality. |
-| User Experience | 3/5 | ❌ Multi-wallet, multi-token complexity. |
-| Decentralization | 2/5 | ⚠️ Varies per zone. Hubs tend to centralize. |
+| Organizational Expressiveness | 10/20 | [WARN] Each zone can implement custom logic, but no standard organizational model. |
+| Economic Efficiency | 10/15 | [OK] Cheap within zones ($0.01-$0.10). IBC bridging adds complexity. |
+| Sovereignty & Control | 13/15 | [OK] Excellent: Each zone is sovereign. Custom validators, custom rules. |
+| Scalability | 8/10 | [OK] Good: Horizontal scaling via zones. But: IBC introduces latency. |
+| Regulatory Compatibility | 6/10 | [WARN] Possible per zone, but heterogeneous compliance is complex. |
+| Security Model | 7/10 | [OK] Tendermint BFT per zone. But: each zone needs its own validator set. |
+| Interoperability | 5/10 | [WARN] IBC is powerful but complex. Slow cross-zone finality. |
+| User Experience | 3/5 | [X] Multi-wallet, multi-token complexity. |
+| Decentralization | 2/5 | [WARN] Varies per zone. Hubs tend to centralize. |
 
 **Strengths:** Sovereignty, horizontal scaling, Tendermint BFT.
 **Weaknesses:** No organizational model, IBC complexity, validator set bootstrapping problem.
@@ -161,15 +161,15 @@ Censorship resistance, permissionlessness.
 
 | Metric | Score | Reasoning |
 |--------|-------|-----------|
-| Organizational Expressiveness | 20/20 | ✅ **Unique**: Native entities with hierarchies, control/dividend separation, board governance, subsidiaries. Can model Fortune 500 OR crypto-native DAOs. |
-| Economic Efficiency | 14/15 | ✅ **Best-in-class**: Free off-chain state transitions. Only pay L1 gas for settlements. Credit extension eliminates liquidity lockup. |
-| Sovereignty & Control | 15/15 | ✅ **Perfect**: Self-hosted entities, self-custody, exit to L1 anytime via fraud proofs. |
-| Scalability | 10/10 | ✅ **Theoretical unbounded**: Billions+ TPS via parallel entity machines. Each entity is its own chain. |
-| Regulatory Compatibility | 9/10 | ✅ **Built-in**: Board approvals, audit trails, jurisdictional anchoring, identity integration. -1 for novelty (regulators need education). |
-| Security Model | 9/10 | ✅ Jurisdiction-backed fraud proofs, Byzantine fault tolerance, cryptographic guarantees. -1 for novelty (needs real-world battle-testing). |
-| Interoperability | 8/10 | ✅ Jurisdiction abstraction allows any EVM chain. Account proofs are portable. -2 for cross-chain routing UX not yet solved. |
-| User Experience | 2/5 | ❌ **Honest weakness**: Brand new paradigm. "Entity" concept is unfamiliar. Needs education. |
-| Decentralization | 1/5 | ❌ **Honest weakness**: Self-hosted entities are sovereign but not permissionless-public like Bitcoin. More like "corporate sovereignty." |
+| Organizational Expressiveness | 20/20 | [OK] **Unique**: Native entities with hierarchies, control/dividend separation, board governance, subsidiaries. Can model Fortune 500 OR crypto-native DAOs. |
+| Economic Efficiency | 14/15 | [OK] **Best-in-class**: Free off-chain state transitions. Only pay L1 gas for settlements. Credit extension eliminates liquidity lockup. |
+| Sovereignty & Control | 15/15 | [OK] **Perfect**: Self-hosted entities, self-custody, exit to L1 anytime via fraud proofs. |
+| Scalability | 10/10 | [OK] **Theoretical unbounded**: Billions+ TPS via parallel entity machines. Each entity is its own chain. |
+| Regulatory Compatibility | 9/10 | [OK] **Built-in**: Board approvals, audit trails, jurisdictional anchoring, identity integration. -1 for novelty (regulators need education). |
+| Security Model | 9/10 | [OK] Jurisdiction-backed fraud proofs, Byzantine fault tolerance, cryptographic guarantees. -1 for novelty (needs real-world battle-testing). |
+| Interoperability | 8/10 | [OK] Jurisdiction abstraction allows any EVM chain. Account proofs are portable. -2 for cross-chain routing UX not yet solved. |
+| User Experience | 2/5 | [X] **Honest weakness**: Brand new paradigm. "Entity" concept is unfamiliar. Needs education. |
+| Decentralization | 1/5 | [X] **Honest weakness**: Self-hosted entities are sovereign but not permissionless-public like Bitcoin. More like "corporate sovereignty." |
 
 **Strengths:** Unmatched organizational expressiveness, unlimited scalability, regulatory compatibility, economic efficiency.
 
@@ -197,11 +197,11 @@ Censorship resistance, permissionlessness.
 
 **The Laptop Test:**
 Can a single laptop run the entire network?
-- Bitcoin: ✅ Yes (~500 GB, modest CPU)
-- Ethereum: ✅ Yes with archive mode (~13 TB)
-- Solana: ❌ No (requires $10k+ hardware, 1.28 TB/year growth)
-- XLN Entity: ✅ **Yes** (each entity < 1 GB, runs on laptop)
-- XLN Network: ⚠️ Not one laptop for ALL entities, but each entity is laptop-runnable
+- Bitcoin: [OK] Yes (~500 GB, modest CPU)
+- Ethereum: [OK] Yes with archive mode (~13 TB)
+- Solana: [X] No (requires $10k+ hardware, 1.28 TB/year growth)
+- XLN Entity: [OK] **Yes** (each entity < 1 GB, runs on laptop)
+- XLN Network: [WARN] Not one laptop for ALL entities, but each entity is laptop-runnable
 
 ---
 
@@ -209,11 +209,11 @@ Can a single laptop run the entire network?
 
 | System | Computation Model | Expressiveness |
 |--------|-------------------|----------------|
-| Bitcoin | Script (stack-based, limited loops) | ⭐ Very constrained |
-| Ethereum | EVM (quasi-Turing complete) | ⭐⭐⭐ Powerful but expensive |
-| Solana | eBPF (compiled, parallelizable) | ⭐⭐⭐ Fast but low-level |
-| Lightning | HTLC scripts only | ⭐ Extremely limited |
-| XLN | **Pure state machines + EVM escape hatch** | ⭐⭐⭐⭐ **Best of both worlds** |
+| Bitcoin | Script (stack-based, limited loops) | * Very constrained |
+| Ethereum | EVM (quasi-Turing complete) | *** Powerful but expensive |
+| Solana | eBPF (compiled, parallelizable) | *** Fast but low-level |
+| Lightning | HTLC scripts only | * Extremely limited |
+| XLN | **Pure state machines + EVM escape hatch** | **** **Best of both worlds** |
 
 **XLN's Innovation:**
 - 99.9% of operations: Pure state transitions (free, instant, deterministic)
@@ -261,15 +261,15 @@ Can a single laptop run the entire network?
 
 | Feature | TradFi Corporate | DAO (Token Voting) | XLN Entity |
 |---------|------------------|-------------------|------------|
-| **Dual-Class Shares** | ✅ (Meta, Alphabet) | ❌ | ✅ (control vs dividend tokens) |
-| **Board of Directors** | ✅ | ❌ (or hacked via multi-sig) | ✅ (native board hash + quorum) |
-| **Subsidiary Hierarchies** | ✅ | ❌ | ✅ (entity can control child entities) |
-| **Approval Workflows** | ✅ | ❌ (just vote tallying) | ✅ (propose → sign → commit) |
-| **Share Transferability** | ✅ | ✅ | ✅ (ERC1155 tokens) |
-| **Legal Personality** | ✅ | ❌ | ⚠️ (Hanko bytes enable legal entity mapping) |
-| **Regulatory Reporting** | ✅ | ❌ | ✅ (jurisdiction anchoring) |
-| **Instant Settlement** | ❌ | ⚠️ (on-chain only) | ✅ (off-chain) |
-| **Programmable Execution** | ❌ | ✅ | ✅ |
+| **Dual-Class Shares** | [OK] (Meta, Alphabet) | [X] | [OK] (control vs dividend tokens) |
+| **Board of Directors** | [OK] | [X] (or hacked via multi-sig) | [OK] (native board hash + quorum) |
+| **Subsidiary Hierarchies** | [OK] | [X] | [OK] (entity can control child entities) |
+| **Approval Workflows** | [OK] | [X] (just vote tallying) | [OK] (propose [RIGHTWARDS] sign [RIGHTWARDS] commit) |
+| **Share Transferability** | [OK] | [OK] | [OK] (ERC1155 tokens) |
+| **Legal Personality** | [OK] | [X] | [WARN] (Hanko bytes enable legal entity mapping) |
+| **Regulatory Reporting** | [OK] | [X] | [OK] (jurisdiction anchoring) |
+| **Instant Settlement** | [X] | [WARN] (on-chain only) | [OK] (off-chain) |
+| **Programmable Execution** | [X] | [OK] | [OK] |
 
 **Why DAOs Can't Replace Corporations:**
 - DAOs: One token type = control + economics (can't separate)
@@ -297,18 +297,18 @@ Meta (Entity #1)
 ### RCPAN vs FRPAP (Reserve Credit vs Free Receive Always Pay)
 
 **Lightning Network (FRPAP):**
-- ❌ Can't receive unless counterparty locked up reserve for you
-- ❌ Inbound liquidity problem is fatal for merchants
-- ❌ Requires loop-out services (expensive, friction)
+- [X] Can't receive unless counterparty locked up reserve for you
+- [X] Inbound liquidity problem is fatal for merchants
+- [X] Requires loop-out services (expensive, friction)
 
 **XLN (RCPAN):**
-- ✅ Can receive instantly (sender pays from their reserve)
-- ✅ Credit extension: Receiver can go negative (up to credit limit)
-- ✅ No inbound liquidity problem
+- [OK] Can receive instantly (sender pays from their reserve)
+- [OK] Credit extension: Receiver can go negative (up to credit limit)
+- [OK] No inbound liquidity problem
 
 **Why This Matters:**
-- Lightning: Merchant needs $10k in inbound liquidity to receive $10k revenue → capital lockup + friction
-- XLN: Merchant receives $10k instantly, no pre-funding needed → working capital efficiency
+- Lightning: Merchant needs $10k in inbound liquidity to receive $10k revenue [RIGHTWARDS] capital lockup + friction
+- XLN: Merchant receives $10k instantly, no pre-funding needed [RIGHTWARDS] working capital efficiency
 
 ---
 
@@ -320,8 +320,8 @@ Meta (Entity #1)
 |--------|-------------------|-----|
 | **Core Primitive** | Peer-to-peer channels | **Entities + Accounts** |
 | **Organizational Model** | None (just peer-to-peer) | **Native entities with governance** |
-| **Hierarchy Support** | ❌ Impossible | ✅ Entities control sub-entities |
-| **Credit Extension** | ❌ No (FRPAP only) | ✅ Yes (RCPAN + collateral management) |
+| **Hierarchy Support** | [X] Impossible | [OK] Entities control sub-entities |
+| **Credit Extension** | [X] No (FRPAP only) | [OK] Yes (RCPAN + collateral management) |
 | **Routing** | Source routing (sender finds path) | Hub routing (entities coordinate paths) |
 | **Settlement** | Bilateral only | Multilateral (batch settlements) |
 | **Liquidity Management** | Manual rebalancing hell | Automatic credit adjustment |

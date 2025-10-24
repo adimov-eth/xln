@@ -41,7 +41,7 @@ entityId = keccak256(governance_structure)
 Traditional approach: Get 15 signatures from 15 board members individually.
 
 Hanko approach: One signature cryptographically proves the entire governance chain approved:
-- Board approved → CEO approved → CFO approved → Treasury approved
+- Board approved [RIGHTWARDS] CEO approved [RIGHTWARDS] CFO approved [RIGHTWARDS] Treasury approved
 - All validated in a single signature verification
 
 ### How It Works

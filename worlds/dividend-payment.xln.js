@@ -86,7 +86,7 @@ export default {
     {
       time: 10,
       title: 'Distribution Complete',
-      narrative: '$500M distributed. Audit trail: board→CFO signatures, shareholder registry snapshot, payment proof.',
+      narrative: '$500M distributed. Audit trail: board[RIGHTWARDS]CFO signatures, shareholder registry snapshot, payment proof.',
       actions: async (xln, env) => {
         const megacorp = env.getEntity('MegaCorp');
 

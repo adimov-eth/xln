@@ -43,7 +43,7 @@ export function encodeScenarioForURL(content: string): string {
  */
 export function validateScenario(parsed: ParsedScenario): boolean {
   if (parsed.errors.length > 0) {
-    console.error('❌ Scenario has errors:');
+    console.error('[X] Scenario has errors:');
     for (const error of parsed.errors) {
       console.error(
         `  Line ${error.lineNumber}: ${error.message}${error.context ? `\n    ${error.context}` : ''}`
@@ -53,15 +53,15 @@ export function validateScenario(parsed: ParsedScenario): boolean {
   }
 
   if (parsed.warnings.length > 0) {
-    console.warn('⚠️  Scenario has warnings:');
+    console.warn('[WARN]  Scenario has warnings:');
     for (const warning of parsed.warnings) {
       console.warn(
-        `  Line ${warning.lineNumber}: ${warning.message}${warning.suggestion ? `\n    💡 ${warning.suggestion}` : ''}`
+        `  Line ${warning.lineNumber}: ${warning.message}${warning.suggestion ? `\n    [IDEA] ${warning.suggestion}` : ''}`
       );
     }
   }
 
-  console.log('✅ Scenario parsed successfully');
+  console.log('[OK] Scenario parsed successfully');
   console.log(`  Seed: "${parsed.scenario.seed}"`);
   console.log(`  Events: ${parsed.scenario.events.length}`);
   console.log(`  Repeat blocks: ${parsed.scenario.repeatBlocks.length}`);

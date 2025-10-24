@@ -52,10 +52,10 @@
 
 ;; Invalid delta - should error
 (displayln "\nAttempting invalid delta (violates RCPAN)...")
-(with-handlers ([exn:fail? (λ (e) (displayln (format "✓ Caught error: ~a"
+(with-handlers ([exn:fail? (λ (e) (displayln (format "[CHECK] Caught error: ~a"
                                                       (exn-message e))))])
   (delta 1 1000 2000 0 100 200 1000 1000)  ; combined=2000 > 1200
-  (displayln "✗ Should have failed!"))
+  (displayln "[BALLOT] Should have failed!"))
 
 ;; ─────────────────────────────────────────────────────────────────
 ;; Demo 3: Perspective-Aware Capacity Calculation
@@ -121,9 +121,9 @@
 ;; ─────────────────────────────────────────────────────────────────
 
 (displayln "\n=== Summary ===")
-(displayln "✓ Canonical channel key construction")
-(displayln "✓ RCPAN invariant enforced at compile time")
-(displayln "✓ Perspective-aware capacity calculations")
-(displayln "✓ State machine introspection")
-(displayln "✓ Pure transition functions")
+(displayln "[CHECK] Canonical channel key construction")
+(displayln "[CHECK] RCPAN invariant enforced at compile time")
+(displayln "[CHECK] Perspective-aware capacity calculations")
+(displayln "[CHECK] State machine introspection")
+(displayln "[CHECK] Pure transition functions")
 (displayln "\nFoundation is sound. λ.")

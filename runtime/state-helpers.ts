@@ -50,9 +50,9 @@ export function cloneEntityState(entityState: EntityState): EntityState {
 
     // CRITICAL: Validate jBlock was preserved correctly
     if (typeof cloned.jBlock !== 'number') {
-      console.error(`💥 CLONE-CORRUPTION: structuredClone corrupted jBlock!`);
-      console.error(`💥   Original: ${entityState.jBlock} (${typeof entityState.jBlock})`);
-      console.error(`💥   Cloned: ${cloned.jBlock} (${typeof cloned.jBlock})`);
+      console.error(`[BOOM] CLONE-CORRUPTION: structuredClone corrupted jBlock!`);
+      console.error(`[BOOM]   Original: ${entityState.jBlock} (${typeof entityState.jBlock})`);
+      console.error(`[BOOM]   Cloned: ${cloned.jBlock} (${typeof cloned.jBlock})`);
       cloned.jBlock = entityState.jBlock ?? 0; // Force fix
     }
 
@@ -198,7 +198,7 @@ export const captureSnapshot = (
 
   // Alert if snapshot exceeds 1MB threshold
   if (snapshotSize > 1_000_000) {
-    console.warn(`📦 LARGE SNAPSHOT: ${sizeMB}MB at height ${snapshot.height}`);
+    console.warn(`[PKG] LARGE SNAPSHOT: ${sizeMB}MB at height ${snapshot.height}`);
     console.warn(`   Replicas: ${snapshot.replicas.size}`);
 
     // Log per-entity diagnostics
@@ -223,9 +223,9 @@ export const captureSnapshot = (
   }
 
   if (DEBUG) {
-    console.log(`📸 Snapshot ${snapshot.height}: ${sizeMB}MB - "${description}" (total: ${envHistory.length})`);
+    console.log(`[CAM] Snapshot ${snapshot.height}: ${sizeMB}MB - "${description}" (total: ${envHistory.length})`);
     if (runtimeInput.runtimeTxs.length > 0) {
-      console.log(`    🖥️  RuntimeTxs: ${runtimeInput.runtimeTxs.length}`);
+      console.log(`    [PC]  RuntimeTxs: ${runtimeInput.runtimeTxs.length}`);
       runtimeInput.runtimeTxs.forEach((tx, i) => {
         console.log(
           `      ${i + 1}. ${tx.type} ${tx.entityId}:${tx.signerId} (${tx.data.isProposer ? 'proposer' : 'validator'})`,
@@ -233,7 +233,7 @@ export const captureSnapshot = (
       });
     }
     if (runtimeInput.entityInputs.length > 0) {
-      console.log(`    📨 EntityInputs: ${runtimeInput.entityInputs.length}`);
+      console.log(`    [MAIL] EntityInputs: ${runtimeInput.entityInputs.length}`);
       runtimeInput.entityInputs.forEach((input, i) => {
         const parts = [];
         if (input.entityTxs?.length) parts.push(`${input.entityTxs.length} txs`);

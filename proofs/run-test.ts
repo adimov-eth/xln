@@ -15,13 +15,13 @@
 const testName = process.argv[2] || 'smoke';
 
 console.log('═══════════════════════════════════════');
-console.log('🧪 XLN E2E Test Runner');
+console.log('[TEST] XLN E2E Test Runner');
 console.log('═══════════════════════════════════════');
 console.log('');
 console.log(`Test: ${testName}`);
 console.log(`Base URL: https://localhost:8080`);
 console.log('');
-console.log('📝 Note: This script outputs instructions for running tests via Claude Code');
+console.log('[MEMO] Note: This script outputs instructions for running tests via Claude Code');
 console.log('   The actual test execution happens through Playwright MCP tools');
 console.log('');
 
@@ -60,7 +60,7 @@ const tests = {
       '1. Navigate to https://localhost:8080',
       '2. Create Entity A (Alice)',
       '3. Create Entity B (Bob)',
-      '4. Open account: Alice → Bob',
+      '4. Open account: Alice [RIGHTWARDS] Bob',
       '5. Send payment: 100 USDC',
       '6. Verify balances updated',
       '7. Verify state roots match',
@@ -84,19 +84,19 @@ const tests = {
 const test = tests[testName as keyof typeof tests];
 
 if (!test) {
-  console.error(`❌ Unknown test: ${testName}`);
+  console.error(`[X] Unknown test: ${testName}`);
   console.error(`Available tests: ${Object.keys(tests).join(', ')}`);
   process.exit(1);
 }
 
-console.log(`📋 ${test.name}`);
+console.log(`[LIST] ${test.name}`);
 console.log(`   ${test.description}`);
 console.log('');
 console.log('Test Steps:');
 test.steps.forEach(step => console.log(`   ${step}`));
 console.log('');
 console.log('═══════════════════════════════════════');
-console.log('🤖 To run this test with Claude Code:');
+console.log('[BOT] To run this test with Claude Code:');
 console.log('');
 console.log('   Ask Claude: "Run E2E test: ' + testName + '"');
 console.log('');

@@ -1,15 +1,15 @@
-# 🏛️ Foundation-Based Governance Architecture
+# [COURT] Foundation-Based Governance Architecture
 
-## 🔄 Major Architectural Changes
+## [ANTICLOCKWISE] Major Architectural Changes
 
-### **❌ REMOVED: Centralized Admin**
+### **[X] REMOVED: Centralized Admin**
 ```solidity
 // OLD: Centralized admin control
 address public admin;
 modifier onlyAdmin() { require(msg.sender == admin, "Only admin"); }
 ```
 
-### **✅ NEW: Foundation Entity Control**
+### **[OK] NEW: Foundation Entity Control**
 ```solidity
 // NEW: Decentralized foundation control via tokens
 modifier onlyFoundation() {
@@ -19,21 +19,21 @@ modifier onlyFoundation() {
 }
 ```
 
-## 🎯 **Key Benefits**
+## [GOAL] **Key Benefits**
 
 ### **1. True Decentralization**
-- ❌ **Old**: Single admin address (centralized)
-- ✅ **New**: Foundation token holders (distributed governance)
+- [X] **Old**: Single admin address (centralized)
+- [OK] **New**: Foundation token holders (distributed governance)
 
 ### **2. Automatic Governance Setup**
-- ❌ **Old**: Manual setupGovernance() call needed
-- ✅ **New**: Governance created automatically on entity registration
+- [X] **Old**: Manual setupGovernance() call needed
+- [OK] **New**: Governance created automatically on entity registration
 
 ### **3. Fixed Supply from Start**
-- ❌ **Old**: Custom token supplies (manipulation risk)
-- ✅ **New**: Fixed 1 quadrillion supply for all entities
+- [X] **Old**: Custom token supplies (manipulation risk)
+- [OK] **New**: Fixed 1 quadrillion supply for all entities
 
-## 🏗️ **Implementation Details**
+## [BUILD] **Implementation Details**
 
 ### **Foundation Entity (#1)**
 ```solidity
@@ -95,7 +95,7 @@ function registerNumberedEntity(bytes32 boardHash) external returns (uint256 ent
 }
 ```
 
-## 🔒 **Access Control Matrix**
+## [LOCK] **Access Control Matrix**
 
 | Function | Old Access | New Access | Who Can Call |
 |----------|------------|------------|-------------|
@@ -107,7 +107,7 @@ function registerNumberedEntity(bytes32 boardHash) external returns (uint256 ent
 | `foundationRegisterEntity()` | N/A | `onlyFoundation` | Foundation token holders |
 | `registerNumberedEntity()` | Anyone | Anyone | Anyone (with auto-governance) |
 
-## 🚀 **Workflow Changes**
+## [LAUNCH] **Workflow Changes**
 
 ### **OLD Workflow:**
 ```javascript
@@ -131,13 +131,13 @@ const entityProvider = await EntityProvider.deploy();
 
 // 2. Register entity (automatic governance setup)
 const entityNumber = await entityProvider.registerNumberedEntity(boardHash);
-// ✅ Governance tokens automatically created with fixed supply
+// [OK] Governance tokens automatically created with fixed supply
 
 // 3. Foundation distributes tokens (requires foundation tokens)
 await entityProvider.foundationTransferFromEntity(entityNumber, user, tokenId, amount);
 ```
 
-## 🎮 **Foundation Token Distribution**
+## [GAME] **Foundation Token Distribution**
 
 ### **Initial State:**
 ```
@@ -161,7 +161,7 @@ await foundationTransferFromEntity(1, community, controlTokenId, ethers.parseUni
 // ... etc
 ```
 
-## 🔄 **Migration Benefits**
+## [ANTICLOCKWISE] **Migration Benefits**
 
 ### **Security Improvements:**
 1. **No Single Point of Failure**: No centralized admin key
@@ -179,7 +179,7 @@ await foundationTransferFromEntity(1, community, controlTokenId, ethers.parseUni
 2. **Consistent Interface**: All entities have same governance structure
 3. **Clear Permissions**: Token-based access control
 
-## 📋 **Testing Foundation Functions**
+## [LIST] **Testing Foundation Functions**
 
 ### **Setup Foundation Access:**
 ```javascript
@@ -200,17 +200,17 @@ await entityProvider.connect(foundationSigner).safeTransferFrom(
 );
 
 // Now owner can call foundation functions
-await entityProvider.assignName("testname", 2); // ✅ Works
+await entityProvider.assignName("testname", 2); // [OK] Works
 ```
 
-## 🏆 **Conclusion**
+## [TROPHY] **Conclusion**
 
 **Foundation-based governance provides:**
 
-1. **🔒 True Decentralization**: No centralized admin
-2. **⚡ Automatic Setup**: Governance created on entity registration  
-3. **🎯 Predictable Economics**: Fixed supply for all entities
-4. **🛡️ Enhanced Security**: Token-based access control
-5. **🔄 Gradual Decentralization**: Foundation can distribute control
+1. **[LOCK] True Decentralization**: No centralized admin
+2. **[FAST] Automatic Setup**: Governance created on entity registration  
+3. **[GOAL] Predictable Economics**: Fixed supply for all entities
+4. **[SHIELD] Enhanced Security**: Token-based access control
+5. **[ANTICLOCKWISE] Gradual Decentralization**: Foundation can distribute control
 
 **Result**: A more robust, decentralized, and user-friendly governance system. 

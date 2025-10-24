@@ -7,26 +7,26 @@ const artifact = JSON.parse(fs.readFileSync('artifacts/contracts/Depository.sol/
 const processBatchAbi = artifact.abi.find(item => item.name === 'processBatch');
 
 if (processBatchAbi) {
-  console.log('✅ Found processBatch function in ABI');
+  console.log('[OK] Found processBatch function in ABI');
   
   // Extract the function signature for ethers
   const ethers = require('ethers');
   const iface = new ethers.Interface(artifact.abi);
   const fragment = iface.getFunction('processBatch');
   
-  console.log('\n🔍 Function signature for ethers ABI:');
+  console.log('\n[FIND] Function signature for ethers ABI:');
   console.log(fragment.format());
   
-  console.log('\n🔍 Function selector:');
+  console.log('\n[FIND] Function selector:');
   console.log(fragment.selector);
   
 } else {
-  console.log('❌ processBatch function not found in ABI');
+  console.log('[X] processBatch function not found in ABI');
 }
 
 // Also extract other key functions
 const keyFunctions = ['debugFundReserves', 'debugBulkFundEntities', '_reserves'];
-console.log('\n🔍 Other key functions:');
+console.log('\n[FIND] Other key functions:');
 
 keyFunctions.forEach(name => {
   const func = artifact.abi.find(item => item.name === name);
@@ -40,7 +40,7 @@ keyFunctions.forEach(name => {
 
 // Events
 const keyEvents = ['ReserveUpdated', 'ReserveTransferred'];
-console.log('\n🔍 Key events:');
+console.log('\n[FIND] Key events:');
 
 keyEvents.forEach(name => {
   const event = artifact.abi.find(item => item.name === name);

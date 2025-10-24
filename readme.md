@@ -7,7 +7,7 @@ Byzantine consensus meets Bloomberg Terminal meets VR. Run complete economic sim
 
 ---
 
-## 🌐 Directory Structure
+## [WEB] Directory Structure
 
 ```
 Core:
@@ -28,7 +28,7 @@ Dev:
 
 ---
 
-## 🚀 Quick Start
+## [LAUNCH] Quick Start
 
 ```bash
 # Install + start everything
@@ -43,7 +43,7 @@ open http://localhost:8080
 
 ---
 
-## 🎯 What is XLN?
+## [GOAL] What is XLN?
 
 Cross-Local Network enables entities to:
 - Exchange value **instantly off-chain** (BFT consensus)
@@ -57,7 +57,7 @@ Cross-Local Network enables entities to:
 
 ---
 
-## 🏗️ Architecture (J-E-A Layers)
+## [BUILD] Architecture (J-E-A Layers)
 
 ### J - Jurisdiction Layer (On-Chain)
 - **What:** Solidity contracts managing reserves, collateral, settlements
@@ -69,7 +69,7 @@ Cross-Local Network enables entities to:
 
 ### E - Entity Layer (Off-Chain BFT Consensus)
 - **What:** Distributed organizations with threshold signatures
-- **Flow:** ADD_TX → PROPOSE → SIGN → COMMIT
+- **Flow:** ADD_TX [RIGHTWARDS] PROPOSE [RIGHTWARDS] SIGN [RIGHTWARDS] COMMIT
 - **Source:** `/runtime/entity-consensus.ts`
 - **Deterministic:** Nonce-based ordering, Merkle state roots
 
@@ -81,7 +81,7 @@ Cross-Local Network enables entities to:
 
 ---
 
-## 💻 Key Commands
+## [PC] Key Commands
 
 ```bash
 # Development
@@ -105,15 +105,15 @@ bun test-ethereumjs-vm.ts       # BrowserVM smoke test
 
 ---
 
-## 🎨 XLNView Panel System
+## [DESIGN] XLNView Panel System
 
 **Bloomberg Terminal-style workspace. Drag, dock, float, tab - full Chrome DevTools UX.**
 
 ### Core 4 Panels (Open by Default)
-1. **🌐 Graph3D** - Force-directed network viz (WebGL/WebGPU toggle)
-2. **🏢 Entities** - Live entity list (reserves, accounts, activity)
-3. **💰 Depository** - On-chain J-state viewer (BrowserVM queries)
-4. **🎬 Architect** - God-mode controls (5 modes: Explore/Build/Economy/Governance/Resolve)
+1. **[WEB] Graph3D** - Force-directed network viz (WebGL/WebGPU toggle)
+2. **[OFFICE] Entities** - Live entity list (reserves, accounts, activity)
+3. **[$] Depository** - On-chain J-state viewer (BrowserVM queries)
+4. **[TAKE] Architect** - God-mode controls (5 modes: Explore/Build/Economy/Governance/Resolve)
 
 ### Layouts
 - **Default**: 4-panel workspace
@@ -127,7 +127,7 @@ bun test-ethereumjs-vm.ts       # BrowserVM smoke test
 
 ---
 
-## 🧪 Simnet (Offline Blockchain in Browser)
+## [TEST] Simnet (Offline Blockchain in Browser)
 
 **No localhost:8545. No cloud RPC. Pure browser.**
 
@@ -142,12 +142,12 @@ bun test-ethereumjs-vm.ts       # BrowserVM smoke test
 **Demo:**
 ```bash
 bun test-ethereumjs-vm.ts
-# ✅ Deploys contract, funds entities, executes transfers
+# [OK] Deploys contract, funds entities, executes transfers
 ```
 
 ---
 
-## 🎮 VR/Quest Support
+## [GAME] VR/Quest Support
 
 - **WebXR:** Enabled by default (WebGL renderer)
 - **Offline:** Simnet works without network (perfect for VR demos)
@@ -156,7 +156,7 @@ bun test-ethereumjs-vm.ts
 
 ---
 
-## 📚 Documentation
+## [DOCS] Documentation
 
 ### Forever (vibepaper/)
 - `xlnview.md` - Panel architecture + BrowserVM integration
@@ -171,29 +171,29 @@ bun test-ethereumjs-vm.ts
 
 ---
 
-## 🔥 Recent Updates (Oct 2025)
+## [FIRE] Recent Updates (Oct 2025)
 
-- ✅ **Repository restructure** - Essence-driven naming (vibepaper, runtime, jurisdictions, worlds)
-- ✅ **BrowserVM integration** - Offline simnet with @ethereumjs/vm
-- ✅ **Panel workspace** - Dockview-based Bloomberg Terminal UX
-- ✅ **WebGPU/WebGL switch** - Runtime renderer toggle (future-proof)
-- ✅ **IDepository interface** - Standardizable ERC for reserve management
-- ✅ **Depository** - 69% smaller, self-contained (6.6KB vs 21KB)
+- [OK] **Repository restructure** - Essence-driven naming (vibepaper, runtime, jurisdictions, worlds)
+- [OK] **BrowserVM integration** - Offline simnet with @ethereumjs/vm
+- [OK] **Panel workspace** - Dockview-based Bloomberg Terminal UX
+- [OK] **WebGPU/WebGL switch** - Runtime renderer toggle (future-proof)
+- [OK] **IDepository interface** - Standardizable ERC for reserve management
+- [OK] **Depository** - 69% smaller, self-contained (6.6KB vs 21KB)
 
 ---
 
-## 🛠️ Tech Stack
+## [TOOLS] Tech Stack
 
 **Runtime:** TypeScript + Bun
 **Frontend:** Svelte + Vite + Three.js
 **Contracts:** Solidity + Hardhat
-**Blockchain:** @ethereumjs/vm (simnet) → Hardhat (local) → Ethereum/L2s (prod)
-**Panels:** Dockview (2.8k⭐)
+**Blockchain:** @ethereumjs/vm (simnet) [RIGHTWARDS] Hardhat (local) [RIGHTWARDS] Ethereum/L2s (prod)
+**Panels:** Dockview (2.8k*)
 **Tests:** Playwright
 
 ---
 
-## 🗺️ Network Roadmap
+## [MAP] Network Roadmap
 
 ### Simnet (Now - Oct 2025)
 **Browser-only simulation. Zero infrastructure.**
@@ -219,7 +219,7 @@ bun test-ethereumjs-vm.ts
 
 ---
 
-## 📖 Learn More
+## [BOOK] Learn More
 
 **Start here:**
 1. `workflow.md` - Daily dev commands

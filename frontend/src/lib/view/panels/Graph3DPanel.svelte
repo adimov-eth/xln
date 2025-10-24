@@ -194,7 +194,7 @@ let vrHammer: VRHammer | null = null;
   let lastJEventId: string | null = null;
 
   // J-Machines (one per xlnomy) - broadcast visualization
-  let jMachines: Map<string, THREE.Group> = new Map(); // xlnomy name → J-Machine mesh
+  let jMachines: Map<string, THREE.Group> = new Map(); // xlnomy name [RIGHTWARDS] J-Machine mesh
 
   // Active J-Machine (for backward compatibility with broadcast functions)
   $: jMachine = env?.activeXlnomy ? jMachines.get(env.activeXlnomy) || null : null;
@@ -260,7 +260,7 @@ let vrHammer: VRHammer | null = null;
    * ============================================================
    *
    * Use this index for efficient editing with offset reads:
-   * 1. Find function in index → note line range
+   * 1. Find function in index [RIGHTWARDS] note line range
    * 2. Read file offset=START limit=LENGTH
    * 3. Edit only that section
    *
@@ -363,7 +363,7 @@ let vrHammer: VRHammer | null = null;
    * Example: Edit applyForceDirectedLayout function
    *
    * Step 1: Find function in index above
-   *   → Lines 1043-1182 (140 lines)
+   *   [RIGHTWARDS] Lines 1043-1182 (140 lines)
    *
    * Step 2: Read only that section
    *   Read file offset=1043 limit=140
@@ -577,7 +577,7 @@ let vrHammer: VRHammer | null = null;
         if (tx.kind === 'payFromReserve' || tx.kind === 'payToReserve' || tx.kind === 'settleToReserve') {
           console.log(`[J-Machine] Adding tx ${tx.kind} from ${entityInput.entityId?.slice(0, 8)}...`);
 
-          // Shoot ray from entity → J-Machine (incoming tx)
+          // Shoot ray from entity [RIGHTWARDS] J-Machine (incoming tx)
           shootRayToJMachine(entityInput.entityId);
 
           addTxToJMachine(entityInput.entityId);
@@ -631,7 +631,7 @@ let vrHammer: VRHammer | null = null;
       }
 
       scenarioSteps = parsed;
-      console.log(`📜 Loaded ${parsed.length} scenario steps`);
+      console.log(`[DOC] Loaded ${parsed.length} scenario steps`);
     } catch (error) {
       console.error('Failed to load scenario steps:', error);
       scenarioSteps = [];
@@ -734,7 +734,7 @@ let vrHammer: VRHammer | null = null;
           // Oculus Quest browsers support 'immersive-vr'
           const vrSupported = await (navigator as any).xr.isSessionSupported('immersive-vr');
           isVRSupported = vrSupported === true;
-          console.log('🥽 WebXR Detection:', {
+          console.log('[GOGGLES] WebXR Detection:', {
             hasNavigatorXR: true,
             isSessionSupported: isVRSupported,
             isSecureContext: window.isSecureContext,
@@ -743,14 +743,14 @@ let vrHammer: VRHammer | null = null;
           });
 
           if (!isVRSupported && !window.isSecureContext) {
-            console.warn('⚠️ WebXR requires HTTPS in production. Use self-signed cert or ngrok for testing.');
+            console.warn('[WARN] WebXR requires HTTPS in production. Use self-signed cert or ngrok for testing.');
           }
         } catch (err) {
-          console.log('🥽 VR Support check failed:', err);
+          console.log('[GOGGLES] VR Support check failed:', err);
           isVRSupported = false;
         }
       } else {
-        console.log('🥽 WebXR not available:', {
+        console.log('[GOGGLES] WebXR not available:', {
           hasNavigatorXR: 'xr' in navigator,
           navigatorXRValue: (navigator as any).xr,
           isSecureContext: window.isSecureContext
@@ -925,7 +925,7 @@ let vrHammer: VRHammer | null = null;
 
   /**
    * Add a yellow transaction cube to J-Machine
-   * Returns the mesh so we can animate it flying from entity → J-Machine
+   * Returns the mesh so we can animate it flying from entity [RIGHTWARDS] J-Machine
    */
   function addTxToJMachine(fromEntityId: string): THREE.Mesh | null {
     if (!jMachine || !scene) return null;
@@ -962,7 +962,7 @@ let vrHammer: VRHammer | null = null;
   }
 
   /**
-   * Shoot green ray from entity → J-Machine (incoming transaction)
+   * Shoot green ray from entity [RIGHTWARDS] J-Machine (incoming transaction)
    * Fast, bright green beam showing value flowing into L1
    */
   function shootRayToJMachine(entityId: string) {
@@ -972,7 +972,7 @@ let vrHammer: VRHammer | null = null;
     const entity = entities.find(e => e.id === entityId);
     if (!entity) return;
 
-    // Create green ray from entity → J-Machine
+    // Create green ray from entity [RIGHTWARDS] J-Machine
     const points = [
       entity.position.clone(),
       new THREE.Vector3(0, 100, 0) // J-Machine center (elevated L1 layer)
@@ -1037,7 +1037,7 @@ let vrHammer: VRHammer | null = null;
     console.log(`[Broadcast] Shooting rays to ${entities.length} entities (O(n) broadcast)...`);
 
     entities.forEach((entity, i) => {
-      // Create thick bright ray from J-Machine → entity
+      // Create thick bright ray from J-Machine [RIGHTWARDS] entity
       const points = [
         new THREE.Vector3(0, 100, 0), // J-Machine center (elevated L1 layer)
         entity.position.clone()
@@ -1160,7 +1160,7 @@ let vrHammer: VRHammer | null = null;
     const toEntity = entities.find(e => e.id === toEntityId);
 
     if (!fromEntity || !toEntity) {
-      console.warn(`[R2R Animation] Entities not found: ${fromEntityId.slice(0,8)} → ${toEntityId.slice(0,8)}`);
+      console.warn(`[R2R Animation] Entities not found: ${fromEntityId.slice(0,8)} [RIGHTWARDS] ${toEntityId.slice(0,8)}`);
       return;
     }
 
@@ -1175,7 +1175,7 @@ let vrHammer: VRHammer | null = null;
     particle.position.copy(fromEntity.position);
     scene.add(particle);
 
-    console.log(`[R2R Animation] ${fromEntityId.slice(0,8)} → ${toEntityId.slice(0,8)}: ${amount} tokens`);
+    console.log(`[R2R Animation] ${fromEntityId.slice(0,8)} [RIGHTWARDS] ${toEntityId.slice(0,8)}: ${amount} tokens`);
 
     // Animate particle movement
     const startTime = Date.now();
@@ -1359,12 +1359,12 @@ let vrHammer: VRHammer | null = null;
     // Register shake-to-rebalance callback
     gestureManager.on((event: { type: string; entityId: string }) => {
       if (event.type === 'shake-rebalance') {
-        console.log('🤝 SHAKE REBALANCE TRIGGERED:', event.entityId);
+        console.log('[HANDSHAKE] SHAKE REBALANCE TRIGGERED:', event.entityId);
         handleRebalanceGesture(event.entityId);
       }
     });
 
-    console.log('✅ Network3D managers initialized');
+    console.log('[OK] Network3D managers initialized');
   }
 
   /**
@@ -1383,7 +1383,7 @@ let vrHammer: VRHammer | null = null;
     if (vrHammer) {
       vrHammer.attachToController(controller1);
       vrHammer.onAccountHit((event) => {
-        console.log(`⚖️ DISPUTE: ${event.fromEntityId} ↔ ${event.toEntityId}`);
+        console.log(`[SCALES] DISPUTE: ${event.fromEntityId} <-> ${event.toEntityId}`);
         // Find and break the connection visually
         const conn = connections.find(c =>
           (c.from === event.fromEntityId && c.to === event.toEntityId) ||
@@ -1422,7 +1422,7 @@ let vrHammer: VRHammer | null = null;
     controller1.add(ray1);
     controller2.add(ray2);
 
-    console.log('🥽 VR Controllers initialized');
+    console.log('[GOGGLES] VR Controllers initialized');
   }
 
   let vrGrabbedEntity: any = null;
@@ -1450,14 +1450,14 @@ let vrHammer: VRHammer | null = null;
         vrGrabbedEntity = entity;
         vrGrabController = controller;
         entity.isPinned = true; // Pin while dragging
-        console.log('🥽 Grabbed entity:', entity.id);
+        console.log('[GOGGLES] Grabbed entity:', entity.id);
       }
     }
   }
 
   function onVRSelectEnd() {
     if (vrGrabbedEntity) {
-      console.log('🥽 Released entity:', vrGrabbedEntity.id);
+      console.log('[GOGGLES] Released entity:', vrGrabbedEntity.id);
       vrGrabbedEntity = null;
       vrGrabController = null;
     }
@@ -1490,7 +1490,7 @@ let vrHammer: VRHammer | null = null;
       // Switch to VR animation loop
       renderer.setAnimationLoop(animate);
 
-      console.log('🥽 Entered VR mode');
+      console.log('[GOGGLES] Entered VR mode');
 
       // Listen for session end
       session.addEventListener('end', () => {
@@ -1498,7 +1498,7 @@ let vrHammer: VRHammer | null = null;
         // Return to regular animation loop
         renderer.setAnimationLoop(null);
         animate();
-        console.log('🥽 Exited VR mode');
+        console.log('[GOGGLES] Exited VR mode');
       });
 
     } catch (error) {
@@ -1526,10 +1526,10 @@ let vrHammer: VRHammer | null = null;
    */
   async function handleRebalanceGesture(entityId: string) {
     try {
-      console.log(`🔄 Initiating automatic rebalance for entity: ${entityId}`);
+      console.log(`[ANTICLOCKWISE] Initiating automatic rebalance for entity: ${entityId}`);
 
       // TODO: Implement hub rebalance coordination (Phase 3 of docs/next.md)
-      console.log('⚠️ Rebalance coordination not yet implemented');
+      console.log('[WARN] Rebalance coordination not yet implemented');
 
       // Visual feedback ripple
       if (spatialHash) {
@@ -1546,7 +1546,7 @@ let vrHammer: VRHammer | null = null;
         }
       }
     } catch (error) {
-      console.error('❌ Rebalance gesture failed:', error);
+      console.error('[X] Rebalance gesture failed:', error);
     }
   }
 
@@ -1635,7 +1635,7 @@ let vrHammer: VRHammer | null = null;
 
     // NO DEMO DATA - only show what actually exists
     if (entityData.length === 0) {
-      debug.warn(`⚠️ No entity data found at frame ${timeIndex} - nothing to display`);
+      debug.warn(`[WARN] No entity data found at frame ${timeIndex} - nothing to display`);
       clearNetwork(); // Clear stale geometry before returning
       return; // Don't create fake entities
     }
@@ -1954,7 +1954,7 @@ let vrHammer: VRHammer | null = null;
     const replica = replicaKey ? currentReplicas.get(replicaKey) : null;
 
     // DEBUG: Log replica lookup details
-    console.log('[Graph3D] 🔍 Replica lookup for', profile.entityId.slice(0,10), ':', {
+    console.log('[Graph3D] [FIND] Replica lookup for', profile.entityId.slice(0,10), ':', {
       replicaKey,
       hasReplica: !!replica,
       hasPosition: !!replica?.position,
@@ -1966,11 +1966,11 @@ let vrHammer: VRHammer | null = null;
       x = replica.position.x;
       y = replica.position.y;
       z = replica.position.z;
-      console.log('[Graph3D] ✅ Position extracted:', { entityId: profile.entityId.slice(0,10), x, y, z });
+      console.log('[Graph3D] [OK] Position extracted:', { entityId: profile.entityId.slice(0,10), x, y, z });
       // Only log ONCE on first draw
       if (!loggedGridPositions.has(profile.entityId)) {
         loggedGridPositions.add(profile.entityId);
-        logActivity(`📍 ${profile.entityId.slice(0,10)} @ (${x.toFixed(0)}, ${y.toFixed(0)}, ${z.toFixed(0)})`);
+        logActivity(`[PIN] ${profile.entityId.slice(0,10)} @ (${x.toFixed(0)}, ${y.toFixed(0)}, ${z.toFixed(0)})`);
       }
     } else if (profile.metadata?.position) {
       // Priority 2: Check gossip profile position
@@ -1980,7 +1980,7 @@ let vrHammer: VRHammer | null = null;
       // Only log ONCE on first draw
       if (!loggedGridPositions.has(profile.entityId)) {
         loggedGridPositions.add(profile.entityId);
-        logActivity(`📍 ${profile.entityId.slice(0,10)} @ (${x.toFixed(0)}, ${y.toFixed(0)}, ${z.toFixed(0)})`);
+        logActivity(`[PIN] ${profile.entityId.slice(0,10)} @ (${x.toFixed(0)}, ${y.toFixed(0)}, ${z.toFixed(0)})`);
       }
     } else if (forceLayoutPositions.has(profile.entityId) && forceLayoutEnabled) {
       // Priority 3: Use computed force-directed position (only if enabled)
@@ -2082,7 +2082,7 @@ let vrHammer: VRHammer | null = null;
           if (fromEntity && toEntity) {
             createConnectionLine(fromEntity, toEntity, entityId, counterpartyId, replica);
           } else {
-            debug.warn(`🔗 Missing entity for connection: ${entityId} ↔ ${counterpartyId}`);
+            debug.warn(`[LINK] Missing entity for connection: ${entityId} <-> ${counterpartyId}`);
           }
         }
       }
@@ -2238,7 +2238,7 @@ let vrHammer: VRHammer | null = null;
     // FAT CYLINDER BOLT (not sphere)
     const geometry = new THREE.CylinderGeometry(radius, radius, boltLength, 16);
 
-    // GRADIENT MATERIAL: bright cyan (source) → dim blue (dest)
+    // GRADIENT MATERIAL: bright cyan (source) [RIGHTWARDS] dim blue (dest)
     const material = new THREE.MeshLambertMaterial({
       color: 0x00ccff, // Bright cyan
       transparent: true,
@@ -2286,7 +2286,7 @@ let vrHammer: VRHammer | null = null;
     switch (txType) {
       case 'deposit_collateral':
       case 'reserve_to_collateral':
-        color = 0x00ff88; // Bright green - entity growing (reserve → collateral)
+        color = 0x00ff88; // Bright green - entity growing (reserve [RIGHTWARDS] collateral)
         break;
       case 'deposit_reserve':
         color = 0x00ff00; // Green - money coming in
@@ -2601,7 +2601,7 @@ let vrHammer: VRHammer | null = null;
     entities.forEach(entity => {
       if (!entity.label) {
         // Defensive: If label is missing, recreate it (should never happen but fail-safe)
-        debug.warn(`⚠️ Entity ${entity.id.slice(-4)} missing label - recreating`);
+        debug.warn(`[WARN] Entity ${entity.id.slice(-4)} missing label - recreating`);
         entity.label = createEntityLabel(entity.id);
       }
 
@@ -2688,7 +2688,7 @@ let vrHammer: VRHammer | null = null;
         const pulseIntensity = 2.0 + 1.5 * slowPulse + 0.5 * fastShimmer + 0.3 * wave;
         material.emissiveIntensity = pulseIntensity;
 
-        // Color shift: cyan → green → cyan (polar lights)
+        // Color shift: cyan [RIGHTWARDS] green [RIGHTWARDS] cyan (polar lights)
         const colorShift = (slowPulse + 1) * 0.5; // 0 to 1
         const r = 0;
         const g = Math.floor(255 * (0.8 + 0.2 * colorShift));
@@ -2953,7 +2953,7 @@ let vrHammer: VRHammer | null = null;
       // Update progress
       particle.progress += particle.speed;
 
-      // 3-PHASE LIGHTNING: incoming (0%-45%) → entity flash (45%-55%) → outgoing (55%-100%)
+      // 3-PHASE LIGHTNING: incoming (0%-45%) [RIGHTWARDS] entity flash (45%-55%) [RIGHTWARDS] outgoing (55%-100%)
       const maxProgress = 1.0;
 
       // Remove particle when complete
@@ -2981,7 +2981,7 @@ let vrHammer: VRHammer | null = null;
 
       const material = particle.mesh.material as THREE.MeshLambertMaterial;
 
-      // PHASE 1: Strike Formation (0% → 45%) - bolt grows from source
+      // PHASE 1: Strike Formation (0% [RIGHTWARDS] 45%) - bolt grows from source
       if (particle.progress < 0.45) {
         const phase1Progress = particle.progress / 0.45; // 0 to 1
 
@@ -2996,7 +2996,7 @@ let vrHammer: VRHammer | null = null;
         // Gradient: bright cyan at source
         material.color.setHex(0x00ffff);
       }
-      // PHASE 2: Entity Flash (45% → 55%) - maximum intensity at entity
+      // PHASE 2: Entity Flash (45% [RIGHTWARDS] 55%) - maximum intensity at entity
       else if (particle.progress < 0.55) {
         const phase2Progress = (particle.progress - 0.45) / 0.1; // 0 to 1
 
@@ -3015,7 +3015,7 @@ let vrHammer: VRHammer | null = null;
           1.0
         );
       }
-      // PHASE 3: Dissipation (55% → 100%) - bolt fades to destination color
+      // PHASE 3: Dissipation (55% [RIGHTWARDS] 100%) - bolt fades to destination color
       else {
         const phase3Progress = (particle.progress - 0.55) / 0.45; // 0 to 1
 
@@ -3237,7 +3237,7 @@ let vrHammer: VRHammer | null = null;
           }
           // If both pinned, show warning (can't fix)
           else {
-            debug.warn(`⚠️ Both entities pinned but too close: ${entityA.id.slice(-4)} ↔ ${entityB.id.slice(-4)}`);
+            debug.warn(`[WARN] Both entities pinned but too close: ${entityA.id.slice(-4)} <-> ${entityB.id.slice(-4)}`);
           }
         }
       }
@@ -3708,7 +3708,7 @@ let vrHammer: VRHammer | null = null;
   //   const e2 = getEntityShortName(entity2);
   //   recentActivity.unshift({
   //     id: `commit-${Date.now()}-${Math.random()}`,
-  //     message: `✅ ${e1} ⟷ ${e2}: frame ${frameId} committed`,
+  //     message: `[OK] ${e1} ⟷ ${e2}: frame ${frameId} committed`,
   //     timestamp: Date.now(),
   //     type: 'commit'
   //   });
@@ -3803,7 +3803,7 @@ let vrHammer: VRHammer | null = null;
     const tokenAmount = reserves.get(String(tokenId)) || 0n;
 
     // VC-MODE: Dramatic scaling - reserve changes must be visually obvious
-    // 1M reserves → size 3.0, 500k → 1.75, 0 → 0.5 (58% size change for 50% reserve change)
+    // 1M reserves [RIGHTWARDS] size 3.0, 500k [RIGHTWARDS] 1.75, 0 [RIGHTWARDS] 0.5 (58% size change for 50% reserve change)
     const scaleFactor = Number(tokenAmount) / 1_000_000; // 1.0 for 1M, 0.5 for 500k
     const size = Math.max(0.5, Math.min(4.0, 0.5 + scaleFactor * 2.5));
 
@@ -3834,7 +3834,7 @@ let vrHammer: VRHammer | null = null;
         to,
         path: [from, to],
         type: 'direct',
-        description: `Direct: ${getEntityShortName(from)} → ${getEntityShortName(to)}`,
+        description: `Direct: ${getEntityShortName(from)} [RIGHTWARDS] ${getEntityShortName(to)}`,
         cost: 0,
         hops: 1
       });
@@ -3866,7 +3866,7 @@ let vrHammer: VRHammer | null = null;
             to,
             path: fullPath,
             type: 'multihop',
-            description: fullPath.map(id => getEntityShortName(id)).join(' → '),
+            description: fullPath.map(id => getEntityShortName(id)).join(' [RIGHTWARDS] '),
             cost: fullPath.length - 1, // Simple cost = hop count
             hops: fullPath.length - 1
           });
@@ -3888,12 +3888,12 @@ let vrHammer: VRHammer | null = null;
     try {
 
       if (!paymentFrom || !paymentTo) {
-        debug.error('❌ Missing from/to entities');
+        debug.error('[X] Missing from/to entities');
         alert('Please select from and to entities');
         return;
       }
       if (paymentFrom === paymentTo) {
-        debug.error('❌ Same entity selected');
+        debug.error('[X] Same entity selected');
         alert('Cannot send payment to same entity');
         return;
       }
@@ -3939,7 +3939,7 @@ let vrHammer: VRHammer | null = null;
         activeJobs = [...activeJobs, job];
       }
     } catch (error) {
-      debug.error('🔥 CRITICAL ERROR in sendPayment:', error);
+      debug.error('[FIRE] CRITICAL ERROR in sendPayment:', error);
       debug.error('Stack:', error instanceof Error ? error.stack : 'No stack');
       alert(`Payment failed: ${error instanceof Error ? error.message : String(error)}`);
     }
@@ -3975,7 +3975,7 @@ let vrHammer: VRHammer | null = null;
       // Multi-hop routing: Backend will find route if no direct account exists
       const hasDirectAccount = ourReplica?.state?.accounts?.has(job.to);
       if (!hasDirectAccount) {
-        console.log(`🔀 No direct account from ${getEntityShortName(job.from)} to ${getEntityShortName(job.to)} - backend will find multi-hop route`);
+        console.log(`[SHUFFLE] No direct account from ${getEntityShortName(job.from)} to ${getEntityShortName(job.to)} - backend will find multi-hop route`);
       }
 
       // Convert amount to BigInt with decimals (copy from PaymentPanel)
@@ -4001,7 +4001,7 @@ let vrHammer: VRHammer | null = null;
         throw new Error(`Invalid route: expected at least 2 entities, got ${routePath?.length || 0}`);
       }
       if (routePath[0] !== job.from || routePath[routePath.length - 1] !== job.to) {
-        throw new Error(`Route mismatch: expected ${job.from} → ${job.to}, got ${routePath[0]} → ${routePath[routePath.length - 1]}`);
+        throw new Error(`Route mismatch: expected ${job.from} [RIGHTWARDS] ${job.to}, got ${routePath[0]} [RIGHTWARDS] ${routePath[routePath.length - 1]}`);
       }
 
       // Step 2: Find signerId (copy from PaymentPanel)
@@ -4040,7 +4040,7 @@ let vrHammer: VRHammer | null = null;
       // Add to activity ticker AFTER successful processing
       recentActivity = [{
         id: `tx-${Date.now()}`,
-        message: `${getEntityShortName(job.from)} → ${getEntityShortName(job.to)}: ${job.amount}`,
+        message: `${getEntityShortName(job.from)} [RIGHTWARDS] ${getEntityShortName(job.to)}: ${job.amount}`,
         timestamp: Date.now(),
         type: 'payment' as 'payment'
       }, ...recentActivity].slice(0, 10);
@@ -4048,9 +4048,9 @@ let vrHammer: VRHammer | null = null;
 
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
-      debug.error('❌ Payment failed:', error); // Log full error object
-      debug.error('❌ Error message:', errorMsg);
-      debug.error('❌ Stack trace:', error instanceof Error ? error.stack : 'No stack');
+      debug.error('[X] Payment failed:', error); // Log full error object
+      debug.error('[X] Error message:', errorMsg);
+      debug.error('[X] Stack trace:', error instanceof Error ? error.stack : 'No stack');
 
       // Show error to user
       alert(`Payment failed: ${errorMsg}`);
@@ -4214,7 +4214,7 @@ let vrHammer: VRHammer | null = null;
         isolatedTimeIndex.set(-1)  // Go to live;
       }
 
-      console.log(`🎬 Executing live command: ${commandText}`);
+      console.log(`[TAKE] Executing live command: ${commandText}`);
 
       // Clear logged positions if this is a grid command (for fresh logs)
       if (commandText.trim().startsWith('grid')) {
@@ -4239,7 +4239,7 @@ let vrHammer: VRHammer | null = null;
       const result = await XLN?.executeScenario($isolatedEnv, parsed.scenario);
 
       if (result.success) {
-        console.log(`✅ Live command executed`);
+        console.log(`[OK] Live command executed`);
         commandText = ''; // Clear input
       } else {
         debug.error('Command execution failed');
@@ -4291,7 +4291,7 @@ let vrHammer: VRHammer | null = null;
     const baseUrl = window.location.origin;
     exportUrl = `${baseUrl}/?s=${base64Scenario}&loop=${start}:${end}`;
 
-    console.log(`📋 Generated slice URL: frames ${start}-${end}, scenario ${scenarioText.length} chars`);
+    console.log(`[LIST] Generated slice URL: frames ${start}-${end}, scenario ${scenarioText.length} chars`);
   }
 
   function generateASCIIScenario() {
@@ -4376,7 +4376,7 @@ let vrHammer: VRHammer | null = null;
 
     asciiScenario = scenarioLines.join('\n');
 
-    console.log(`🎨 Generated ASCII scenario: ${entityPositions.length} entities, ${connections.length} connections`);
+    console.log(`[DESIGN] Generated ASCII scenario: ${entityPositions.length} entities, ${connections.length} connections`);
   }
 
   async function executeASCIIScenario() {
@@ -4400,7 +4400,7 @@ let vrHammer: VRHammer | null = null;
       const result = await XLN?.executeScenario($isolatedEnv, parsed.scenario);
 
       if (result.success) {
-        console.log(`✅ ASCII formation executed: ${result.framesGenerated} frames`);
+        console.log(`[OK] ASCII formation executed: ${result.framesGenerated} frames`);
         // timeOperations removed 0);
         asciiText = ''; // Clear input
         asciiScenario = ''; // Clear output
@@ -4445,7 +4445,7 @@ let vrHammer: VRHammer | null = null;
 
   /**
    * Format financial amounts using same logic as EntityPanel
-   * Example: 1500000000000000000n → "1.5"
+   * Example: 1500000000000000000n [RIGHTWARDS] "1.5"
    */
   function formatFinancialAmount(amount: bigint, decimals: number = 18): string {
     if (amount === 0n) return '0';

@@ -85,10 +85,10 @@ export async function executeCrontab(
         task.lastRun = now;
         // Only log if outputs generated
         if (outputs.length > 0) {
-          console.log(`✅ CRONTAB: Task "${task.name}" generated ${outputs.length} outputs`);
+          console.log(`[OK] CRONTAB: Task "${task.name}" generated ${outputs.length} outputs`);
         }
       } catch (error) {
-        console.error(`❌ CRONTAB: Task "${task.name}" failed:`, error);
+        console.error(`[X] CRONTAB: Task "${task.name}" failed:`, error);
       }
     }
   }
@@ -115,7 +115,7 @@ async function checkAccountTimeoutsHandler(replica: EntityReplica): Promise<Enti
       const frameAge = now - accountMachine.pendingFrame.timestamp;
 
       if (frameAge > ACCOUNT_TIMEOUT_MS) {
-        console.warn(`⏰ TIMEOUT DETECTED: Account with ${counterpartyId.slice(-4)} has pending frame ${accountMachine.pendingFrame.height} for ${frameAge}ms`);
+        console.warn(`[ALARM] TIMEOUT DETECTED: Account with ${counterpartyId.slice(-4)} has pending frame ${accountMachine.pendingFrame.height} for ${frameAge}ms`);
         console.warn(`   Frame timestamp: ${accountMachine.pendingFrame.timestamp}`);
         console.warn(`   Current time: ${now}`);
         console.warn(`   Age: ${frameAge}ms (threshold: ${ACCOUNT_TIMEOUT_MS}ms)`);
@@ -130,7 +130,7 @@ async function checkAccountTimeoutsHandler(replica: EntityReplica): Promise<Enti
 
         outputs.push(disputeSuggestion);
 
-        console.warn(`💬 DISPUTE-SUGGESTION: Generated event for entity ${replica.entityId.slice(-4)}`);
+        console.warn(`[CHAT] DISPUTE-SUGGESTION: Generated event for entity ${replica.entityId.slice(-4)}`);
         console.warn(`   Counterparty: ${counterpartyId.slice(-4)}`);
         console.warn(`   Frame: ${accountMachine.pendingFrame.height}`);
         console.warn(`   Age: ${Math.floor(frameAge / 1000)}s`);
@@ -153,7 +153,7 @@ function createDisputeSuggestionEvent(
   accountMachine: AccountMachine,
   frameAge: number
 ): EntityInput {
-  const message = `🚨 DISPUTE SUGGESTION: Account with ${counterpartyId.slice(-4)} has not acknowledged frame #${accountMachine.pendingFrame!.height} for ${Math.floor(frameAge / 1000)}s (threshold: ${Math.floor(ACCOUNT_TIMEOUT_MS / 1000)}s). Consider initiating dispute or investigating network issues.`;
+  const message = `[ALERT] DISPUTE SUGGESTION: Account with ${counterpartyId.slice(-4)} has not acknowledged frame #${accountMachine.pendingFrame!.height} for ${Math.floor(frameAge / 1000)}s (threshold: ${Math.floor(ACCOUNT_TIMEOUT_MS / 1000)}s). Consider initiating dispute or investigating network issues.`;
 
   // Create a chat message entity transaction
   // For now, just create an EntityInput with a message
@@ -240,12 +240,12 @@ async function broadcastBatchHandler(replica: EntityReplica): Promise<EntityInpu
     return outputs;
   }
 
-  console.log(`📤 CRONTAB: jBatch ready for broadcast (entity ${replica.entityId.slice(-4)})`);
+  console.log(`[OUT] CRONTAB: jBatch ready for broadcast (entity ${replica.entityId.slice(-4)})`);
 
   // Get jurisdiction from entity config
   const jurisdiction = replica.state.config.jurisdiction;
   if (!jurisdiction) {
-    console.warn(`⚠️ No jurisdiction configured for entity ${replica.entityId.slice(-4)} - skipping batch broadcast`);
+    console.warn(`[WARN] No jurisdiction configured for entity ${replica.entityId.slice(-4)} - skipping batch broadcast`);
     return outputs;
   }
 
@@ -254,7 +254,7 @@ async function broadcastBatchHandler(replica: EntityReplica): Promise<EntityInpu
   const result = await broadcastBatch(replica.entityId, replica.state.jBatchState, jurisdiction);
 
   if (result.success) {
-    console.log(`✅ jBatch broadcasted successfully: ${result.txHash}`);
+    console.log(`[OK] jBatch broadcasted successfully: ${result.txHash}`);
 
     // Generate success message
     outputs.push({
@@ -263,7 +263,7 @@ async function broadcastBatchHandler(replica: EntityReplica): Promise<EntityInpu
       entityTxs: [{
         type: 'chatMessage',
         data: {
-          message: `📤 Batch broadcasted: ${result.txHash?.slice(0, 16)}...`,
+          message: `[OUT] Batch broadcasted: ${result.txHash?.slice(0, 16)}...`,
           timestamp: replica.state.timestamp,
           metadata: {
             type: 'BATCH_BROADCAST',
@@ -273,7 +273,7 @@ async function broadcastBatchHandler(replica: EntityReplica): Promise<EntityInpu
       }],
     });
   } else {
-    console.error(`❌ jBatch broadcast failed: ${result.error}`);
+    console.error(`[X] jBatch broadcast failed: ${result.error}`);
   }
 
   return outputs;
@@ -336,9 +336,9 @@ async function hubRebalanceHandler(replica: EntityReplica): Promise<EntityInput[
 
     if (rebalanceAmount === 0n) continue;
 
-    console.log(`🔄 REBALANCE OPPORTUNITY token ${tokenId}: ${rebalanceAmount}`);
+    console.log(`[ANTICLOCKWISE] REBALANCE OPPORTUNITY token ${tokenId}: ${rebalanceAmount}`);
 
-    const message = `🔄 REBALANCE OPPORTUNITY (Token ${tokenId}):
+    const message = `[ANTICLOCKWISE] REBALANCE OPPORTUNITY (Token ${tokenId}):
 Spenders: ${netSpenders.length} (debt: ${totalDebt})
 Receivers: ${netReceivers.length} (requested: ${totalRequested})
 Match: ${rebalanceAmount} (${Number(rebalanceAmount * 100n) / Number(totalDebt || 1n)}%)`;

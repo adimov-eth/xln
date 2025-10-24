@@ -11,7 +11,7 @@
 
   // Debug reactive statements
   $: {
-    console.log(`📊 [TransactionHistory] Props updated:`, {
+    console.log(`[STATS] [TransactionHistory] Props updated:`, {
       runtimeHistoryLength: runtimeHistory?.length || 0,
       replicaExists: !!replica,
       replicaDetails: replica ? { signerId: replica.signerId, entityId: replica.entityId } : null,
@@ -23,7 +23,7 @@
   $: runtimeFrames = getRuntimeFrames(runtimeHistory, replica);
 
   $: {
-    console.log(`📊 [TransactionHistory] Server frames computed:`, {
+    console.log(`[STATS] [TransactionHistory] Server frames computed:`, {
       totalFrames: runtimeFrames.length,
       framesWithActivity: runtimeFrames.filter((f) => f.hasActivity).length,
       frameIndexes: runtimeFrames.map((f) => f.frameIndex),

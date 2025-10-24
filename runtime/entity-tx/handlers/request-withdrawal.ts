@@ -28,7 +28,7 @@ export function handleRequestWithdrawal(
   // Add to account mempool (will be picked up by AUTO-PROPOSE)
   accountMachine.mempool.push(accountTx);
 
-  console.log(`💸 Queued withdrawal request: ${amount} (token ${tokenId}) from ${counterpartyEntityId.slice(-8)}`);
+  console.log(`[$$] Queued withdrawal request: ${amount} (token ${tokenId}) from ${counterpartyEntityId.slice(-8)}`);
   console.log(`   Request ID: ${requestId}`);
   console.log(`   Account mempool now has ${accountMachine.mempool.length} pending transactions`);
 

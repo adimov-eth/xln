@@ -131,8 +131,8 @@
 
   function saveAndReconnectRpc(value: string) {
     localStorage.setItem('xln_rpc_override', value);
-    console.log(`🔧 RPC override saved: ${value}`);
-    console.log(`🔄 Reloading to apply new RPC configuration...`);
+    console.log(`[TOOL] RPC override saved: ${value}`);
+    console.log(`[ANTICLOCKWISE] Reloading to apply new RPC configuration...`);
     setTimeout(() => window.location.reload(), 500);
   }
 
@@ -192,7 +192,7 @@
             debugInfo
           );
 
-          console.error('🚨 DETAILED RPC ERROR:', debugInfo);
+          console.error('[ALERT] DETAILED RPC ERROR:', debugInfo);
 
           return {
             name: j.name,
@@ -244,7 +244,7 @@
       const result = await xln.runDemo(env);
       xlnEnvironment.set(result);
     } catch (error) {
-      console.error('❌ Demo failed:', error);
+      console.error('[X] Demo failed:', error);
       alert(`Demo failed: ${(error as Error)?.message || 'Unknown error'}`);
     }
   }
@@ -255,7 +255,7 @@
       const env = $xlnEnvironment || await xln.main();
       await xln.prepopulate(env, xln.process);
     } catch (error) {
-      console.error('❌ Prepopulation failed:', error);
+      console.error('[X] Prepopulation failed:', error);
       alert(`Prepopulation failed: ${(error as Error)?.message || 'Unknown error'}`);
     }
   }
@@ -275,7 +275,7 @@
               const dbs = await (indexedDB as any).databases();
               allDatabases = dbs.map((db: any) => db.name);
             } catch (err) {
-              console.log('⚠️ Could not enumerate databases');
+              console.log('[WARN] Could not enumerate databases');
             }
           }
           if (allDatabases.length === 0) {
@@ -290,13 +290,13 @@
                 deleteReq.onblocked = () => resolve();
               });
             } catch (err) {
-              console.log(`⚠️ Could not clear IndexedDB: ${dbName}`);
+              console.log(`[WARN] Could not clear IndexedDB: ${dbName}`);
             }
           }
         }
         window.location.reload();
       } catch (error) {
-        console.error('❌ Clear database failed:', error);
+        console.error('[X] Clear database failed:', error);
         alert(`Clear database failed: ${(error as Error)?.message || 'Unknown error'}`);
       }
     }
@@ -322,15 +322,15 @@
   <!-- XLN Initialization Status -->
   {#if $isLoading}
     <div class="init-status loading">
-      🔄 XLN Environment loading...
+      [ANTICLOCKWISE] XLN Environment loading...
     </div>
   {:else if $error}
     <div class="init-status error">
-      ❌ XLN failed to initialize: {$error}
+      [X] XLN failed to initialize: {$error}
     </div>
   {:else if $xlnEnvironment}
     <div class="init-status success">
-      ✅ XLN Environment active (Height: {$xlnEnvironment.height}, Replicas: {$xlnEnvironment.replicas?.size || 0})
+      [OK] XLN Environment active (Height: {$xlnEnvironment.height}, Replicas: {$xlnEnvironment.replicas?.size || 0})
     </div>
   {/if}
 
@@ -340,16 +340,16 @@
       <h2>Admin Actions</h2>
       <div class="action-buttons">
         <button class="action-btn" on:click={handleRunDemo}>
-          <span>▶️</span> Run Demo
+          <span>></span> Run Demo
         </button>
         <button class="action-btn" on:click={handlePrepopulate}>
-          <span>🌐</span> Prepopulate Network
+          <span>[WEB]</span> Prepopulate Network
         </button>
         <button class="action-btn" on:click={handleClearDatabase}>
-          <span>🗑️</span> Clear Database
+          <span>[TRASH]</span> Clear Database
         </button>
         <button class="action-btn" on:click={handleAddPanel}>
-          <span>📋</span> Add Entity Panel
+          <span>[LIST]</span> Add Entity Panel
         </button>
       </div>
     </div>
@@ -387,7 +387,7 @@
 
     <!-- RPC Endpoint Override (Oculus Quest Support) -->
     <div class="setting-group">
-      <h2>🔌 RPC Endpoint Override</h2>
+      <h2>[PLUG] RPC Endpoint Override</h2>
       <p class="setting-description">
         For Oculus Quest: Use path proxy (/rpc) to avoid HTTPS port issues. Changes auto-reload the page.
       </p>
@@ -418,17 +418,17 @@
 
       {#if rpcOverride}
         <div class="current-override">
-          ℹ️ Current override: <code>{rpcOverride === 'custom' ? customRpcInput : rpcOverride}</code>
+          [INFO] Current override: <code>{rpcOverride === 'custom' ? customRpcInput : rpcOverride}</code>
         </div>
       {/if}
     </div>
 
     <!-- Jurisdiction Connection Status Section -->
     <div class="setting-group">
-      <h2>🌐 Jurisdiction Connection Status</h2>
+      <h2>[WEB] Jurisdiction Connection Status</h2>
       {#if jurisdictionStatus === null}
         <div class="connection-status-loading">
-          <span>⏳ Checking connections...</span>
+          <span>[WAIT] Checking connections...</span>
         </div>
       {:else}
         <div class="jurisdiction-status-grid">
@@ -437,7 +437,7 @@
               <div class="jurisdiction-header">
                 <span class="jurisdiction-name">{jStatus.name}</span>
                 <span class="connection-indicator" class:connected={jStatus.connected}>
-                  {jStatus.connected ? '✅ Connected' : '❌ Disconnected'}
+                  {jStatus.connected ? '[OK] Connected' : '[X] Disconnected'}
                 </span>
               </div>
               <div class="jurisdiction-details">
@@ -465,23 +465,23 @@
 
     <!-- Browser Capabilities Section -->
     <div class="setting-group">
-      <h2>🖥️ Browser Capabilities</h2>
+      <h2>[PC] Browser Capabilities</h2>
       <div class="capabilities-grid">
         <div class="capability-item" class:available={browserCapabilities.indexedDB}>
           <span class="capability-name">IndexedDB:</span>
-          <span class="capability-status">{browserCapabilities.indexedDB ? '✅ Available' : '❌ Blocked'}</span>
+          <span class="capability-status">{browserCapabilities.indexedDB ? '[OK] Available' : '[X] Blocked'}</span>
         </div>
         <div class="capability-item" class:available={browserCapabilities.webGL}>
           <span class="capability-name">WebGL:</span>
-          <span class="capability-status">{browserCapabilities.webGL ? '✅ Available' : '❌ Not Available'}</span>
+          <span class="capability-status">{browserCapabilities.webGL ? '[OK] Available' : '[X] Not Available'}</span>
         </div>
         <div class="capability-item" class:available={browserCapabilities.webXR}>
           <span class="capability-name">WebXR:</span>
-          <span class="capability-status">{browserCapabilities.webXR ? '✅ Available' : '❌ Not Available'}</span>
+          <span class="capability-status">{browserCapabilities.webXR ? '[OK] Available' : '[X] Not Available'}</span>
         </div>
         <div class="capability-item" class:available={browserCapabilities.secureContext}>
           <span class="capability-name">HTTPS:</span>
-          <span class="capability-status">{browserCapabilities.secureContext ? '✅ Secure' : '❌ Insecure'}</span>
+          <span class="capability-status">{browserCapabilities.secureContext ? '[OK] Secure' : '[X] Insecure'}</span>
         </div>
         <div class="capability-item full-width">
           <span class="capability-name">User Agent:</span>
@@ -492,12 +492,12 @@
 
     <!-- Database Health Section -->
     <div class="setting-group">
-      <h2>💾 Database Health</h2>
+      <h2>[DISK] Database Health</h2>
       <div class="db-health-grid">
         <div class="health-item">
           <span class="health-label">Status:</span>
           <span class="health-value" class:healthy={dbHealth.available} class:unhealthy={!dbHealth.available}>
-            {dbHealth.available ? '✅ Available' : '❌ Unavailable'}
+            {dbHealth.available ? '[OK] Available' : '[X] Unavailable'}
           </span>
         </div>
         <div class="health-item">
@@ -513,7 +513,7 @@
 
     <!-- Persistent Error Log Section -->
     <div class="setting-group">
-      <h2>🚨 Error Log</h2>
+      <h2>[ALERT] Error Log</h2>
       <div class="error-log-controls">
         <button class="clear-log-btn" on:click={() => errorLog.clear()}>
           Clear Log
@@ -546,7 +546,7 @@
         </div>
       </div>
       <div class="toggle-labels">
-        <small>Jur→Signer→Entity | Jur→Entity→Signers</small>
+        <small>Jur[RIGHTWARDS]Signer[RIGHTWARDS]Entity | Jur[RIGHTWARDS]Entity[RIGHTWARDS]Signers</small>
       </div>
 
       <!-- Portfolio Scale -->

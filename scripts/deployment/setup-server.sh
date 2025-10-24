@@ -6,7 +6,7 @@
 
 set -e
 
-echo "🚀 XLN Server Setup Script"
+echo "[LAUNCH] XLN Server Setup Script"
 echo "=========================="
 
 # Colors for output
@@ -17,10 +17,10 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Helper functions
-log_info() { echo -e "${BLUE}ℹ️  $1${NC}"; }
-log_success() { echo -e "${GREEN}✅ $1${NC}"; }
-log_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
-log_error() { echo -e "${RED}❌ $1${NC}"; }
+log_info() { echo -e "${BLUE}[INFO]  $1${NC}"; }
+log_success() { echo -e "${GREEN}[OK] $1${NC}"; }
+log_warning() { echo -e "${YELLOW}[WARN]  $1${NC}"; }
+log_error() { echo -e "${RED}[X] $1${NC}"; }
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
@@ -36,7 +36,7 @@ log_info "Setting up for user: $ACTUAL_USER"
 log_info "User home: $USER_HOME"
 
 # 1. System Update
-log_info "1️⃣  Checking system updates..."
+log_info "1⃣  Checking system updates..."
 if command -v apt-get >/dev/null 2>&1; then
     apt-get update -qq
     log_success "System packages updated"
@@ -46,7 +46,7 @@ else
 fi
 
 # 2. Install essential packages
-log_info "2️⃣  Installing essential packages..."
+log_info "2⃣  Installing essential packages..."
 PACKAGES="curl wget git htop unzip build-essential"
 MISSING_PACKAGES=""
 
@@ -65,7 +65,7 @@ else
 fi
 
 # 3. Install/Update Node.js 20
-log_info "3️⃣  Checking Node.js installation..."
+log_info "3⃣  Checking Node.js installation..."
 NODE_VERSION_REQUIRED="20"
 
 if command -v node >/dev/null 2>&1; then
@@ -86,7 +86,7 @@ else
 fi
 
 # 4. Install/Update Bun
-log_info "4️⃣  Checking Bun installation..."
+log_info "4⃣  Checking Bun installation..."
 if sudo -u $ACTUAL_USER bash -c 'command -v bun >/dev/null 2>&1'; then
     BUN_VERSION=$(sudo -u $ACTUAL_USER bun --version)
     log_success "Bun $BUN_VERSION is already installed"
@@ -107,7 +107,7 @@ else
 fi
 
 # 5. Install/Update PM2
-log_info "5️⃣  Checking PM2 installation..."
+log_info "5⃣  Checking PM2 installation..."
 if command -v pm2 >/dev/null 2>&1; then
     PM2_VERSION=$(pm2 --version)
     log_success "PM2 $PM2_VERSION is already installed"
@@ -118,7 +118,7 @@ else
 fi
 
 # 6. Install/Configure Nginx
-log_info "6️⃣  Checking Nginx installation..."
+log_info "6⃣  Checking Nginx installation..."
 if systemctl is-active --quiet nginx; then
     log_success "Nginx is already installed and running"
 else
@@ -134,7 +134,7 @@ else
 fi
 
 # 7. Configure Firewall (UFW)
-log_info "7️⃣  Configuring firewall..."
+log_info "7⃣  Configuring firewall..."
 if command -v ufw >/dev/null 2>&1; then
     # Install ufw if not present
     if ! dpkg -l | grep -q "^ii  ufw "; then
@@ -156,7 +156,7 @@ else
 fi
 
 # 8. Create XLN directory and set permissions
-log_info "8️⃣  Setting up XLN directory..."
+log_info "8⃣  Setting up XLN directory..."
 XLN_DIR="$USER_HOME/xln"
 
 if [ ! -d "$XLN_DIR" ]; then
@@ -171,7 +171,7 @@ sudo -u $ACTUAL_USER mkdir -p "$XLN_DIR/pids"
 log_success "XLN directory structure ready"
 
 # 9. Configure Nginx for XLN
-log_info "9️⃣  Configuring Nginx for XLN..."
+log_info "9⃣  Configuring Nginx for XLN..."
 NGINX_CONFIG="/etc/nginx/sites-available/xln"
 
 cat > "$NGINX_CONFIG" << 'EOF'
@@ -246,7 +246,7 @@ else
 fi
 
 # 10. Create PM2 ecosystem file
-log_info "🔟 Creating PM2 configuration..."
+log_info "[10] Creating PM2 configuration..."
 ECOSYSTEM_FILE="$XLN_DIR/ecosystem.production.cjs"
 
 sudo -u $ACTUAL_USER cat > "$ECOSYSTEM_FILE" << EOF
@@ -276,7 +276,7 @@ EOF
 log_success "PM2 ecosystem file created"
 
 # 11. Setup PM2 startup script
-log_info "1️⃣1️⃣ Configuring PM2 startup..."
+log_info "1⃣1⃣ Configuring PM2 startup..."
 if sudo -u $ACTUAL_USER pm2 ping >/dev/null 2>&1; then
     # PM2 is running, save current processes and setup startup
     sudo -u $ACTUAL_USER pm2 save >/dev/null 2>&1
@@ -287,7 +287,7 @@ else
 fi
 
 # 12. Create deployment script
-log_info "1️⃣2️⃣ Creating deployment script..."
+log_info "1⃣2⃣ Creating deployment script..."
 DEPLOY_SCRIPT="$XLN_DIR/deploy.sh"
 
 sudo -u $ACTUAL_USER cat > "$DEPLOY_SCRIPT" << 'EOF'
@@ -296,38 +296,38 @@ sudo -u $ACTUAL_USER cat > "$DEPLOY_SCRIPT" << 'EOF'
 # XLN Deployment Script
 set -e
 
-echo "🚀 Deploying XLN..."
+echo "[LAUNCH] Deploying XLN..."
 
 # Navigate to XLN directory
 cd "$(dirname "$0")"
 
 # Pull latest changes if git repo exists
 if [ -d ".git" ]; then
-    echo "📥 Pulling latest changes..."
+    echo "[INBOX] Pulling latest changes..."
     git pull origin main
 else
-    echo "⚠️  Not a git repository, skipping git pull"
+    echo "[WARN]  Not a git repository, skipping git pull"
 fi
 
 # Install/update dependencies
-echo "📦 Installing dependencies..."
+echo "[PKG] Installing dependencies..."
 export PATH="$HOME/.bun/bin:$PATH"
 bun install
 
 # Build frontend
-echo "🏗️  Building frontend..."
+echo "[BUILD]  Building frontend..."
 cd frontend
 bun install
 bun run build
 cd ..
 
 # Restart PM2 process
-echo "🔄 Restarting server..."
+echo "[ANTICLOCKWISE] Restarting server..."
 pm2 restart ecosystem.production.cjs || pm2 start ecosystem.production.cjs
 pm2 save
 
-echo "✅ Deployment complete!"
-echo "🌐 XLN is running at: http://$(curl -s ifconfig.me 2>/dev/null || echo 'YOUR_SERVER_IP')"
+echo "[OK] Deployment complete!"
+echo "[WEB] XLN is running at: http://$(curl -s ifconfig.me 2>/dev/null || echo 'YOUR_SERVER_IP')"
 EOF
 
 chmod +x "$DEPLOY_SCRIPT"
@@ -336,7 +336,7 @@ chown $ACTUAL_USER:$ACTUAL_USER "$DEPLOY_SCRIPT"
 log_success "Deployment script created at $XLN_DIR/deploy.sh"
 
 # 13. Final system check
-log_info "1️⃣3️⃣ Running system check..."
+log_info "1⃣3⃣ Running system check..."
 
 # Check services
 SERVICES_OK=true
@@ -372,18 +372,18 @@ fi
 
 # Summary
 echo ""
-echo "🎉 XLN Server Setup Complete!"
+echo "[DONE] XLN Server Setup Complete!"
 echo "=============================="
 
 if [ "$SERVICES_OK" = true ]; then
     log_success "All services are ready"
     echo ""
-    echo "📋 Next steps:"
+    echo "[LIST] Next steps:"
     echo "   1. Clone your XLN repository to $XLN_DIR"
     echo "   2. Run: cd $XLN_DIR && ./deploy.sh"
     echo "   3. Access XLN at: http://YOUR_SERVER_IP"
     echo ""
-    echo "🔧 Useful commands:"
+    echo "[TOOL] Useful commands:"
     echo "   • Deploy: $XLN_DIR/deploy.sh"
     echo "   • Check status: pm2 status"
     echo "   • View logs: pm2 logs xln-server"
@@ -396,4 +396,4 @@ else
 fi
 
 echo ""
-log_success "Server is ready for XLN deployment! 🚀"
+log_success "Server is ready for XLN deployment! [LAUNCH]"

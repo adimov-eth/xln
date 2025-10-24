@@ -120,7 +120,7 @@ export function validateAccountDeltas(deltas: unknown, source: string = 'unknown
     return new Map();
   }
 
-  console.log(`✅ Validated ${result.size} deltas from ${source}`);
+  console.log(`[OK] Validated ${result.size} deltas from ${source}`);
   return result;
 }
 
@@ -251,7 +251,7 @@ export function safeMapGet<K, V>(map: Map<K, V>, key: K, context: string): V {
 
 export class FinancialDataCorruptionError extends Error {
   constructor(message: string, context?: Record<string, unknown>) {
-    super(`🚨 FINANCIAL-SAFETY VIOLATION: ${message}`);
+    super(`[ALERT] FINANCIAL-SAFETY VIOLATION: ${message}`);
     this.name = 'FinancialDataCorruptionError';
     if (context) {
       this.message += `\nContext: ${safeStringify(context)}`;
@@ -261,7 +261,7 @@ export class FinancialDataCorruptionError extends Error {
 
 export class TypeSafetyViolationError extends Error {
   constructor(message: string, value?: unknown) {
-    super(`🛡️ TYPE-SAFETY VIOLATION: ${message}`);
+    super(`[SHIELD] TYPE-SAFETY VIOLATION: ${message}`);
     this.name = 'TypeSafetyViolationError';
     if (value !== undefined) {
       this.message += `\nReceived: ${typeof value} = ${String(value)}`;

@@ -2,17 +2,17 @@
 
 XLN requires HTTPS for secure contexts (WebAuthn, Crypto API, VR features).
 
-## ⚠️ **CRITICAL: Dev-Only Configuration**
+## [WARN] **CRITICAL: Dev-Only Configuration**
 
 **This HTTPS setup ONLY affects `bun run dev` (local development).**
 
 ### **Production Deployment (nginx):**
 
 ```
-✅ `bun run build` → Generates static files to frontend/build/
-✅ nginx serves static HTML/CSS/JS with its own HTTPS config
-✅ vite.config.ts is completely ignored in production
-✅ Your nginx certificates are used (not these .pem files)
+[OK] `bun run build` [RIGHTWARDS] Generates static files to frontend/build/
+[OK] nginx serves static HTML/CSS/JS with its own HTTPS config
+[OK] vite.config.ts is completely ignored in production
+[OK] Your nginx certificates are used (not these .pem files)
 ```
 
 **TL;DR:** Your nginx deployment won't break - this config is dev-only!
@@ -25,7 +25,7 @@ See `nginx-example.conf` for production HTTPS setup.
 
 Your `vite.config.ts` will automatically use:
 1. `frontend/localhost+2.pem` (if exists)
-2. Fallback to `../192.168.1.23+2.pem` ✅ **Currently using this**
+2. Fallback to `../192.168.1.23+2.pem` [OK] **Currently using this**
 
 ## Generate New Localhost Certs
 

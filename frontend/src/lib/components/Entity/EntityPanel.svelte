@@ -57,7 +57,7 @@
     settingsOperations.toggleComponentState(componentId);
   }
 
-  // 💰 Financial calculation functions
+  // [$] Financial calculation functions
 
   function formatAssetDisplay(tokenId: string, amount: bigint): string {
     const tokenInfo = $xlnFunctions.getTokenInfo(Number(tokenId));
@@ -112,7 +112,7 @@
     selectedAccountId = accountId;
     if (accountId) {
     } else {
-      console.log('📋 Account selection cleared - back to entity view');
+      console.log('[LIST] Account selection cleared - back to entity view');
     }
   }
 
@@ -125,7 +125,7 @@
   // Handle back to entity - clear account selection
   function handleBackToEntity() {
     selectedAccountId = null;
-    console.log('↩️ Back to entity view');
+    console.log('<- Back to entity view');
   }
 
 
@@ -147,12 +147,12 @@
 
     // Listen for time machine changes (like old index.html)
     const handleTimeChanged = (event: CustomEvent) => {
-      console.log('🕰️ EntityPanel received time change event:', event.detail.timeIndex);
+      console.log('[TIME] EntityPanel received time change event:', event.detail.timeIndex);
       // Force reactivity by triggering replica update
       if (tab.entityId && tab.signerId) {
         // The reactive statement will automatically pick up the new visibleReplicas
         // due to timeState changes, but we can force a console log
-        console.log(`🔄 Panel ${tab.id} updating for time index:`, event.detail.timeIndex);
+        console.log(`[ANTICLOCKWISE] Panel ${tab.id} updating for time index:`, event.detail.timeIndex);
       }
     };
 
@@ -182,7 +182,7 @@
     <div class="panel-header-controls">
       {#if isLast}
         <button class="panel-add-btn" on:click={handleAddTab} title="Add Entity Panel">
-          ➕
+          +
         </button>
       {/if}
       {#if showCloseButton}
@@ -197,8 +197,8 @@
     <!-- Focused Account View -->
     <div class="focused-account-view">
       <div class="account-breadcrumb">
-        <button class="breadcrumb-back" on:click={handleBackToEntity}>← Entity #{$xlnFunctions!.getEntityShortId(tab.entityId)}</button>
-        <span class="breadcrumb-separator">→</span>
+        <button class="breadcrumb-back" on:click={handleBackToEntity}>[LEFTWARDS] Entity #{$xlnFunctions!.getEntityShortId(tab.entityId)}</button>
+        <span class="breadcrumb-separator">[RIGHTWARDS]</span>
         <span class="breadcrumb-current">Account with Entity #{$xlnFunctions!.getEntityShortId(selectedAccountId!)}</span>
       </div>
       <AccountPanel
@@ -282,7 +282,7 @@
         {@const tasks = crontabState.tasks}
         {#if tasks instanceof Map}
           <div class="crontab-section">
-            <h3>⏰ Periodic Tasks</h3>
+            <h3>[ALARM] Periodic Tasks</h3>
             <div class="crontab-timers">
               {#each Array.from(tasks.entries()) as [taskName, task]}
                 {@const timeSinceLastRun = now - task.lastRun}
@@ -324,7 +324,7 @@
       on:keydown={(e) => e.key === 'Enter' && toggleComponent(`consensus-${tab.id}`)}
     >
       <div class="component-title">
-        <span>⚖️</span>
+        <span>[SCALES]</span>
         <span>Consensus State</span>
       </div>
       <div class="component-toggle">▼</div>
@@ -351,7 +351,7 @@
       on:keydown={(e) => e.key === 'Enter' && toggleComponent(`chat-${tab.id}`)}
     >
       <div class="component-title">
-        <span>💬</span>
+        <span>[CHAT]</span>
         <span>Chat</span>
       </div>
       <div class="component-toggle">▼</div>
@@ -376,7 +376,7 @@
       on:keydown={(e) => e.key === 'Enter' && toggleComponent(`proposals-${tab.id}`)}
     >
       <div class="component-title">
-        <span>📋</span>
+        <span>[LIST]</span>
         <span>Proposals</span>
       </div>
       <div class="component-toggle">▼</div>
@@ -401,7 +401,7 @@
       on:keydown={(e) => e.key === 'Enter' && toggleComponent(`history-${tab.id}`)}
     >
       <div class="component-title">
-        <span>🗂️</span>
+        <span>[FILES]</span>
         <span>History</span>
       </div>
       <div class="component-toggle">▼</div>
@@ -426,7 +426,7 @@
       on:keydown={(e) => e.key === 'Enter' && toggleComponent(`controls-${tab.id}`)}
     >
       <div class="component-title">
-        <span>⚙️</span>
+        <span>[SET]</span>
         <span>Controls</span>
       </div>
       <div class="component-toggle">▼</div>
@@ -450,7 +450,7 @@
       on:keydown={(e) => e.key === 'Enter' && toggleComponent(`payment-${tab.id}`)}
     >
       <div class="component-title">
-        <span>💸</span>
+        <span>[$$]</span>
         <span>Payments</span>
       </div>
       <div class="component-toggle">▼</div>
@@ -473,7 +473,7 @@
       on:keydown={(e) => e.key === 'Enter' && toggleComponent(`settlement-${tab.id}`)}
     >
       <div class="component-title">
-        <span>🏦</span>
+        <span>[BANK]</span>
         <span>Settlement</span>
       </div>
       <div class="component-toggle">▼</div>

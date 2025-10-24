@@ -5,7 +5,7 @@
 </script>
 
 <main class="test-app">
-  <h1>🧪 Component Test Page</h1>
+  <h1>[TEST] Component Test Page</h1>
   
   <div class="test-section">
     <h2>TransactionHistoryIO Component</h2>

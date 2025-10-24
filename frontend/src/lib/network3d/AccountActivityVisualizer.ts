@@ -2,9 +2,9 @@
  * AccountActivityVisualizer - Lightning effects showing account consensus flow
  *
  * Visualizes 3-phase network progression per server frame:
- * 1. Incoming: Lightning from account midpoints → entity (receiving messages)
+ * 1. Incoming: Lightning from account midpoints [RIGHTWARDS] entity (receiving messages)
  * 2. Processing: Powerful glow around entity (it's active)
- * 3. Outgoing: Lightning from entity → account midpoints (sending messages)
+ * 3. Outgoing: Lightning from entity [RIGHTWARDS] account midpoints (sending messages)
  */
 
 import * as THREE from 'three';
@@ -60,7 +60,7 @@ export class AccountActivityVisualizer {
         duration: this.frameDuration
       };
 
-      // Phase 1: Incoming lightning (account midpoint → entity)
+      // Phase 1: Incoming lightning (account midpoint [RIGHTWARDS] entity)
       activity.incoming.forEach(accountInput => {
         const { fromEntityId, toEntityId } = accountInput;
         const midpoint = this.getAccountMidpoint(fromEntityId, toEntityId, entityMeshMap);
@@ -73,7 +73,7 @@ export class AccountActivityVisualizer {
       // Phase 2: Entity glow (powerful processing indicator)
       effect.glow = this.createEntityGlow(entityMesh.position, 0xffaa00, 8);
 
-      // Phase 3: Outgoing lightning (entity → account midpoint)
+      // Phase 3: Outgoing lightning (entity [RIGHTWARDS] account midpoint)
       activity.outgoing.forEach(accountInput => {
         const { fromEntityId, toEntityId } = accountInput;
         const midpoint = this.getAccountMidpoint(fromEntityId, toEntityId, entityMeshMap);

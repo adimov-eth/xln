@@ -58,7 +58,7 @@
   /** Mint reserves to selected entity */
   async function mintReservesToEntity() {
     if (!selectedEntityForMint || !$isolatedEnv) {
-      lastAction = '❌ Select an entity first';
+      lastAction = '[X] Select an entity first';
       return;
     }
 
@@ -91,7 +91,7 @@
         }]
       }]);
 
-      lastAction = `✅ Minted ${mintAmount} to entity`;
+      lastAction = `[OK] Minted ${mintAmount} to entity`;
 
       // Update stores to trigger reactivity
       isolatedEnv.set($isolatedEnv);
@@ -102,7 +102,7 @@
 
       console.log('[Architect] Mint complete, new frame created');
     } catch (err: any) {
-      lastAction = `❌ ${err.message}`;
+      lastAction = `[X] ${err.message}`;
       console.error('[Architect] Mint error:', err);
     } finally {
       loading = false;
@@ -112,17 +112,17 @@
   /** Send R2R (Reserve-to-Reserve) transaction */
   async function sendR2RTransaction() {
     if (!r2rFromEntity || !r2rToEntity || r2rFromEntity === r2rToEntity) {
-      lastAction = '❌ Select different FROM and TO entities';
+      lastAction = '[X] Select different FROM and TO entities';
       return;
     }
 
     if (!$isolatedEnv) {
-      lastAction = '❌ Environment not ready';
+      lastAction = '[X] Environment not ready';
       return;
     }
 
     loading = true;
-    lastAction = `Sending R2R: ${shortAddress(r2rFromEntity)} → ${shortAddress(r2rToEntity)}...`;
+    lastAction = `Sending R2R: ${shortAddress(r2rFromEntity)} [RIGHTWARDS] ${shortAddress(r2rToEntity)}...`;
 
     try {
       const runtimeUrl = new URL('/runtime.js', window.location.origin).href;
@@ -151,7 +151,7 @@
         }]
       }]);
 
-      lastAction = `✅ R2R sent: ${r2rAmount} units`;
+      lastAction = `[OK] R2R sent: ${r2rAmount} units`;
 
       // Update stores to trigger reactivity
       isolatedEnv.set($isolatedEnv);
@@ -162,7 +162,7 @@
 
       console.log('[Architect] R2R complete, new frame created');
     } catch (err: any) {
-      lastAction = `❌ ${err.message}`;
+      lastAction = `[X] ${err.message}`;
       console.error('[Architect] R2R error:', err);
     } finally {
       loading = false;
@@ -233,7 +233,7 @@
       const result = await XLN.executeScenario(currentEnv, parsed.scenario);
 
       if (result.success) {
-        lastAction = `✅ Success! ${result.framesGenerated} frames generated.`;
+        lastAction = `[OK] Success! ${result.framesGenerated} frames generated.`;
         console.log(`[Architect] ${filename}: ${result.framesGenerated} frames`);
 
         // Prepend frame 0 (clean slate) to show progression from empty
@@ -254,7 +254,7 @@
         throw new Error(`Execution failed: ${result.errors?.join(', ')}`);
       }
     } catch (err: any) {
-      lastAction = `❌ ${err.message}`;
+      lastAction = `[X] ${err.message}`;
       console.error('[Architect] Error:', err);
     } finally {
       loading = false;
@@ -263,7 +263,7 @@
 
   async function createNewXlnomy() {
     if (!newXlnomyName.trim()) {
-      lastAction = '❌ Enter a name for the Xlnomy';
+      lastAction = '[X] Enter a name for the Xlnomy';
       return;
     }
 
@@ -298,7 +298,7 @@
       console.log('[Architect] Created Xlnomy with', $isolatedEnv.replicas.size, 'total entities');
 
       // Success message BEFORE clearing name
-      lastAction = `✅ Xlnomy "${newXlnomyName}" created!`;
+      lastAction = `[OK] Xlnomy "${newXlnomyName}" created!`;
 
       // Close modal and reset form
       showCreateXlnomyModal = false;
@@ -309,7 +309,7 @@
       isolatedHistory.set($isolatedEnv.history || []);
       isolatedTimeIndex.set(($isolatedEnv.history?.length || 1) - 1);
     } catch (err: any) {
-      lastAction = `❌ ${err.message}`;
+      lastAction = `[X] ${err.message}`;
       console.error('[Architect] Xlnomy creation error:', err);
     } finally {
       loading = false;
@@ -329,12 +329,12 @@
       if (xlnomy) {
         // TODO: Load xlnomy's replicas and history into env
         // For now, just update the active name
-        lastAction = `✅ Switched to "${name}"`;
+        lastAction = `[OK] Switched to "${name}"`;
       }
 
       isolatedEnv.set($isolatedEnv);
     } catch (err: any) {
-      lastAction = `❌ ${err.message}`;
+      lastAction = `[X] ${err.message}`;
     } finally {
       loading = false;
     }
@@ -344,7 +344,7 @@
 
 <div class="architect-panel">
   <div class="header">
-    <h3>🎬 Architect</h3>
+    <h3>[TAKE] Architect</h3>
   </div>
 
   <div class="mode-selector">
@@ -352,31 +352,31 @@
       class:active={currentMode === 'explore'}
       on:click={() => currentMode = 'explore'}
     >
-      🔍 Explore
+      [FIND] Explore
     </button>
     <button
       class:active={currentMode === 'build'}
       on:click={() => currentMode = 'build'}
     >
-      🏗️ Build
+      [BUILD] Build
     </button>
     <button
       class:active={currentMode === 'economy'}
       on:click={() => currentMode = 'economy'}
     >
-      💰 Economy
+      [$] Economy
     </button>
     <button
       class:active={currentMode === 'governance'}
       on:click={() => currentMode = 'governance'}
     >
-      ⚖️ Governance
+      [SCALES] Governance
     </button>
     <button
       class:active={currentMode === 'resolve'}
       on:click={() => currentMode = 'resolve'}
     >
-      ⚔️ Resolve
+      [SWORDS] Resolve
     </button>
   </div>
 
@@ -386,11 +386,11 @@
 
       {#if !envReady}
         <div class="status loading">
-          ⏳ Initializing XLN environment...
+          [WAIT] Initializing XLN environment...
         </div>
       {:else}
         <div class="action-section">
-          <h5>🌍 Xlnomy (Economy)</h5>
+          <h5>[EARTH] Xlnomy (Economy)</h5>
           <div class="xlnomy-selector">
             <select bind:value={activeXlnomy} on:change={(e) => switchXlnomy(e.currentTarget.value)} disabled={xlnomies.length === 0}>
               {#if xlnomies.length === 0}
@@ -414,9 +414,9 @@
           </label>
           <p class="help-text">
             {#if numberedEntities}
-              ⚙️ Numbered: Entities registered on blockchain (slower, sequential numbers)
+              [SET] Numbered: Entities registered on blockchain (slower, sequential numbers)
             {:else}
-              ⚡ Lazy: In-browser only entities (faster, hash-based IDs, no gas)
+              [FAST] Lazy: In-browser only entities (faster, hash-based IDs, no gas)
             {/if}
           </p>
         </div>
@@ -424,14 +424,14 @@
         <div class="action-section">
           <h5>Quick Scenarios</h5>
           <button class="action-btn" on:click={() => {numberedEntities = true; executeScenarioFile('auto-demo.scenario.txt');}} disabled={loading}>
-            🚀 Auto Demo (Numbered Grid + $1M + R2R)
+            [LAUNCH] Auto Demo (Numbered Grid + $1M + R2R)
           </button>
           <p class="help-text">
             Full demo: Register 8 entities, fund $1M each, 13 random R2R transfers
           </p>
 
           <button class="action-btn" on:click={() => executeScenarioFile('simnet-grid.scenario.txt')} disabled={loading}>
-            🎲 Simnet Grid (2x2x2)
+            [DICE] Simnet Grid (2x2x2)
           </button>
           <p class="help-text">
             {#if numberedEntities}
@@ -443,7 +443,7 @@
         </div>
 
         <div class="action-section">
-          <h5>💸 Mint Reserves</h5>
+          <h5>[$$] Mint Reserves</h5>
           <div class="form-group">
             <label for="mint-entity">Entity:</label>
             <select id="mint-entity" bind:value={selectedEntityForMint} disabled={entityIds.length === 0}>
@@ -458,13 +458,13 @@
             <input id="mint-amount" type="text" bind:value={mintAmount} placeholder="1000000" />
           </div>
           <button class="action-btn" on:click={mintReservesToEntity} disabled={loading || !selectedEntityForMint}>
-            💸 Mint to Reserve
+            [$$] Mint to Reserve
           </button>
           <p class="help-text">Deposit tokens to entity reserve (triggers J-Machine)</p>
         </div>
 
         <div class="action-section">
-          <h5>🔄 Reserve-to-Reserve (R2R)</h5>
+          <h5>[ANTICLOCKWISE] Reserve-to-Reserve (R2R)</h5>
           <div class="form-group">
             <label for="r2r-from">From Entity:</label>
             <select id="r2r-from" bind:value={r2rFromEntity} disabled={entityIds.length === 0}>
@@ -488,7 +488,7 @@
             <input id="r2r-amount" type="text" bind:value={r2rAmount} placeholder="500000" />
           </div>
           <button class="action-btn" on:click={sendR2RTransaction} disabled={loading || !r2rFromEntity || !r2rToEntity}>
-            🔄 Send R2R Transaction
+            [ANTICLOCKWISE] Send R2R Transaction
           </button>
           <p class="help-text">Send reserve-to-reserve payment (shows broadcast ripple)</p>
         </div>
@@ -496,7 +496,7 @@
         <div class="action-section">
           <h5>VR Mode</h5>
           <button class="action-btn" on:click={() => panelBridge.emit('vr:toggle', {})}>
-            🥽 Enter VR
+            [GOGGLES] Enter VR
           </button>
           <p class="help-text">Quest 3 / WebXR headsets</p>
         </div>

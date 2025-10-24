@@ -62,7 +62,7 @@ For entities with 1 validator and threshold 1:
 
 ## Data Flow Architecture
 
-### Frontend → Backend
+### Frontend [RIGHTWARDS] Backend
 ```javascript
 // Vote submission example
 const serverInput = {

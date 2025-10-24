@@ -20,9 +20,9 @@ contract EntityProvider is ERC1155 {
     uint16 votingThreshold;
     bytes32[] entityIds;        // Parallel arrays for efficiency
     uint16[] votingPowers;      // Must match entityIds length
-    uint32 boardChangeDelay;    // Board → Board transitions (blocks)
-    uint32 controlChangeDelay;  // Control → Board transitions (blocks)  
-    uint32 dividendChangeDelay; // Dividend → Board transitions (blocks)
+    uint32 boardChangeDelay;    // Board [RIGHTWARDS] Board transitions (blocks)
+    uint32 controlChangeDelay;  // Control [RIGHTWARDS] Board transitions (blocks)  
+    uint32 dividendChangeDelay; // Dividend [RIGHTWARDS] Board transitions (blocks)
   }
 
   struct EntityArticles {
@@ -507,7 +507,7 @@ contract EntityProvider is ERC1155 {
 
   // === HANKO SIGNATURE VERIFICATION ===
   //
-  // 🚨 CRITICAL DESIGN PHILOSOPHY: "ASSUME YES" FLASHLOAN GOVERNANCE 🚨
+  // [ALERT] CRITICAL DESIGN PHILOSOPHY: "ASSUME YES" FLASHLOAN GOVERNANCE [ALERT]
   //
   // This system INTENTIONALLY allows entities to mutually validate without EOA signatures.
   // This is NOT a bug - it's a feature that enables flexible governance structures.
@@ -515,19 +515,19 @@ contract EntityProvider is ERC1155 {
   // EXAMPLE OF INTENTIONAL "LOOPHOLE":
   // EntityA (threshold: 1) references EntityB at weight 100
   // EntityB (threshold: 1) references EntityA at weight 100
-  // → Both pass validation with ZERO EOA signatures!
+  // [RIGHTWARDS] Both pass validation with ZERO EOA signatures!
   //
   // WHY THIS IS INTENDED:
   // 1. UI/Application layer enforces policies (e.g., "require at least 1 EOA")
   // 2. Protocol stays flexible for exotic governance structures
   // 3. Real entities will naturally include EOAs for practical control
-  // 4. Alternative would require complex graph analysis → expensive + still gameable
+  // 4. Alternative would require complex graph analysis [RIGHTWARDS] expensive + still gameable
   //
   // POLICY ENFORCEMENT BELONGS IN UI, NOT PROTOCOL!
 
   struct HankoBytes {
     bytes32[] placeholders;    // Entity IDs that failed to sign (index 0..N-1)  
-    bytes packedSignatures;    // EOA signatures → yesEntities (index N..M-1)
+    bytes packedSignatures;    // EOA signatures [RIGHTWARDS] yesEntities (index N..M-1)
     HankoClaim[] claims;       // Entity claims to verify (index M..∞)
   }
 
@@ -719,23 +719,23 @@ contract EntityProvider is ERC1155 {
       validSigners[i] = actualSigners[i];
     }
     
-    // 🔥 FLASHLOAN GOVERNANCE: The Heart of "Assume YES" Philosophy 🔥
+    // [FIRE] FLASHLOAN GOVERNANCE: The Heart of "Assume YES" Philosophy [FIRE]
     //
     // KEY INSIGHT: When processing claim X that references claim Y:
     // - We DON'T wait for Y to be verified first
     // - We OPTIMISTICALLY assume Y will say "YES" 
-    // - If ANY claim fails its threshold → entire Hanko fails IMMEDIATELY
+    // - If ANY claim fails its threshold [RIGHTWARDS] entire Hanko fails IMMEDIATELY
     //
     // CONCRETE EXAMPLE - Circular Reference:
     // Claim 0: EntityA needs EntityB (index 3) at weight 100, threshold 100
     // Claim 1: EntityB needs EntityA (index 2) at weight 100, threshold 100
     // 
     // Processing:
-    // 1. Claim 0 processing: Assume EntityB=YES → 100 power ≥ 100 → CONTINUE
-    // 2. Claim 1 processing: Assume EntityA=YES → 100 power ≥ 100 → CONTINUE
-    // 3. All claims passed → Hanko succeeds!
+    // 1. Claim 0 processing: Assume EntityB=YES [RIGHTWARDS] 100 power ≥ 100 [RIGHTWARDS] CONTINUE
+    // 2. Claim 1 processing: Assume EntityA=YES [RIGHTWARDS] 100 power ≥ 100 [RIGHTWARDS] CONTINUE
+    // 3. All claims passed [RIGHTWARDS] Hanko succeeds!
     //
-    // ⚡ OPTIMIZATION: Fail immediately on threshold failure - no need to store results!
+    // [FAST] OPTIMIZATION: Fail immediately on threshold failure - no need to store results!
     //
     // This is INTENDED BEHAVIOR enabling flexible governance!
     
@@ -774,14 +774,14 @@ contract EntityProvider is ERC1155 {
           uint256 referencedClaimIndex = entityIndex - hanko.placeholders.length - signatureCount;
           require(referencedClaimIndex < hanko.claims.length, "Referenced claim index out of bounds");
           
-          // 🚨 CRITICAL: We ASSUME the referenced claim will pass (flashloan assumption)
+          // [ALERT] CRITICAL: We ASSUME the referenced claim will pass (flashloan assumption)
           // This enables circular references to mutually validate.
           // If our assumption is wrong, THIS claim will fail its threshold check below.
           totalVotingPower += claim.weights[i];
         }
       }
       
-      // 💥 IMMEDIATE FAILURE: Check threshold and fail right away if not met
+      // [BOOM] IMMEDIATE FAILURE: Check threshold and fail right away if not met
       if (totalVotingPower < claim.threshold) {
         return (bytes32(0), false); // Immediate failure - no need to check other claims
       }

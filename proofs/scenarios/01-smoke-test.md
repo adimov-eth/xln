@@ -20,7 +20,7 @@
 
 ## Success Criteria
 
-✅ XLN runtime available
-✅ Environment store reactive
-✅ Zero console errors
-✅ Initial height = 0
+[OK] XLN runtime available
+[OK] Environment store reactive
+[OK] Zero console errors
+[OK] Initial height = 0

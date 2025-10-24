@@ -47,8 +47,8 @@ export async function executeScenario(
 
   const errors: any[] = [];
 
-  console.log(`🎬 SCENARIO: Starting execution with seed="${scenario.seed}"`);
-  console.log(`📋 SCENARIO: ${allEvents.length} events to execute`);
+  console.log(`[TAKE] SCENARIO: Starting execution with seed="${scenario.seed}"`);
+  console.log(`[LIST] SCENARIO: ${allEvents.length} events to execute`);
 
   // Group events by timestamp
   const eventsByTimestamp = new Map<number, ScenarioEvent[]>();
@@ -66,11 +66,11 @@ export async function executeScenario(
   for (const timestamp of timestamps) {
     const events = eventsByTimestamp.get(timestamp)!;
 
-    console.log(`\n⏱️  t=${timestamp}s: ${events.length} event(s)`);
+    console.log(`\n[TIMER]  t=${timestamp}s: ${events.length} event(s)`);
 
     for (const event of events) {
       if (event.title) {
-        console.log(`  📌 ${event.title}`);
+        console.log(`  [PIN] ${event.title}`);
       }
       if (event.description) {
         console.log(`     ${event.description}`);
@@ -79,7 +79,7 @@ export async function executeScenario(
       try {
         await executeEvent(env, event, context);
       } catch (error) {
-        console.error(`❌ Error executing event at t=${timestamp}:`, error);
+        console.error(`[X] Error executing event at t=${timestamp}:`, error);
         errors.push({
           timestamp,
           event,
@@ -188,7 +188,7 @@ async function executeAction(
       break;
 
     default:
-      throw new Error(`❌ SCENARIO ERROR: Unknown action type "${type}" - check scenario syntax`);
+      throw new Error(`[X] SCENARIO ERROR: Unknown action type "${type}" - check scenario syntax`);
   }
 }
 
@@ -220,7 +220,7 @@ async function handleImport(
   const { getNextEntityNumber } = await import('../evm.js');
   const currentMaxNumber = await getNextEntityNumber(arrakis);
 
-  console.log(`  🔢 Current max entity number: ${currentMaxNumber - 1}, next will be: ${currentMaxNumber}`);
+  console.log(`  [123] Current max entity number: ${currentMaxNumber - 1}, next will be: ${currentMaxNumber}`);
 
   // Separate entity IDs from position metadata
   const entityIds: string[] = [];
@@ -249,7 +249,7 @@ async function handleImport(
   const entitiesToRegister = entityIds.filter(id => id && !context.entityMapping.has(id));
 
   if (entitiesToRegister.length === 0) {
-    console.log('  ⏭️  All entities already imported');
+    console.log('  >>  All entities already imported');
     return;
   }
 
@@ -257,7 +257,7 @@ async function handleImport(
   let results: Array<{ config: ConsensusConfig; entityNumber: number; entityId: string }>;
 
   if (entitiesToRegister.length >= 10) {
-    console.log(`  🚀 Batch registering ${entitiesToRegister.length} entities in ONE transaction...`);
+    console.log(`  [LAUNCH] Batch registering ${entitiesToRegister.length} entities in ONE transaction...`);
 
     const { createNumberedEntitiesBatch } = await import('../entity-factory.js');
     results = await createNumberedEntitiesBatch(
@@ -269,9 +269,9 @@ async function handleImport(
       arrakis
     );
 
-    console.log(`  ✅ Batch registered ${results.length} entities in single block!`);
+    console.log(`  [OK] Batch registered ${results.length} entities in single block!`);
   } else {
-    console.log(`  🚀 Registering ${entitiesToRegister.length} entities (parallel)...`);
+    console.log(`  [LAUNCH] Registering ${entitiesToRegister.length} entities (parallel)...`);
 
     // For small batches, use parallel individual registration
     const registrationPromises = entitiesToRegister.map(scenarioId =>
@@ -284,7 +284,7 @@ async function handleImport(
     );
 
     results = await Promise.all(registrationPromises);
-    console.log(`  ✅ All ${results.length} entities registered`);
+    console.log(`  [OK] All ${results.length} entities registered`);
   }
 
   // Process results and build serverTxs
@@ -294,7 +294,7 @@ async function handleImport(
     if (!result || !scenarioId) continue;
 
     context.entityMapping.set(scenarioId, result.entityId);
-    console.log(`  ✅ import scenario=${scenarioId} → entity#${result.entityNumber} (${result.entityId.slice(0, 10)}...)`);
+    console.log(`  [OK] import scenario=${scenarioId} [RIGHTWARDS] entity#${result.entityNumber} (${result.entityId.slice(0, 10)}...)`);
 
     // Store position in gossip profile if provided
     if (positionData && ('x' in positionData || 'y' in positionData || 'z' in positionData)) {
@@ -316,7 +316,7 @@ async function handleImport(
         }
       });
 
-      console.log(`  📍 Positioned at (${position.x}, ${position.y}, ${position.z})`);
+      console.log(`  [PIN] Positioned at (${position.x}, ${position.y}, ${position.z})`);
     }
 
     // Add to batch for runtime import
@@ -339,8 +339,8 @@ async function handleImport(
       entityInputs: [],
     });
 
-    console.log(`  📦 Added ${runtimeTxs.length} entities to existing runtime state`);
-    console.log(`  🌐 Total entities now: ${env.replicas.size}`);
+    console.log(`  [PKG] Added ${runtimeTxs.length} entities to existing runtime state`);
+    console.log(`  [WEB] Total entities now: ${env.replicas.size}`);
   }
 }
 
@@ -400,9 +400,9 @@ async function handleGrid(
   }
 
   if (existingSize > 0) {
-    console.log(`  📦 Existing grid: ${existingSize}x${existingSize}x${existingSize}, growing to ${X}x${X}x${X}`);
+    console.log(`  [PKG] Existing grid: ${existingSize}x${existingSize}x${existingSize}, growing to ${X}x${X}x${X}`);
   } else {
-    console.log(`  🎲 Creating ${X}x${Y}x${Z} grid (${total} entities, ${spacing}px spacing)`);
+    console.log(`  [DICE] Creating ${X}x${Y}x${Z} grid (${total} entities, ${spacing}px spacing)`);
   }
 
   // Phase 1: Create only NEW entities (outer shell)
@@ -431,17 +431,17 @@ async function handleGrid(
           z: z * spacing
         };
         positions.set(id, pos);
-        console.log(`📍 GRID-POS-A: Entity ${id} generated at (${pos.x}, ${pos.y}, ${pos.z})`);
+        console.log(`[PIN] GRID-POS-A: Entity ${id} generated at (${pos.x}, ${pos.y}, ${pos.z})`);
       }
     }
   }
 
   if (entities.length === 0) {
-    console.log(`  ✅ Grid ${X}x${X}x${X} already complete, no new entities needed`);
+    console.log(`  [OK] Grid ${X}x${X}x${X} already complete, no new entities needed`);
     return;
   }
 
-  console.log(`  ➕ Creating ${entities.length} new entities (shell growth)`);
+  console.log(`  + Creating ${entities.length} new entities (shell growth)`);
 
 
   // Batch create all entities
@@ -480,7 +480,7 @@ async function handleGrid(
     };
     if (pos) {
       txData.position = pos;
-      console.log(`📍 GRID-POS-B: RuntimeTx for ${result.entityId.slice(0,10)} has position:`, pos);
+      console.log(`[PIN] GRID-POS-B: RuntimeTx for ${result.entityId.slice(0,10)} has position:`, pos);
     }
 
     runtimeTxs.push({
@@ -498,7 +498,7 @@ async function handleGrid(
     entityInputs: [],
   });
 
-  console.log(`  ✅ Created ${results.length} entities in grid formation`);
+  console.log(`  [OK] Created ${results.length} entities in grid formation`);
 
   // Phase 2: Create connections along each axis (INCREMENTAL - skip existing)
   const { process } = await import('../runtime.js');
@@ -583,11 +583,11 @@ async function handleGrid(
     }
   }
 
-  console.log(`  🔗 Creating ${connectionInputs.length} new grid connections...`);
+  console.log(`  [LINK] Creating ${connectionInputs.length} new grid connections...`);
   if (connectionInputs.length > 0) {
     await process(env, connectionInputs);
   }
-  console.log(`  ✅ Grid complete: ${total} total entities, ${connectionInputs.length} new connections`);
+  console.log(`  [OK] Grid complete: ${total} total entities, ${connectionInputs.length} new connections`);
 }
 
 /**
@@ -605,7 +605,7 @@ async function handleLazyGrid(
   const { cryptoHash } = await import('../utils.js');
 
   const total = X * Y * Z;
-  console.log(`  ⚡ LAZY MODE: Creating ${total} in-browser entities (no blockchain)`);
+  console.log(`  [FAST] LAZY MODE: Creating ${total} in-browser entities (no blockchain)`);
 
   const runtimeTxs: any[] = [];
 
@@ -657,7 +657,7 @@ async function handleLazyGrid(
   const { applyRuntimeInput } = await import('../runtime.js');
   await applyRuntimeInput(env, { runtimeTxs, entityInputs: [] });
 
-  console.log(`  ⚡ LAZY: Created ${total} in-browser entities`);
+  console.log(`  [FAST] LAZY: Created ${total} in-browser entities`);
 
   // Create connections (same as normal grid)
   const { process } = await import('../runtime.js');
@@ -675,13 +675,13 @@ async function handleLazyGrid(
         const entityId2 = context.entityMapping.get(id2);
 
         if (entityId1 && entityId2) {
-          // Entity1 → Entity2 connection
+          // Entity1 [RIGHTWARDS] Entity2 connection
           connectionInputs.push({
             entityId: entityId1,
             signerId: `lazy_${id1}`,
             entityTxs: [{ type: 'openAccount', data: { targetEntityId: entityId2 } }]
           });
-          // Entity2 → Entity1 connection (reciprocal)
+          // Entity2 [RIGHTWARDS] Entity1 connection (reciprocal)
           connectionInputs.push({
             entityId: entityId2,
             signerId: `lazy_${id2}`,
@@ -702,13 +702,13 @@ async function handleLazyGrid(
         const entityId2 = context.entityMapping.get(id2);
 
         if (entityId1 && entityId2) {
-          // Entity1 → Entity2 connection
+          // Entity1 [RIGHTWARDS] Entity2 connection
           connectionInputs.push({
             entityId: entityId1,
             signerId: `lazy_${id1}`,
             entityTxs: [{ type: 'openAccount', data: { targetEntityId: entityId2 } }]
           });
-          // Entity2 → Entity1 connection (reciprocal)
+          // Entity2 [RIGHTWARDS] Entity1 connection (reciprocal)
           connectionInputs.push({
             entityId: entityId2,
             signerId: `lazy_${id2}`,
@@ -729,13 +729,13 @@ async function handleLazyGrid(
         const entityId2 = context.entityMapping.get(id2);
 
         if (entityId1 && entityId2) {
-          // Entity1 → Entity2 connection
+          // Entity1 [RIGHTWARDS] Entity2 connection
           connectionInputs.push({
             entityId: entityId1,
             signerId: `lazy_${id1}`,
             entityTxs: [{ type: 'openAccount', data: { targetEntityId: entityId2 } }]
           });
-          // Entity2 → Entity1 connection (reciprocal)
+          // Entity2 [RIGHTWARDS] Entity1 connection (reciprocal)
           connectionInputs.push({
             entityId: entityId2,
             signerId: `lazy_${id2}`,
@@ -746,9 +746,9 @@ async function handleLazyGrid(
     }
   }
 
-  console.log(`  🔗 Creating ${connectionInputs.length} lazy connections...`);
+  console.log(`  [LINK] Creating ${connectionInputs.length} lazy connections...`);
   await process(env, connectionInputs);
-  console.log(`  ✅ LAZY grid complete: ${total} entities, ${connectionInputs.length} connections`);
+  console.log(`  [OK] LAZY grid complete: ${total} entities, ${connectionInputs.length} connections`);
 }
 
 /**
@@ -769,7 +769,7 @@ async function handlePayRandom(
   const maxAmount = BigInt(named['maxAmount'] || '100000');
   const token = parseInt(String(named['token'] || '1'));
 
-  console.log(`  🎲 Executing ${count} random payments (${minHops}-${maxHops} hops, ${minAmount}-${maxAmount} amount)`);
+  console.log(`  [DICE] Executing ${count} random payments (${minHops}-${maxHops} hops, ${minAmount}-${maxAmount} amount)`);
 
   // Get all entities from runtime state (not just scenario context)
   const allEntityIds = Array.from(env.replicas.keys())
@@ -777,11 +777,11 @@ async function handlePayRandom(
     .filter((id, idx, arr) => arr.indexOf(id) === idx); // unique
 
   if (allEntityIds.length < 2) {
-    console.warn(`  ⚠️  Need at least 2 entities for random payments (found ${allEntityIds.length})`);
+    console.warn(`  [WARN]  Need at least 2 entities for random payments (found ${allEntityIds.length})`);
     return;
   }
 
-  console.log(`  💸 Found ${allEntityIds.length} entities in network`);
+  console.log(`  [$$] Found ${allEntityIds.length} entities in network`);
 
   const { process } = await import('../runtime.js');
 
@@ -804,7 +804,7 @@ async function handlePayRandom(
     const replicaKey = Array.from(env.replicas.keys()).find(k => k.startsWith(sourceEntityId + ':'));
     const replica = replicaKey ? env.replicas.get(replicaKey) : null;
     if (!replica) {
-      console.warn(`  ⚠️  No replica found for ${sourceEntityId.slice(0, 10)}`);
+      console.warn(`  [WARN]  No replica found for ${sourceEntityId.slice(0, 10)}`);
       continue;
     }
     const signerId = replica.signerId;
@@ -814,7 +814,7 @@ async function handlePayRandom(
     const randomOffset = BigInt(Math.floor(Math.random() * Number(amountRange)));
     const amount = minAmount + randomOffset;
 
-    console.log(`  💸 Payment ${i + 1}/${count}: ${sourceEntityId.slice(0,8)} → ${destEntityId.slice(0,8)} (${amount} tokens)`);
+    console.log(`  [$$] Payment ${i + 1}/${count}: ${sourceEntityId.slice(0,8)} [RIGHTWARDS] ${destEntityId.slice(0,8)} (${amount} tokens)`);
 
     await process(env, [{
       entityId: sourceEntityId,
@@ -837,7 +837,7 @@ async function handlePayRandom(
     }
   }
 
-  console.log(`  ✅ ${count} random payments complete`);
+  console.log(`  [OK] ${count} random payments complete`);
 }
 
 /**
@@ -870,7 +870,7 @@ async function handleR2R(
     throw new Error(`R2R: No replica found for entity ${fromEntityId.slice(0, 10)}`);
   }
 
-  console.log(`  💸 R2R: ${fromIndex} → ${toIndex} (${amount} tokens)`);
+  console.log(`  [$$] R2R: ${fromIndex} [RIGHTWARDS] ${toIndex} (${amount} tokens)`);
 
   const { process } = await import('../runtime.js');
 
@@ -887,7 +887,7 @@ async function handleR2R(
     }]
   }]);
 
-  console.log(`  ✅ R2R complete: ${fromIndex} → ${toIndex}`);
+  console.log(`  [OK] R2R complete: ${fromIndex} [RIGHTWARDS] ${toIndex}`);
 }
 
 /**
@@ -918,7 +918,7 @@ async function handleFund(
     throw new Error(`Fund: No replica found for entity ${entityId.slice(0, 10)}`);
   }
 
-  console.log(`  💸 Fund: ${entityIndex} receives ${amount} tokens`);
+  console.log(`  [$$] Fund: ${entityIndex} receives ${amount} tokens`);
 
   const { process } = await import('../runtime.js');
 
@@ -934,7 +934,7 @@ async function handleFund(
     }]
   }]);
 
-  console.log(`  ✅ Fund complete: ${entityIndex} +${amount}`);
+  console.log(`  [OK] Fund complete: ${entityIndex} +${amount}`);
 }
 
 /**
@@ -953,11 +953,11 @@ async function handleOpenAccount(
 
   if (!fromAddress || !toAddress) {
     throw new Error(
-      `Entity mapping not found: ${entityId}→${fromAddress}, ${counterpartyScenarioId}→${toAddress}`
+      `Entity mapping not found: ${entityId}[RIGHTWARDS]${fromAddress}, ${counterpartyScenarioId}[RIGHTWARDS]${toAddress}`
     );
   }
 
-  console.log(`  🔗 ${entityId} openAccount ${counterpartyScenarioId}`);
+  console.log(`  [LINK] ${entityId} openAccount ${counterpartyScenarioId}`);
 
   // Execute openAccount transaction through XLN
   const { process } = await import('../runtime.js');
@@ -994,7 +994,7 @@ async function handleDeposit(
     throw new Error(`Entity mapping not found: ${entityId}, ${counterpartyScenarioId}`);
   }
 
-  console.log(`  💰 ${entityId} deposit ${counterpartyScenarioId} ${amount}`);
+  console.log(`  [$] ${entityId} deposit ${counterpartyScenarioId} ${amount}`);
 
   // TODO: Implement actual deposit logic via entity transactions
 }
@@ -1017,7 +1017,7 @@ async function handleWithdraw(
     throw new Error(`Entity mapping not found: ${entityId}, ${counterpartyScenarioId}`);
   }
 
-  console.log(`  💸 ${entityId} withdraw ${counterpartyScenarioId} ${amount}`);
+  console.log(`  [$$] ${entityId} withdraw ${counterpartyScenarioId} ${amount}`);
 
   // TODO: Implement actual withdraw logic
 }
@@ -1040,7 +1040,7 @@ async function handleTransfer(
     throw new Error(`Entity mapping not found: ${entityId}, ${counterpartyScenarioId}`);
   }
 
-  console.log(`  🔄 ${entityId} transfer ${counterpartyScenarioId} ${amount}`);
+  console.log(`  [ANTICLOCKWISE] ${entityId} transfer ${counterpartyScenarioId} ${amount}`);
 
   // TODO: Implement actual transfer logic
 }
@@ -1060,7 +1060,7 @@ async function handleChat(
     throw new Error(`Entity mapping not found: ${entityId}`);
   }
 
-  console.log(`  💬 ${entityId}: "${message}"`);
+  console.log(`  [CHAT] ${entityId}: "${message}"`);
 
   // TODO: Implement chat via entity transactions
 }
@@ -1091,7 +1091,7 @@ function applyViewState(
 
       latestSnapshot.viewState = mappedViewState;
 
-      console.log(`  🎥 VIEW: ${safeStringify(mappedViewState)}`);
+      console.log(`  [CAM] VIEW: ${safeStringify(mappedViewState)}`);
     }
   }
 }

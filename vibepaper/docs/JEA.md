@@ -1,4 +1,4 @@
-🏛️ JEA: Jurisdiction-Entity-Account Model
+[COURT] JEA: Jurisdiction-Entity-Account Model
 
 “JEA is not just a technical pattern — it’s a legal operating system for programmable institutions.”
 
@@ -11,7 +11,7 @@ This document outlines the JEA structure in detail, its purpose, flow, and how i
 
 ⸻
 
-⚖️ 1. Jurisdiction: Public Arbitration Layer
+[SCALES] 1. Jurisdiction: Public Arbitration Layer
 
 A Jurisdiction is a public smart contract or observable registry that acts as:
 	•	Dispute settlement ground
@@ -39,7 +39,7 @@ Token mint claim	Accepts signed receipt from Entity and emits asset
 
 ⸻
 
-🏛️ 2. Entity: Sovereign Organization
+[COURT] 2. Entity: Sovereign Organization
 
 An Entity is a self-contained state-time machine with its own quorum, storage, and block history.
 
@@ -62,7 +62,7 @@ Security Guarantees
 
 ⸻
 
-💳 3. Account: Channels and Financial Instruments
+[CARD] 3. Account: Channels and Financial Instruments
 
 Accounts represent:
 	•	Channels (credit lines, bilateral payments)
@@ -71,7 +71,7 @@ Accounts represent:
 
 Structure
 	•	Always nested inside an Entity
-	•	Follows AccountProof → Subcontract model
+	•	Follows AccountProof [RIGHTWARDS] Subcontract model
 	•	Each has its own logic, deltas, and Merkle proof
 
 Execution
@@ -83,7 +83,7 @@ Execution
 
 ⸻
 
-🔁 Flow Summary: Bottom-Up
+[REPEAT] Flow Summary: Bottom-Up
 
 1. Account: emits change (e.g., collateral unlocked)
 2. Entity: signs and commits block containing proof
@@ -92,7 +92,7 @@ Execution
 
 ⸻
 
-🛡 Why JEA Is Superior
+[SHIELD] Why JEA Is Superior
 
 Feature	Traditional Stack	JEA Architecture
 Shared State	Global / Bottleneck	Local / Modular
@@ -105,7 +105,7 @@ Credit / Receivability	Impossible	Native via Accounts
 
 ⸻
 
-🧬 Design Ethos
+[DNA] Design Ethos
 	•	Modularity over Monolith: Each layer is clean, testable, swappable
 	•	Paper trail over gossip: All actions leave verifiable receipts
 	•	State sufficiency: If your Entity vanishes, your counterparty still has proof
@@ -113,7 +113,7 @@ Credit / Receivability	Impossible	Native via Accounts
 
 ⸻
 
-🧭 Future Directions
+[COMPASS] Future Directions
 	•	Jurisdictions as regulated custodians
 	•	Inter-Jurisdiction arbitration via Entity-controlled registries
 	•	Reputation-weighted quorum systems
@@ -121,7 +121,7 @@ Credit / Receivability	Impossible	Native via Accounts
 
 ⸻
 
-📌 In Practice
+[PIN] In Practice
 	•	EntityProvider.sol: sets Merkle hash of quorum
 	•	Depository.sol: verifies and tracks reserves
 	•	Entity: commits actions, emits receipts

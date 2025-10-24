@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
 #
-# Automated console.log → structured logger migration
+# Automated console.log [RIGHTWARDS] structured logger migration
 # Replaces console.error/warn/log with typed logger calls
 #
 
 set -e
 
-echo "🔧 Fixing console.log statements in src/**/*.ts"
+echo "[TOOL] Fixing console.log statements in src/**/*.ts"
 echo ""
 
 # Backup approach - use sed for bulk replacements
-echo "Step 1: Replacing console.error → logError..."
+echo "Step 1: Replacing console.error [RIGHTWARDS] logError..."
 find src -name "*.ts" -type f -exec sed -i '' 's/console\.error(/logError('\''FRAME_CONSENSUS'\'', /g' {} \;
 
-echo "Step 2: Replacing console.warn → logWarn..."
+echo "Step 2: Replacing console.warn [RIGHTWARDS] logWarn..."
 find src -name "*.ts" -type f -exec sed -i '' 's/console\.warn(/logWarn('\''FRAME_CONSENSUS'\'', /g' {} \;
 
 echo "Step 3: Adding logger imports to files that need it..."
@@ -33,11 +33,11 @@ for file in $(grep -l "logError\|logWarn\|logDebug\|logInfo" src/**/*.ts 2>/dev/
 done
 
 echo ""
-echo "✅ Console.log migration complete!"
+echo "[OK] Console.log migration complete!"
 echo ""
 echo "Summary:"
-echo "  - Replaced console.error → logError('FRAME_CONSENSUS', ...)"
-echo "  - Replaced console.warn → logWarn('FRAME_CONSENSUS', ...)"
+echo "  - Replaced console.error [RIGHTWARDS] logError('FRAME_CONSENSUS', ...)"
+echo "  - Replaced console.warn [RIGHTWARDS] logWarn('FRAME_CONSENSUS', ...)"
 echo "  - Added logger imports where needed"
 echo ""
 echo "Note: console.log statements remain unchanged (use DEBUG flag to control)"

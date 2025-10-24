@@ -126,7 +126,7 @@
         entityInputs: [entityInput],
       });
 
-      console.log('📡 Submitted profile update transaction:', profileUpdateTx);
+      console.log('[ANTENNA] Submitted profile update transaction:', profileUpdateTx);
 
       // Call the callback prop if provided
       onProfileAnnounced?.({
@@ -151,7 +151,7 @@
       hubWebsite = '';
       isExpanded = false; // Collapse the profile form
     } catch (err) {
-      console.error('❌ Failed to submit profile update:', err);
+      console.error('[X] Failed to submit profile update:', err);
       announceError = err instanceof Error ? err.message : 'Failed to submit profile update';
     } finally {
       isAnnouncing = false;
@@ -169,7 +169,7 @@
 
   // Load existing profile for current entity
   async function loadExistingProfile(entityId: string) {
-    console.log("🚀 ~ loadExistingProfile ~ entityId:", entityId)
+    console.log("[LAUNCH] ~ loadExistingProfile ~ entityId:", entityId)
     if (!entityId) {
       existingProfile = null;
       clearForm();
@@ -193,14 +193,14 @@
       if (profile) {
         existingProfile = profile;
         populateFormFromProfile(profile);
-        console.log('📝 Loaded existing profile for entity:', entityId, profile);
+        console.log('[MEMO] Loaded existing profile for entity:', entityId, profile);
       } else {
         existingProfile = null;
         clearForm();
-        console.log('📝 No existing profile found for entity:', entityId);
+        console.log('[MEMO] No existing profile found for entity:', entityId);
       }
     } catch (err) {
-      console.error('❌ Failed to load existing profile:', err);
+      console.error('[X] Failed to load existing profile:', err);
       existingProfile = null;
     } finally {
       isLoadingProfile = false;
@@ -270,8 +270,8 @@
 <div class="profile-form-container" data-testid="profile-form">
   <div class="profile-form-header">
     <button class="toggle-btn" onclick={toggleExpanded}>
-      <span class="toggle-icon">{isExpanded ? '▼' : '▶'}</span>
-      <h3>👤 My Profile</h3>
+      <span class="toggle-icon">{isExpanded ? '▼' : '>'}</span>
+      <h3>[USER] My Profile</h3>
     </button>
   </div>
 
@@ -279,14 +279,14 @@
     <div class="profile-form-content">
       {#if isLoadingProfile}
         <div class="loading-indicator">
-          <span class="loading-spinner">🔄</span>
+          <span class="loading-spinner">[ANTICLOCKWISE]</span>
           <span>Loading profile...</span>
         </div>
       {/if}
 
       {#if existingProfile}
         <div class="existing-profile-notice">
-          <span class="notice-icon">ℹ️</span>
+          <span class="notice-icon">[INFO]</span>
           <span>Editing existing profile for <strong>{existingProfile.entityId}</strong></span>
         </div>
       {/if}
@@ -316,14 +316,14 @@
       <div class="form-group">
         <label class="checkbox-label">
           <input type="checkbox" bind:checked={isHub} class="form-checkbox" data-testid="hub-checkbox" />
-          <span class="checkbox-text">🌟 Register as Hub</span>
+          <span class="checkbox-text">* Register as Hub</span>
         </label>
         <small class="form-hint">Automatically adds "hub" to your capabilities</small>
       </div>
 
       {#if isHub}
         <div class="hub-details-section">
-          <h4 class="hub-details-header">🏢 Hub Details</h4>
+          <h4 class="hub-details-header">[OFFICE] Hub Details</h4>
 
           <div class="form-group">
             <label for="hub-name">Hub Name:</label>
@@ -350,7 +350,7 @@
 
       {#if !isHub}
         <div class="form-group">
-          <label for="metadata">📋 Metadata (optional JSON)</label>
+          <label for="metadata">[LIST] Metadata (optional JSON)</label>
           <textarea
             id="metadata"
             bind:value={metadataInput}
@@ -370,9 +370,9 @@
           disabled={isAnnouncing || !currentEntityId || !currentSignerId}
         >
           {#if isAnnouncing}
-            🔄 Announcing...
+            [ANTICLOCKWISE] Announcing...
           {:else}
-            📡 Announce Profile
+            [ANTENNA] Announce Profile
           {/if}
         </button>
 
@@ -384,7 +384,7 @@
       </div>
 
       {#if announceError}
-        <div class="announce-error">❌ {announceError}</div>
+        <div class="announce-error">[X] {announceError}</div>
       {/if}
     </div>
   {/if}

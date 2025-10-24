@@ -15,7 +15,7 @@ export function handleAddDelta(
 
   // Check if delta already exists
   if (accountMachine.deltas.has(tokenId)) {
-    console.warn(`⚠️ Delta for token ${tokenId} already exists, skipping add_delta`);
+    console.warn(`[WARN] Delta for token ${tokenId} already exists, skipping add_delta`);
     return { success: true, events }; // Idempotent - not an error
   }
 
@@ -32,8 +32,8 @@ export function handleAddDelta(
   };
 
   accountMachine.deltas.set(tokenId, newDelta);
-  console.log(`✅ Added delta for token ${tokenId} to account with ${accountMachine.counterpartyEntityId.slice(-4)}`);
+  console.log(`[OK] Added delta for token ${tokenId} to account with ${accountMachine.counterpartyEntityId.slice(-4)}`);
 
-  events.push(`➕ Added token ${tokenId} to account`);
+  events.push(`+ Added token ${tokenId} to account`);
   return { success: true, events };
 }

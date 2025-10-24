@@ -3,7 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 
-// ⭐ CORE FILES ONLY - Everything an LLM needs to understand XLN
+// * CORE FILES ONLY - Everything an LLM needs to understand XLN
 const CORE_FILES = {
   contracts: [
     'Depository.sol',      // Reserve/collateral management, enforceDebts FIFO
@@ -15,8 +15,8 @@ const CORE_FILES = {
     'types.ts',              // All TypeScript interfaces
 
     // Main coordinators (how the system works)
-    'runtime.ts',            // Main coordinator, 100ms ticks, R→E→A routing
-    'entity-consensus.ts',   // BFT consensus (ADD_TX → PROPOSE → SIGN → COMMIT)
+    'runtime.ts',            // Main coordinator, 100ms ticks, R[RIGHTWARDS]E[RIGHTWARDS]A routing
+    'entity-consensus.ts',   // BFT consensus (ADD_TX [RIGHTWARDS] PROPOSE [RIGHTWARDS] SIGN [RIGHTWARDS] COMMIT)
     'account-consensus.ts',  // Bilateral account consensus between entities
 
     // Transaction processing (how txs are applied)
@@ -41,9 +41,9 @@ const CORE_FILES = {
   ],
   docs: [
     // Ordered by dependency - read in this order
-    'emc2.md',               // ⚡ Core philosophy: E=mc² → Energy-Mass-Credit (5min)
-    'docs/12_invariant.md',  // ⚡ RCPAN vs FCUAN vs FRPAP (THE core innovation) (10min)
-    'docs/jea.md',           // ⚡ Jurisdiction-Entity-Account 3-layer model (8min)
+    'emc2.md',               // [FAST] Core philosophy: E=mc² [RIGHTWARDS] Energy-Mass-Credit (5min)
+    'docs/12_invariant.md',  // [FAST] RCPAN vs FCUAN vs FRPAP (THE core innovation) (10min)
+    'docs/jea.md',           // [FAST] Jurisdiction-Entity-Account 3-layer model (8min)
     'docs/11_Jurisdiction_Machine.md', // Architecture deep-dive
     'priorart.md',           // Why Lightning/rollups don't work
   ],
@@ -124,10 +124,10 @@ This single invariant:
 ## Token Budget Guide (~${Math.round(totalTokens / 1000)}k tokens total)
 
 **Critical path (read first, ~30min):**
-- ⚡ emc2.md (5min) - Why credit = stored energy
-- ⚡ docs/12_invariant.md (10min) - RCPAN derivation
-- ⚡ docs/jea.md (8min) - 3-layer architecture
-- ⚡ Depository.sol (7min) - enforceDebts() FIFO + RCPAN enforcement
+- [FAST] emc2.md (5min) - Why credit = stored energy
+- [FAST] docs/12_invariant.md (10min) - RCPAN derivation
+- [FAST] docs/jea.md (8min) - 3-layer architecture
+- [FAST] Depository.sol (7min) - enforceDebts() FIFO + RCPAN enforcement
 
 **Implementation (read second, ~45min):**
 - types.ts (10min) - All data structures
@@ -147,7 +147,7 @@ Every bilateral account is a **programmable state machine** that transforms delt
 
 **1. HTLC (Hash Time-Locked Contract):**
 \`\`\`typescript
-// Alice → Bob payment locked by hash H
+// Alice [RIGHTWARDS] Bob payment locked by hash H
 Δ_proposed = +1000  // Bob's balance increases IF he reveals R where hash(R) = H
 // If Bob reveals R: commit Δ_proposed
 // If timeout: revert Δ_proposed
@@ -172,7 +172,7 @@ for (const holder of cShareHolders) {
 
 **4. Netting Optimizer:**
 \`\`\`typescript
-// Instead of A→B→C→D, net to A→D
+// Instead of A[RIGHTWARDS]B[RIGHTWARDS]C[RIGHTWARDS]D, net to A[RIGHTWARDS]D
 multiHopDeltas = [{A: -100}, {B: +100, C: -100}, {D: +100}]
 nettedDelta = {A: -100, D: +100}  // B and C netting canceled
 \`\`\`
@@ -184,7 +184,7 @@ Every subcontract is just a **delta transformer** that respects RCPAN invariant.
 **How to verify XLN's core claims:**
 
 1. **RCPAN invariant eliminates FCUAN/FRPAP**: Read docs/12_invariant.md lines 45-120 (proof by construction)
-2. **Instant bilateral settlement**: See account-consensus.ts ADD_TX → PROPOSE → SIGN → COMMIT (no fraud period)
+2. **Instant bilateral settlement**: See account-consensus.ts ADD_TX [RIGHTWARDS] PROPOSE [RIGHTWARDS] SIGN [RIGHTWARDS] COMMIT (no fraud period)
 3. **BFT consensus correctness**: entity-consensus.ts implements PBFT-style 3-phase commit (⅔ threshold)
 4. **On-chain enforcement**: Depository.sol enforceDebts() FIFO queue processes debts until reserves depleted
 5. **Deterministic state**: snapshot-coder.ts RLP encoding + Keccak-256 hashing ensures identical state roots
@@ -232,9 +232,9 @@ xln/
     evm.ts                       ${fileSizes['runtime/evm.ts'] || '?'} lines - Blockchain integration
 
   vibepaper/
-    emc2.md                      ${fileSizes['vibepaper/emc2.md'] || '?'} lines - ⚡ Energy-Mass-Credit equivalence (CRITICAL PATH)
-    docs/12_invariant.md         ${fileSizes['vibepaper/docs/12_invariant.md'] || '?'} lines - ⚡ RCPAN innovation (CRITICAL PATH)
-    docs/jea.md                  ${fileSizes['vibepaper/docs/jea.md'] || '?'} lines - ⚡ Jurisdiction-Entity-Account model (CRITICAL PATH)
+    emc2.md                      ${fileSizes['vibepaper/emc2.md'] || '?'} lines - [FAST] Energy-Mass-Credit equivalence (CRITICAL PATH)
+    docs/12_invariant.md         ${fileSizes['vibepaper/docs/12_invariant.md'] || '?'} lines - [FAST] RCPAN innovation (CRITICAL PATH)
+    docs/jea.md                  ${fileSizes['vibepaper/docs/jea.md'] || '?'} lines - [FAST] Jurisdiction-Entity-Account model (CRITICAL PATH)
     docs/11_Jurisdiction_Machine.md  ${fileSizes['vibepaper/docs/11_Jurisdiction_Machine.md'] || '?'} lines - Architecture deep-dive
     priorart.md                  ${fileSizes['vibepaper/priorart.md'] || '?'} lines - Why Lightning/rollups don't work
 
@@ -244,9 +244,9 @@ xln/
 Reading Guide:
 1. Start with header sections (RCPAN invariant, competitive landscape, impossibilities)
 2. Follow the token budget guide for efficient learning:
-   - Critical path (30min): emc2.md → 12_invariant.md → jea.md → Depository.sol
-   - Implementation (45min): types.ts → entity-consensus.ts → account-consensus.ts → entity-tx/apply.ts
-   - Deep dives (60min): runtime.ts → routing/pathfinding.ts → priorart.md → 11_Jurisdiction_Machine.md
+   - Critical path (30min): emc2.md [RIGHTWARDS] 12_invariant.md [RIGHTWARDS] jea.md [RIGHTWARDS] Depository.sol
+   - Implementation (45min): types.ts [RIGHTWARDS] entity-consensus.ts [RIGHTWARDS] account-consensus.ts [RIGHTWARDS] entity-tx/apply.ts
+   - Deep dives (60min): runtime.ts [RIGHTWARDS] routing/pathfinding.ts [RIGHTWARDS] priorart.md [RIGHTWARDS] 11_Jurisdiction_Machine.md
 3. Verify claims using the Proof & Verification section
 4. Explore delta transformer examples for extensibility patterns
 
@@ -261,7 +261,7 @@ function readFileContent(baseDir, relativePath) {
     const content = fs.readFileSync(fullPath, 'utf8');
     return content;
   } catch (error) {
-    console.warn(`⚠️  Could not read ${relativePath}: ${error.message}`);
+    console.warn(`[WARN]  Could not read ${relativePath}: ${error.message}`);
     return null;
   }
 }
@@ -353,13 +353,13 @@ const bytes = Buffer.byteLength(context, 'utf8');
 const kb = (bytes / 1024).toFixed(1);
 const tokensTotal = Math.round(bytes / 3.5);
 
-console.log('✅ c.txt generated');
-console.log(`📊 ${lines.toLocaleString()} lines, ${kb} KB, ~${tokensTotal.toLocaleString()} tokens`);
-console.log(`🌐 xln.finance/c.txt`);
-console.log(`📁 Contracts: ${CORE_FILES.contracts.length} | Runtime: ${CORE_FILES.runtime.length} | Docs: ${CORE_FILES.docs.length} | Worlds: ${CORE_FILES.worlds.length}`);
+console.log('[OK] c.txt generated');
+console.log(`[STATS] ${lines.toLocaleString()} lines, ${kb} KB, ~${tokensTotal.toLocaleString()} tokens`);
+console.log(`[WEB] xln.finance/c.txt`);
+console.log(`[FOLDER] Contracts: ${CORE_FILES.contracts.length} | Runtime: ${CORE_FILES.runtime.length} | Docs: ${CORE_FILES.docs.length} | Worlds: ${CORE_FILES.worlds.length}`);
 
 // Token breakdown by file (top 15)
-console.log('\n📈 Token Breakdown (top 15):');
+console.log('\n[UP] Token Breakdown (top 15):');
 const fileTokens = fileStats.map(f => ({
   ...f,
   tokens: Math.round(f.bytes / 3.5),

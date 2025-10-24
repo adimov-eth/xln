@@ -10,7 +10,7 @@ test('Unified dropdown selects entity', async ({ page }) => {
 
   // Create a lazy entity with two validators
   await page.locator('#entityNameInput').fill('DropdownTest');
-  await page.getByRole('button', { name: '➕ Add Validator' }).click();
+  await page.getByRole('button', { name: '+ Add Validator' }).click();
   await page.getByRole('combobox').nth(2).selectOption('alice');
   await page.getByRole('combobox').nth(3).selectOption('bob');
   await page.getByRole('button', { name: 'Create Entity' }).click();
@@ -34,5 +34,5 @@ test('Unified dropdown selects entity', async ({ page }) => {
     .first()
     .locator('.dropdown-text')
     .textContent();
-  expect(text || '').toContain('→');
+  expect(text || '').toContain('[RIGHTWARDS]');
 });

@@ -17,7 +17,7 @@
   <div class="frame-header">
     <span class="frame-index-title">Runtime Frame {frame.frameIndex}</span>
     <span class="frame-time">{formatTimestamp(frame.timestamp)}</span>
-    <span class="activity-badge">{frame.hasActivity ? '🟢' : '⚪'}</span>
+    <span class="activity-badge">{frame.hasActivity ? 'o' : 'o'}</span>
   </div>
 
   {#if frame.hasActivity}

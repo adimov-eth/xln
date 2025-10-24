@@ -14,10 +14,10 @@ export function handleRequestRebalance(
 
   accountMachine.requestedRebalance.set(tokenId, amount);
 
-  console.log(`🔄 Rebalance requested: ${amount} token ${tokenId} (hub will coordinate)`);
+  console.log(`[ANTICLOCKWISE] Rebalance requested: ${amount} token ${tokenId} (hub will coordinate)`);
 
   return {
     success: true,
-    events: [`🔄 Requested rebalance: ${amount} token ${tokenId} (hub will convert credit→collateral)`],
+    events: [`[ANTICLOCKWISE] Requested rebalance: ${amount} token ${tokenId} (hub will convert credit[RIGHTWARDS]collateral)`],
   };
 }

@@ -149,7 +149,7 @@
             </div>
             {#if result.shareableLink}
               <a href={result.shareableLink} target="_blank" rel="noopener noreferrer" class="share-link">
-                View conversation →
+                View conversation [RIGHTWARDS]
               </a>
             {/if}
             {#if result.insights && result.insights.length > 0}

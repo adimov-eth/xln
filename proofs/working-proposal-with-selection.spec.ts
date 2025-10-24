@@ -12,7 +12,7 @@ async function setThreshold(page: Page, value: number) {
 }
 
 async function addValidator(page: Page) {
-  await page.getByRole('button', { name: '➕ Add Validator' }).click();
+  await page.getByRole('button', { name: '+ Add Validator' }).click();
 }
 
 async function pickSignerInRow(page: Page, rowIndex: number, signerText: string) {
@@ -23,7 +23,7 @@ async function pickSignerInRow(page: Page, rowIndex: number, signerText: string)
 
 test.describe('Proposal Creation with Proper Selection', () => {
   test('CREATE ENTITY -> AUTO PANEL -> SELECT REPLICA -> CREATE PROPOSAL', async ({ page }) => {
-    console.log('🎬 Starting COMPLETE workflow with proper selection...');
+    console.log('[TAKE] Starting COMPLETE workflow with proper selection...');
 
     // Navigate and wait for app
     await page.goto('http://localhost:8080');
@@ -31,10 +31,10 @@ test.describe('Proposal Creation with Proper Selection', () => {
     await page.waitForFunction(() => (window as any).xlnEnv !== undefined, { timeout: 5000 });
 
     await page.screenshot({ path: 'e2e/screenshots/selection-01-loaded.png', fullPage: true });
-    console.log('📸 Screenshot: App loaded');
+    console.log('[CAM] Screenshot: App loaded');
 
     // === STEP 1: CREATE ENTITY ===
-    console.log('🏗️ STEP 1: Creating entity with alice and bob');
+    console.log('[BUILD] STEP 1: Creating entity with alice and bob');
 
     await page.locator('text=Formation').click();
     await page.fill('#entityNameInput', 'Test Entity');
@@ -45,7 +45,7 @@ test.describe('Proposal Creation with Proper Selection', () => {
     await setThreshold(page, 2); // Both must vote
 
     await page.screenshot({ path: 'e2e/screenshots/selection-02-form.png', fullPage: true });
-    console.log('📸 Screenshot: Entity form filled');
+    console.log('[CAM] Screenshot: Entity form filled');
 
     // Track state before creation
     const beforeState = await page.evaluate(() => {
@@ -72,23 +72,23 @@ test.describe('Proposal Creation with Proper Selection', () => {
     );
 
     await page.screenshot({ path: 'e2e/screenshots/selection-03-entity-created.png', fullPage: true });
-    console.log('✅ Entity created successfully');
+    console.log('[OK] Entity created successfully');
 
     // === STEP 2: VERIFY AUTO-PANEL CREATION ===
-    console.log('🎯 STEP 2: Verifying auto-panel was created');
+    console.log('[GOAL] STEP 2: Verifying auto-panel was created');
 
     // Wait a moment for auto-panel creation
     await page.waitForTimeout(1000);
 
     // Check if a panel with our entity exists
     const panelExists = await page.locator('.entity-panel').count();
-    console.log(`📊 Found ${panelExists} entity panels`);
+    console.log(`[STATS] Found ${panelExists} entity panels`);
 
     await page.screenshot({ path: 'e2e/screenshots/selection-04-auto-panel.png', fullPage: true });
-    console.log('📸 Screenshot: Auto-panel created');
+    console.log('[CAM] Screenshot: Auto-panel created');
 
     // === STEP 3: VERIFY EMPTY CONTROLS MESSAGE ===
-    console.log('📝 STEP 3: Checking if Controls shows proper empty state');
+    console.log('[MEMO] STEP 3: Checking if Controls shows proper empty state');
 
     // Expand Controls to see if it shows the "Select Entity & Signer First" message
     const controlsHeader = page.locator('.component-header').filter({ hasText: 'Controls' }).first();
@@ -98,17 +98,17 @@ test.describe('Proposal Creation with Proper Selection', () => {
     // Look for the empty controls message in the first panel
     const emptyMessage = page.locator('.empty-controls').first();
     if ((await emptyMessage.count()) > 0) {
-      console.log('✅ Empty controls message displayed correctly');
+      console.log('[OK] Empty controls message displayed correctly');
       await expect(emptyMessage).toContainText('Select Entity & Signer First');
     } else {
-      console.log('⚠️ Controls might already be populated');
+      console.log('[WARN] Controls might already be populated');
     }
 
     await page.screenshot({ path: 'e2e/screenshots/selection-05-empty-controls.png', fullPage: true });
-    console.log('📸 Screenshot: Empty controls or populated controls');
+    console.log('[CAM] Screenshot: Empty controls or populated controls');
 
     // === STEP 4: MANUALLY SELECT ENTITY AND SIGNER ===
-    console.log('🎯 STEP 4: Manually selecting entity and signer in dropdown');
+    console.log('[GOAL] STEP 4: Manually selecting entity and signer in dropdown');
 
     // Click the entity dropdown
     const entityDropdown = page.locator('.unified-dropdown').first();
@@ -133,20 +133,20 @@ test.describe('Proposal Creation with Proper Selection', () => {
     await page.waitForTimeout(200);
 
     await page.screenshot({ path: 'e2e/screenshots/selection-06-entity-signer-selected.png', fullPage: true });
-    console.log('📸 Screenshot: Entity and signer selected');
+    console.log('[CAM] Screenshot: Entity and signer selected');
 
     // === STEP 5: VERIFY CONTROLS ARE NOW POPULATED ===
-    console.log('🔍 STEP 5: Verifying controls are now functional');
+    console.log('[FIND] STEP 5: Verifying controls are now functional');
 
     // Check if the controls dropdown is now visible (not empty message)
     const controlsDropdown = page.locator('.controls-section').first();
     await expect(controlsDropdown).toBeVisible();
 
     await page.screenshot({ path: 'e2e/screenshots/selection-07-controls-active.png', fullPage: true });
-    console.log('📸 Screenshot: Controls now active');
+    console.log('[CAM] Screenshot: Controls now active');
 
     // === STEP 6: CREATE PROPOSAL ===
-    console.log('📝 STEP 6: Creating proposal with proper replica selection');
+    console.log('[MEMO] STEP 6: Creating proposal with proper replica selection');
 
     // Select proposal mode
     await controlsDropdown.getByRole('combobox').selectOption('proposal');
@@ -159,7 +159,7 @@ test.describe('Proposal Creation with Proper Selection', () => {
       .fill('Testing proposal creation with proper entity/signer selection');
 
     await page.screenshot({ path: 'e2e/screenshots/selection-08-proposal-form.png', fullPage: true });
-    console.log('📸 Screenshot: Proposal form filled');
+    console.log('[CAM] Screenshot: Proposal form filled');
 
     // Track proposals before submission
     const beforeProposals = await page.evaluate(() => {
@@ -204,14 +204,14 @@ test.describe('Proposal Creation with Proper Selection', () => {
     });
 
     await page.screenshot({ path: 'e2e/screenshots/selection-09-proposal-submitted.png', fullPage: true });
-    console.log('📸 Screenshot: Proposal submitted');
+    console.log('[CAM] Screenshot: Proposal submitted');
 
     // === STEP 7: VERIFY PROPOSAL WAS CREATED ===
-    console.log('🎉 STEP 7: Verifying proposal creation');
+    console.log('[DONE] STEP 7: Verifying proposal creation');
 
-    console.log(`📊 BEFORE: ${beforeProposals} proposals`);
-    console.log(`📊 AFTER: ${afterProposals.totalProposals} proposals`);
-    console.log('📋 Latest proposals:', afterProposals.proposals.slice(-3));
+    console.log(`[STATS] BEFORE: ${beforeProposals} proposals`);
+    console.log(`[STATS] AFTER: ${afterProposals.totalProposals} proposals`);
+    console.log('[LIST] Latest proposals:', afterProposals.proposals.slice(-3));
 
     // Verify proposal was created
     expect(afterProposals.totalProposals).toBeGreaterThan(beforeProposals);
@@ -221,18 +221,18 @@ test.describe('Proposal Creation with Proper Selection', () => {
     );
     expect(newProposal).toBeDefined();
 
-    console.log('✅ SUCCESS: Proposal created in backend!');
-    console.log(`📝 Found: "${newProposal?.title}" by ${newProposal?.proposer}`);
+    console.log('[OK] SUCCESS: Proposal created in backend!');
+    console.log(`[MEMO] Found: "${newProposal?.title}" by ${newProposal?.proposer}`);
 
     await page.screenshot({ path: 'e2e/screenshots/selection-10-success.png', fullPage: true });
-    console.log('📸 Screenshot: Final success');
+    console.log('[CAM] Screenshot: Final success');
 
-    console.log('🎉 COMPLETE WORKFLOW SUCCESS!');
-    console.log('✅ Entity creation works');
-    console.log('✅ Auto-panel creation works');
-    console.log('✅ Empty controls message works');
-    console.log('✅ Entity/signer selection works');
-    console.log('✅ Controls populate correctly');
-    console.log('✅ Proposal creation actually works!');
+    console.log('[DONE] COMPLETE WORKFLOW SUCCESS!');
+    console.log('[OK] Entity creation works');
+    console.log('[OK] Auto-panel creation works');
+    console.log('[OK] Empty controls message works');
+    console.log('[OK] Entity/signer selection works');
+    console.log('[OK] Controls populate correctly');
+    console.log('[OK] Proposal creation actually works!');
   });
 });

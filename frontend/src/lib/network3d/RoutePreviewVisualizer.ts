@@ -2,7 +2,7 @@
  * RoutePreviewVisualizer - Shows lightning preview of selected payment route
  *
  * When user selects a route, shows animated lightning:
- * Source → Hop1 → Hop2 → ... → Destination
+ * Source [RIGHTWARDS] Hop1 [RIGHTWARDS] Hop2 [RIGHTWARDS] ... [RIGHTWARDS] Destination
  */
 
 import * as THREE from 'three';
@@ -128,7 +128,7 @@ export class RoutePreviewVisualizer {
   update(deltaTime: number) {
     if (!this.animating) return;
 
-    // Pulse animation (0 → 1 → 0)
+    // Pulse animation (0 [RIGHTWARDS] 1 [RIGHTWARDS] 0)
     this.animationProgress += deltaTime * 0.003; // Slow pulse
 
     // Sine wave for smooth pulsing

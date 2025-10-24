@@ -29,13 +29,13 @@
       const artifact = await response.json();
       const bytecode = artifact.bytecode;
 
-      appendLog(`✅ Loaded Depository.sol (${bytecode.length / 2} bytes)`);
+      appendLog(`[OK] Loaded Depository.sol (${bytecode.length / 2} bytes)`);
 
       status.textContent = 'Creating EVM...';
       const vm = await createVM();
       const common = vm.common;
 
-      appendLog('✅ Created EthereumJS VM');
+      appendLog('[OK] Created EthereumJS VM');
 
       // Deployer account
       const deployerPrivKey = hexToBytes('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80');
@@ -46,7 +46,7 @@
       });
       await vm.stateManager.putAccount(deployerAddress, deployerAccount);
 
-      appendLog(`✅ Funded deployer: ${deployerAddress.toString()}`);
+      appendLog(`[OK] Funded deployer: ${deployerAddress.toString()}`);
 
       // Deploy contract
       status.textContent = 'Deploying contract...';
@@ -63,7 +63,7 @@
       }
 
       const contractAddress = deployResult.createdAddress;
-      appendLog(`✅ Deployed at: ${contractAddress.toString()}`);
+      appendLog(`[OK] Deployed at: ${contractAddress.toString()}`);
       appendLog(`   Gas used: ${deployResult.totalGasSpent}`);
 
       // Call debugFundReserves
@@ -88,18 +88,18 @@
         throw new Error(`Call failed: ${callResult.execResult.exceptionError}`);
       }
 
-      appendLog(`✅ Transaction executed`);
+      appendLog(`[OK] Transaction executed`);
       appendLog(`   Gas used: ${callResult.totalGasSpent}`);
       appendLog(`   Logs emitted: ${callResult.execResult.logs?.length || 0}`);
 
-      status.textContent = '✅ SUCCESS! EthereumJS VM works in browser.';
+      status.textContent = '[OK] SUCCESS! EthereumJS VM works in browser.';
       status.style.color = 'green';
       status.style.fontWeight = 'bold';
 
     } catch (error) {
-      status.textContent = `❌ FAILED: ${error.message}`;
+      status.textContent = `[X] FAILED: ${error.message}`;
       status.style.color = 'red';
-      appendLog(`❌ Error: ${error.message}`);
+      appendLog(`[X] Error: ${error.message}`);
       console.error(error);
     }
   </script>

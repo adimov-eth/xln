@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('DEBUG: Entity Selection State', async ({ page }) => {
-  console.log('🔍 Debugging entity selection...');
+  console.log('[FIND] Debugging entity selection...');
 
   await page.goto('http://localhost:8080');
   await page.waitForLoadState('networkidle');
@@ -14,7 +14,7 @@ test('DEBUG: Entity Selection State', async ({ page }) => {
   const firstValidatorSelect = page.locator('.validator-name').first();
   await firstValidatorSelect.selectOption('alice');
 
-  await page.getByRole('button', { name: '➕ Add Validator' }).click();
+  await page.getByRole('button', { name: '+ Add Validator' }).click();
   await page.getByRole('combobox').nth(3).selectOption('bob');
 
   await page.locator('#thresholdSlider').evaluate((el: HTMLInputElement) => {
@@ -25,11 +25,11 @@ test('DEBUG: Entity Selection State', async ({ page }) => {
   await page.getByRole('button', { name: /Create Entity/i }).click();
   await page.waitForTimeout(2000);
 
-  console.log('✅ Entity created, checking panel state...');
+  console.log('[OK] Entity created, checking panel state...');
 
   // Check panel count
   const panelCount = await page.locator('.entity-panel').count();
-  console.log(`📊 Panel count: ${panelCount}`);
+  console.log(`[STATS] Panel count: ${panelCount}`);
 
   if (panelCount > 0) {
     const firstPanel = page.locator('.entity-panel').first();
@@ -38,8 +38,8 @@ test('DEBUG: Entity Selection State', async ({ page }) => {
     const hasEmptyState = await firstPanel.locator('.empty-panel-state').count();
     const hasControlsHeader = await firstPanel.locator('.component-header').filter({ hasText: 'Controls' }).count();
 
-    console.log(`📊 Empty state count: ${hasEmptyState}`);
-    console.log(`📊 Controls header count: ${hasControlsHeader}`);
+    console.log(`[STATS] Empty state count: ${hasEmptyState}`);
+    console.log(`[STATS] Controls header count: ${hasControlsHeader}`);
 
     // Get tab state
     const tabState = await firstPanel.evaluate(() => {
@@ -52,10 +52,10 @@ test('DEBUG: Entity Selection State', async ({ page }) => {
       };
     });
 
-    console.log('📊 Tab state:', tabState);
+    console.log('[STATS] Tab state:', tabState);
 
     // Try entity selection
-    console.log('🎯 Attempting entity selection...');
+    console.log('[GOAL] Attempting entity selection...');
 
     const entityDropdown = firstPanel.locator('.unified-dropdown').first();
     if ((await entityDropdown.count()) > 0) {
@@ -63,7 +63,7 @@ test('DEBUG: Entity Selection State', async ({ page }) => {
       await page.waitForTimeout(500);
 
       const dropdownOptions = await page.locator('#dropdownResults .dropdown-item').count();
-      console.log(`📊 Dropdown options: ${dropdownOptions}`);
+      console.log(`[STATS] Dropdown options: ${dropdownOptions}`);
 
       if (dropdownOptions > 0) {
         await page.locator('#dropdownResults .dropdown-item').first().click();
@@ -76,7 +76,7 @@ test('DEBUG: Entity Selection State', async ({ page }) => {
           await page.waitForTimeout(500);
 
           const signerOptions = await page.locator('#dropdownResults .dropdown-item').count();
-          console.log(`📊 Signer options: ${signerOptions}`);
+          console.log(`[STATS] Signer options: ${signerOptions}`);
 
           if (signerOptions > 0) {
             await page.locator('#dropdownResults .dropdown-item').first().click();
@@ -89,13 +89,13 @@ test('DEBUG: Entity Selection State', async ({ page }) => {
               .filter({ hasText: 'Controls' })
               .count();
 
-            console.log(`📊 After selection - Empty state: ${afterEmptyState}`);
-            console.log(`📊 After selection - Controls header: ${afterControlsHeader}`);
+            console.log(`[STATS] After selection - Empty state: ${afterEmptyState}`);
+            console.log(`[STATS] After selection - Controls header: ${afterControlsHeader}`);
 
             if (afterControlsHeader > 0) {
-              console.log('✅ SUCCESS: Controls header found after selection');
+              console.log('[OK] SUCCESS: Controls header found after selection');
             } else {
-              console.log('❌ PROBLEM: Controls header still not found');
+              console.log('[X] PROBLEM: Controls header still not found');
             }
           }
         }
@@ -104,5 +104,5 @@ test('DEBUG: Entity Selection State', async ({ page }) => {
   }
 
   await page.screenshot({ path: 'e2e/screenshots/debug-final-state.png', fullPage: true });
-  console.log('📸 Screenshot: Debug final state');
+  console.log('[CAM] Screenshot: Debug final state');
 });

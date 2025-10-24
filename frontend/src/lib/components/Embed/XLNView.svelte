@@ -33,13 +33,13 @@
       class:active={currentView === '3d'}
       on:click={() => switchView('3d')}
     >
-      🗺️ Graph
+      [MAP] Graph
     </button>
     <button
       class:active={currentView === 'panels'}
       on:click={() => switchView('panels')}
     >
-      📊 Panels
+      [STATS] Panels
     </button>
   </div>
 
@@ -58,7 +58,7 @@
     {:else}
       <!-- Panels view (TODO: integrate EntityPanel with isolated env) -->
       <div class="panels-placeholder">
-        <p>📊 Panels View</p>
+        <p>[STATS] Panels View</p>
         <p>Coming soon: Entity wallet perspective synced to same timeline</p>
       </div>
     {/if}

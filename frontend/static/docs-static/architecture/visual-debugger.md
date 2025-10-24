@@ -23,9 +23,9 @@ This document outlines the architectural decisions and data flow patterns discov
 
 ### Data Flow Pattern
 ```
-User Action → Frontend → Server Input → Consensus Processing → State Update → UI Refresh
-     ↑                                                                          │
-     └──────────────────── Feedback Loop ←───────────────────────────────────────┘
+User Action [RIGHTWARDS] Frontend [RIGHTWARDS] Server Input [RIGHTWARDS] Consensus Processing [RIGHTWARDS] State Update [RIGHTWARDS] UI Refresh
+     [UPWARDS]                                                                          │
+     └──────────────────── Feedback Loop [LEFTWARDS]───────────────────────────────────────┘
 ```
 
 ## Core Design Principles
@@ -56,7 +56,7 @@ export function processUntilEmpty(initialOutputs) {
   let iteration = 0;
   
   while (outputs && outputs.length > 0) {
-    console.log(`🔥 PROCESS-CASCADE: Iteration ${iteration}, processing ${outputs.length} outputs`);
+    console.log(`[FIRE] PROCESS-CASCADE: Iteration ${iteration}, processing ${outputs.length} outputs`);
     
     const result = applyServerInput({ 
       entityInputs: outputs.map(createEntityInput) 
@@ -66,7 +66,7 @@ export function processUntilEmpty(initialOutputs) {
     iteration++;
     
     if (iteration > 100) { // Safety limit
-      console.warn('🔥 PROCESS-CASCADE: Hit iteration limit');
+      console.warn('[FIRE] PROCESS-CASCADE: Hit iteration limit');
       break;
     }
   }
@@ -163,7 +163,7 @@ interface EntityState {
   nonces: Map<string, number>;
   messages: ChatMessage[];
   proposals: Map<string, Proposal>;
-  validators: Map<string, bigint>;  // signerId → voting power
+  validators: Map<string, bigint>;  // signerId [RIGHTWARDS] voting power
   threshold: bigint;               // minimum voting power for approval
 }
 ```
@@ -301,7 +301,7 @@ function createServerInput(entityTxs) {
 ```javascript
 // Tab-based entity management
 const tabSystem = {
-  tabs: new Map(),           // tabId → tabData
+  tabs: new Map(),           // tabId [RIGHTWARDS] tabData
   activeTabId: null,         // Currently active tab
   nextTabId: 1,             // Auto-incrementing ID
   
@@ -344,11 +344,11 @@ const settings = {
 ```typescript
 // Hierarchical logging with prefixes
 const LogPrefixes = {
-  CONSENSUS: '🔥',
-  VOTING: '🗳️', 
-  TRANSACTION: '🚨',
-  FRAME: '🔍',
-  UI: '🎨'
+  CONSENSUS: '[FIRE]',
+  VOTING: '[VOTE]', 
+  TRANSACTION: '[ALERT]',
+  FRAME: '[FIND]',
+  UI: '[DESIGN]'
 };
 
 function log(prefix: string, message: string, data?: any) {
@@ -360,7 +360,7 @@ function log(prefix: string, message: string, data?: any) {
 ```javascript
 // Comprehensive state debugging
 function debugEntityState(replica) {
-  console.group(`🔍 Entity ${replica.entityId}:${replica.signerId}`);
+  console.group(`[FIND] Entity ${replica.entityId}:${replica.signerId}`);
   console.log('Height:', replica.state.height);
   console.log('Messages:', replica.state.messages.length);
   console.log('Proposals:', replica.state.proposals.size);

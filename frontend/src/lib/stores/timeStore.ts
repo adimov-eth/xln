@@ -14,7 +14,7 @@ const loadTimeState = (): TimeState => {
           maxTimeIndex: parsed.maxTimeIndex ?? 0,
           isLive: parsed.isLive ?? true
         };
-        console.log('🕰️ Loaded time state from localStorage:', loadedState);
+        console.log('[TIME] Loaded time state from localStorage:', loadedState);
         return loadedState;
       }
     } catch (err) {
@@ -27,7 +27,7 @@ const loadTimeState = (): TimeState => {
     maxTimeIndex: 0,
     isLive: true
   };
-  console.log('🕰️ Using default time state:', defaultState);
+  console.log('[TIME] Using default time state:', defaultState);
   return defaultState;
 };
 
@@ -120,7 +120,7 @@ const timeOperations = {
 
     // SAFETY: Ensure history is actually populated before proceeding
     if (!$history || !Array.isArray($history)) {
-      console.warn('🕰️ TIME-MACHINE-SAFETY: History not ready, skipping update');
+      console.warn('[TIME] TIME-MACHINE-SAFETY: History not ready, skipping update');
       return;
     }
 
@@ -154,7 +154,7 @@ const timeOperations = {
     // Persist to localStorage
     timeOperations.saveTimeState(newState);
 
-    console.log('🕰️ Time machine moved to index:', clampedIndex);
+    console.log('[TIME] Time machine moved to index:', clampedIndex);
 
     // Trigger entity panel updates like old index.html
     timeOperations.triggerEntityPanelUpdates();
@@ -268,7 +268,7 @@ const timeOperations = {
 
       // Wait for history to be properly loaded before initializing
       if (!hasInitialized && $history.length > 0) {
-        console.log('🕰️ SEQUENTIAL-LOAD: First-time initialization with populated history');
+        console.log('[TIME] SEQUENTIAL-LOAD: First-time initialization with populated history');
         hasInitialized = true;
         timeOperations.updateMaxTimeIndex();
       } else if (hasInitialized) {
@@ -278,10 +278,10 @@ const timeOperations = {
           // Only update max index when in live mode to prevent time machine corruption
           timeOperations.updateMaxTimeIndex();
         } else {
-          console.log(`🕰️ TIME-MACHINE: Ignoring history update while in historical mode (index: ${currentState.currentTimeIndex})`);
+          console.log(`[TIME] TIME-MACHINE: Ignoring history update while in historical mode (index: ${currentState.currentTimeIndex})`);
         }
       } else {
-        console.log('🕰️ SEQUENTIAL-LOAD: Waiting for history to be populated...');
+        console.log('[TIME] SEQUENTIAL-LOAD: Waiting for history to be populated...');
       }
     });
   }

@@ -199,4 +199,4 @@ console.log(output);
 // Write to file
 import { writeFileSync } from 'fs';
 writeFileSync('./scenarios/phantom-grid.scenario.txt', output);
-console.log('\n✅ Generated phantom-grid.scenario.txt (1000 entities, ~2700 connections)');
+console.log('\n[OK] Generated phantom-grid.scenario.txt (1000 entities, ~2700 connections)');

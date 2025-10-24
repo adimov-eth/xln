@@ -85,7 +85,7 @@ Complete guide for communicating XLN's value proposition and adoption roadmap.
 
 **Problem:** Institutions can't use your protocol due to governance limitations.
 
-**Solution:** Add `verifyHanko()` → Enable hierarchical approvals → Unlock corporate treasuries.
+**Solution:** Add `verifyHanko()` [RIGHTWARDS] Enable hierarchical approvals [RIGHTWARDS] Unlock corporate treasuries.
 
 **Benefit:** Access to trillion-dollar institutional market without compromising decentralization.
 
@@ -343,7 +343,7 @@ Every XLN communication should be:
 "Managing organizational complexity on blockchain is broken. Show example of current DAO trying to create sub-committee."
 
 ### Minute 2: The XLN Solution
-"Create entity → Create sub-entity → Hierarchical signature → Done. Zero cost. Cryptographic proof."
+"Create entity [RIGHTWARDS] Create sub-entity [RIGHTWARDS] Hierarchical signature [RIGHTWARDS] Done. Zero cost. Cryptographic proof."
 
 ### Minute 3: The Power
 "Now scale to 100 subsidiaries. 1000 accounts. Million transactions. Still free. Still instant."

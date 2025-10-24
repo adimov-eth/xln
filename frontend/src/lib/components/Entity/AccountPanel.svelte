@@ -69,7 +69,7 @@
 
   // Debug perspective calculation
   $: {
-    console.log(`🔍 PERSPECTIVE DEBUG:`, {
+    console.log(`[FIND] PERSPECTIVE DEBUG:`, {
       entityId: entityId.slice(-4),
       counterpartyId: counterpartyId.slice(-4),
       isLeftEntity,
@@ -113,7 +113,7 @@
     };
 
     // Debug derived values including ASCII
-    console.log(`🔍 DERIVED DEBUG (Entity ${entityId.slice(-4)}, isLeft=${isLeftEntity}):`, {
+    console.log(`[FIND] DERIVED DEBUG (Entity ${entityId.slice(-4)}, isLeft=${isLeftEntity}):`, {
       tokenId,
       rawDelta: {
         collateral: delta.collateral.toString(),
@@ -190,7 +190,7 @@
       };
 
       await xln.process(env, [paymentInput]);
-      console.log(`✅ Payment sent: ${$xlnFunctions.formatTokenAmount(selectedTokenId, paymentAmountBigInt)}`);
+      console.log(`[OK] Payment sent: ${$xlnFunctions.formatTokenAmount(selectedTokenId, paymentAmountBigInt)}`);
 
       // Reset form
       paymentAmountBigInt = 0n;
@@ -223,7 +223,7 @@
       };
 
       await xln.process(env, [adjustmentInput]);
-      console.log(`✅ Credit adjusted to: ${creditAdjustment}`);
+      console.log(`[OK] Credit adjusted to: ${creditAdjustment}`);
 
       creditAdjustment = 0;
     } catch (err: any) {
@@ -257,7 +257,7 @@
         }
       }
 
-      console.log('✅ Settlement submitted');
+      console.log('[OK] Settlement submitted');
     } catch (err: any) {
       console.error('Failed to settle:', err);
       error.set(`Settlement failed: ${err?.message || 'Unknown error'}`);
@@ -268,7 +268,7 @@
     if (!confirm('Are you sure you want to initiate a dispute? This will freeze the account.')) return;
 
     // TODO: Implement dispute initiation
-    console.log('🚨 Dispute initiated');
+    console.log('[ALERT] Dispute initiated');
     alert('Dispute functionality coming soon');
   }
 
@@ -276,7 +276,7 @@
     if (!confirm('Are you sure you want to close this account? All balances must be settled first.')) return;
 
     // TODO: Implement cooperative close
-    console.log('❌ Closing account');
+    console.log('[X] Closing account');
     alert('Account closure functionality coming soon');
   }
 
@@ -285,7 +285,7 @@
 <div class="account-panel">
   <div class="panel-header">
     <button class="back-button" on:click={handleBackToEntity}>
-      ← Back to Entity
+      [LEFTWARDS] Back to Entity
     </button>
     <div class="account-title">
       <span class="entity-pair">
@@ -309,9 +309,9 @@
 
         <!-- Quick Trust Indicator -->
         {#if account.currentFrame.stateHash}
-          <span class="trust-indicator verified" title="Cryptographically verified account state">🔒 Secured</span>
+          <span class="trust-indicator verified" title="Cryptographically verified account state">[LOCK] Secured</span>
         {:else}
-          <span class="trust-indicator pending" title="Awaiting cryptographic verification">⏳ Unverified</span>
+          <span class="trust-indicator pending" title="Awaiting cryptographic verification">[WAIT] Unverified</span>
         {/if}
       </div>
     </div>
@@ -320,7 +320,7 @@
   <div class="panel-content">
     <!-- Canonical State (Raw Data) -->
     <div class="section">
-      <h3>📊 Canonical State</h3>
+      <h3>[STATS] Canonical State</h3>
       <div class="canonical-data">
         <div class="canonical-note">Raw bilateral state (identical on both sides):</div>
         {#each tokenDetails as td (td.tokenId)}
@@ -365,7 +365,7 @@
 
     <!-- Personal View (Perspective-based) -->
     <div class="section">
-      <h3>👤 My View (Entity #{$xlnFunctions!.getEntityShortId(entityId)} perspective)</h3>
+      <h3>[USER] My View (Entity #{$xlnFunctions!.getEntityShortId(entityId)} perspective)</h3>
       {#each tokenDetails as td (td.tokenId)}
         <div class="token-detail-card">
           <div class="token-header">
@@ -380,7 +380,7 @@
           <!-- Unified stacked bar (like 3D spread bars) -->
           <div class="unified-capacity-bar">
             <div class="bar-segments">
-              <!-- CORRECT ORDER (matching 2019vue.txt): our unused → our secured → our unsecured → gap → their unsecured → their secured → their unused -->
+              <!-- CORRECT ORDER (matching 2019vue.txt): our unused [RIGHTWARDS] our secured [RIGHTWARDS] our unsecured [RIGHTWARDS] gap [RIGHTWARDS] their unsecured [RIGHTWARDS] their secured [RIGHTWARDS] their unused -->
               {#if td.ourUnusedCredit > 0}
                 <div class="bar-segment our-unused" style="flex: {td.ourUnusedCredit}" title="Our available credit: {safeFixed(td.ourUnusedCredit)}">
                   {#if td.ourUnusedCredit > 50000}{safeFixed(td.ourUnusedCredit, 0)}{/if}
@@ -469,10 +469,10 @@
             </div>
           </div>
 
-          <!-- 🔐 Hanko Signature Proof -->
+          <!-- [LOCK] Hanko Signature Proof -->
           <div class="signature-proof-section">
             <div class="signature-header">
-              <span class="proof-icon">🔐</span>
+              <span class="proof-icon">[LOCK]</span>
               <span class="proof-title">Cryptographic Proof</span>
               <span class="frame-info">Frame #{account.currentFrame.height}</span>
             </div>
@@ -484,7 +484,7 @@
                   <code class="sig-value" title="{account.currentFrame.stateHash}">
                     {account.currentFrame.stateHash.slice(0, 16)}...
                   </code>
-                  <span class="sig-status verified">✓</span>
+                  <span class="sig-status verified">[CHECK]</span>
                 </div>
               {/if}
 
@@ -494,12 +494,12 @@
                   <code class="sig-value" title="{account.hankoSignature}">
                     hanko_{account.hankoSignature.slice(0, 12)}...
                   </code>
-                  <span class="sig-status verified">✓</span>
+                  <span class="sig-status verified">[CHECK]</span>
                 </div>
               {:else}
                 <div class="signature-row">
                   <span class="sig-label">Their Hanko:</span>
-                  <span class="sig-value pending">⏳ Pending signature</span>
+                  <span class="sig-value pending">[WAIT] Pending signature</span>
                 </div>
               {/if}
 
@@ -602,14 +602,14 @@
 
     <!-- Account Frame History Section -->
     <div class="section">
-      <h3>💾 Account Frame History ({account.frameHistory?.length || 0} confirmed frames)</h3>
+      <h3>[DISK] Account Frame History ({account.frameHistory?.length || 0} confirmed frames)</h3>
       <div class="frame-history">
 
         <!-- Pending Frame (TOP PRIORITY) -->
         {#if account.pendingFrame}
           <div class="frame-item pending">
             <div class="frame-header">
-              <span class="frame-id">⏳ Pending Frame #{account.pendingFrame.height}</span>
+              <span class="frame-id">[WAIT] Pending Frame #{account.pendingFrame.height}</span>
               <span class="frame-status pending">Awaiting Consensus</span>
               <span class="frame-timestamp">
                 {formatTimestamp(account.pendingFrame.timestamp)}
@@ -644,7 +644,7 @@
         {#if account.mempool.length > 0}
           <div class="frame-item mempool">
             <div class="frame-header">
-              <span class="frame-id">📝 Mempool Queue</span>
+              <span class="frame-id">[MEMO] Mempool Queue</span>
               <span class="frame-status mempool">{account.mempool.length} Queued</span>
             </div>
             <div class="frame-details">
@@ -674,7 +674,7 @@
         {#if account.currentFrame}
           <div class="frame-item current">
             <div class="frame-header">
-              <span class="frame-id">✅ Current Frame #{account.currentFrame.height || account.currentHeight}</span>
+              <span class="frame-id">[OK] Current Frame #{account.currentFrame.height || account.currentHeight}</span>
               <span class="frame-status current">Active</span>
               <span class="frame-timestamp">
                 {formatTimestamp(account.currentFrame.timestamp || Date.now())}
@@ -703,11 +703,11 @@
         <!-- Historical Frames (from frameHistory array) -->
         {#if account.frameHistory && account.frameHistory.length > 0}
           <div class="historical-frames">
-            <h4>📚 Historical Frames (last {Math.min(10, account.frameHistory.length)}):</h4>
+            <h4>[DOCS] Historical Frames (last {Math.min(10, account.frameHistory.length)}):</h4>
             {#each account.frameHistory.slice(-10).reverse() as frame}
               <div class="frame-item historical">
                 <div class="frame-header">
-                  <span class="frame-id">📜 Frame #{frame.height}</span>
+                  <span class="frame-id">[DOC] Frame #{frame.height}</span>
                   <span class="frame-status historical">Confirmed</span>
                   <span class="frame-timestamp">
                     {formatTimestamp(frame.timestamp)}
@@ -1467,7 +1467,7 @@
     color: #888;
   }
 
-  /* 🔐 Hanko Signature Proof Styles */
+  /* [LOCK] Hanko Signature Proof Styles */
   .signature-proof-section {
     margin-top: 16px;
     padding: 12px;

@@ -37,12 +37,12 @@ export const handleJEvent = (entityState: EntityState, entityTxData: JEventEntit
 
   // Reject events from blocks we've already processed - handle undefined jBlock
   const currentJBlock = entityState.jBlock || 0;
-  console.log(`🔍 J-EVENT-CHECK: ${event.type} block=${blockNumber} vs entity.jBlock=${currentJBlock} (raw=${entityState.jBlock}), from=${from}`);
+  console.log(`[FIND] J-EVENT-CHECK: ${event.type} block=${blockNumber} vs entity.jBlock=${currentJBlock} (raw=${entityState.jBlock}), from=${from}`);
   if (blockNumber <= currentJBlock) {
-    console.log(`🔄 IGNORING OLD J-EVENT: ${event.type} from block ${blockNumber} (entity already at j-block ${entityState.jBlock})`);
+    console.log(`[ANTICLOCKWISE] IGNORING OLD J-EVENT: ${event.type} from block ${blockNumber} (entity already at j-block ${entityState.jBlock})`);
     return entityState;
   }
-  console.log(`✅ J-EVENT-ACCEPTED: ${event.type} block=${blockNumber} > entity.jBlock=${entityState.jBlock}, will process`);
+  console.log(`[OK] J-EVENT-ACCEPTED: ${event.type} block=${blockNumber} > entity.jBlock=${entityState.jBlock}, will process`);
 
   const newEntityState = cloneEntityState(entityState);
   // Update jBlock to current event block
@@ -61,13 +61,13 @@ export const handleJEvent = (entityState: EntityState, entityTxData: JEventEntit
     const amountDisplay = (Number(amount) / (10 ** decimals)).toFixed(4);
 
     if (direction === 'sent') {
-      elaborateMessage = `💸 ${from} observed RESERVE TRANSFER: Sent ${amountDisplay} ${tokenSymbol} to Entity ${(toEntity as string).slice(-1)}
-📍 Block: ${blockNumber} | ⏰ ${timestamp} | 🔗 Tx: ${txHashShort}
-🎯 Event: ReserveTransferred | 🔢 TokenID: ${tokenId} | 💰 Amount: ${amount} (raw)`;
+      elaborateMessage = `[$$] ${from} observed RESERVE TRANSFER: Sent ${amountDisplay} ${tokenSymbol} to Entity ${(toEntity as string).slice(-1)}
+[PIN] Block: ${blockNumber} | [ALARM] ${timestamp} | [LINK] Tx: ${txHashShort}
+[GOAL] Event: ReserveTransferred | [123] TokenID: ${tokenId} | [$] Amount: ${amount} (raw)`;
     } else {
-      elaborateMessage = `💰 ${from} observed RESERVE TRANSFER: Received ${amountDisplay} ${tokenSymbol} from Entity ${(fromEntity as string).slice(-1)}
-📍 Block: ${blockNumber} | ⏰ ${timestamp} | 🔗 Tx: ${txHashShort}
-🎯 Event: ReserveTransferred | 🔢 TokenID: ${tokenId} | 💰 Amount: ${amount} (raw)`;
+      elaborateMessage = `[$] ${from} observed RESERVE TRANSFER: Received ${amountDisplay} ${tokenSymbol} from Entity ${(fromEntity as string).slice(-1)}
+[PIN] Block: ${blockNumber} | [ALARM] ${timestamp} | [LINK] Tx: ${txHashShort}
+[GOAL] Event: ReserveTransferred | [123] TokenID: ${tokenId} | [$] Amount: ${amount} (raw)`;
     }
   } else if (event.type === 'ReserveUpdated') {
     const { tokenId, newBalance } = event.data;
@@ -75,10 +75,10 @@ export const handleJEvent = (entityState: EntityState, entityTxData: JEventEntit
     const decimals = getTokenDecimals(tokenId as number);
     const balanceDisplay = (Number(newBalance) / (10 ** decimals)).toFixed(4);
     
-    elaborateMessage = `📊 ${from} observed RESERVE UPDATE: ${tokenSymbol} balance now ${balanceDisplay} (accepted: event.block=${blockNumber} > entity.jBlock=${currentJBlock})
-📍 Block: ${blockNumber} | ⏰ ${timestamp} | 🔗 Tx: ${txHashShort}
-🎯 Event: ReserveUpdated | 🔢 TokenID: ${tokenId} | 💰 New Balance: ${newBalance} (raw)
-🏦 Decimals: ${decimals} | 🔤 Symbol: ${tokenSymbol}`;
+    elaborateMessage = `[STATS] ${from} observed RESERVE UPDATE: ${tokenSymbol} balance now ${balanceDisplay} (accepted: event.block=${blockNumber} > entity.jBlock=${currentJBlock})
+[PIN] Block: ${blockNumber} | [ALARM] ${timestamp} | [LINK] Tx: ${txHashShort}
+[GOAL] Event: ReserveUpdated | [123] TokenID: ${tokenId} | [$] New Balance: ${newBalance} (raw)
+[BANK] Decimals: ${decimals} | [ABC] Symbol: ${tokenSymbol}`;
   } else if (event.type === 'SettlementProcessed') {
     const { counterpartyEntityId, tokenId, ownReserve, counterpartyReserve, collateral, ondelta, side } = event.data;
     const tokenSymbol = getTokenSymbol(tokenId as number);
@@ -87,15 +87,15 @@ export const handleJEvent = (entityState: EntityState, entityTxData: JEventEntit
     const counterpartyBalanceDisplay = (Number(counterpartyReserve) / (10 ** decimals)).toFixed(4);
     const collateralDisplay = (Number(collateral) / (10 ** decimals)).toFixed(4);
 
-    elaborateMessage = `⚖️ ${from} observed SETTLEMENT: ${tokenSymbol} settled with Entity ${(counterpartyEntityId as string).slice(-4)}
-📍 Block: ${blockNumber} | ⏰ ${timestamp} | 🔗 Tx: ${txHashShort}
-🎯 Event: SettlementProcessed | 🔢 TokenID: ${tokenId} | 👤 Side: ${side}
-💰 Own Reserve: ${ownBalanceDisplay} | 🤝 Counterparty: ${counterpartyBalanceDisplay}
-🔒 Collateral: ${collateralDisplay} | 📊 OnDelta: ${ondelta}`;
+    elaborateMessage = `[SCALES] ${from} observed SETTLEMENT: ${tokenSymbol} settled with Entity ${(counterpartyEntityId as string).slice(-4)}
+[PIN] Block: ${blockNumber} | [ALARM] ${timestamp} | [LINK] Tx: ${txHashShort}
+[GOAL] Event: SettlementProcessed | [123] TokenID: ${tokenId} | [USER] Side: ${side}
+[$] Own Reserve: ${ownBalanceDisplay} | [HANDSHAKE] Counterparty: ${counterpartyBalanceDisplay}
+[LOCK] Collateral: ${collateralDisplay} | [STATS] OnDelta: ${ondelta}`;
   } else {
-    elaborateMessage = `🔍 ${from} observed J-EVENT: ${event.type}
-📍 Block: ${blockNumber} | ⏰ ${timestamp} | 🔗 Tx: ${txHashShort}
-📋 Data: ${safeStringify(event.data, 2)}`;
+    elaborateMessage = `[FIND] ${from} observed J-EVENT: ${event.type}
+[PIN] Block: ${blockNumber} | [ALARM] ${timestamp} | [LINK] Tx: ${txHashShort}
+[LIST] Data: ${safeStringify(event.data, 2)}`;
   }
 
   addMessage(newEntityState, elaborateMessage);
@@ -105,7 +105,7 @@ export const handleJEvent = (entityState: EntityState, entityTxData: JEventEntit
 
     if (entity === entityState.entityId) {
       newEntityState.reserves.set(String(tokenId), BigInt(newBalance as string | number | bigint));
-      if (DEBUG) console.log(`✅ Reserve updated for ${(entity as string).slice(0,10)}...: Token ${tokenId} new balance is ${newBalance}`);
+      if (DEBUG) console.log(`[OK] Reserve updated for ${(entity as string).slice(0,10)}...: Token ${tokenId} new balance is ${newBalance}`);
     }
   } else if (event.type === 'reserve_transferred') {
     const { tokenId, amount, direction } = event.data;
@@ -116,7 +116,7 @@ export const handleJEvent = (entityState: EntityState, entityTxData: JEventEntit
       if (currentReserve === undefined) {
         // Initialize reserve to 0n if not present (new token)
         newEntityState.reserves.set(String(tokenId), 0n);
-        console.warn(`🔍 RESERVE-INIT: Initialized new token ${tokenId} reserve to 0n`);
+        console.warn(`[FIND] RESERVE-INIT: Initialized new token ${tokenId} reserve to 0n`);
       }
       const actualReserve = newEntityState.reserves.get(String(tokenId))!; // Now guaranteed to exist
       const newAmount = actualReserve - BigInt(amount as string | number | bigint);
@@ -127,14 +127,14 @@ export const handleJEvent = (entityState: EntityState, entityTxData: JEventEntit
       if (currentReserve === undefined) {
         // Initialize reserve to 0n if not present (new token)
         newEntityState.reserves.set(String(tokenId), 0n);
-        console.warn(`🔍 RESERVE-INIT: Initialized new token ${tokenId} reserve to 0n`);
+        console.warn(`[FIND] RESERVE-INIT: Initialized new token ${tokenId} reserve to 0n`);
       }
       const actualReserve = newEntityState.reserves.get(String(tokenId))!; // Now guaranteed to exist
       newEntityState.reserves.set(String(tokenId), actualReserve + BigInt(amount as string | number | bigint));
       // Message already added above
     }
     
-    if (DEBUG) console.log(`✅ Reserve transfer processed: ${direction} ${amount} token ${tokenId}`);
+    if (DEBUG) console.log(`[OK] Reserve transfer processed: ${direction} ${amount} token ${tokenId}`);
   } else if (event.type === 'SettlementProcessed') {
     const { counterpartyEntityId, tokenId, ownReserve, counterpartyReserve, collateral, ondelta, side } = event.data;
 
@@ -172,7 +172,7 @@ export const handleJEvent = (entityState: EntityState, entityTxData: JEventEntit
     }
     newEntityState.accountInputQueue.push(accountInput as any);
 
-    if (DEBUG) console.log(`✅ SettlementProcessed: Created accountInput for token ${tokenId} with counterparty ${(counterpartyEntityId as string).slice(0,10)}...`);
+    if (DEBUG) console.log(`[OK] SettlementProcessed: Created accountInput for token ${tokenId} with counterparty ${(counterpartyEntityId as string).slice(0,10)}...`);
   } else if (event.type === 'TransferReserveToCollateral') {
     const { receivingEntity, counterentity, collateral, ondelta, tokenId, side } = event.data;
 
@@ -198,7 +198,7 @@ export const handleJEvent = (entityState: EntityState, entityTxData: JEventEntit
       },
       metadata: {
         purpose: 'r2c_consensus',
-        description: `R→C event from j-machine for token ${tokenId}`
+        description: `R[RIGHTWARDS]C event from j-machine for token ${tokenId}`
       }
     };
 
@@ -208,9 +208,9 @@ export const handleJEvent = (entityState: EntityState, entityTxData: JEventEntit
     }
     newEntityState.accountInputQueue.push(accountInput as any);
 
-    if (DEBUG) console.log(`✅ TransferReserveToCollateral: Created accountInput for token ${tokenId} with counterparty ${counterpartyEntityId.slice(0,10)}...`);
+    if (DEBUG) console.log(`[OK] TransferReserveToCollateral: Created accountInput for token ${tokenId} with counterparty ${counterpartyEntityId.slice(0,10)}...`);
   } else {
-    addMessage(newEntityState, `⚠️ Unhandled j-event type: ${event.type}`);
+    addMessage(newEntityState, `[WARN] Unhandled j-event type: ${event.type}`);
   }
 
   return newEntityState;

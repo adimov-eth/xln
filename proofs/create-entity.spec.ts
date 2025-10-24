@@ -31,7 +31,7 @@ test('creates a new lazy entity via formation panel', async ({ page }) => {
   const firstValidatorSelect = page.locator('.validator-name').first();
   await firstValidatorSelect.selectOption('alice');
 
-  await page.getByRole('button', { name: '➕ Add Validator' }).click();
+  await page.getByRole('button', { name: '+ Add Validator' }).click();
   await page.getByRole('combobox').nth(3).selectOption('bob');
 
   // Ensure threshold is 1
@@ -65,7 +65,7 @@ test('creates a new lazy entity via formation panel', async ({ page }) => {
     return env ? env.replicas.size : 0;
   });
 
-  console.log(`✅ Entity creation test: replicas before=${beforeCount}, after=${afterCount}`);
+  console.log(`[OK] Entity creation test: replicas before=${beforeCount}, after=${afterCount}`);
   expect(afterCount).toBeGreaterThan(beforeCount);
 
   // Visual confirmation: take a screenshot for verification

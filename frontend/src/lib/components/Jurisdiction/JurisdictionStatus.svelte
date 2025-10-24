@@ -34,7 +34,7 @@
         return {
           rpcUrl,
           name: data.name,
-          icon: key === 'ethereum' ? '🔷' : key === 'polygon' ? '🟣' : '🔵',
+          icon: key === 'ethereum' ? '[BLUE]' : key === 'polygon' ? 'o' : 'o',
           chainId: data.chainId.toString(),
           blockNumber: 0,
           contractAddress: data.contracts.entityProvider,
@@ -45,9 +45,9 @@
         };
       });
 
-      console.log(`✅ Loaded ${jurisdictions.length} jurisdictions from centralized store:`, jurisdictions.map(j => j.name));
+      console.log(`[OK] Loaded ${jurisdictions.length} jurisdictions from centralized store:`, jurisdictions.map(j => j.name));
     } catch (error) {
-      console.error('❌ Failed to load jurisdictions from store:', error);
+      console.error('[X] Failed to load jurisdictions from store:', error);
       // Fallback to empty array - no hardcoding!
       jurisdictions = [];
     }
@@ -122,7 +122,7 @@
 </script>
 
 <div class="jurisdictions-panel">
-  <h3>🏛️ Blockchain Jurisdictions Status</h3>
+  <h3>[COURT] Blockchain Jurisdictions Status</h3>
   
   <div class="jurisdiction-grid">
     {#each jurisdictions as jurisdiction}
@@ -131,44 +131,44 @@
           <h4>{jurisdiction.icon} {jurisdiction.name}</h4>
           <span class="connection-status {jurisdiction.status}">
             {#if jurisdiction.status === 'connected'}
-              ✅ Connected
+              [OK] Connected
             {:else if jurisdiction.status === 'disconnected'}
-              ❌ Disconnected
+              [X] Disconnected
             {:else}
-              🔄 Checking...
+              [ANTICLOCKWISE] Checking...
             {/if}
           </span>
         </div>
 
         <div class="jurisdiction-details">
           <div class="detail-row">
-            <span>📡 RPC URL:</span>
+            <span>[ANTENNA] RPC URL:</span>
             <span class="rpc-url">{jurisdiction.rpcUrl}</span>
           </div>
           <div class="detail-row">
-            <span>🔗 Chain ID:</span>
+            <span>[LINK] Chain ID:</span>
             <span>{jurisdiction.chainId}</span>
           </div>
           <div class="detail-row">
-            <span>📊 Block Number:</span>
+            <span>[STATS] Block Number:</span>
             <span>{jurisdiction.blockNumber}</span>
           </div>
           <div class="detail-row">
-            <span>⏰ Last Update:</span>
+            <span>[ALARM] Last Update:</span>
             <span>{jurisdiction.lastUpdate}</span>
           </div>
           <div class="detail-row">
-            <span>📝 Contract:</span>
+            <span>[MEMO] Contract:</span>
             <span class="contract-address">{jurisdiction.contractAddress}</span>
           </div>
           <div class="detail-row">
-            <span>🔢 Next Entity #:</span>
+            <span>[123] Next Entity #:</span>
             <span>#{jurisdiction.nextEntityNumber}</span>
           </div>
         </div>
         
         <div class="entities-section">
-          <h5>📋 Registered Entities:</h5>
+          <h5>[LIST] Registered Entities:</h5>
           <div class="entities-list">
             {#if jurisdiction.entities.length > 0}
               {#each jurisdiction.entities as entity}
@@ -192,7 +192,7 @@
             disabled={jurisdiction.status === 'checking'}
             on:click={() => refreshJurisdiction(jurisdiction)}
           >
-            🔄 Refresh
+            [ANTICLOCKWISE] Refresh
           </Button>
         </div>
       </div>
@@ -201,10 +201,10 @@
   
   <div class="global-actions">
     <Button variant="primary" on:click={refreshAllJurisdictions}>
-      🔄 Refresh All
+      [ANTICLOCKWISE] Refresh All
     </Button>
     <Button variant="secondary" on:click={deployContracts}>
-      🚀 Deploy Contracts
+      [LAUNCH] Deploy Contracts
     </Button>
   </div>
 </div>

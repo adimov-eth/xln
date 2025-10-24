@@ -59,7 +59,7 @@
       isJoining = true;
       joinError = null;
 
-      console.log(`🚀 Joining hub: ${currentEntityId} → ${targetEntityId}`);
+      console.log(`[LAUNCH] Joining hub: ${currentEntityId} [RIGHTWARDS] ${targetEntityId}`);
 
       const xln = await getXLN();
       const env = $xlnEnvironment;
@@ -89,9 +89,9 @@
         },
       ]);
 
-      console.log(`✅ Successfully sent join request to ${targetEntityId}`);
+      console.log(`[OK] Successfully sent join request to ${targetEntityId}`);
     } catch (err) {
-      console.error('❌ Failed to join hub:', err);
+      console.error('[X] Failed to join hub:', err);
       joinError = err instanceof Error ? err.message : 'Failed to join hub';
     } finally {
       isJoining = false;
@@ -103,18 +103,18 @@
   <div class="profile-header">
     <div class="entity-id">
       <strong
-        >🏢 {isHub ? profile.metadata?.name || `Hub ${$xlnFunctions!.formatEntityId(profile.entityId)}` : `Entity ${$xlnFunctions!.formatEntityId(profile.entityId)}`}</strong
+        >[OFFICE] {isHub ? profile.metadata?.name || `Hub ${$xlnFunctions!.formatEntityId(profile.entityId)}` : `Entity ${$xlnFunctions!.formatEntityId(profile.entityId)}`}</strong
       >
     </div>
     {#if isHub}
-      <div class="hub-badge">🌟 Hub</div>
+      <div class="hub-badge">* Hub</div>
     {/if}
   </div>
 
   <div class="profile-content">
     {#if profile.capabilities && profile.capabilities.length > 0}
       <div class="capabilities-section">
-        <h4>🔧 Capabilities</h4>
+        <h4>[TOOL] Capabilities</h4>
         <div class="capabilities-list">
           {#each profile.capabilities as capability}
             <span class="capability-tag">{capability}</span>
@@ -125,7 +125,7 @@
 
     {#if profile.hubs && profile.hubs.length > 0}
       <div class="hubs-section">
-        <h4>🔗 Connected Hubs</h4>
+        <h4>[LINK] Connected Hubs</h4>
         <div class="hubs-list">
           {#each profile.hubs as hub}
             <span class="hub-tag">{hub}</span>
@@ -136,7 +136,7 @@
 
     {#if profile.metadata}
       <div class="metadata-section">
-        <h4>📋 Metadata</h4>
+        <h4>[LIST] Metadata</h4>
         <div class="metadata-content">
           {#each Object.entries(profile.metadata) as [key, value]}
             <div class="metadata-item">
@@ -154,7 +154,7 @@
       <span class="text-muted your-hub">Your Hub</span>
     {:else if isHub}
       {#if hasExistingChannel}
-        <span class="text-muted already-joined">✅ Already joined this hub</span>
+        <span class="text-muted already-joined">[OK] Already joined this hub</span>
       {:else}
         <button
           class="join-hub-btn"
@@ -163,9 +163,9 @@
           disabled={isJoining || !currentEntityId || !currentSignerId}
         >
           {#if isJoining}
-            🔄 Joining...
+            [ANTICLOCKWISE] Joining...
           {:else}
-            🤝 Join Hub
+            [HANDSHAKE] Join Hub
           {/if}
         </button>
 
@@ -176,7 +176,7 @@
     {/if}
 
     {#if joinError}
-      <div class="join-error">❌ {joinError}</div>
+      <div class="join-error">[X] {joinError}</div>
     {/if}
   </div>
 </div>

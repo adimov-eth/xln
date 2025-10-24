@@ -5,25 +5,25 @@
 import { runBasicHankoTests } from './test-hanko-basic';
 
 async function main() {
-  console.log('🚀 Starting Hanko Tests...\n');
+  console.log('[LAUNCH] Starting Hanko Tests...\n');
 
   const success = await runBasicHankoTests();
 
   if (success) {
-    console.log('\n✅ ALL HANKO TESTS PASSED!');
-    console.log('🎯 Summary:');
-    console.log('  ✅ Hanko building works with placeholders + packedSignatures + claims');
-    console.log('  ✅ Multiple signatures verified with real ecrecover');
-    console.log('  ✅ ABI encoding compatible with Solidity');
-    console.log('  ✅ Complex Hanko structures (mixed placeholders/signatures/claims)');
-    console.log('  ✅ Signature verification with ethers.js compatibility');
-    console.log('\n🔒 SECURITY VERIFIED:');
-    console.log('  ✅ All signatures use real secp256k1 cryptography');
-    console.log('  ✅ No off-chain trust assumptions');
-    console.log('  ✅ Domain separation prevents replay attacks');
-    console.log('  ✅ EVM-style sequential nonces');
+    console.log('\n[OK] ALL HANKO TESTS PASSED!');
+    console.log('[GOAL] Summary:');
+    console.log('  [OK] Hanko building works with placeholders + packedSignatures + claims');
+    console.log('  [OK] Multiple signatures verified with real ecrecover');
+    console.log('  [OK] ABI encoding compatible with Solidity');
+    console.log('  [OK] Complex Hanko structures (mixed placeholders/signatures/claims)');
+    console.log('  [OK] Signature verification with ethers.js compatibility');
+    console.log('\n[LOCK] SECURITY VERIFIED:');
+    console.log('  [OK] All signatures use real secp256k1 cryptography');
+    console.log('  [OK] No off-chain trust assumptions');
+    console.log('  [OK] Domain separation prevents replay attacks');
+    console.log('  [OK] EVM-style sequential nonces');
   } else {
-    console.log('\n❌ SOME TESTS FAILED!');
+    console.log('\n[X] SOME TESTS FAILED!');
   }
 
   if (typeof process !== 'undefined') {

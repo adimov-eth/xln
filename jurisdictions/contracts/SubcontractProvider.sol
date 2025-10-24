@@ -11,7 +11,7 @@ import "hardhat/console.sol";
 Subcontracts - Programmable Delta Transformers
   function applyBatch(int[] memory deltas, bytes calldata encodedBatch,
                       bytes calldata leftArguments, bytes calldata rightArguments)
-    → int[] memory newDeltas
+    [RIGHTWARDS] int[] memory newDeltas
 
   What you can do:
   - HTLCs (conditional payments based on secret reveal)

@@ -182,9 +182,9 @@
         selectedRouteIndex = 0; // Auto-select first route
       }
     } catch (error) {
-      console.error('❌ Failed to find routes - Full error:', error);
-      console.error('❌ Error message:', (error as Error)?.message || 'Unknown error');
-      console.error('❌ Stack:', (error as Error)?.stack);
+      console.error('[X] Failed to find routes - Full error:', error);
+      console.error('[X] Error message:', (error as Error)?.message || 'Unknown error');
+      console.error('[X] Stack:', (error as Error)?.stack);
       alert(`Failed to find routes: ${(error as Error)?.message || 'Unknown error'}`);
     } finally {
       findingRoutes = false;
@@ -228,16 +228,16 @@
       };
 
       await processWithDelay(env, [paymentInput]);
-      console.log(`✅ Payment sent via route: ${route.path.join(' → ')}`);
+      console.log(`[OK] Payment sent via route: ${route.path.join(' [RIGHTWARDS] ')}`);
 
       // Don't reset form - allow easy repeat payments
       // User can manually clear if needed
       routes = [];
       selectedRouteIndex = -1;
     } catch (error) {
-      console.error('❌ Failed to send payment - Full error:', error);
-      console.error('❌ Error message:', (error as Error)?.message || 'Unknown error');
-      console.error('❌ Stack:', (error as Error)?.stack);
+      console.error('[X] Failed to send payment - Full error:', error);
+      console.error('[X] Error message:', (error as Error)?.message || 'Unknown error');
+      console.error('[X] Stack:', (error as Error)?.stack);
       alert(`Failed to send payment: ${(error as Error)?.message || 'Unknown error'}`);
     } finally {
       sendingPayment = false;
@@ -245,7 +245,7 @@
   }
 
   function formatRoute(route: any): string {
-    return route.path.map((id: string) => `E${$xlnFunctions!.getEntityShortId(id)}`).join(' → ');
+    return route.path.map((id: string) => `E${$xlnFunctions!.getEntityShortId(id)}`).join(' [RIGHTWARDS] ');
   }
 
   function formatFee(feePPM: number): string {
@@ -281,7 +281,7 @@
         disabled={!targetEntityId || findingRoutes || sendingPayment}
         title="Reverse payment direction"
       >
-        ⇄
+        [RIGHTWARDS]
       </button>
     </div>
   </div>
@@ -356,7 +356,7 @@
                 <span class="probability">Success: {(route.probability * 100).toFixed(0)}%</span>
               </div>
               {#if route.warning}
-                <div class="route-warning">⚠️ {route.warning}</div>
+                <div class="route-warning">[WARN] {route.warning}</div>
               {/if}
             </div>
           </label>

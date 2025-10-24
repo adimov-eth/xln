@@ -33,11 +33,11 @@
     <div class="header-right">
       {#if runnable}
         <button class="run-btn" on:click={execute}>
-          ▶ Run
+          > Run
         </button>
       {/if}
       <button class="copy-btn" on:click={copyCode}>
-        {copied ? '✓ Copied!' : '📋 Copy'}
+        {copied ? '[CHECK] Copied!' : '[LIST] Copy'}
       </button>
     </div>
   </div>

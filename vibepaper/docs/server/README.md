@@ -126,12 +126,12 @@ ws.on('message', async (msg) => {
 ### Debug Namespaces
 ```typescript
 const log = {
-  state: debug('state:🔵'),
-  tx: debug('tx:🟡'),
-  block: debug('block:🟢'),
-  error: debug('error:🔴'),
-  diff: debug('diff:🟣'),
-  merkle: debug('merkle:⚪')
+  state: debug('state:o'),
+  tx: debug('tx:o'),
+  block: debug('block:o'),
+  error: debug('error:o'),
+  diff: debug('diff:o'),
+  merkle: debug('merkle:o')
 };
 ```
 

@@ -54,11 +54,11 @@
       case 'chat':
         return `"${tx.data.message}"`;
       case 'directPayment':
-        return `${tx.data.amount}n tokens → ${shortAddress(tx.data.targetEntityId)}`;
+        return `${tx.data.amount}n tokens [RIGHTWARDS] ${shortAddress(tx.data.targetEntityId)}`;
       case 'openAccount':
         return `with ${shortAddress(tx.data.targetEntityId)}`;
       case 'payFromReserve':
-        return `${tx.data.amount}n tokens → ${shortAddress(tx.data.targetEntityId)}`;
+        return `${tx.data.amount}n tokens [RIGHTWARDS] ${shortAddress(tx.data.targetEntityId)}`;
       case 'payToReserve':
         return `${tx.data.amount}n tokens`;
       case 'accountInput':
@@ -71,21 +71,21 @@
 
 <div class="runtime-io-panel">
   <div class="header">
-    <h3>🔄 Runtime I/O</h3>
+    <h3>[ANTICLOCKWISE] Runtime I/O</h3>
     <div class="controls">
       <button
         class="view-toggle"
         class:active={viewMode === 'structured'}
         on:click={() => viewMode = 'structured'}
       >
-        📊 Structured
+        [STATS] Structured
       </button>
       <button
         class="view-toggle"
         class:active={viewMode === 'json'}
         on:click={() => viewMode = 'json'}
       >
-        📝 JSON
+        [MEMO] JSON
       </button>
     </div>
   </div>
@@ -93,7 +93,7 @@
   <div class="content">
     {#if !currentFrame}
       <div class="empty-state">
-        <p>⏳ No frame data available</p>
+        <p>[WAIT] No frame data available</p>
         <p class="hint">Run a scenario or create entities to see frame I/O</p>
       </div>
     {:else}
@@ -109,12 +109,12 @@
         <!-- JSON View -->
         <div class="json-view">
           <div class="section">
-            <h4>📥 Runtime Input</h4>
+            <h4>[INBOX] Runtime Input</h4>
             <pre class="json-block">{safeStringify(currentFrame.runtimeInput)}</pre>
           </div>
 
           <div class="section">
-            <h4>📤 Runtime Outputs</h4>
+            <h4>[OUT] Runtime Outputs</h4>
             <pre class="json-block">{safeStringify(currentFrame.runtimeOutputs)}</pre>
           </div>
         </div>
@@ -123,7 +123,7 @@
         <div class="structured-view">
           <!-- INPUTS -->
           <div class="section">
-            <h4>📥 Runtime Input</h4>
+            <h4>[INBOX] Runtime Input</h4>
 
             {#if currentFrame.runtimeInput?.runtimeTxs?.length > 0}
               <div class="subsection">
@@ -191,7 +191,7 @@
 
           <!-- OUTPUTS -->
           <div class="section">
-            <h4>📤 Runtime Outputs</h4>
+            <h4>[OUT] Runtime Outputs</h4>
 
             {#if currentFrame.runtimeOutputs?.length > 0}
               {#each currentFrame.runtimeOutputs as output, i}
@@ -199,7 +199,7 @@
                   <div class="tx-header">
                     <span class="tx-index">#{i}</span>
                     <span class="entity-id mono">{shortAddress(output.entityId)}</span>
-                    <span class="arrow">→</span>
+                    <span class="arrow">[RIGHTWARDS]</span>
                     <span class="output-label">Output</span>
                   </div>
                   <div class="tx-body">

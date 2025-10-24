@@ -436,7 +436,7 @@ Twitter/X posts with embedded network visualizations:
 
 ### Phase 2: ASCII Tool (Current Session)
 - [ ] Text input UI in sidebar
-- [ ] ASCII → entity positions parser
+- [ ] ASCII [RIGHTWARDS] entity positions parser
 - [ ] Connection graph generator
 - [ ] Scenario text builder
 - [ ] Copy to clipboard
@@ -559,7 +559,7 @@ interface Atom {
 }
 ```
 
-### Molecule → Scenario
+### Molecule [RIGHTWARDS] Scenario
 
 ```
 SEED ketamine-molecule

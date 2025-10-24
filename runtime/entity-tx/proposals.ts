@@ -17,7 +17,7 @@ export const generateProposalId = (action: ProposalAction, proposer: string, ent
 export const executeProposal = (entityState: EntityState, proposal: Proposal): EntityState => {
   if (proposal.action.type === 'collective_message') {
     const message = `[COLLECTIVE] ${proposal.action.data.message}`;
-    if (DEBUG) console.log(`    🏛️  Executing collective proposal: "${message}"`);
+    if (DEBUG) console.log(`    [COURT]  Executing collective proposal: "${message}"`);
 
     const newMessages = [...entityState.messages, message];
 

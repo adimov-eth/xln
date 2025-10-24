@@ -10,7 +10,7 @@ async function setThreshold(page: Page, value: number) {
 }
 
 async function addValidator(page: Page) {
-  await page.getByRole('button', { name: '➕ Add Validator' }).click();
+  await page.getByRole('button', { name: '+ Add Validator' }).click();
 }
 
 async function pickSignerInRow(page: Page, rowIndex: number, signerText: string) {
@@ -48,7 +48,7 @@ async function selectEntityAndSigner(page: Page, signerIndex: number) {
 
 test.describe('Working Proposal Test', () => {
   test('CREATE ENTITY -> PROPOSAL -> VOTING WORKFLOW', async ({ page }) => {
-    console.log('🎬 Starting COMPLETE proposal workflow...');
+    console.log('[TAKE] Starting COMPLETE proposal workflow...');
 
     // Step 1: Navigate and wait for app
     await page.goto('http://localhost:8080');
@@ -56,10 +56,10 @@ test.describe('Working Proposal Test', () => {
     await page.waitForFunction(() => (window as any).xlnEnv !== undefined, { timeout: 5000 });
 
     await page.screenshot({ path: 'e2e/screenshots/working-01-loaded.png', fullPage: true });
-    console.log('📸 Screenshot: App loaded');
+    console.log('[CAM] Screenshot: App loaded');
 
     // Step 2: Create entity with validators
-    console.log('🏗️ STEP 2: Creating entity with alice and bob');
+    console.log('[BUILD] STEP 2: Creating entity with alice and bob');
 
     await page.locator('text=Formation').click();
     await page.fill('#entityNameInput', 'Governance Entity');
@@ -70,7 +70,7 @@ test.describe('Working Proposal Test', () => {
     await setThreshold(page, 2); // Both must vote
 
     await page.screenshot({ path: 'e2e/screenshots/working-02-entity-form.png', fullPage: true });
-    console.log('📸 Screenshot: Entity form filled');
+    console.log('[CAM] Screenshot: Entity form filled');
 
     // Track state before creation
     const beforeState = await page.evaluate(() => {
@@ -97,32 +97,32 @@ test.describe('Working Proposal Test', () => {
     );
 
     await page.screenshot({ path: 'e2e/screenshots/working-03-entity-created.png', fullPage: true });
-    console.log('✅ Entity created successfully');
+    console.log('[OK] Entity created successfully');
 
     // Step 3: Select entity and Alice as signer
-    console.log('🎯 STEP 3: Selecting entity and Alice as signer');
+    console.log('[GOAL] STEP 3: Selecting entity and Alice as signer');
     // await selectEntityAndSigner(page, 0); // alice = index 0
     await expect(page.locator('.entity-panel').first()).toBeVisible();
     const firstPanel = page.locator('.entity-panel').first();
     expect(firstPanel.getByText('Signer: alice').first()).toBeVisible();
 
     await page.screenshot({ path: 'e2e/screenshots/working-04-alice-selected.png', fullPage: true });
-    console.log('📸 Screenshot: Alice selected as signer');
+    console.log('[CAM] Screenshot: Alice selected as signer');
 
     // Step 4: Open entity panel and expand Controls
-    console.log('📝 STEP 4: Opening controls for proposal creation');
+    console.log('[MEMO] STEP 4: Opening controls for proposal creation');
 
     // Find and click the Controls section header to expand it
-    const controlsHeader = firstPanel.getByRole('button', { name: '⚙️ Controls ▼' });
+    const controlsHeader = firstPanel.getByRole('button', { name: '[SET] Controls ▼' });
     await expect(controlsHeader).toBeVisible();
     await controlsHeader.click();
     await page.waitForTimeout(300);
 
     await page.screenshot({ path: 'e2e/screenshots/working-05-controls-expanded.png', fullPage: true });
-    console.log('📸 Screenshot: Controls section expanded');
+    console.log('[CAM] Screenshot: Controls section expanded');
 
     // Step 5: Fill and submit proposal
-    console.log('✍️ STEP 5: Creating proposal');
+    console.log('[WRITE] STEP 5: Creating proposal');
 
     // First, select "proposal" from the controls dropdown
     await firstPanel.getByRole('combobox').first().selectOption('proposal');
@@ -139,20 +139,20 @@ test.describe('Working Proposal Test', () => {
       .fill('Approve $100K budget for Q4 marketing campaign');
 
     await page.screenshot({ path: 'e2e/screenshots/working-06-proposal-form-filled.png', fullPage: true });
-    console.log('📸 Screenshot: Proposal form filled');
+    console.log('[CAM] Screenshot: Proposal form filled');
 
     // Submit proposal
     await firstPanel.getByRole('button', { name: 'Create Proposal' }).click();
     await page.waitForTimeout(500);
 
     await page.screenshot({ path: 'e2e/screenshots/working-07-proposal-created.png', fullPage: true });
-    console.log('📸 Screenshot: Proposal created');
+    console.log('[CAM] Screenshot: Proposal created');
 
     // Step 6: Verify proposal appears
-    console.log('🔍 STEP 6: Verifying proposal appears');
+    console.log('[FIND] STEP 6: Verifying proposal appears');
 
     // Expand Proposals section to see the proposal
-    const proposalsHeader = firstPanel.getByRole('button', { name: '📋 Proposals ▼' });
+    const proposalsHeader = firstPanel.getByRole('button', { name: '[LIST] Proposals ▼' });
     if (await proposalsHeader.isVisible()) {
       await proposalsHeader.click();
       await page.waitForTimeout(300);
@@ -162,23 +162,23 @@ test.describe('Working Proposal Test', () => {
     await expect(firstPanel.locator('.proposal-item')).toBeVisible();
     await expect(firstPanel.locator('#proposals-tab-1').getByText('Q4 Budget Allocation: Approve')).toBeVisible();
 
-    console.log('✅ Proposal visible in UI');
+    console.log('[OK] Proposal visible in UI');
 
     // Step 7: Switch to Bob and vote
-    console.log('🗳️ STEP 7: Switching to Bob for voting');
+    console.log('[VOTE] STEP 7: Switching to Bob for voting');
     const secondPanel = page.locator('.entity-panel').nth(1);
     expect(secondPanel.getByText('Signer: bob').first()).toBeVisible();
 
     await page.screenshot({ path: 'e2e/screenshots/working-08-bob-selected.png', fullPage: true });
-    console.log('📸 Screenshot: Bob selected as signer');
+    console.log('[CAM] Screenshot: Bob selected as signer');
 
     // Expand Bob's controls
-    const bobControlsHeader = secondPanel.getByRole('button', { name: '⚙️ Controls ▼' });
+    const bobControlsHeader = secondPanel.getByRole('button', { name: '[SET] Controls ▼' });
     await bobControlsHeader.click();
     await page.waitForTimeout(300);
 
     // Vote on the proposal
-    console.log('✅ Bob voting YES on the proposal...');
+    console.log('[OK] Bob voting YES on the proposal...');
 
     // First, select "vote" from the controls dropdown
     await secondPanel.getByRole('combobox').selectOption('vote');
@@ -200,17 +200,17 @@ test.describe('Working Proposal Test', () => {
     await page.waitForTimeout(500);
 
     await page.screenshot({ path: 'e2e/screenshots/working-09-bob-voted.png', fullPage: true });
-    console.log('📸 Screenshot: Bob voted');
+    console.log('[CAM] Screenshot: Bob voted');
 
     // Step 8: Verify final state
-    console.log('🎉 STEP 8: Verifying final proposal state');
+    console.log('[DONE] STEP 8: Verifying final proposal state');
 
     // Expand proposals section to check final status
     expect(proposalsHeader).toBeVisible();
 
     // Check that proposal is approved
     await expect(firstPanel.getByText('APPROVED')).toBeVisible();
-    await expect(firstPanel.getByText('✅ 2 yes')).toBeVisible(); // Both alice and bob voted yes
+    await expect(firstPanel.getByText('[OK] 2 yes')).toBeVisible(); // Both alice and bob voted yes
 
     // Check for collective message
     const chatMessages = firstPanel.locator('.chat-messages');
@@ -221,13 +221,13 @@ test.describe('Working Proposal Test', () => {
     await expect(chatMessages).toContainText('Q4 Budget Allocation');
 
     await page.screenshot({ path: 'e2e/screenshots/working-10-final-success.png', fullPage: true });
-    console.log('📸 Screenshot: Final success state');
+    console.log('[CAM] Screenshot: Final success state');
 
-    console.log('🎉 COMPLETE SUCCESS!');
-    console.log('✅ Entity created with validators');
-    console.log('✅ Alice created proposal');
-    console.log('✅ Bob voted and approved proposal');
-    console.log('✅ Collective message executed');
-    console.log('✅ Full workflow completed successfully!');
+    console.log('[DONE] COMPLETE SUCCESS!');
+    console.log('[OK] Entity created with validators');
+    console.log('[OK] Alice created proposal');
+    console.log('[OK] Bob voted and approved proposal');
+    console.log('[OK] Collective message executed');
+    console.log('[OK] Full workflow completed successfully!');
   });
 });

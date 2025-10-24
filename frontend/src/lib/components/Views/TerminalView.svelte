@@ -19,7 +19,7 @@
 ╠══════════════════════════════════════════════════════════════╣
 ║  Type 'help' for available commands                          ║
 ║  Type 'scenario list' to see scenarios                       ║
-║  Press ↑/↓ for command history                               ║
+║  Press [UPWARDS]/[DOWNWARDS] for command history                               ║
 ╚══════════════════════════════════════════════════════════════╝
 `;
 
@@ -95,13 +95,13 @@ SYSTEM:
       } else if (command === 'entities' || command === 'entity') {
         await handleEntityCommand(subcommand || '', args);
       } else if (command === 'pay' || command === 'flow') {
-        addOutput('⚠️  Payment commands coming soon...', 'info');
+        addOutput('[WARN]  Payment commands coming soon...', 'info');
       } else {
-        addOutput(`❌ Unknown command: ${command}`, 'error');
+        addOutput(`[X] Unknown command: ${command}`, 'error');
         addOutput(`   Type 'help' for available commands`, 'info');
       }
     } catch (error) {
-      addOutput(`❌ Error: ${(error as Error).message}`, 'error');
+      addOutput(`[X] Error: ${(error as Error).message}`, 'error');
     }
 
     addOutput('', 'info');
@@ -114,14 +114,14 @@ SYSTEM:
       addOutput('  • diamond-dybvig     - Bank run scenario', 'info');
       addOutput('', 'info');
     } else {
-      addOutput(`⚠️  Scenario command '${subcommand}' not implemented yet`, 'info');
+      addOutput(`[WARN]  Scenario command '${subcommand}' not implemented yet`, 'info');
     }
   }
 
   async function handleNetworkCommand(subcommand: string, _args: string[]) {
     const env = $xlnEnvironment;
     if (!env) {
-      addOutput('❌ Environment not initialized', 'error');
+      addOutput('[X] Environment not initialized', 'error');
       return;
     }
 
@@ -140,14 +140,14 @@ SYSTEM:
     } else if (subcommand === 'graph') {
       await renderASCIIGraph();
     } else {
-      addOutput(`❌ Unknown network command: ${subcommand}`, 'error');
+      addOutput(`[X] Unknown network command: ${subcommand}`, 'error');
     }
   }
 
   async function renderASCIIGraph() {
     const env = $xlnEnvironment;
     if (!env) {
-      addOutput('❌ Environment not initialized', 'error');
+      addOutput('[X] Environment not initialized', 'error');
       return;
     }
 
@@ -156,7 +156,7 @@ SYSTEM:
     const entityIds = new Set(replicaKeys.map(k => k.split(':')[0]).filter((id): id is string => !!id));
 
     if (entityIds.size === 0) {
-      addOutput('⚠️  No entities in network', 'info');
+      addOutput('[WARN]  No entities in network', 'info');
       return;
     }
 
@@ -246,7 +246,7 @@ SYSTEM:
   async function handleEntityCommand(subcommand: string, _args: string[]) {
     const env = $xlnEnvironment;
     if (!env) {
-      addOutput('❌ Environment not initialized', 'error');
+      addOutput('[X] Environment not initialized', 'error');
       return;
     }
 
@@ -256,10 +256,10 @@ SYSTEM:
     if (!subcommand || subcommand === 'list') {
       addOutput(`Entities (${entityIds.size}):`, 'info');
       entityIds.forEach(id => {
-        addOutput(`  🟢 ${id.slice(0, 10)}...`, 'success');
+        addOutput(`  o ${id.slice(0, 10)}...`, 'success');
       });
     } else {
-      addOutput('⚠️  Entity inspection coming soon...', 'info');
+      addOutput('[WARN]  Entity inspection coming soon...', 'info');
     }
   }
 

@@ -28,15 +28,15 @@ export function handleApproveWithdrawal(
 
   if (!approved) {
     request.status = 'rejected';
-    events.push(`❌ Withdrawal ${requestId.slice(-4)} rejected`);
+    events.push(`[X] Withdrawal ${requestId.slice(-4)} rejected`);
     return { success: true, events };
   }
 
   // Approved!
   request.status = 'approved';
-  events.push(`✅ Withdrawal ${requestId.slice(-4)} approved`);
+  events.push(`[OK] Withdrawal ${requestId.slice(-4)} approved`);
 
-  // If we initiated, we can now submit C→R to jBatch
+  // If we initiated, we can now submit C[RIGHTWARDS]R to jBatch
   if (request.direction === 'outgoing') {
     return {
       success: true,

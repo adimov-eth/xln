@@ -17,7 +17,7 @@ const depositoryArtifact = JSON.parse(
 const abi = depositoryArtifact.abi;
 const bytecode = depositoryArtifact.bytecode;
 
-console.log('📦 Loaded Depository.sol artifact');
+console.log('[PKG] Loaded Depository.sol artifact');
 console.log(`   ABI entries: ${abi.length}`);
 console.log(`   Bytecode size: ${bytecode.length / 2} bytes`);
 
@@ -26,11 +26,11 @@ const client = createMemoryClient({
   fork: undefined, // Don't fork from any network
 });
 
-console.log('\n🚀 Created Tevm memory client');
+console.log('\n[LAUNCH] Created Tevm memory client');
 
 // Deploy contract
 async function deployDepository() {
-  console.log('\n📝 Deploying Depository.sol...');
+  console.log('\n[MEMO] Deploying Depository.sol...');
 
   // Need a deployer address with funds
   const deployer = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'; // Hardhat default account 0
@@ -49,28 +49,28 @@ async function deployDepository() {
   });
 
   if (result.errors && result.errors.length > 0) {
-    console.error('❌ Deployment failed:', result.errors);
+    console.error('[X] Deployment failed:', result.errors);
     console.error(result.errors);
     process.exit(1);
   }
 
   const deployedAddress = result.createdAddress;
   if (!deployedAddress) {
-    console.error('❌ No contract address returned');
+    console.error('[X] No contract address returned');
     process.exit(1);
   }
 
-  console.log(`✅ Deployed at: ${deployedAddress}`);
+  console.log(`[OK] Deployed at: ${deployedAddress}`);
 
   // tevm's tevmCall applies state immediately in memory mode
   // No need to mine for in-memory client
 
   // Verify contract exists by getting its code
   const code = await client.getCode({ address: deployedAddress });
-  console.log(`📋 Contract code length: ${code?.length || 0} bytes`);
+  console.log(`[LIST] Contract code length: ${code?.length || 0} bytes`);
 
   if (!code || code === '0x') {
-    console.error('❌ Contract has no code!');
+    console.error('[X] Contract has no code!');
     process.exit(1);
   }
 
@@ -79,7 +79,7 @@ async function deployDepository() {
 
 // Test debugFundReserves function
 async function testFundReserves(contractAddress: string) {
-  console.log('\n🧪 Testing debugFundReserves...');
+  console.log('\n[TEST] Testing debugFundReserves...');
 
   // Entity ID: bytes32(1)
   const entityId = '0x0000000000000000000000000000000000000000000000000000000000000001';
@@ -99,15 +99,15 @@ async function testFundReserves(contractAddress: string) {
   });
 
   if (result.errors && result.errors.length > 0) {
-    console.error('❌ Fund failed:', result.errors);
+    console.error('[X] Fund failed:', result.errors);
     return false;
   }
 
-  console.log(`✅ Transaction executed`);
+  console.log(`[OK] Transaction executed`);
 
   // Mine a block to persist the transaction
   await client.tevmMine();
-  console.log('⛏️  Mined block');
+  console.log('[PICK]  Mined block');
 
   // Verify reserves were updated
   const balanceResult = await client.tevmContract({
@@ -118,7 +118,7 @@ async function testFundReserves(contractAddress: string) {
   });
 
   const balance = balanceResult.data as bigint;
-  console.log(`✅ New balance: ${balance}`);
+  console.log(`[OK] New balance: ${balance}`);
   console.log(`   Expected: ${amount + 100000000000000000000n} (includes debugBulkFundEntities)`);
 
   return balance > 0n;
@@ -132,15 +132,15 @@ async function testFundReserves(contractAddress: string) {
 
     console.log('\n' + '='.repeat(60));
     if (success) {
-      console.log('✅ BROWSER EVM PROTOTYPE: SUCCESS');
+      console.log('[OK] BROWSER EVM PROTOTYPE: SUCCESS');
       console.log('   Tevm works! Ready for browser integration.');
       process.exit(0);
     } else {
-      console.log('❌ BROWSER EVM PROTOTYPE: FAILED');
+      console.log('[X] BROWSER EVM PROTOTYPE: FAILED');
       process.exit(1);
     }
   } catch (error) {
-    console.error('\n❌ Fatal error:', error);
+    console.error('\n[X] Fatal error:', error);
     process.exit(1);
   }
 })();

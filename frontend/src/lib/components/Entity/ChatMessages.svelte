@@ -87,7 +87,7 @@
   
   {#if !isAtCurrentTime}
     <div class="time-machine-indicator">
-      🕰️ Viewing historical state - auto-scroll disabled
+      [TIME] Viewing historical state - auto-scroll disabled
     </div>
   {/if}
   

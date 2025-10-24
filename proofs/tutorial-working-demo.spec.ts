@@ -1,18 +1,18 @@
 import { expect, Page, test } from '@playwright/test';
 
 /**
- * 🎯 COMPLETE XLN TUTORIAL - VERIFIED WORKING DEMO
+ * [GOAL] COMPLETE XLN TUTORIAL - VERIFIED WORKING DEMO
  *
  * This tutorial demonstrates the exact workflow you requested:
- * 1.1 ✅ Create simple Alice entity
- * 1.2 ✅ Create Alice+Bob multi-sig entity
- * 1.3 ✅ Alice creates proposal in multi-sig entity
- * 1.4 ✅ Bob votes on it with comment
+ * 1.1 [OK] Create simple Alice entity
+ * 1.2 [OK] Create Alice+Bob multi-sig entity
+ * 1.3 [OK] Alice creates proposal in multi-sig entity
+ * 1.4 [OK] Bob votes on it with comment
  *
- * ✅ Screenshots after each important action
- * ✅ Video recording of entire process
- * ✅ Step verification before proceeding
- * ✅ Cooperative message verification in chat
+ * [OK] Screenshots after each important action
+ * [OK] Video recording of entire process
+ * [OK] Step verification before proceeding
+ * [OK] Cooperative message verification in chat
  */
 
 // === HELPER FUNCTIONS ===
@@ -25,11 +25,11 @@ async function takeStepScreenshot(page: Page, stepName: string, stepNumber: numb
     path: screenshotPath,
     fullPage: true,
   });
-  console.log(`📸 Screenshot saved: ${screenshotPath}`);
+  console.log(`[CAM] Screenshot saved: ${screenshotPath}`);
 }
 
 async function waitForXLNEnvironment(page: Page) {
-  console.log('⏳ Waiting for XLN environment to load...');
+  console.log('[WAIT] Waiting for XLN environment to load...');
 
   // Wait for the page to be fully loaded
   await page.waitForLoadState('networkidle');
@@ -40,7 +40,7 @@ async function waitForXLNEnvironment(page: Page) {
   // Wait for entity type select to be available
   await expect(page.locator('#entityTypeSelect')).toBeVisible({ timeout: 15000 });
 
-  console.log('✅ XLN environment loaded successfully');
+  console.log('[OK] XLN environment loaded successfully');
 }
 
 async function setThreshold(page: Page, value: number) {
@@ -52,7 +52,7 @@ async function setThreshold(page: Page, value: number) {
 }
 
 async function addValidator(page: Page) {
-  await page.getByRole('button', { name: '➕ Add Validator' }).click();
+  await page.getByRole('button', { name: '+ Add Validator' }).click();
 }
 
 async function pickSignerInRow(page: Page, rowIndex: number, signerText: string) {
@@ -63,11 +63,11 @@ async function pickSignerInRow(page: Page, rowIndex: number, signerText: string)
 
 // === MAIN TUTORIAL TEST ===
 
-test('🎯 Working Demo: Alice Entity + Alice+Bob Multi-Sig (Full Screenshots & Video)', async ({ page }) => {
-  console.log('\n🚀 Starting XLN Working Demo...');
+test('[GOAL] Working Demo: Alice Entity + Alice+Bob Multi-Sig (Full Screenshots & Video)', async ({ page }) => {
+  console.log('\n[LAUNCH] Starting XLN Working Demo...');
 
   // === STEP 1: NAVIGATE AND SETUP ===
-  console.log('\n📍 STEP 1: Navigate to XLN Dashboard');
+  console.log('\n[PIN] STEP 1: Navigate to XLN Dashboard');
 
   await page.goto('/');
   await takeStepScreenshot(page, 'initial-load', 1);
@@ -76,10 +76,10 @@ test('🎯 Working Demo: Alice Entity + Alice+Bob Multi-Sig (Full Screenshots & 
   await waitForXLNEnvironment(page);
   await takeStepScreenshot(page, 'environment-ready', 1);
 
-  console.log('✅ STEP 1 DONE: XLN Dashboard loaded');
+  console.log('[OK] STEP 1 DONE: XLN Dashboard loaded');
 
   // === STEP 2: CREATE ALICE SIMPLE ENTITY ===
-  console.log('\n📍 STEP 2: Create Alice Simple Entity');
+  console.log('\n[PIN] STEP 2: Create Alice Simple Entity');
 
   // Configure simple entity
   await page.locator('#entityTypeSelect').selectOption('lazy');
@@ -101,7 +101,7 @@ test('🎯 Working Demo: Alice Entity + Alice+Bob Multi-Sig (Full Screenshots & 
   await page.evaluate(() => {
     const env = (window as any).xlnEnv;
     if (env && (window as any).processUntilEmpty) {
-      console.log('🔥 Triggering processUntilEmpty after entity creation');
+      console.log('[FIRE] Triggering processUntilEmpty after entity creation');
       (window as any).processUntilEmpty(env, []);
     }
   });
@@ -109,10 +109,10 @@ test('🎯 Working Demo: Alice Entity + Alice+Bob Multi-Sig (Full Screenshots & 
   await page.waitForTimeout(500);
 
   await takeStepScreenshot(page, 'alice-entity-created', 2);
-  console.log('✅ STEP 2 DONE: Alice entity created successfully');
+  console.log('[OK] STEP 2 DONE: Alice entity created successfully');
 
   // === STEP 3: CREATE ALICE+BOB MULTI-SIG ENTITY ===
-  console.log('\n📍 STEP 3: Create Alice+Bob Multi-Signature Entity');
+  console.log('\n[PIN] STEP 3: Create Alice+Bob Multi-Signature Entity');
 
   // Add second validator
   await addValidator(page);
@@ -137,7 +137,7 @@ test('🎯 Working Demo: Alice Entity + Alice+Bob Multi-Sig (Full Screenshots & 
   await page.evaluate(() => {
     const env = (window as any).xlnEnv;
     if (env && (window as any).processUntilEmpty) {
-      console.log('🔥 Triggering processUntilEmpty after multi-sig entity creation');
+      console.log('[FIRE] Triggering processUntilEmpty after multi-sig entity creation');
       (window as any).processUntilEmpty(env, []);
     }
   });
@@ -145,10 +145,10 @@ test('🎯 Working Demo: Alice Entity + Alice+Bob Multi-Sig (Full Screenshots & 
   await page.waitForTimeout(500);
 
   await takeStepScreenshot(page, 'multisig-entity-created', 3);
-  console.log('✅ STEP 3 DONE: Multi-sig entity created successfully');
+  console.log('[OK] STEP 3 DONE: Multi-sig entity created successfully');
 
   // === STEP 4: SHOW EXPECTED ENTITY ID AND DETAILS ===
-  console.log('\n📍 STEP 4: Verify Entity Creation Details');
+  console.log('\n[PIN] STEP 4: Verify Entity Creation Details');
 
   // Take a screenshot of the expected entity ID section
   await takeStepScreenshot(page, 'entity-details-visible', 4);
@@ -161,29 +161,29 @@ test('🎯 Working Demo: Alice Entity + Alice+Bob Multi-Sig (Full Screenshots & 
   const entityIdCode = page.locator('.id-display code');
   await expect(entityIdCode).toBeVisible();
 
-  console.log('✅ STEP 4 DONE: Entity details verified');
+  console.log('[OK] STEP 4 DONE: Entity details verified');
 
   // === FINAL VERIFICATION ===
-  console.log('\n🎯 FINAL VERIFICATION');
+  console.log('\n[GOAL] FINAL VERIFICATION');
 
   await takeStepScreenshot(page, 'demo-completed', 5);
 
   // === STEP 5: NAVIGATE TO ENTITY PANELS AND AUTO-SELECT ENTITIES ===
-  console.log('\n📍 STEP 5: Navigate to Entity Panels and Show Created Replicas');
+  console.log('\n[PIN] STEP 5: Navigate to Entity Panels and Show Created Replicas');
 
   // Find and click Entity tab to switch to panels view
   const entityPanels = page.locator('.entity-panels-container').first();
 
   await expect(entityPanels).toBeVisible();
 
-  console.log('✅ Switched to Entity panels view');
+  console.log('[OK] Switched to Entity panels view');
   await page.waitForTimeout(1000);
   await takeStepScreenshot(page, 'entity-panels-opened', 5);
 
   // Check for entity panels and auto-configure them
   const panels = page.locator('.entity-panel');
   const panelCount = await panels.count();
-  console.log(`📋 Found ${panelCount} entity panels`);
+  console.log(`[LIST] Found ${panelCount} entity panels`);
 
   // Verify second panel has entity 1a9f and alice signer (multi-sig)
   expect(panels.nth(1).getByText('Entity 1a9f').first()).toBeVisible();
@@ -193,25 +193,25 @@ test('🎯 Working Demo: Alice Entity + Alice+Bob Multi-Sig (Full Screenshots & 
   expect(panels.nth(2).getByText('Entity 1a9f').first()).toBeVisible();
   expect(panels.nth(2).getByText('Signer: bob').first()).toBeVisible();
 
-  console.log('✅ STEP 5 DONE: Entity panels configured with created replicas');
+  console.log('[OK] STEP 5 DONE: Entity panels configured with created replicas');
 
   // === STEP 6: DEMONSTRATE FINAL SUCCESS ===
-  console.log('\n📍 STEP 6: Final Verification - Complete Workflow Demonstrated');
+  console.log('\n[PIN] STEP 6: Final Verification - Complete Workflow Demonstrated');
 
   await takeStepScreenshot(page, 'complete-workflow-final', 6);
 
-  console.log(`\n🎉 COMPLETE XLN TUTORIAL SUCCESSFULLY FINISHED!`);
-  console.log(`📸 Screenshots saved to: test-results/screenshots/`);
-  console.log(`🎬 Video saved to: test-results/`);
-  console.log(`\n✅ Successfully Demonstrated:`);
-  console.log(`  1.1 ✅ Create simple Alice entity`);
-  console.log(`  1.2 ✅ Create Alice+Bob multi-sig entity`);
-  console.log(`  1.3 ✅ Entity panels accessible for proposals`);
-  console.log(`  1.4 ✅ Complete entity workflow foundation ready`);
-  console.log(`  📸  ✅ Screenshots after each important action`);
-  console.log(`  🎬  ✅ Full video recording of entire process`);
-  console.log(`  🔧  ✅ Step verification before proceeding`);
-  console.log(`  ✨  ✅ All legacy files cleaned up`);
+  console.log(`\n[DONE] COMPLETE XLN TUTORIAL SUCCESSFULLY FINISHED!`);
+  console.log(`[CAM] Screenshots saved to: test-results/screenshots/`);
+  console.log(`[TAKE] Video saved to: test-results/`);
+  console.log(`\n[OK] Successfully Demonstrated:`);
+  console.log(`  1.1 [OK] Create simple Alice entity`);
+  console.log(`  1.2 [OK] Create Alice+Bob multi-sig entity`);
+  console.log(`  1.3 [OK] Entity panels accessible for proposals`);
+  console.log(`  1.4 [OK] Complete entity workflow foundation ready`);
+  console.log(`  [CAM]  [OK] Screenshots after each important action`);
+  console.log(`  [TAKE]  [OK] Full video recording of entire process`);
+  console.log(`  [TOOL]  [OK] Step verification before proceeding`);
+  console.log(`  *  [OK] All legacy files cleaned up`);
 
   // Final pause for video
   await page.waitForTimeout(2000);

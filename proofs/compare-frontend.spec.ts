@@ -66,7 +66,7 @@ async function collectSvelteMetrics(page: Page) {
 async function collectUiMetrics(page: Page) {
   await page.goto('http://localhost:5173/');
   // Panels page elements
-  const panelsHeader = page.getByText('👁️ Panels', { exact: false });
+  const panelsHeader = page.getByText('[VIEW] Panels', { exact: false });
   await expect(panelsHeader).toBeVisible({ timeout: 15000 });
   const panelCount = await page
     .locator('.entity-panel')
@@ -97,7 +97,7 @@ test.skip('compare svelte frontend vs ui app (smoke)', async ({ page }) => {
   expect(svelte.panelCount).toBeGreaterThan(0);
 
   // Try a tiny time-machine interaction: click back then LIVE
-  const backBtn = page2.locator('.time-btn-compact', { hasText: '⏪' });
+  const backBtn = page2.locator('.time-btn-compact', { hasText: '<<' });
   const liveBtn = page2.locator('.time-btn-compact.live');
   await backBtn.click({ trial: true }).catch(() => {});
   await liveBtn.click({ trial: true }).catch(() => {});

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 /**
- * 🎯 TUTORIAL DOCUMENTATION GENERATOR
+ * [GOAL] TUTORIAL DOCUMENTATION GENERATOR
  *
  * Automatically generates beautiful tutorial documentation from E2E test scenarios.
  * This ensures tutorials stay in sync with actual working code.
@@ -44,11 +44,11 @@ class TutorialDocGenerator {
       .filter(file => file.includes('tutorial') && file.endsWith('.spec.ts'))
       .map(file => join(e2eDir, file));
 
-    console.log(`📁 Found ${this.tutorialSpecs.length} tutorial specs:`, this.tutorialSpecs);
+    console.log(`[FOLDER] Found ${this.tutorialSpecs.length} tutorial specs:`, this.tutorialSpecs);
   }
 
   async generateAllTutorials() {
-    console.log('🔄 Generating tutorial documentation...');
+    console.log('[ANTICLOCKWISE] Generating tutorial documentation...');
 
     for (const specPath of this.tutorialSpecs) {
       await this.generateTutorialFromSpec(specPath);
@@ -57,11 +57,11 @@ class TutorialDocGenerator {
     // Generate index page
     await this.generateTutorialIndex();
 
-    console.log('✅ Tutorial documentation generated successfully!');
+    console.log('[OK] Tutorial documentation generated successfully!');
   }
 
   private async generateTutorialFromSpec(specPath: string) {
-    console.log(`📖 Processing: ${specPath}`);
+    console.log(`[BOOK] Processing: ${specPath}`);
 
     const content = readFileSync(specPath, 'utf-8');
     const tutorials = this.extractTutorialsFromSpec(content, specPath);
@@ -94,7 +94,7 @@ class TutorialDocGenerator {
     const titleMatch = testContent.match(/test\(['"`]([^'"`]*)['"``]/);
     if (!titleMatch) return null;
 
-    const title = titleMatch[1].replace(/🎯|🚀|📖/g, '').trim();
+    const title = titleMatch[1].replace(/[GOAL]|[LAUNCH]|[BOOK]/g, '').trim();
 
     // Extract difficulty and time from title/comments
     let difficulty: 'beginner' | 'intermediate' | 'advanced' = 'beginner';
@@ -199,21 +199,21 @@ class TutorialDocGenerator {
     }
 
     writeFileSync(filePath, markdown);
-    console.log(`✅ Generated: ${filePath}`);
+    console.log(`[OK] Generated: ${filePath}`);
   }
 
   private generateTutorialMarkdown(tutorial: Tutorial, specPath: string): string {
     const difficultyEmoji = {
-      beginner: '🟢',
-      intermediate: '🟡',
-      advanced: '🔴',
+      beginner: 'o',
+      intermediate: 'o',
+      advanced: 'o',
     };
 
     return `# ${tutorial.title}
 
 ${difficultyEmoji[tutorial.difficulty]} **Difficulty:** ${tutorial.difficulty.charAt(0).toUpperCase() + tutorial.difficulty.slice(1)}
-⏱️ **Estimated Time:** ${tutorial.estimatedTime}
-🧪 **Test Source:** \`${specPath}\`
+[TIMER] **Estimated Time:** ${tutorial.estimatedTime}
+[TEST] **Test Source:** \`${specPath}\`
 
 ## Overview
 
@@ -235,10 +235,10 @@ ${tutorial.steps.map(step => this.generateStepMarkdown(step)).join('\n\n')}
 
 After completing this tutorial, you can:
 
-- 🔗 Create payment channels between entities
-- ⚖️ Handle dispute resolution
-- 🏛️ Explore on-chain governance features
-- 📊 Monitor entity consensus in real-time
+- [LINK] Create payment channels between entities
+- [SCALES] Handle dispute resolution
+- [COURT] Explore on-chain governance features
+- [STATS] Monitor entity consensus in real-time
 
 ## Troubleshooting
 
@@ -274,7 +274,7 @@ ${step.description}`;
     if (step.explanation) {
       markdown += `
 
-> 💡 **Why this matters:** ${step.explanation}`;
+> [IDEA] **Why this matters:** ${step.explanation}`;
     }
 
     return markdown;
@@ -289,27 +289,27 @@ Welcome to XLN interactive tutorials! These guides are automatically generated f
 
 ## Available Tutorials
 
-### 🟢 Beginner
+### o Beginner
 
 - [Quick Start: Simple Entity Creation](./quick-start-simple-entity-creation.md) - Get started in under 2 minutes
 - [Basic Entity Operations](./basic-entity-operations.md) - Learn fundamental entity interactions
 
-### 🟡 Intermediate
+### o Intermediate
 
 - [Complete Entity & Channel Workflow](./complete-entity-channel-workflow.md) - Full end-to-end workflow
 - [Multi-Signature Governance](./multi-signature-governance.md) - Democratic decision making
 
-### 🔴 Advanced
+### o Advanced
 
 - [Channel Dispute Resolution](./channel-dispute-resolution.md) - Handle complex scenarios
 - [Cross-Chain Operations](./cross-chain-operations.md) - Multi-jurisdiction workflows
 
 ## How These Tutorials Work
 
-🎯 **Dual Purpose**: Each tutorial serves as both documentation and automated testing
-🔄 **Always Current**: Generated from working E2E tests, never outdated
-📸 **Visual Guide**: Screenshots from actual test runs
-⚡ **Interactive**: Run \`npm run tutorial\` to follow along automatically
+[GOAL] **Dual Purpose**: Each tutorial serves as both documentation and automated testing
+[ANTICLOCKWISE] **Always Current**: Generated from working E2E tests, never outdated
+[CAM] **Visual Guide**: Screenshots from actual test runs
+[FAST] **Interactive**: Run \`npm run tutorial\` to follow along automatically
 
 ## Running Tutorials Interactively
 
@@ -341,7 +341,7 @@ This ensures tutorials never go stale and always reflect the current working sys
 `;
 
     writeFileSync(indexPath, indexContent);
-    console.log(`✅ Generated: ${indexPath}`);
+    console.log(`[OK] Generated: ${indexPath}`);
   }
 }
 

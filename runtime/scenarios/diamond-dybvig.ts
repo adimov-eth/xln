@@ -9,7 +9,7 @@ export async function diamondDybvigScenario(
   env: Env,
   process: (env: Env, inputs?: EntityInput[]) => Promise<any>
 ): Promise<void> {
-  console.log('🏦 Starting Diamond-Dybvig Bank Run Scenario');
+  console.log('[BANK] Starting Diamond-Dybvig Bank Run Scenario');
 
   // This would be filled in with actual scenario logic
   // For now, just a blueprint structure
@@ -22,7 +22,7 @@ export async function diamondDybvigScenario(
   if (env.history.length > 0) {
     const lastFrame = env.history[env.history.length - 1];
     if (lastFrame) {
-      lastFrame.title = "🏦 Setup: Hub Provides Liquidity";
+      lastFrame.title = "[BANK] Setup: Hub Provides Liquidity";
       lastFrame.narrative = "Hub E1 opens channels with users E3, E4, E5. Each channel has 1000 tokens of liquidity.";
     }
   }
@@ -37,7 +37,7 @@ export async function diamondDybvigScenario(
   if (env.history.length > 0) {
     const lastFrame = env.history[env.history.length - 1];
     if (lastFrame) {
-      lastFrame.title = "⚠️ First Withdrawal: E3 Pulls Reserves";
+      lastFrame.title = "[WARN] First Withdrawal: E3 Pulls Reserves";
       lastFrame.narrative = "Entity E3 closes channel and withdraws 800 tokens. Hub reserves drop from 3000 to 2200.";
     }
   }
@@ -49,7 +49,7 @@ export async function diamondDybvigScenario(
   if (env.history.length > 0) {
     const lastFrame = env.history[env.history.length - 1];
     if (lastFrame) {
-      lastFrame.title = "🔴 Cascade: E4 Sees Risk, Withdraws";
+      lastFrame.title = "o Cascade: E4 Sees Risk, Withdraws";
       lastFrame.narrative = "E4 observes declining reserves, rushes to withdraw 800 tokens. Bank run psychology kicks in.";
     }
   }
@@ -61,10 +61,10 @@ export async function diamondDybvigScenario(
   if (env.history.length > 0) {
     const lastFrame = env.history[env.history.length - 1];
     if (lastFrame) {
-      lastFrame.title = "💥 Collapse: Hub Out of Reserves";
+      lastFrame.title = "[BOOM] Collapse: Hub Out of Reserves";
       lastFrame.narrative = "E5 cannot withdraw - hub has insufficient reserves. Classic Diamond-Dybvig bank run complete.";
     }
   }
 
-  console.log('✅ Diamond-Dybvig scenario complete');
+  console.log('[OK] Diamond-Dybvig scenario complete');
 }

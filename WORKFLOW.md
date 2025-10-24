@@ -1,4 +1,4 @@
-# 🔧 Daily Development Workflow
+# [TOOL] Daily Development Workflow
 
 ## Command Cheatsheet (Use These)
 
@@ -52,21 +52,21 @@ bun run check
 ```bash
 # 1. Morning - Start fresh
 bun run dev
-# → Everything resets, opens localhost:8080
+# [RIGHTWARDS] Everything resets, opens localhost:8080
 
 # 2. Code changes (auto-rebuilds)
 # Edit src/account-consensus.ts
-# → server.js rebuilds
-# → Browser hot-reloads
+# [RIGHTWARDS] server.js rebuilds
+# [RIGHTWARDS] Browser hot-reloads
 
 # 3. Made a mistake, need restart
 Ctrl+C
 bun run dev:quick
-# → Back up in 5 seconds
+# [RIGHTWARDS] Back up in 5 seconds
 
 # 4. Before committing
 bun run check
-# → Ensure 0 errors
+# [RIGHTWARDS] Ensure 0 errors
 
 # 5. Commit
 git add .
@@ -134,7 +134,7 @@ bun run dev
 alias xln='bun run dev:quick'
 
 # Then just:
-xln  # → Up in 5 seconds
+xln  # [RIGHTWARDS] Up in 5 seconds
 ```
 
 **Use `bun run dev` (full) only when:**

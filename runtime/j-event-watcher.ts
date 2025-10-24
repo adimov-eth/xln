@@ -57,7 +57,7 @@ export class JEventWatcher {
     let resolvedRpcUrl = config.rpcUrl;
     if (typeof window !== 'undefined' && config.rpcUrl.startsWith('/')) {
       resolvedRpcUrl = new URL(config.rpcUrl, window.location.origin).href;
-      console.log(`🔧 J-WATCHER: Resolved ${config.rpcUrl} → ${resolvedRpcUrl}`);
+      console.log(`[TOOL] J-WATCHER: Resolved ${config.rpcUrl} [RIGHTWARDS] ${resolvedRpcUrl}`);
     }
 
     this.provider = new ethers.JsonRpcProvider(resolvedRpcUrl);
@@ -71,9 +71,9 @@ export class JEventWatcher {
     this.depositoryContract = new ethers.Contract(config.depositoryAddress, this.depositoryABI, this.provider);
 
     if (DEBUG) {
-      console.log(`🔭 J-WATCHER: Initialized with RPC: ${config.rpcUrl}`);
-      console.log(`🔭 J-WATCHER: EntityProvider: ${config.entityProviderAddress}`);
-      console.log(`🔭 J-WATCHER: Depository: ${config.depositoryAddress}`);
+      console.log(`[TELESCOPE] J-WATCHER: Initialized with RPC: ${config.rpcUrl}`);
+      console.log(`[TELESCOPE] J-WATCHER: EntityProvider: ${config.entityProviderAddress}`);
+      console.log(`[TELESCOPE] J-WATCHER: Depository: ${config.depositoryAddress}`);
     }
   }
 
@@ -88,7 +88,7 @@ export class JEventWatcher {
     });
 
     if (DEBUG) {
-      console.log(`🔭 J-WATCHER: Added signer ${signerId} monitoring entities: ${entityIds.join(', ')}`);
+      console.log(`[TELESCOPE] J-WATCHER: Added signer ${signerId} monitoring entities: ${entityIds.join(', ')}`);
     }
   }
 
@@ -97,19 +97,19 @@ export class JEventWatcher {
    */
   async startWatching(env: Env): Promise<void> {
     if (this.isWatching) {
-      console.log('🔭 J-WATCHER: Already watching');
+      console.log('[TELESCOPE] J-WATCHER: Already watching');
       return;
     }
 
     this.isWatching = true;
-    console.log('🔭 J-WATCHER: Starting simple first-principles watcher...');
+    console.log('[TELESCOPE] J-WATCHER: Starting simple first-principles watcher...');
 
     try {
       // Test blockchain connection
       const currentBlock = await this.provider.getBlockNumber();
-      console.log(`🔭 J-WATCHER: Connected to blockchain at block ${currentBlock}`);
+      console.log(`[TELESCOPE] J-WATCHER: Connected to blockchain at block ${currentBlock}`);
     } catch (error) {
-      console.log(`🔭⚠️  J-WATCHER: Blockchain not ready, will retry: ${error instanceof Error ? error.message : String(error)}`);
+      console.log(`[TELESCOPE][WARN]  J-WATCHER: Blockchain not ready, will retry: ${error instanceof Error ? error.message : String(error)}`);
     }
 
     // Simple polling every 1 second - first principles approach
@@ -120,12 +120,12 @@ export class JEventWatcher {
         await this.syncAllProposerReplicas(env);
       } catch (error) {
         if (DEBUG && !(error instanceof Error && error.message.includes('ECONNREFUSED'))) {
-          console.error('🔭❌ J-WATCHER: Sync error:', error instanceof Error ? error.message : String(error));
+          console.error('[TELESCOPE][X] J-WATCHER: Sync error:', error instanceof Error ? error.message : String(error));
         }
       }
     }, 1000);
 
-    console.log('🔭 J-WATCHER: Started with simple 1s polling');
+    console.log('[TELESCOPE] J-WATCHER: Started with simple 1s polling');
   }
 
   /**
@@ -135,7 +135,7 @@ export class JEventWatcher {
     this.isWatching = false;
     this.entityProviderContract.removeAllListeners();
     this.depositoryContract.removeAllListeners();
-    console.log('🔭 J-WATCHER: Stopped watching');
+    console.log('[TELESCOPE] J-WATCHER: Stopped watching');
   }
 
   /**
@@ -147,10 +147,10 @@ export class JEventWatcher {
       const currentBlock = await this.provider.getBlockNumber();
 
       if (DEBUG) {
-        console.log(`🔭🔍 SYNC-START: Current blockchain block=${currentBlock}, total replicas=${env.replicas.size}`);
-        console.log(`🔭🔍 SYNC-ENV-TIMESTAMP: env.timestamp=${env.timestamp}`);
+        console.log(`[TELESCOPE][FIND] SYNC-START: Current blockchain block=${currentBlock}, total replicas=${env.replicas.size}`);
+        console.log(`[TELESCOPE][FIND] SYNC-ENV-TIMESTAMP: env.timestamp=${env.timestamp}`);
         for (const [replicaKey, replica] of env.replicas.entries()) {
-          console.log(`🔭🔍 REPLICA-STATE: ${replicaKey} → jBlock=${replica.state.jBlock}, height=${replica.state.height}, isProposer=${replica.isProposer}`);
+          console.log(`[TELESCOPE][FIND] REPLICA-STATE: ${replicaKey} [RIGHTWARDS] jBlock=${replica.state.jBlock}, height=${replica.state.height}, isProposer=${replica.isProposer}`);
         }
       }
 
@@ -164,18 +164,18 @@ export class JEventWatcher {
           const lastJBlock = replica.state.jBlock || 0;
 
           if (DEBUG) {
-            console.log(`🔭🔍 REPLICA-CHECK: ${signerId} → Entity ${entityId.slice(0,10)}... jBlock=${lastJBlock}, currentBlock=${currentBlock}, isProposer=${replica.isProposer}`);
+            console.log(`[TELESCOPE][FIND] REPLICA-CHECK: ${signerId} [RIGHTWARDS] Entity ${entityId.slice(0,10)}... jBlock=${lastJBlock}, currentBlock=${currentBlock}, isProposer=${replica.isProposer}`);
           }
 
           if (lastJBlock < currentBlock) {
             proposerReplicas.push({ entityId, signerId, lastJBlock });
 
             if (HEAVY_LOGS) {
-              console.log(`🔭🔍 PROPOSER-SYNC: Found proposer ${signerId} for entity ${entityId.slice(0,10)}... at jBlock ${lastJBlock}, needs sync to ${currentBlock}`);
+              console.log(`[TELESCOPE][FIND] PROPOSER-SYNC: Found proposer ${signerId} for entity ${entityId.slice(0,10)}... at jBlock ${lastJBlock}, needs sync to ${currentBlock}`);
             }
           } else {
             if (DEBUG) {
-              console.log(`🔭✅ REPLICA-SYNCED: ${signerId} → Entity ${entityId.slice(0,10)}... already synced (jBlock=${lastJBlock} >= currentBlock=${currentBlock})`);
+              console.log(`[TELESCOPE][OK] REPLICA-SYNCED: ${signerId} [RIGHTWARDS] Entity ${entityId.slice(0,10)}... already synced (jBlock=${lastJBlock} >= currentBlock=${currentBlock})`);
             }
           }
         }
@@ -187,9 +187,9 @@ export class JEventWatcher {
       }
 
       if (DEBUG) {
-        console.log(`🔭⚡ SYNC: ${proposerReplicas.length} proposer replicas need sync to block ${currentBlock}`);
+        console.log(`[TELESCOPE][FAST] SYNC: ${proposerReplicas.length} proposer replicas need sync to block ${currentBlock}`);
         for (const { entityId, signerId, lastJBlock } of proposerReplicas) {
-          console.log(`🔭📋 SYNC-QUEUE: ${signerId} → Entity ${entityId.slice(0,10)}... from j-block ${lastJBlock + 1} to ${currentBlock}`);
+          console.log(`[TELESCOPE][LIST] SYNC-QUEUE: ${signerId} [RIGHTWARDS] Entity ${entityId.slice(0,10)}... from j-block ${lastJBlock + 1} to ${currentBlock}`);
         }
       }
 
@@ -219,7 +219,7 @@ export class JEventWatcher {
     if (fromBlock > toBlock) return;
 
     if (DEBUG) {
-      console.log(`🔭📡 ENTITY-SYNC: Entity ${entityId.slice(0,10)}... (${signerId}) from j-block ${fromBlock} to ${toBlock}`);
+      console.log(`[TELESCOPE][ANTENNA] ENTITY-SYNC: Entity ${entityId.slice(0,10)}... (${signerId}) from j-block ${fromBlock} to ${toBlock}`);
     }
 
     try {
@@ -228,22 +228,22 @@ export class JEventWatcher {
 
       if (events.length === 0) {
         if (HEAVY_LOGS) {
-          console.log(`🔭⚪ ENTITY-SYNC: No events found for entity ${entityId.slice(0,10)}... in blocks ${fromBlock}-${toBlock}`);
+          console.log(`[TELESCOPE]o ENTITY-SYNC: No events found for entity ${entityId.slice(0,10)}... in blocks ${fromBlock}-${toBlock}`);
         }
         return;
       }
 
-      console.log(`🔭📦 ENTITY-SYNC: Found ${events.length} new events for entity ${entityId.slice(0,10)}... in blocks ${fromBlock}-${toBlock}`);
+      console.log(`[TELESCOPE][PKG] ENTITY-SYNC: Found ${events.length} new events for entity ${entityId.slice(0,10)}... in blocks ${fromBlock}-${toBlock}`);
 
       // Process events chronologically and feed to proposer
       for (const event of events) {
         this.feedEventToProposer(entityId, signerId, event, env);
       }
 
-      console.log(`🔭✅ ENTITY-SYNC: Queued ${events.length} events for entity ${entityId.slice(0,10)}... (${signerId})`);
+      console.log(`[TELESCOPE][OK] ENTITY-SYNC: Queued ${events.length} events for entity ${entityId.slice(0,10)}... (${signerId})`);
 
     } catch (error) {
-      console.error(`🔭❌ ENTITY-SYNC: Error syncing entity ${entityId.slice(0,10)}...`, error instanceof Error ? error.message : String(error));
+      console.error(`[TELESCOPE][X] ENTITY-SYNC: Error syncing entity ${entityId.slice(0,10)}...`, error instanceof Error ? error.message : String(error));
     }
   }
 
@@ -252,7 +252,7 @@ export class JEventWatcher {
    */
   private async getEntityEventsInRange(entityId: string, fromBlock: number, toBlock: number) {
     if (HEAVY_LOGS) {
-      console.log(`🔭🔍 EVENT-QUERY: Fetching events for entity ${entityId.slice(0,10)}... blocks ${fromBlock}-${toBlock}`);
+      console.log(`[TELESCOPE][FIND] EVENT-QUERY: Fetching events for entity ${entityId.slice(0,10)}... blocks ${fromBlock}-${toBlock}`);
     }
 
     // Get all relevant events for this entity
@@ -293,7 +293,7 @@ export class JEventWatcher {
     ]);
 
     if (HEAVY_LOGS) {
-      console.log(`🔭🔍 EVENT-QUERY: Entity ${entityId.slice(0,10)}... - Reserve: ${reserveEvents.length}, SettlementLeft: ${settlementEventsLeft.length}, SettlementRight: ${settlementEventsRight.length}, R2C: ${r2cEventsReceiving.length + r2cEventsCounterparty.length}`);
+      console.log(`[TELESCOPE][FIND] EVENT-QUERY: Entity ${entityId.slice(0,10)}... - Reserve: ${reserveEvents.length}, SettlementLeft: ${settlementEventsLeft.length}, SettlementRight: ${settlementEventsRight.length}, R2C: ${r2cEventsReceiving.length + r2cEventsCounterparty.length}`);
     }
 
     // Combine and sort chronologically
@@ -311,9 +311,9 @@ export class JEventWatcher {
     });
 
     if (HEAVY_LOGS && allEvents.length > 0) {
-      console.log(`🔭🔍 EVENT-QUERY: Entity ${entityId.slice(0,10)}... total events: ${allEvents.length}`);
+      console.log(`[TELESCOPE][FIND] EVENT-QUERY: Entity ${entityId.slice(0,10)}... total events: ${allEvents.length}`);
       allEvents.forEach((event, i) => {
-        console.log(`🔭🔍 EVENT-${i}: ${event.eventType} at block ${event.blockNumber} tx ${event.transactionIndex}`);
+        console.log(`[TELESCOPE][FIND] EVENT-${i}: ${event.eventType} at block ${event.blockNumber} tx ${event.transactionIndex}`);
       });
     }
 
@@ -348,7 +348,7 @@ export class JEventWatcher {
       };
 
       if (DEBUG) {
-        console.log(`🔭💰 R2R-EVENT: Entity ${entityId.slice(0,10)}... Token ${event.args.tokenId} Balance ${(Number(event.args.newBalance) / 1e18).toFixed(4)} (block ${event.blockNumber})`);
+        console.log(`[TELESCOPE][$] R2R-EVENT: Entity ${entityId.slice(0,10)}... Token ${event.args.tokenId} Balance ${(Number(event.args.newBalance) / 1e18).toFixed(4)} (block ${event.blockNumber})`);
       }
 
     } else if (event.eventType === 'SettlementProcessed') {
@@ -383,7 +383,7 @@ export class JEventWatcher {
       };
 
       if (DEBUG) {
-        console.log(`🔭💱 SETTLE-EVENT: Entity ${entityId.slice(0,10)}... vs ${counterpartyId.slice(0,10)}... (${event.side} side, block ${event.blockNumber})`);
+        console.log(`[TELESCOPE][FX] SETTLE-EVENT: Entity ${entityId.slice(0,10)}... vs ${counterpartyId.slice(0,10)}... (${event.side} side, block ${event.blockNumber})`);
       }
     } else if (event.eventType === 'TransferReserveToCollateral') {
       entityTx = {
@@ -408,20 +408,20 @@ export class JEventWatcher {
       };
 
       if (DEBUG) {
-        console.log(`🔭💰 R2C-EVENT: Entity ${entityId.slice(0,10)}... (${event.side} side) collateral=${event.args.collateral.toString()}, block ${event.blockNumber}`);
+        console.log(`[TELESCOPE][$] R2C-EVENT: Entity ${entityId.slice(0,10)}... (${event.side} side) collateral=${event.args.collateral.toString()}, block ${event.blockNumber}`);
       }
     }
 
     if (entityTx) {
       // Feed to runtime processing queue
-      console.log(`🚨 J-WATCHER-CREATING-EVENT: ${signerId} creating j-event ${event.eventType} block=${event.blockNumber} for entity ${entityId.slice(0,10)}...`);
+      console.log(`[ALERT] J-WATCHER-CREATING-EVENT: ${signerId} creating j-event ${event.eventType} block=${event.blockNumber} for entity ${entityId.slice(0,10)}...`);
       env.runtimeInput.entityInputs.push({
         entityId: entityId,
         signerId: signerId,
         entityTxs: [entityTx],
       });
 
-      console.log(`🔭✅ J-WATCHER-QUEUED: ${signerId} → Entity ${entityId.slice(0,10)}... (${event.eventType}) block=${event.blockNumber} - Queue length now: ${env.runtimeInput.entityInputs.length}`);
+      console.log(`[TELESCOPE][OK] J-WATCHER-QUEUED: ${signerId} [RIGHTWARDS] Entity ${entityId.slice(0,10)}... (${event.eventType}) block=${event.blockNumber} - Queue length now: ${env.runtimeInput.entityInputs.length}`);
     }
   }
 
@@ -430,7 +430,7 @@ export class JEventWatcher {
    */
   async syncNewlyCreatedEntities(_env: Env): Promise<boolean> {
     if (DEBUG) {
-      console.log('🔭⚠️  J-WATCHER: syncNewlyCreatedEntities called (legacy) - first-principles design handles this automatically');
+      console.log('[TELESCOPE][WARN]  J-WATCHER: syncNewlyCreatedEntities called (legacy) - first-principles design handles this automatically');
     }
     return false;
   }
@@ -443,7 +443,7 @@ export class JEventWatcher {
       return await this.provider.getBlockNumber();
     } catch (error) {
       if (DEBUG) {
-        console.log(`🔭⚠️  J-WATCHER: Could not get current block, using 0:`, error instanceof Error ? error.message : String(error));
+        console.log(`[TELESCOPE][WARN]  J-WATCHER: Could not get current block, using 0:`, error instanceof Error ? error.message : String(error));
       }
       return 0;
     }
@@ -492,7 +492,7 @@ export async function setupJEventWatcher(
   await watcher.startWatching(env);
 
   if (DEBUG) {
-    console.log('🔭✅ J-WATCHER: Setup complete with first-principles design');
+    console.log('[TELESCOPE][OK] J-WATCHER: Setup complete with first-principles design');
   }
 
   return watcher;

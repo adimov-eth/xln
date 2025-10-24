@@ -19,7 +19,7 @@ test('Svelte UI: creates a lazy entity via Formation', async ({ page }) => {
   await page.locator('#entityNameInput').fill(name);
 
   // Add a second validator and set signer names
-  await page.getByRole('button', { name: '➕ Add Validator' }).click();
+  await page.getByRole('button', { name: '+ Add Validator' }).click();
   await page.getByRole('combobox').nth(2).selectOption('alice');
   await page.getByRole('combobox').nth(3).selectOption('bob');
 

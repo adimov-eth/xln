@@ -17,7 +17,7 @@
       const gossip = $visibleGossip;
 
       if (!gossip) {
-        console.log('📡 No gossip layer available');
+        console.log('[ANTENNA] No gossip layer available');
         profiles = [];
         return;
       }
@@ -26,9 +26,9 @@
       const gossipProfiles = gossip.getProfiles ? gossip.getProfiles() : [];
       profiles = gossipProfiles;
 
-      console.log(`📡 Loaded gossip profiles (${$isLive ? 'LIVE' : 'HISTORICAL'}):`, profiles);
+      console.log(`[ANTENNA] Loaded gossip profiles (${$isLive ? 'LIVE' : 'HISTORICAL'}):`, profiles);
     } catch (err) {
-      console.error('❌ Failed to load gossip profiles:', err);
+      console.error('[X] Failed to load gossip profiles:', err);
       error = err instanceof Error ? err.message : 'Failed to load profiles';
       profiles = [];
     } finally {
@@ -46,7 +46,7 @@
   }
 
   function handleProfileAnnounced(profile: any) {
-    console.log('📡 Profile announced, refreshing directory...', profile);
+    console.log('[ANTENNA] Profile announced, refreshing directory...', profile);
     // Immediately refresh the profile list to show the newly announced profile
     loadProfiles();
   }
@@ -57,26 +57,26 @@
   <ProfileForm onProfileAnnounced={handleProfileAnnounced} />
   
   <div class="directory-header">
-    <h3>🌐 Network Directory</h3>
+    <h3>[WEB] Network Directory</h3>
     <button class="refresh-btn" on:click={loadProfiles} disabled={isLoading}>
-      {isLoading ? '🔄' : '↻'} Refresh
+      {isLoading ? '[ANTICLOCKWISE]' : '[CLOCKWISE]'} Refresh
     </button>
   </div>
 
   {#if isLoading}
     <div class="loading-state">
-      <div class="loading-spinner">🔄</div>
+      <div class="loading-spinner">[ANTICLOCKWISE]</div>
       <p>Loading network profiles...</p>
     </div>
   {:else if error}
     <div class="error-state">
-      <div class="error-icon">❌</div>
+      <div class="error-icon">[X]</div>
       <p>Failed to load profiles: {error}</p>
       <button class="retry-btn" on:click={loadProfiles}>Retry</button>
     </div>
   {:else if profiles.length === 0}
     <div class="empty-state">
-      <div class="empty-icon">📭</div>
+      <div class="empty-icon">[OUTBOX]</div>
       <p>No network profiles available</p>
       <small>Profiles will appear here when entities announce themselves to the gossip layer</small>
     </div>

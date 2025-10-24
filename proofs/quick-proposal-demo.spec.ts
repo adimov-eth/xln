@@ -9,7 +9,7 @@ async function setThreshold(page: Page, value: number) {
 }
 
 async function addValidator(page: Page) {
-  await page.getByRole('button', { name: '➕ Add Validator' }).click();
+  await page.getByRole('button', { name: '+ Add Validator' }).click();
 }
 
 async function pickSignerInRow(page: Page, rowIndex: number, signerText: string) {
@@ -20,18 +20,18 @@ async function pickSignerInRow(page: Page, rowIndex: number, signerText: string)
 
 test.describe('Quick Proposal Demo', () => {
   test('SUPER FAST: Entity Creation + UI Validation', async ({ page }) => {
-    console.log('⚡ Starting SUPER FAST demo...');
+    console.log('[FAST] Starting SUPER FAST demo...');
 
     // Navigate
     await page.goto('http://localhost:8080');
     await page.waitForLoadState('networkidle');
     await page.waitForFunction(() => (window as any).xlnEnv !== undefined, { timeout: 5000 });
 
-    console.log('📸 Taking initial screenshot...');
+    console.log('[CAM] Taking initial screenshot...');
     await page.screenshot({ path: 'e2e/screenshots/fast-01-loaded.png', fullPage: true });
 
     // === ENTITY CREATION ===
-    console.log('🏗️ Creating entity...');
+    console.log('[BUILD] Creating entity...');
 
     await page.locator('text=Formation').click();
     await page.fill('#entityNameInput', 'Demo Entity');
@@ -41,7 +41,7 @@ test.describe('Quick Proposal Demo', () => {
     await pickSignerInRow(page, 1, 'bob');
     await setThreshold(page, 1);
 
-    console.log('📸 Taking form screenshot...');
+    console.log('[CAM] Taking form screenshot...');
     await page.screenshot({ path: 'e2e/screenshots/fast-02-form.png', fullPage: true });
 
     // Check before state
@@ -76,13 +76,13 @@ test.describe('Quick Proposal Demo', () => {
       };
     });
 
-    console.log(`✅ SUCCESS: Created ${afterState.replicas} replicas, height ${afterState.height}`);
+    console.log(`[OK] SUCCESS: Created ${afterState.replicas} replicas, height ${afterState.height}`);
 
-    console.log('📸 Taking success screenshot...');
+    console.log('[CAM] Taking success screenshot...');
     await page.screenshot({ path: 'e2e/screenshots/fast-03-entity-created.png', fullPage: true });
 
     // === UI VALIDATION ===
-    console.log('🎯 Validating UI components...');
+    console.log('[GOAL] Validating UI components...');
 
     await page.waitForTimeout(500);
 
@@ -98,7 +98,7 @@ test.describe('Quick Proposal Demo', () => {
     });
 
     console.log(
-      `📊 UI State: ${uiState.entityPanels} panels, ${uiState.dropdowns} dropdowns, ${uiState.controlsButtons} controls`,
+      `[STATS] UI State: ${uiState.entityPanels} panels, ${uiState.dropdowns} dropdowns, ${uiState.controlsButtons} controls`,
     );
 
     // Verify success criteria
@@ -107,14 +107,14 @@ test.describe('Quick Proposal Demo', () => {
     expect(uiState.entityPanels).toBeGreaterThan(0);
     expect(uiState.dropdowns).toBeGreaterThan(0);
 
-    console.log('📸 Taking final screenshot...');
+    console.log('[CAM] Taking final screenshot...');
     await page.screenshot({ path: 'e2e/screenshots/fast-04-final-success.png', fullPage: true });
 
-    console.log('🎉 SUPER FAST DEMO COMPLETE!');
-    console.log('✅ Entity creation works');
-    console.log('✅ Validators properly configured');
-    console.log('✅ UI components visible');
-    console.log('✅ Consensus system active');
-    console.log(`📊 Result: ${afterState.replicas} replicas, height ${afterState.height}`);
+    console.log('[DONE] SUPER FAST DEMO COMPLETE!');
+    console.log('[OK] Entity creation works');
+    console.log('[OK] Validators properly configured');
+    console.log('[OK] UI components visible');
+    console.log('[OK] Consensus system active');
+    console.log(`[STATS] Result: ${afterState.replicas} replicas, height ${afterState.height}`);
   });
 });

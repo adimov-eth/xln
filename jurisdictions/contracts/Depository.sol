@@ -530,7 +530,7 @@ contract Depository is Console, ReentrancyGuardLite {
       SettlementDiff memory diff = diffs[j];
       uint tokenId = diff.tokenId;
       
-      // ✅ INVARIANT CHECK: Total value change must be zero
+      // [OK] INVARIANT CHECK: Total value change must be zero
       // leftDiff + rightDiff + collateralDiff == 0
       require(diff.leftDiff + diff.rightDiff + diff.collateralDiff == 0, "Settlement must balance");
       
@@ -1365,7 +1365,7 @@ contract Depository is Console, ReentrancyGuardLite {
  *   1. enforceDebts() runs automatically
  *   2. Pays ALL 100k to Alice (debt reduced to 900k)
  *   3. Reserve = 0, withdrawal fails
- *   4. Entity receives another 50k → pays ALL 50k to Alice → still locked
+ *   4. Entity receives another 50k [RIGHTWARDS] pays ALL 50k to Alice [RIGHTWARDS] still locked
  *   Repeat until Alice's debt = 0, THEN move to debt[1]
  *
  * WHY NOT NETTING/PRIORITIES/MANUAL ALLOCATION?
@@ -1547,7 +1547,7 @@ contract Depository is Console, ReentrancyGuardLite {
       Diff memory diff = params.diffs[i];
       uint tokenId = diff.tokenId;
 
-      // ✅ INVARIANT CHECK: Total value change within the channel for this token must be zero.
+      // [OK] INVARIANT CHECK: Total value change within the channel for this token must be zero.
       // leftReserveChange + rightReserveChange + collateralChange == 0
       int myReserveDiff = -(diff.peerReserveDiff + diff.collateralDiff);
       require(_reserves[entity][tokenId] >= uint(-myReserveDiff), "Not enough sender reserve");
@@ -1790,7 +1790,7 @@ contract Depository is Console, ReentrancyGuardLite {
 
     bytes32 final_hash = ECDSA.toEthSignedMessageHash(keccak256(encoded_msg));
 
-    // Fix type conversion: bytes32 → address
+    // Fix type conversion: bytes32 [RIGHTWARDS] address
     address recoveredSigner = ECDSA.recover(final_hash, params.sig);
     address counterpartyAddress = address(uint160(uint256(params.counterentity)));
     require(recoveredSigner == counterpartyAddress, "Invalid counterparty signature");
@@ -1837,7 +1837,7 @@ contract Depository is Console, ReentrancyGuardLite {
 
     log('encoded_msg',encoded_msg);
 
-    // Fix type conversion: bytes32 → address
+    // Fix type conversion: bytes32 [RIGHTWARDS] address
     address recoveredSigner = ECDSA.recover(final_hash, params.sig);
     address counterpartyAddress = address(uint160(uint256(params.counterentity)));
     require(recoveredSigner == counterpartyAddress, "Invalid signer");
@@ -1878,7 +1878,7 @@ contract Depository is Console, ReentrancyGuardLite {
       bytes32 final_hash = ECDSA.toEthSignedMessageHash(keccak256(encoded_msg));
       log('encoded_msg',encoded_msg);
 
-      // Fix type conversion: bytes32 → address
+      // Fix type conversion: bytes32 [RIGHTWARDS] address
       address recoveredSigner = ECDSA.recover(final_hash, params.sig);
       address counterpartyAddress = address(uint160(uint256(params.counterentity)));
       require(recoveredSigner == counterpartyAddress, "Invalid signer");

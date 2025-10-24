@@ -64,7 +64,7 @@ export function buildNetworkGraph(
         // Get fee configuration from profile with explicit validation
         const metadata = profile.metadata;
         if (!metadata) {
-          console.warn(`🚨 ROUTING-SAFETY: Entity ${fromEntity} has no metadata, using safe defaults`);
+          console.warn(`[ALERT] ROUTING-SAFETY: Entity ${fromEntity} has no metadata, using safe defaults`);
         }
         const baseFee = metadata?.baseFee ?? 0n; // Explicit null/undefined check
         const feePPM = metadata?.routingFeePPM ?? 100; // Explicit default: 100 PPM (0.01%)

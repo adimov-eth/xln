@@ -6,7 +6,7 @@
 
 ---
 
-## 🎯 Vision
+## [GOAL] Vision
 
 **XLNView** is a flexible, panel-based workspace for XLN economy simulation and analysis. Think **Bloomberg Terminal meets VSCode meets Blender**.
 
@@ -20,17 +20,17 @@
 
 ---
 
-## 🏗️ Architecture Overview
+## [BUILD] Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ XLNView (Orchestrator + Dockview Integration)                  │
 ├─────────────────────────────────────────────────────────────────┤
-│  [≡] [⊕] [⚙] [🔗]         XLN Economy Simulator      [💾] [❓]  │ ← Toolbar
+│  [≡] [⊕] [[SET]] [[LINK]]         XLN Economy Simulator      [[DISK]] [[?]]  │ [LEFTWARDS] Toolbar
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ╔═══════════════════════╗  ╔════════════════════════════════╗ │
-│  ║ 🌐 Graph3D Panel      ║  ║ 🏢 Entities Panel             ║ │
+│  ║ [WEB] Graph3D Panel      ║  ║ [OFFICE] Entities Panel             ║ │
 │  ║                       ║  ║ ┌──────────────────────────┐   ║ │
 │  ║   ●──────●            ║  ║ │ Entity #1 (Hub)          │   ║ │
 │  ║   │      │            ║  ║ │ Reserves: 1.5M USDC      │   ║ │
@@ -41,7 +41,7 @@
 │  ╚═══════════════════════╝  ╚════════════════════════════════╝ │
 │                                                                 │
 │  ╔═══════════════════════╗  ╔════════════════════════════════╗ │
-│  ║ 🎬 Architect Panel    ║  ║ 💰 Depository Panel (J-State)  ║ │
+│  ║ [TAKE] Architect Panel    ║  ║ [$] Depository Panel (J-State)  ║ │
 │  ║ ┌─────────────────┐   ║  ║ Block: 156/234 | Mode: Simnet  ║ │
 │  ║ │ Mode: Economy   │   ║  ║ ┌──────────────────────────┐   ║ │
 │  ║ └─────────────────┘   ║  ║ │ Token    │ Entity  │ Amt │   ║ │
@@ -53,14 +53,14 @@
 │  ╚═══════════════════════╝  ╚════════════════════════════════╝ │
 │                                                                 │
 ├─────────────────────────────────────────────────────────────────┤
-│ ⏮ ◀◀ ▶ ▶▶ ⏭  [████████░░░░░░░░░░░] t=42s  📍 Frame 847/1203  │ ← Time Machine (draggable)
+│ << << > >> >>  [████████░░░░░░░░░░░] t=42s  [PIN] Frame 847/1203  │ [LEFTWARDS] Time Machine (draggable)
 │ REA: ████████████████ (1203 frames) | J: ██████ (234 blocks)   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 📦 Panel System (Dockview)
+## [PKG] Panel System (Dockview)
 
 ### Technology Choice: Dockview
 
@@ -85,7 +85,7 @@ import { DockviewApi, createDockview } from 'dockview';
 const panel = dockview.addPanel({
   id: 'graph3d',
   component: 'graph3d-panel', // Registered Svelte component
-  title: '🌐 Graph3D',
+  title: '[WEB] Graph3D',
 });
 ```
 
@@ -133,15 +133,15 @@ const panel = dockview.addPanel({
 
 ---
 
-## 🎨 Core Panels
+## [DESIGN] Core Panels
 
-### 1. Graph3D Panel (🌐)
+### 1. Graph3D Panel ([WEB])
 
 **Purpose:** Pure 3D visualization of entity network topology
 
 **Features:**
 - Force-directed, grid, ring, custom layouts
-- Entity selection → emits events to other panels
+- Entity selection [RIGHTWARDS] emits events to other panels
 - VR mode: Immersive scene rendering
 - Performance: 60fps on desktop, 72fps in VR
 
@@ -185,7 +185,7 @@ const panel = dockview.addPanel({
 
 ---
 
-### 2. Entities Panel (🏢)
+### 2. Entities Panel ([OFFICE])
 
 **Purpose:** List/grid of all entities with real-time state
 
@@ -259,7 +259,7 @@ const panel = dockview.addPanel({
 
 ---
 
-### 3. Depository Panel (💰)
+### 3. Depository Panel ([$])
 
 **Purpose:** Query on-chain J-state via BrowserVM (Depository.sol)
 
@@ -356,7 +356,7 @@ export class BrowserVMProvider {
 
 <div class="depository-panel">
   <div class="header">
-    <h3>💰 Depository (On-Chain J-State)</h3>
+    <h3>[$] Depository (On-Chain J-State)</h3>
     <span>Block: {currentBlock} | Mode: Simnet</span>
     <button on:click={refreshReserves}>Refresh</button>
   </div>
@@ -379,9 +379,9 @@ export class BrowserVMProvider {
             <td>{amount.toString()}</td>
             <td>
               {#if getDivergence(entityId, tokenId, amount)}
-                <span class="divergence">⚠️ {getDivergence(entityId, tokenId, amount)}</span>
+                <span class="divergence">[WARN] {getDivergence(entityId, tokenId, amount)}</span>
               {:else}
-                <span class="synced">✅</span>
+                <span class="synced">[OK]</span>
               {/if}
             </td>
           </tr>
@@ -398,35 +398,35 @@ export class BrowserVMProvider {
 
 ---
 
-### 4. Architect Panel (🎬)
+### 4. Architect Panel ([TAKE])
 
 **Purpose:** God-mode controls for economy manipulation
 
 **5 Modes:**
 
-**🔍 Explore Mode** (Read-only)
+**[FIND] Explore Mode** (Read-only)
 - Entity/account inspector
 - Timeline scrubber
 - Mini-map with heat overlays
 
-**🏗️ Build Mode** (Entity creation)
+**[BUILD] Build Mode** (Entity creation)
 - Template palette: Hub, Subsidiary, Consumer, Supplier
 - Click-to-place in 3D space
 - Topology patterns: Grid, Ring, Star, Mesh
 
-**💰 Economy Mode** (Reserve operations)
+**[$] Economy Mode** (Reserve operations)
 - Mint: `debugFundReserves(entity, token, amount)`
 - Burn: Direct reserve deduction
 - R2R: `reserveToReserve(from, to, token, amount)`
 - Batch: Multi-operation atomic execution
 - Scenario runner: Load .xln.js files
 
-**⚖️ Governance Mode** (Future)
+**[SCALES] Governance Mode** (Future)
 - Multi-sig proposals
 - Voting interface
 - Entity hierarchy editor
 
-**⚔️ Resolve Mode** (Diagnostics)
+**[SWORDS] Resolve Mode** (Diagnostics)
 - Traffic light view (healthy/warning/risk entities)
 - Dispute wizard
 - System health dashboard
@@ -462,19 +462,19 @@ export class BrowserVMProvider {
 <div class="architect-panel">
   <div class="mode-selector">
     <button class:active={currentMode === 'explore'} on:click={() => currentMode = 'explore'}>
-      🔍 Explore
+      [FIND] Explore
     </button>
     <button class:active={currentMode === 'build'} on:click={() => currentMode = 'build'}>
-      🏗️ Build
+      [BUILD] Build
     </button>
     <button class:active={currentMode === 'economy'} on:click={() => currentMode = 'economy'}>
-      💰 Economy
+      [$] Economy
     </button>
     <button class:active={currentMode === 'governance'} on:click={() => currentMode = 'governance'}>
-      ⚖️ Governance
+      [SCALES] Governance
     </button>
     <button class:active={currentMode === 'resolve'} on:click={() => currentMode = 'resolve'}>
-      ⚔️ Resolve
+      [SWORDS] Resolve
     </button>
   </div>
 
@@ -523,7 +523,7 @@ export class BrowserVMProvider {
 
 ---
 
-## 🕰️ Dual Time Machine
+## [TIME] Dual Time Machine
 
 **Challenge:** XLN has TWO time dimensions:
 - **REA layer**: Off-chain consensus, 60fps smooth timeline (ServerFrames)
@@ -535,16 +535,16 @@ export class BrowserVMProvider {
 ┌─────────────────────────────────────────────────────────────┐
 │ Time Machine (Draggable Component)                         │
 ├─────────────────────────────────────────────────────────────┤
-│ ⏮ ◀◀ ▶ ▶▶ ⏭  [████████░░░░░░░░░░░] t=42s               │
+│ << << > >> >>  [████████░░░░░░░░░░░] t=42s               │
 │                                                             │
 │ REA: ████████████████████ (1203 frames, 16.6ms/frame)      │
 │ J:   ██████████████ (234 blocks, 12s/block)                │
 │                                                             │
-│ 📍 Frame 847/1203 | Block 156/234                          │
+│ [PIN] Frame 847/1203 | Block 156/234                          │
 │ Entity Events: +4 created | Account Events: -2 closed      │
 │                                                             │
 │ Speed: [0.25x] [0.5x] [1x] [2x] [4x]                       │
-│ [🔖 Bookmark] [📸 Snapshot] [💾 Export] [🎬 Record]        │
+│ [[BOOKMARK] Bookmark] [[CAM] Snapshot] [[DISK] Export] [[TAKE] Record]        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -563,7 +563,7 @@ export class BrowserVMProvider {
   let playing = false;
   let speed = 1.0;
 
-  // Sync frame → block mapping
+  // Sync frame [RIGHTWARDS] block mapping
   $: currentBlock = Math.floor((currentFrame / totalFrames) * totalBlocks);
 
   function play() {
@@ -587,11 +587,11 @@ export class BrowserVMProvider {
 
 <div class="time-machine" class:draggable>
   <div class="controls">
-    <button on:click={() => seekTo(0)}>⏮</button>
-    <button on:click={() => currentFrame -= 10}>◀◀</button>
-    <button on:click={playing ? pause : play}>{playing ? '⏸' : '▶'}</button>
-    <button on:click={() => currentFrame += 10}>▶▶</button>
-    <button on:click={() => seekTo(totalFrames)}>⏭</button>
+    <button on:click={() => seekTo(0)}><<</button>
+    <button on:click={() => currentFrame -= 10}><<</button>
+    <button on:click={playing ? pause : play}>{playing ? '||' : '>'}</button>
+    <button on:click={() => currentFrame += 10}>>></button>
+    <button on:click={() => seekTo(totalFrames)}>>></button>
   </div>
 
   <input
@@ -615,7 +615,7 @@ export class BrowserVMProvider {
 
 ---
 
-## 📱 Layout System
+## [PHONE] Layout System
 
 ### Default Layout (4 Panels)
 
@@ -751,7 +751,7 @@ https://xln.network/view?session=a1b2c3d4&mode=observe
 
 ---
 
-## 📱 Mobile & iPad Support
+## [PHONE] Mobile & iPad Support
 
 ### Responsive Breakpoints
 
@@ -793,14 +793,14 @@ https://xln.network/view?session=a1b2c3d4&mode=observe
 
 ### iPad-Specific Features
 
-- **Split View**: Drag panel to edge → auto-dock (Chrome style)
+- **Split View**: Drag panel to edge [RIGHTWARDS] auto-dock (Chrome style)
 - **Gesture Support**: Two-finger swipe to switch panels
 - **Apple Pencil**: Annotate entities in Graph3D
 - **Keyboard Shortcuts**: iPad Magic Keyboard support
 
 ---
 
-## 🎮 Panel Communication (Event Bridge)
+## [GAME] Panel Communication (Event Bridge)
 
 ```typescript
 // view/utils/panelBridge.ts
@@ -862,14 +862,14 @@ export const panelBridge = new PanelBridge();
 
 ---
 
-## 🚀 Implementation Roadmap
+## [LAUNCH] Implementation Roadmap
 
 ### Phase 0: Foundation (Week 1)
-- ✅ Install Dockview
-- ✅ Create /view folder structure
-- ✅ Implement PanelContainer.svelte
-- ✅ Create PanelRegistry.ts
-- ✅ Build panelBridge event system
+- [OK] Install Dockview
+- [OK] Create /view folder structure
+- [OK] Implement PanelContainer.svelte
+- [OK] Create PanelRegistry.ts
+- [OK] Build panelBridge event system
 
 ### Phase 1: Core Panels (Week 2-3)
 - Extract Graph3DPanel from NetworkTopology
@@ -900,7 +900,7 @@ export const panelBridge = new PanelBridge();
 
 ---
 
-## 📊 Success Metrics
+## [STATS] Success Metrics
 
 **Performance:**
 - Load time: <2s (first paint)
@@ -921,7 +921,7 @@ export const panelBridge = new PanelBridge();
 
 ---
 
-## 🔮 Future Enhancements
+## [CRYSTAL] Future Enhancements
 
 ### Multi-User Collaboration
 ```typescript

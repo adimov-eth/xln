@@ -157,7 +157,7 @@ const main = async () => {
     throw new Error('Conservation failed');
   }
 
-  console.log('✅ Payment flow ok', { e1, e2, e1Total: e1Total.toString(), e2Total: e2Total.toString() });
+  console.log('[OK] Payment flow ok', { e1, e2, e1Total: e1Total.toString(), e2Total: e2Total.toString() });
 };
 
 main().catch(err => {

@@ -1,6 +1,6 @@
 # E2E Test Results - 2025-10-10
 
-## ✅ ALL TESTS PASSED
+## [OK] ALL TESTS PASSED
 
 ### Test Run Summary
 
@@ -11,58 +11,58 @@
 
 ---
 
-## Test 1: Smoke Test ✅
+## Test 1: Smoke Test [OK]
 
 **Purpose:** Verify XLN runtime loads and core functionality works
 
 **Results:**
-- ✅ Page loaded at https://localhost:8080
-- ✅ window.XLN exists with 235+ functions
-- ✅ window.xlnEnv accessible
-- ✅ Environment state restored from DB
+- [OK] Page loaded at https://localhost:8080
+- [OK] window.XLN exists with 235+ functions
+- [OK] window.xlnEnv accessible
+- [OK] Environment state restored from DB
   - Height: 27
   - Entities: 8 replicas
   - History: 27 snapshots
-- ✅ UI rendered correctly (Docs view)
-- ✅ No critical JavaScript errors
+- [OK] UI rendered correctly (Docs view)
+- [OK] No critical JavaScript errors
 
 **Key Functions Verified:**
-- `applyRuntimeInput` ✅
-- `process` ✅
-- `createEmptyEnv` ✅
-- `deriveDelta` ✅
-- `formatTokenAmount` ✅
+- `applyRuntimeInput` [OK]
+- `process` [OK]
+- `createEmptyEnv` [OK]
+- `deriveDelta` [OK]
+- `formatTokenAmount` [OK]
 
 **Screenshot:** `tests/e2e/screenshots/01-smoke-test-initial.png`
 
 ---
 
-## Test 2: Graph 3D View ✅
+## Test 2: Graph 3D View [OK]
 
 **Purpose:** Verify 3D visualization renders and controls work
 
 **Results:**
-- ✅ Graph 3D button clicked
-- ✅ 3D canvas rendered (WebGL)
-- ✅ Network topology sidebar visible
-- ✅ Controls responsive:
+- [OK] Graph 3D button clicked
+- [OK] 3D canvas rendered (WebGL)
+- [OK] Network topology sidebar visible
+- [OK] Controls responsive:
   - Entity dropdowns (66-73)
   - Payment amount input
   - Route selection (Direct / 3-hop)
   - Scenarios dropdown
-- ✅ Performance metrics displayed:
+- [OK] Performance metrics displayed:
   - FPS: 3700+ (excellent)
   - Render time: 0.2-0.3ms
   - Entities: 8
   - Connections: 12
-- ✅ Time machine visible at bottom
-- ✅ Activity log showing entity positions
+- [OK] Time machine visible at bottom
+- [OK] Activity log showing entity positions
 
 **Screenshot:** `tests/e2e/screenshots/02-graph-3d-view.png`
 
 ---
 
-## Test 3: Payment Flow ✅
+## Test 3: Payment Flow [OK]
 
 **Purpose:** Test bilateral consensus payment processing
 
@@ -75,39 +75,39 @@
 **Consensus Flow Verified:**
 
 **Frame 28 (Entity #66 proposes):**
-- ✅ DirectPayment transaction created
-- ✅ Added to Entity #66 mempool
-- ✅ Auto-propose triggered (isProposer=true)
-- ✅ Single-signer execution
-- ✅ Account frame proposed (hash: 0x394e86b3)
-- ✅ Frame signed by Entity #66
-- ✅ AccountInput sent to Entity #67
+- [OK] DirectPayment transaction created
+- [OK] Added to Entity #66 mempool
+- [OK] Auto-propose triggered (isProposer=true)
+- [OK] Single-signer execution
+- [OK] Account frame proposed (hash: 0x394e86b3)
+- [OK] Frame signed by Entity #66
+- [OK] AccountInput sent to Entity #67
 
 **Frame 29 (Entity #67 receives & confirms):**
-- ✅ AccountInput received from #66
-- ✅ Counter validation passed (3 vs acked=2)
-- ✅ Frame chain verified (prevFrameHash matches)
-- ✅ Signature verified from #66
-- ✅ STATE-VERIFY: Both sides computed identical state
-- ✅ **CONSENSUS-SUCCESS** - state roots match!
-- ✅ Frame 3 added to bilateral history
-- ✅ Frame signed by Entity #67
-- ✅ Response sent back to #66
+- [OK] AccountInput received from #66
+- [OK] Counter validation passed (3 vs acked=2)
+- [OK] Frame chain verified (prevFrameHash matches)
+- [OK] Signature verified from #66
+- [OK] STATE-VERIFY: Both sides computed identical state
+- [OK] **CONSENSUS-SUCCESS** - state roots match!
+- [OK] Frame 3 added to bilateral history
+- [OK] Frame signed by Entity #67
+- [OK] Response sent back to #66
 
 **Frame 30 (Entity #66 commits):**
-- ✅ Received confirmation from #67
-- ✅ Signature verified from #67
-- ✅ Frame 3 committed to history
-- ✅ Bilateral consensus complete
+- [OK] Received confirmation from #67
+- [OK] Signature verified from #67
+- [OK] Frame 3 committed to history
+- [OK] Bilateral consensus complete
 
 **State Changes:**
-- Height: 27 → 30 (+3 frames for bilateral consensus)
-- Account #66 ↔ #67: Frame 3 committed
+- Height: 27 [RIGHTWARDS] 30 (+3 frames for bilateral consensus)
+- Account #66 <-> #67: Frame 3 committed
 - Delta: -200000 (Entity #66 sent 200000 to #67)
 - Processing time: 46ms + 36ms + 24ms = 106ms total
 
 **Live Activity Ticker:**
-- ✅ Shows: "66 → 67: 200000"
+- [OK] Shows: "66 [RIGHTWARDS] 67: 200000"
 
 **Screenshot:** `tests/e2e/screenshots/03-payment-complete.png`
 
@@ -115,33 +115,33 @@
 
 ## Summary
 
-### ✅ Core Functionality Verified
+### [OK] Core Functionality Verified
 
 **Runtime Layer:**
-- ✅ `runtime.ts` → `runtime.js` build working
-- ✅ State persistence (LevelDB in browser)
-- ✅ History restoration (27 snapshots)
-- ✅ Global debug objects exposed
+- [OK] `runtime.ts` [RIGHTWARDS] `runtime.js` build working
+- [OK] State persistence (LevelDB in browser)
+- [OK] History restoration (27 snapshots)
+- [OK] Global debug objects exposed
 
 **Entity Layer (E-machine):**
-- ✅ Entity consensus working
-- ✅ Auto-propose logic functioning
-- ✅ Single-signer optimization working
-- ✅ Mempool management correct
+- [OK] Entity consensus working
+- [OK] Auto-propose logic functioning
+- [OK] Single-signer optimization working
+- [OK] Mempool management correct
 
 **Account Layer (A-machine):**
-- ✅ Bilateral consensus working
-- ✅ Frame proposal/sign/commit flow correct
-- ✅ State verification matching
-- ✅ Counter validation working
-- ✅ Frame chain integrity verified
+- [OK] Bilateral consensus working
+- [OK] Frame proposal/sign/commit flow correct
+- [OK] State verification matching
+- [OK] Counter validation working
+- [OK] Frame chain integrity verified
 
 **UI/Frontend:**
-- ✅ All views rendering (Docs, Graph 3D, Panels, Terminal)
-- ✅ Navigation working
-- ✅ Time machine functional
-- ✅ Activity logging correct
-- ✅ Performance excellent (4000+ FPS)
+- [OK] All views rendering (Docs, Graph 3D, Panels, Terminal)
+- [OK] Navigation working
+- [OK] Time machine functional
+- [OK] Activity logging correct
+- [OK] Performance excellent (4000+ FPS)
 
 ### Known Issues (Non-Critical)
 
@@ -176,16 +176,16 @@
 ## Renames Verified
 
 **All J-REA renames working in production:**
-- ✅ `ServerInput` → `RuntimeInput`
-- ✅ `ServerTx` → `RuntimeTx`
-- ✅ `serverTxs` → `runtimeTxs`
-- ✅ `server.ts` → `runtime.ts`
-- ✅ `server.js` → `runtime.js`
-- ✅ `processUntilEmpty()` → `process()`
-- ✅ `applyServerInput()` → `applyRuntimeInput()`
+- [OK] `ServerInput` [RIGHTWARDS] `RuntimeInput`
+- [OK] `ServerTx` [RIGHTWARDS] `RuntimeTx`
+- [OK] `serverTxs` [RIGHTWARDS] `runtimeTxs`
+- [OK] `server.ts` [RIGHTWARDS] `runtime.ts`
+- [OK] `server.js` [RIGHTWARDS] `runtime.js`
+- [OK] `processUntilEmpty()` [RIGHTWARDS] `process()`
+- [OK] `applyServerInput()` [RIGHTWARDS] `applyRuntimeInput()`
 
 **Console logs confirm:**
-- "Tick 27: 0 runtimeTxs, 1 merged entityInputs → 2 outputs"
+- "Tick 27: 0 runtimeTxs, 1 merged entityInputs [RIGHTWARDS] 2 outputs"
 - "Snapshot 28: ... runtimeTxs ..."
 - All terminology updated
 
@@ -195,10 +195,10 @@
 
 **Bilateral state verification logged:**
 ```
-🔍 STATE-VERIFY Frame 3:
+[FIND] STATE-VERIFY Frame 3:
   Our computed:  -200000000000000000000000...
   Their claimed: -200000000000000000000000...
-✅ CONSENSUS-SUCCESS: Both sides computed identical state for frame 3
+[OK] CONSENSUS-SUCCESS: Both sides computed identical state for frame 3
 ```
 
 **This is the core Byzantine fault tolerance working correctly.**
@@ -207,12 +207,12 @@
 
 ## Next Steps
 
-1. ✅ E2E framework operational
-2. ✅ Smoke test passing
-3. ✅ Payment flow verified
-4. ✅ Bilateral consensus working
-5. ⏭️ Fix RPC proxy for J-Watcher (non-blocking)
-6. ⏭️ Add more E2E scenarios:
+1. [OK] E2E framework operational
+2. [OK] Smoke test passing
+3. [OK] Payment flow verified
+4. [OK] Bilateral consensus working
+5. >> Fix RPC proxy for J-Watcher (non-blocking)
+6. >> Add more E2E scenarios:
    - Multi-hop payments
    - Account opening flow
    - Entity creation from UI
@@ -223,11 +223,11 @@
 ## Test Framework Status
 
 **Created:**
-- ✅ `tests/e2e/` directory structure
-- ✅ Playwright helper utilities
-- ✅ Test scenarios (smoke, entity, payment)
-- ✅ Documentation (README, QUICKSTART)
-- ✅ Screenshots directory
+- [OK] `tests/e2e/` directory structure
+- [OK] Playwright helper utilities
+- [OK] Test scenarios (smoke, entity, payment)
+- [OK] Documentation (README, QUICKSTART)
+- [OK] Screenshots directory
 
 **Usage:**
 Ask Claude Code:

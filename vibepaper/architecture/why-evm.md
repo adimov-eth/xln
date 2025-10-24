@@ -87,10 +87,10 @@ To update a balance:
 3. Sign transaction binding inputs to outputs
 
 This is fundamentally incompatible with:
-❌ Dynamic debt queues (can't iterate over variable-length arrays)
-❌ Partial payments (can't update debt amount mid-execution)
-❌ Multi-entity atomicity (each UTXO is independent)
-❌ Sequential processing (no global debt index)
+[X] Dynamic debt queues (can't iterate over variable-length arrays)
+[X] Partial payments (can't update debt amount mid-execution)
+[X] Multi-entity atomicity (each UTXO is independent)
+[X] Sequential processing (no global debt index)
 ```
 
 ### Specific Failures
@@ -132,9 +132,9 @@ _reserves[creditor][tokenId] += amount;
 **Could You Build "XLN-Lite" on UTXO?**
 
 **NO.** Removing any of these features breaks the core primitive:
-- No mutable debts → No partial payments → Credit system collapses
-- No loops → No FIFO enforcement → Liquidity trap breaks
-- No atomicity → Double-spend risk → Trustless settlement breaks
+- No mutable debts [RIGHTWARDS] No partial payments [RIGHTWARDS] Credit system collapses
+- No loops [RIGHTWARDS] No FIFO enforcement [RIGHTWARDS] Liquidity trap breaks
+- No atomicity [RIGHTWARDS] Double-spend risk [RIGHTWARDS] Trustless settlement breaks
 
 ---
 
@@ -189,9 +189,9 @@ Different optimization targets = wrong substrate
 **Could Solana Work With Modifications?**
 
 Maybe, but you'd need:
-- ✅ Serialize debt enforcement (loses Solana's parallelism advantage)
-- ✅ Rewrite rent model (significant protocol change)
-- ✅ Port all subcontracts (fragmented ecosystem)
+- [OK] Serialize debt enforcement (loses Solana's parallelism advantage)
+- [OK] Rewrite rent model (significant protocol change)
+- [OK] Port all subcontracts (fragmented ecosystem)
 
 At which point... why not just use EVM where 90% of DeFi already is?
 
@@ -202,28 +202,28 @@ At which point... why not just use EVM where 90% of DeFi already is?
 ### Move VM (Aptos, Sui)
 
 **Pros:**
-- ✅ Account-based state
-- ✅ Turing-complete
-- ✅ Resource-oriented (good for asset safety)
+- [OK] Account-based state
+- [OK] Turing-complete
+- [OK] Resource-oriented (good for asset safety)
 
 **Cons:**
-- ❌ Immature ecosystem (no CBDC adoption)
-- ❌ Resource model conflicts with mutable debts
-- ❌ No cross-chain bridges to EVM CBDCs (when they launch)
+- [X] Immature ecosystem (no CBDC adoption)
+- [X] Resource model conflicts with mutable debts
+- [X] No cross-chain bridges to EVM CBDCs (when they launch)
 
 **Verdict:** Technically possible, strategically irrelevant.
 
 ### CosmWasm (Cosmos)
 
 **Pros:**
-- ✅ Account-based
-- ✅ Turing-complete (Rust/Wasm)
-- ✅ IBC for cross-chain
+- [OK] Account-based
+- [OK] Turing-complete (Rust/Wasm)
+- [OK] IBC for cross-chain
 
 **Cons:**
-- ❌ Fragmented liquidity across app-chains
-- ❌ No major CBDC commitments
-- ❌ Complex state migration for multi-chain debts
+- [X] Fragmented liquidity across app-chains
+- [X] No major CBDC commitments
+- [X] Complex state migration for multi-chain debts
 
 **Verdict:** Possible but over-engineered for XLN's needs.
 
@@ -246,17 +246,17 @@ Central Bank Requirements for CBDCs:
 └─ Battle-tested security (billions at risk)
 
 Ethereum:
-✅ 10 years of security audits
-✅ $200B+ TVL (proven at scale)
-✅ USDC, USDT already using ERC20 standard
-✅ Every major bank has EVM devs on staff
-✅ Regulatory clarity (Howey test, securities law)
+[OK] 10 years of security audits
+[OK] $200B+ TVL (proven at scale)
+[OK] USDC, USDT already using ERC20 standard
+[OK] Every major bank has EVM devs on staff
+[OK] Regulatory clarity (Howey test, securities law)
 
 Other chains:
-❌ Less mature (higher risk)
-❌ Smaller dev ecosystem
-❌ Uncertain regulatory status
-❌ No institutional adoption yet
+[X] Less mature (higher risk)
+[X] Smaller dev ecosystem
+[X] Uncertain regulatory status
+[X] No institutional adoption yet
 ```
 
 ### Inevitable Convergence
@@ -310,20 +310,20 @@ Other chains become irrelevant for MAINSTREAM finance.
 ### Example: Bitcoin Integration
 
 ```
-Alice (EVM entity) ↔ Bob (Bitcoin UTXO holder)
+Alice (EVM entity) <-> Bob (Bitcoin UTXO holder)
 
 Adapter Flow:
 1. Bob locks BTC in HTLC (Bitcoin L1)
 2. Adapter mints wrapped BTC on EVM
-3. Alice ↔ Bob bilateral account (EVM side)
+3. Alice <-> Bob bilateral account (EVM side)
 4. Off-chain settlement via XLN (instant)
 5. Final anchor: Periodic HTLC claims on Bitcoin
 
 Result:
-✅ Bob uses Bitcoin
-✅ Alice uses EVM
-✅ Settlement happens on XLN (EVM)
-✅ Final proof on Bitcoin (if needed)
+[OK] Bob uses Bitcoin
+[OK] Alice uses EVM
+[OK] Settlement happens on XLN (EVM)
+[OK] Final proof on Bitcoin (if needed)
 ```
 
 ### Why Adapters, Not Native Support?
@@ -334,9 +334,9 @@ Core XLN: EVM-only (optimize for 80% use case)
 Adapters: Bridge to other chains (handle 20% edge cases)
 
 Benefits:
-✅ Simple core (easier to audit, maintain)
-✅ Flexible edges (add adapters as needed)
-✅ Clear responsibility (EVM = source of truth)
+[OK] Simple core (easier to audit, maintain)
+[OK] Flexible edges (add adapters as needed)
+[OK] Clear responsibility (EVM = source of truth)
 ```
 
 **Analogy:**

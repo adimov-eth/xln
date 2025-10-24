@@ -1,6 +1,6 @@
 # XLN Limit Order Book (LOB) — Design & Bench Overview
 
-## 🎯 Purpose
+## [GOAL] Purpose
 This LOB implementation is the **matching engine core** for XLN hubs.  
 It is **not an exchange UI** but a deterministic in-memory engine that:
 
@@ -14,7 +14,7 @@ Target: **≥50k TPS per hub** on commodity hardware (MacBook M1/M2), with clear
 
 ---
 
-## ✅ Goals
+## [OK] Goals
 1. **Clarity / Soundness**  
    Code must be *readable like a bible*, with explicit guards and comments.  
    Every branch explains its purpose. Developers must trust it.
@@ -38,10 +38,10 @@ Target: **≥50k TPS per hub** on commodity hardware (MacBook M1/M2), with clear
 
 ---
 
-## 🔑 Core Features
+## [KEY] Core Features
 - **Bid/Ask separation** with typed arrays.
-- **Doubly-linked lists** per price level → FIFO guarantee.
-- **O(1) cancel**: direct removal via `orderId → slotIdx`.
+- **Doubly-linked lists** per price level [RIGHTWARDS] FIFO guarantee.
+- **O(1) cancel**: direct removal via `orderId [RIGHTWARDS] slotIdx`.
 - **Self-Trade Prevention (STP)** policies:
   - 0 = off
   - 1 = cancel taker
@@ -59,7 +59,7 @@ Target: **≥50k TPS per hub** on commodity hardware (MacBook M1/M2), with clear
 
 ---
 
-## 🧩 Bench Modes
+## [PUZZLE] Bench Modes
 
 ### 1. Throughput
 - Pre-generated synthetic workload.

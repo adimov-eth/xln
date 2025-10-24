@@ -31,12 +31,12 @@
       {
         "object": "JSON",
         "property": "stringify",
-        "message": "🚨 FINTECH-SAFETY: Use safeStringify() from serialization-utils (for logs) or encode() from snapshot-coder (for storage). BigInt values will crash JSON.stringify()!"
+        "message": "[ALERT] FINTECH-SAFETY: Use safeStringify() from serialization-utils (for logs) or encode() from snapshot-coder (for storage). BigInt values will crash JSON.stringify()!"
       },
       {
         "object": "JSON",
         "property": "parse",
-        "message": "⚠️ FINTECH-SAFETY: Consider using safeParse() or decode() for BigInt-safe deserialization."
+        "message": "[WARN] FINTECH-SAFETY: Consider using safeParse() or decode() for BigInt-safe deserialization."
       }
     ],
   },

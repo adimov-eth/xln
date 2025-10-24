@@ -16,11 +16,11 @@ BLUE='\033[0;34m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
-log_info() { echo -e "${BLUE}ℹ️  $1${NC}"; }
-log_success() { echo -e "${GREEN}✅ $1${NC}"; }
-log_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
+log_info() { echo -e "${BLUE}[INFO]  $1${NC}"; }
+log_success() { echo -e "${GREEN}[OK] $1${NC}"; }
+log_warning() { echo -e "${YELLOW}[WARN]  $1${NC}"; }
 
-echo "🚀 Deploying XLN to Vultr Server"
+echo "[LAUNCH] Deploying XLN to Vultr Server"
 echo "================================"
 echo "Server: $SERVER_IP"
 echo "User: $SERVER_USER"
@@ -29,7 +29,7 @@ echo ""
 # Check if we can connect to server
 log_info "Testing server connection..."
 if ! ssh -o ConnectTimeout=5 -o BatchMode=yes $SERVER_USER@$SERVER_IP exit 2>/dev/null; then
-    echo "❌ Cannot connect to server $SERVER_IP"
+    echo "[X] Cannot connect to server $SERVER_IP"
     echo "Make sure:"
     echo "  1. Server is running"
     echo "  2. SSH key is configured"
@@ -40,18 +40,18 @@ log_success "Server connection OK"
 
 # Check if setup script exists
 if [ ! -f "setup-server.sh" ]; then
-    echo "❌ setup-server.sh not found in current directory"
+    echo "[X] setup-server.sh not found in current directory"
     exit 1
 fi
 
 # 1. Upload and run setup script
-log_info "1️⃣  Running server setup..."
+log_info "1⃣  Running server setup..."
 scp setup-server.sh $SERVER_USER@$SERVER_IP:/tmp/
 ssh $SERVER_USER@$SERVER_IP "chmod +x /tmp/setup-server.sh && /tmp/setup-server.sh"
 log_success "Server setup complete"
 
 # 2. Check if XLN directory exists, if not clone it
-log_info "2️⃣  Checking XLN repository..."
+log_info "2⃣  Checking XLN repository..."
 if ssh $SERVER_USER@$SERVER_IP "[ ! -d $XLN_DIR/.git ]"; then
     log_info "Cloning XLN repository..."
     ssh $SERVER_USER@$SERVER_IP "
@@ -65,7 +65,7 @@ else
 fi
 
 # 3. Deploy latest changes
-log_info "3️⃣  Deploying latest changes..."
+log_info "3⃣  Deploying latest changes..."
 
 # Option A: Git-based deployment (recommended)
 if git rev-parse --git-dir > /dev/null 2>&1; then
@@ -106,7 +106,7 @@ else
 fi
 
 # 4. Check deployment status
-log_info "4️⃣  Checking deployment status..."
+log_info "4⃣  Checking deployment status..."
 DEPLOYMENT_STATUS=$(ssh $SERVER_USER@$SERVER_IP "cd $XLN_DIR && pm2 status --no-color | grep xln-server || echo 'not running'")
 
 if echo "$DEPLOYMENT_STATUS" | grep -q "online"; then
@@ -118,14 +118,14 @@ fi
 
 # 5. Final summary
 echo ""
-echo "🎉 Deployment Summary"
+echo "[DONE] Deployment Summary"
 echo "===================="
 log_success "XLN deployed to: http://$SERVER_IP"
 echo ""
-echo "🔧 Useful commands:"
+echo "[TOOL] Useful commands:"
 echo "   • Check status: ssh $SERVER_USER@$SERVER_IP 'pm2 status'"
 echo "   • View logs: ssh $SERVER_USER@$SERVER_IP 'pm2 logs xln-server'"
 echo "   • Restart: ssh $SERVER_USER@$SERVER_IP 'pm2 restart xln-server'"
 echo "   • Redeploy: ./deploy-to-vultr.sh $SERVER_IP"
 echo ""
-log_success "Deployment complete! 🚀"
+log_success "Deployment complete! [LAUNCH]"

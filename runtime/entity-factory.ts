@@ -169,11 +169,11 @@ export const createLazyEntity = (
 
   const entityId = generateLazyEntityId(validators, threshold);
 
-  if (DEBUG) console.log(`🔒 Creating lazy entity: ${name}`);
+  if (DEBUG) console.log(`[LOCK] Creating lazy entity: ${name}`);
   if (DEBUG) console.log(`   EntityID: ${entityId} (quorum hash)`);
   if (DEBUG) console.log(`   Validators: ${validators.join(', ')}`);
   if (DEBUG) console.log(`   Threshold: ${threshold}`);
-  if (DEBUG) console.log(`   🆓 FREE - No gas required`);
+  if (DEBUG) console.log(`   [FREE] FREE - No gas required`);
 
   const shares: { [validatorId: string]: bigint } = {};
   validators.forEach(validator => {
@@ -189,7 +189,7 @@ export const createLazyEntity = (
   };
 
   const executionTimeMs = performance.now() - startTime;
-  console.log(`⚡ Lazy entity creation: ${executionTimeMs.toFixed(3)}ms (pure in-memory)`);
+  console.log(`[FAST] Lazy entity creation: ${executionTimeMs.toFixed(3)}ms (pure in-memory)`);
 
   return { config, executionTimeMs };
 };
@@ -215,10 +215,10 @@ export const createNumberedEntity = async (
     }),
   );
 
-  if (DEBUG) console.log(`🔢 Creating numbered entity: ${name}`);
+  if (DEBUG) console.log(`[123] Creating numbered entity: ${name}`);
   if (DEBUG) console.log(`   Board Hash: ${boardHash}`);
   if (DEBUG) console.log(`   Jurisdiction: ${jurisdiction.name}`);
-  if (DEBUG) console.log(`   💸 Gas required for registration`);
+  if (DEBUG) console.log(`   [$$] Gas required for registration`);
 
   // Get the next entity number from the blockchain
   const { getNextEntityNumber, registerNumberedEntityOnChain } = await import('./evm');
@@ -235,7 +235,7 @@ export const createNumberedEntity = async (
 
     const entityId = generateNumberedEntityId(entityNumber);
 
-    if (DEBUG) console.log(`   ✅ Registered Entity Number: ${entityNumber}`);
+    if (DEBUG) console.log(`   [OK] Registered Entity Number: ${entityNumber}`);
     if (DEBUG) console.log(`   EntityID: ${entityId}`);
 
     const shares: { [validatorId: string]: bigint } = {};
@@ -253,7 +253,7 @@ export const createNumberedEntity = async (
 
     return { config, entityNumber, entityId };
   } catch (error) {
-    console.error('❌ Failed to register numbered entity on blockchain:', error);
+    console.error('[X] Failed to register numbered entity on blockchain:', error);
     throw error;
   }
 };
@@ -270,7 +270,7 @@ export const createNumberedEntitiesBatch = async (
     throw new Error('Jurisdiction required for numbered entity registration');
   }
 
-  console.log(`🔢 Batch creating ${entities.length} numbered entities in ONE transaction`);
+  console.log(`[123] Batch creating ${entities.length} numbered entities in ONE transaction`);
 
   // Build configs for all entities
   const configs: ConsensusConfig[] = entities.map(e => ({
@@ -291,7 +291,7 @@ export const createNumberedEntitiesBatch = async (
     const config = configs[i];
     if (!config) throw new Error(`Missing config for entity ${i}`);
 
-    console.log(`  ✅ Entity ${i + 1}/${entities.length}: #${entityNumber} (${entityId.slice(0, 10)}...)`);
+    console.log(`  [OK] Entity ${i + 1}/${entities.length}: #${entityNumber} (${entityId.slice(0, 10)}...)`);
 
     return { config, entityNumber, entityId };
   });
@@ -307,17 +307,17 @@ export const requestNamedEntity = async (
     throw new Error('Jurisdiction required for named entity');
   }
 
-  if (DEBUG) console.log(`🏷️ Requesting named entity assignment`);
+  if (DEBUG) console.log(`[TAG] Requesting named entity assignment`);
   if (DEBUG) console.log(`   Name: ${name}`);
   if (DEBUG) console.log(`   Target Entity Number: ${entityNumber}`);
   if (DEBUG) console.log(`   Jurisdiction: ${jurisdiction.name}`);
-  if (DEBUG) console.log(`   👑 Requires admin approval`);
+  if (DEBUG) console.log(`   [ADMIN] Requires admin approval`);
 
   // Simulate admin assignment request
   const requestId = `req_${Math.random().toString(16).substring(2, 10)}`;
 
-  if (DEBUG) console.log(`   📝 Name assignment request submitted: ${requestId}`);
-  if (DEBUG) console.log(`   ⏳ Waiting for admin approval...`);
+  if (DEBUG) console.log(`   [MEMO] Name assignment request submitted: ${requestId}`);
+  if (DEBUG) console.log(`   [WAIT] Waiting for admin approval...`);
 
   return requestId;
 };
@@ -348,7 +348,7 @@ export const resolveEntityIdentifier = async (identifier: string): Promise<{ ent
   } else {
     // "coinbase" -> named entity (requires on-chain lookup)
     // For demo, simulate lookup
-    if (DEBUG) console.log(`🔍 Looking up named entity: ${identifier}`);
+    if (DEBUG) console.log(`[FIND] Looking up named entity: ${identifier}`);
 
     // Simulate on-chain name resolution
     const simulatedNumber = identifier === 'coinbase' ? 42 : 0;

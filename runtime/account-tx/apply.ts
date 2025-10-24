@@ -24,7 +24,7 @@ export function processAccountTx(
   accountTx: AccountTx,
   isOurFrame: boolean = true
 ): { success: boolean; events: string[]; error?: string } {
-  console.log(`🔄 Processing ${accountTx.type} for ${accountMachine.counterpartyEntityId.slice(-4)} (ourFrame: ${isOurFrame})`);
+  console.log(`[ANTICLOCKWISE] Processing ${accountTx.type} for ${accountMachine.counterpartyEntityId.slice(-4)} (ourFrame: ${isOurFrame})`);
 
   // Route to appropriate handler based on transaction type
   switch (accountTx.type) {
@@ -39,13 +39,13 @@ export function processAccountTx(
 
     case 'account_payment':
       // Legacy type - not used in new implementation
-      console.warn(`⚠️ account_payment type is deprecated`);
+      console.warn(`[WARN] account_payment type is deprecated`);
       return { success: true, events: [] };
 
     case 'account_settle':
       // Blockchain settlement - handled separately in entity-tx/handlers/account.ts
-      console.log(`💰 account_settle processed externally`);
-      return { success: true, events: [`⚖️ Settlement processed`] };
+      console.log(`[$] account_settle processed externally`);
+      return { success: true, events: [`[SCALES] Settlement processed`] };
 
     case 'reserve_to_collateral':
       return handleReserveToCollateral(accountMachine, accountTx as Extract<AccountTx, { type: 'reserve_to_collateral' }>);
@@ -61,7 +61,7 @@ export function processAccountTx(
 
     case 'account_frame':
       // This should never be called - frames are handled by frame-level consensus
-      console.error(`❌ FATAL: account_frame should not be in accountTxs array!`);
+      console.error(`[X] FATAL: account_frame should not be in accountTxs array!`);
       return { success: false, error: 'account_frame is not a transaction type', events: [] };
 
     default:

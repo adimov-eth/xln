@@ -7,11 +7,11 @@ This guide documents debugging techniques and patterns discovered during develop
 
 ### 1. Extensive Console Logging
 Use unique prefixes for different subsystems:
-- `🔥 PROCESS-CASCADE` - processUntilEmpty execution
-- `🗳️` - Voting and proposal operations  
-- `🔍` - Frame and history analysis
-- `🚨 APPLY-ENTITY-TX` - Transaction application
-- `🔄` - State refresh operations
+- `[FIRE] PROCESS-CASCADE` - processUntilEmpty execution
+- `[VOTE]` - Voting and proposal operations  
+- `[FIND]` - Frame and history analysis
+- `[ALERT] APPLY-ENTITY-TX` - Transaction application
+- `[ANTICLOCKWISE]` - State refresh operations
 
 ### 2. Critical Race Condition: Vote Processing
 **Problem**: Votes submitted by non-proposers weren't appearing in proposals.
@@ -63,7 +63,7 @@ if (entityReplica.state.validators.size === 1 && entityReplica.state.threshold =
 ## Transaction Flow Debugging
 
 ### Vote Transaction Journey
-1. **Frontend**: User clicks vote → `submitVote()` 
+1. **Frontend**: User clicks vote [RIGHTWARDS] `submitVote()` 
 2. **Data Transform**: Choice converted to string, comment added
 3. **Server Input**: `applyServerInput()` processes vote
 4. **Forwarding**: Non-proposer forwards to proposer
@@ -72,11 +72,11 @@ if (entityReplica.state.validators.size === 1 && entityReplica.state.threshold =
 
 ### Debug Log Sequence for Vote
 ```
-🗳️ Vote form data: {proposalId: 'prop_123', voteChoice: 'yes', comment: 'agree'}
-🔥 BOB-TO-ALICE: Bob forwarding 1 txs to proposer alice
-🔥 ALICE-RECEIVES: Alice received input with 1 txs
-🔥 ALICE-PROPOSES: Alice proposing frame with 1 txs
-🚨 APPLY-ENTITY-TX: Processing vote tx for proposal prop_123
+[VOTE] Vote form data: {proposalId: 'prop_123', voteChoice: 'yes', comment: 'agree'}
+[FIRE] BOB-TO-ALICE: Bob forwarding 1 txs to proposer alice
+[FIRE] ALICE-RECEIVES: Alice received input with 1 txs
+[FIRE] ALICE-PROPOSES: Alice proposing frame with 1 txs
+[ALERT] APPLY-ENTITY-TX: Processing vote tx for proposal prop_123
 ```
 
 ## Common Error Patterns
@@ -128,17 +128,17 @@ if (!replica) {
 ### 1. State Inspection
 ```javascript
 // Check replica state
-console.log('🔍 Replica state:', replica.state);
-console.log('🔍 Mempool:', replica.mempool);
-console.log('🔍 Proposals:', replica.state.proposals);
+console.log('[FIND] Replica state:', replica.state);
+console.log('[FIND] Mempool:', replica.mempool);
+console.log('[FIND] Proposals:', replica.state.proposals);
 ```
 
 ### 2. Transaction Tracing
 ```javascript
 // Trace transaction through system
-console.log('📤 TX-OUT:', tx);
-console.log('📥 TX-IN:', receivedTx);
-console.log('🔄 TX-APPLY:', appliedTx);
+console.log('[OUT] TX-OUT:', tx);
+console.log('[INBOX] TX-IN:', receivedTx);
+console.log('[ANTICLOCKWISE] TX-APPLY:', appliedTx);
 ```
 
 ### 3. Frame Analysis
@@ -146,7 +146,7 @@ console.log('🔄 TX-APPLY:', appliedTx);
 // Analyze historical frames
 for (let i = 0; i < history.length; i++) {
   const snapshot = history[i];
-  console.log(`🔍 Frame ${i}: entityInputs=${snapshot.entityInputs?.length || 0}`);
+  console.log(`[FIND] Frame ${i}: entityInputs=${snapshot.entityInputs?.length || 0}`);
 }
 ```
 

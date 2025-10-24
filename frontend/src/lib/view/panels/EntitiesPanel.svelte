@@ -60,7 +60,7 @@
 
 <div class="entities-panel">
   <div class="header">
-    <h3>🏢 Entities</h3>
+    <h3>[OFFICE] Entities</h3>
     <span>{entities.length} total</span>
   </div>
 

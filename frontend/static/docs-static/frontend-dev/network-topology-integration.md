@@ -1,6 +1,6 @@
 # NetworkTopology.svelte Integration Guide
 
-Complete guide for integrating managers and visual effects into NetworkTopology.svelte (5933 lines → modular architecture).
+Complete guide for integrating managers and visual effects into NetworkTopology.svelte (5933 lines [RIGHTWARDS] modular architecture).
 
 ---
 
@@ -242,12 +242,12 @@ gestureManager = new GestureManager();
 // Register shake-to-rebalance callback
 gestureManager.on((event) => {
   if (event.type === 'shake-rebalance') {
-    console.log('🤝 SHAKE REBALANCE TRIGGERED:', event.entityId);
+    console.log('[HANDSHAKE] SHAKE REBALANCE TRIGGERED:', event.entityId);
     handleRebalanceGesture(event.entityId);
   }
 });
 
-console.log('✅ Visual effects system initialized');
+console.log('[OK] Visual effects system initialized');
 ```
 
 ### Add Effect Handlers
@@ -262,11 +262,11 @@ After onMount (around line 700):
  */
 async function handleRebalanceGesture(entityId: string) {
   try {
-    console.log(`🔄 Initiating automatic rebalance for entity: ${entityId}`);
+    console.log(`[ANTICLOCKWISE] Initiating automatic rebalance for entity: ${entityId}`);
 
     const xln = await getXLN();
     if (!xln) {
-      console.error('❌ XLN not loaded');
+      console.error('[X] XLN not loaded');
       return;
     }
 
@@ -275,9 +275,9 @@ async function handleRebalanceGesture(entityId: string) {
     // 2. Scan all accounts for net-receivers (requestedRebalance > 0)
     // 3. Match spenders with receivers
     // 4. Collect withdrawal signatures
-    // 5. Submit atomic batch (C→R from spenders, R→C to receivers)
+    // 5. Submit atomic batch (C[RIGHTWARDS]R from spenders, R[RIGHTWARDS]C to receivers)
 
-    console.log('⚠️ Rebalance coordination not yet implemented');
+    console.log('[WARN] Rebalance coordination not yet implemented');
 
     // Visual feedback ripple
     if (spatialHash) {
@@ -294,7 +294,7 @@ async function handleRebalanceGesture(entityId: string) {
       }
     }
   } catch (error) {
-    console.error('❌ Rebalance gesture failed:', error);
+    console.error('[X] Rebalance gesture failed:', error);
   }
 }
 

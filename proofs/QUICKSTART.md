@@ -1,6 +1,6 @@
 # E2E Testing Quick Start
 
-## ⚠️ PREREQUISITE: Server Must Be Running
+## [WARN] PREREQUISITE: Server Must Be Running
 
 **E2E tests will fail with "Connection Refused" if the dev server isn't running.**
 
@@ -16,18 +16,18 @@ bun run dev
 
 **Wait for this confirmation:**
 ```
-✅ ✅ ✅ DEVELOPMENT ENVIRONMENT READY ✅ ✅ ✅
+[OK] [OK] [OK] DEVELOPMENT ENVIRONMENT READY [OK] [OK] [OK]
 
-🌐 Frontend: http://localhost:8080
-🌐 HTTPS:    https://localhost:8080  ← E2E tests use HTTPS
-🔗 Blockchain: http://localhost:8545 (anvil)
-📦 Auto-rebuild: Enabled (runtime.js + frontend)
+[WEB] Frontend: http://localhost:8080
+[WEB] HTTPS:    https://localhost:8080  [LEFTWARDS] E2E tests use HTTPS
+[LINK] Blockchain: http://localhost:8545 (anvil)
+[PKG] Auto-rebuild: Enabled (runtime.js + frontend)
 ```
 
 **Keep this terminal running.** All E2E tests require:
-- ✅ HTTPS server at https://localhost:8080
-- ✅ Anvil blockchain at http://localhost:8545
-- ✅ Auto-rebuild watching for changes
+- [OK] HTTPS server at https://localhost:8080
+- [OK] Anvil blockchain at http://localhost:8545
+- [OK] Auto-rebuild watching for changes
 
 ### 2. Run the Smoke Test
 
@@ -66,27 +66,27 @@ open tests/e2e/screenshots/
 
 **Claude:**
 ```
-🧪 Running Smoke Test...
+[TEST] Running Smoke Test...
 
 1. Navigating to https://localhost:8080
-   ✅ Page loaded
+   [OK] Page loaded
 
 2. Checking XLN runtime
-   ✅ window.XLN exists
-   ✅ window.xlnEnv exists
+   [OK] window.XLN exists
+   [OK] window.xlnEnv exists
 
 3. Verifying environment state
    Height: 0
    Replicas: 0
-   ✅ Initial state correct
+   [OK] Initial state correct
 
 4. Checking console errors
-   ✅ No errors found
+   [OK] No errors found
 
 5. Taking screenshot
-   📸 Saved: smoke-test-2025-10-10.png
+   [CAM] Saved: smoke-test-2025-10-10.png
 
-✅ SMOKE TEST PASSED
+[OK] SMOKE TEST PASSED
 ```
 
 ## Available Tests
@@ -124,16 +124,16 @@ XLN uses self-signed HTTPS certificates for localhost.
 ---
 
 **Error: XLN not defined**
-→ Wait for runtime to load (use `waitForXLNReady()`)
+[RIGHTWARDS] Wait for runtime to load (use `waitForXLNReady()`)
 
 ---
 
 **Error: Blockchain tx failed**
-→ Check Anvil is running (should start automatically with `bun run dev`)
+[RIGHTWARDS] Check Anvil is running (should start automatically with `bun run dev`)
 
 ## Next Steps
 
-1. ✅ Run smoke test
+1. [OK] Run smoke test
 2. Run entity creation test
 3. Run payment flow test
 4. Write custom tests for your features

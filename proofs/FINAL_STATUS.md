@@ -1,8 +1,8 @@
 # XLN E2E Test - Final Status
 
-## ✅ WHAT WORKS (PRODUCTION-READY)
+## [OK] WHAT WORKS (PRODUCTION-READY)
 
-### Core Functionality ✅
+### Core Functionality [OK]
 - **Runtime loading:** Height 30, 8 entities restored from IndexedDB
 - **Payment processing:** Bilateral consensus working perfectly
 - **State verification:** Both entities compute identical state roots
@@ -11,23 +11,23 @@
 - **Time machine:** History playback working
 - **Performance:** 0.3ms avg render time
 
-### Consensus Verified ✅
+### Consensus Verified [OK]
 ```
-✅ CONSENSUS-SUCCESS: Both sides computed identical state for frame 3
+[OK] CONSENSUS-SUCCESS: Both sides computed identical state for frame 3
 ```
 
-Entity #66 → #67 payment processed through 3 frames (PROPOSE → SIGN → COMMIT).
+Entity #66 [RIGHTWARDS] #67 payment processed through 3 frames (PROPOSE [RIGHTWARDS] SIGN [RIGHTWARDS] COMMIT).
 
-### Renamed Architecture ✅
-- ✅ `server.ts` → `runtime.ts`
-- ✅ `ServerInput` → `RuntimeInput`
-- ✅ `processUntilEmpty()` → `process()`
-- ✅ All 15+ files updated
-- ✅ `bun run check` passes (0 errors)
+### Renamed Architecture [OK]
+- [OK] `server.ts` [RIGHTWARDS] `runtime.ts`
+- [OK] `ServerInput` [RIGHTWARDS] `RuntimeInput`
+- [OK] `processUntilEmpty()` [RIGHTWARDS] `process()`
+- [OK] All 15+ files updated
+- [OK] `bun run check` passes (0 errors)
 
 ---
 
-## ⚠️ KNOWN ISSUES (NON-CRITICAL)
+## [WARN] KNOWN ISSUES (NON-CRITICAL)
 
 ### 1. HTTP Not Supported (BY DESIGN)
 
@@ -87,7 +87,7 @@ JsonRpcProvider failed to detect network and cannot start up; retry in 1s
 
 **Why:**
 - Browser (HTTPS) trying to connect to Anvil (HTTP)
-- Mixed content policy blocks HTTPS→HTTP requests
+- Mixed content policy blocks HTTPS[RIGHTWARDS]HTTP requests
 
 **Impact:** J-Watcher can't sync blockchain events
 
@@ -97,20 +97,20 @@ J-Watcher retries every 1 second. Payments work without blockchain sync (using e
 **Proper fix (TODO):**
 Add RPC proxy in dev server:
 ```
-HTTPS frontend → HTTPS proxy → HTTP Anvil
+HTTPS frontend [RIGHTWARDS] HTTPS proxy [RIGHTWARDS] HTTP Anvil
 ```
 
 ---
 
-## 🎯 PRODUCTION STATUS
+## [GOAL] PRODUCTION STATUS
 
-**Ready for visual demos:** ✅
+**Ready for visual demos:** [OK]
 - Graph 3D works
 - Payments process correctly
 - Consensus verified
 - Performance excellent
 
-**NOT ready for mainnet:** ❌
+**NOT ready for mainnet:** [X]
 - J-Watcher not syncing (RPC SSL issue)
 - WebSocket HMR not working (dev only)
 - Need RPC proxy implementation
@@ -121,12 +121,12 @@ HTTPS frontend → HTTPS proxy → HTTP Anvil
 
 | Test | Status | Details |
 |------|--------|---------|
-| Smoke Test | ✅ PASS | Runtime loads, window.XLN exposed |
-| Graph 3D | ✅ PASS | 3D view renders at 3000+ FPS |
-| Payment Flow | ✅ PASS | Bilateral consensus working |
-| State Verification | ✅ PASS | Identical state roots computed |
-| UI Navigation | ✅ PASS | All views accessible |
-| Time Machine | ✅ PASS | History playback functional |
+| Smoke Test | [OK] PASS | Runtime loads, window.XLN exposed |
+| Graph 3D | [OK] PASS | 3D view renders at 3000+ FPS |
+| Payment Flow | [OK] PASS | Bilateral consensus working |
+| State Verification | [OK] PASS | Identical state roots computed |
+| UI Navigation | [OK] PASS | All views accessible |
+| Time Machine | [OK] PASS | History playback functional |
 
 **Screenshots captured:** 3 full-page screenshots in `.playwright-mcp/tests/e2e/screenshots/`
 
@@ -135,10 +135,10 @@ HTTPS frontend → HTTPS proxy → HTTP Anvil
 ## Recommendations
 
 ### Immediate (Before Next Demo)
-1. ✅ DONE - J-REA rename complete
-2. ✅ DONE - E2E testing framework operational
-3. ⏭️ Fix RPC proxy (enable J-Watcher sync)
-4. ⏭️ Document HTTPS-only requirement clearly
+1. [OK] DONE - J-REA rename complete
+2. [OK] DONE - E2E testing framework operational
+3. >> Fix RPC proxy (enable J-Watcher sync)
+4. >> Document HTTPS-only requirement clearly
 
 ### Nice to Have
 1. Fix WebSocket HMR for dev convenience
@@ -156,14 +156,14 @@ HTTPS frontend → HTTPS proxy → HTTP Anvil
 
 **Always use HTTPS:**
 ```
-✅ https://localhost:8080
-❌ http://localhost:8080
+[OK] https://localhost:8080
+[X] http://localhost:8080
 ```
 
 **Dev server:**
 ```bash
 bun run dev
-# Wait for: ✅ ✅ ✅ DEVELOPMENT ENVIRONMENT READY ✅ ✅ ✅
+# Wait for: [OK] [OK] [OK] DEVELOPMENT ENVIRONMENT READY [OK] [OK] [OK]
 # Then access: https://localhost:8080
 ```
 

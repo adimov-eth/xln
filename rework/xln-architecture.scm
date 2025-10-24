@@ -4,7 +4,7 @@
 ;;
 ;; Legend:
 ;;   (module name [files...] purpose flows)
-;;   → = data flow direction
+;;   [RIGHTWARDS] = data flow direction
 ;;   ⊕ = aggregation/composition
 ;;   ⊗ = validation/filtering
 ;;   ∘ = function composition
@@ -12,7 +12,7 @@
 
 (xln
   :root "/Users/adimov/Developer/xln"
-  :architecture 'r-e-a  ;; Runtime → Entity → Account layers
+  :architecture 'r-e-a  ;; Runtime [RIGHTWARDS] Entity [RIGHTWARDS] Account layers
 
   ;; ═══════════════════════════════════════════════════════════════════════
   ;; CONSENSUS LAYERS (Byzantine Fault Tolerant State Machines)
@@ -29,7 +29,7 @@
         (runtime.ts
           :loc 856
           :exports '(createEnv applyRuntimeInput process tick)
-          :flow '(RuntimeInput → EntityInput[] → Env))
+          :flow '(RuntimeInput [RIGHTWARDS] EntityInput[] [RIGHTWARDS] Env))
 
         (types.ts
           :loc 718
@@ -43,10 +43,10 @@
 
       (data-flow
         (tick
-          '(external-event → RuntimeInput)
-          '(merge-inputs → Env.runtimeInput)
-          '(process → EntityInput[])
-          '(create-snapshot → Env.history))))
+          '(external-event [RIGHTWARDS] RuntimeInput)
+          '(merge-inputs [RIGHTWARDS] Env.runtimeInput)
+          '(process [RIGHTWARDS] EntityInput[])
+          '(create-snapshot [RIGHTWARDS] Env.history))))
 
     ;; Entity Layer - BFT consensus (Tendermint-like)
     (entity-layer
@@ -56,8 +56,8 @@
       (files
         (entity-consensus.ts
           :loc 644
-          :purpose "BFT consensus: ADD_TX → PROPOSE → PRECOMMIT → COMMIT"
-          :flow '(EntityInput → EntityTx[] → ProposedFrame → threshold-sigs → finalized))
+          :purpose "BFT consensus: ADD_TX [RIGHTWARDS] PROPOSE [RIGHTWARDS] PRECOMMIT [RIGHTWARDS] COMMIT"
+          :flow '(EntityInput [RIGHTWARDS] EntityTx[] [RIGHTWARDS] ProposedFrame [RIGHTWARDS] threshold-sigs [RIGHTWARDS] finalized))
 
         (entity-crontab.ts
           :loc 422
@@ -72,12 +72,12 @@
       (consensus-protocol
         (proposer-selection
           :mode 'static  ;; validators[0] is proposer (not rotating)
-          :flow '(validators → proposer-id → mempool-collection))
+          :flow '(validators [RIGHTWARDS] proposer-id [RIGHTWARDS] mempool-collection))
 
         (bft-voting
           :threshold '(>= 2/3)
           :precommits '(Map signerId signature)
-          :finalization '(threshold-reached → apply-frame))
+          :finalization '(threshold-reached [RIGHTWARDS] apply-frame))
 
         (frame-structure
           (EntityFrame
@@ -93,7 +93,7 @@
         (account-consensus.ts
           :loc 892
           :purpose "Process bilateral AccountInput, ACK frames, handle disputes"
-          :flow '(AccountInput → validate → apply-txs → create-frame → sign))
+          :flow '(AccountInput [RIGHTWARDS] validate [RIGHTWARDS] apply-txs [RIGHTWARDS] create-frame [RIGHTWARDS] sign))
 
         (account-utils.ts
           :purpose "Delta derivation, left/right perspective logic"
@@ -106,7 +106,7 @@
       (bilateral-protocol
         (frame-consensus
           :pattern 'ping-pong
-          :flow '(A-proposes → B-validates → B-signs → A-receives → 2-of-2-finalized))
+          :flow '(A-proposes [RIGHTWARDS] B-validates [RIGHTWARDS] B-signs [RIGHTWARDS] A-receives [RIGHTWARDS] 2-of-2-finalized))
 
         (counter-mechanism
           :purpose "Replay protection"
@@ -127,8 +127,8 @@
           (direct-payment.ts :multi-hop 'yes :forwarding 'pendingForward)
           (add-delta.ts :purpose "Add new token to account")
           (set-credit-limit.ts :purpose "Mutual credit extension")
-          (reserve-to-collateral.ts :purpose "Phase 1: R→C funding")
-          (request-withdrawal.ts :purpose "Phase 2: C→R withdrawal")
+          (reserve-to-collateral.ts :purpose "Phase 1: R[RIGHTWARDS]C funding")
+          (request-withdrawal.ts :purpose "Phase 2: C[RIGHTWARDS]R withdrawal")
           (approve-withdrawal.ts :purpose "ACK/NACK withdrawal")
           (deposit-collateral.ts :purpose "Add collateral to bilateral channel")
           (request-rebalance.ts :purpose "Request hub to rebalance"))))
@@ -145,7 +145,7 @@
         (handlers/account.ts
           :purpose "Process AccountInput, consume pendingForward"
           :pattern 'layer-cooperation  ;; Account sets flag, Entity consumes
-          :flow '(AccountInput → processAccountInput → pendingForward? → create-next-hop)))))
+          :flow '(AccountInput [RIGHTWARDS] processAccountInput [RIGHTWARDS] pendingForward? [RIGHTWARDS] create-next-hop)))))
 
   ;; ═══════════════════════════════════════════════════════════════════════
   ;; NETWORK DISCOVERY & ROUTING (Emergent from Bilateral Consensus)
@@ -168,7 +168,7 @@
           :loc 70
           :purpose "Build profile from EntityState"
           :critical-fn 'buildEntityProfile  ;; Extracts tokenCapacities
-          :flow '(EntityState → accounts → deltas → deriveDelta → capacities)))
+          :flow '(EntityState [RIGHTWARDS] accounts [RIGHTWARDS] deltas [RIGHTWARDS] deriveDelta [RIGHTWARDS] capacities)))
 
       (profile-structure
         (Profile
@@ -200,19 +200,19 @@
 
       (routing-flow
         '(bilateral-delta-update
-          → buildEntityProfile
-          → gossip.announce
-          → buildNetworkGraph
-          → PathFinder.findRoutes
-          → optimal-path))
+          [RIGHTWARDS] buildEntityProfile
+          [RIGHTWARDS] gossip.announce
+          [RIGHTWARDS] buildNetworkGraph
+          [RIGHTWARDS] PathFinder.findRoutes
+          [RIGHTWARDS] optimal-path))
 
       (edge-structure
         (ChannelEdge
           :fields '(from to tokenId capacity baseFee feePPM disabled)))
 
       (pathfinding-constraints
-        :no-loops '(path.includes(node) → skip)
-        :capacity-check '(requiredAmount > edge.capacity → skip)
+        :no-loops '(path.includes(node) [RIGHTWARDS] skip)
+        :capacity-check '(requiredAmount > edge.capacity [RIGHTWARDS] skip)
         :fee-calculation 'backwards  ;; From target to source
         :cost-function 'total-fee)))
 
@@ -394,17 +394,17 @@
 
       (execution-flow
         '(.xln.js-script
-          → frames[{time title narrative actions camera}]
-          → executor.executeScenario
-          → translateActions → RuntimeInputs
-          → applyRuntimeInput → Env
-          → applyViewState → EnvSnapshot.viewState
-          → frontend-renders-cinematically)))
+          [RIGHTWARDS] frames[{time title narrative actions camera}]
+          [RIGHTWARDS] executor.executeScenario
+          [RIGHTWARDS] translateActions [RIGHTWARDS] RuntimeInputs
+          [RIGHTWARDS] applyRuntimeInput [RIGHTWARDS] Env
+          [RIGHTWARDS] applyViewState [RIGHTWARDS] EnvSnapshot.viewState
+          [RIGHTWARDS] frontend-renders-cinematically)))
 
     (cinematic-system
       :purpose "Transform economic scenarios into visual narratives"
       :emergence 'pedagogy-from-determinism
-      :shareability '(seed → reproducible-scenario)))
+      :shareability '(seed [RIGHTWARDS] reproducible-scenario)))
 
   ;; ═══════════════════════════════════════════════════════════════════════
   ;; SIGNATURE SYSTEM (Hanko - Recursive Threshold Signatures)
@@ -435,7 +435,7 @@
           :intentional-loophole
           '(EntityA delegates-to EntityB
             EntityB delegates-to EntityA
-            → Both validate each other → Hanko succeeds WITHOUT EOAs!)
+            [RIGHTWARDS] Both validate each other [RIGHTWARDS] Hanko succeeds WITHOUT EOAs!)
 
           :why-intended
           '(protocol-flexibility
@@ -546,18 +546,18 @@
       :end 'bilateral-consensus
 
       '(frontend:AdminPanel
-        → RuntimeInput{entityInputs:[directPayment]}
-        → runtime:process
-        → entity-consensus:processInput
-        → entity-tx/apply:handleDirectPayment
-        → pathfinding:findRoutes (if no direct account)
-        → account-tx/handlers/direct-payment:apply
-        → accountMachine.mempool.push(payment)
-        → account-consensus:processAccountInput
-        → create AccountFrame
-        → sign frame (2-of-2)
-        → bilateral finalized
-        → pendingForward? → entity-tx/handlers/account:consume → next-hop))
+        [RIGHTWARDS] RuntimeInput{entityInputs:[directPayment]}
+        [RIGHTWARDS] runtime:process
+        [RIGHTWARDS] entity-consensus:processInput
+        [RIGHTWARDS] entity-tx/apply:handleDirectPayment
+        [RIGHTWARDS] pathfinding:findRoutes (if no direct account)
+        [RIGHTWARDS] account-tx/handlers/direct-payment:apply
+        [RIGHTWARDS] accountMachine.mempool.push(payment)
+        [RIGHTWARDS] account-consensus:processAccountInput
+        [RIGHTWARDS] create AccountFrame
+        [RIGHTWARDS] sign frame (2-of-2)
+        [RIGHTWARDS] bilateral finalized
+        [RIGHTWARDS] pendingForward? [RIGHTWARDS] entity-tx/handlers/account:consume [RIGHTWARDS] next-hop))
 
     ;; Flow 2: Capacity Discovery (Emergent Routing)
     (capacity-discovery-flow
@@ -565,29 +565,29 @@
       :no-manual-config 'yes
 
       '(bilateral-payment
-        → accountMachine.deltas updated
-        → entity-tx/apply:openAccount → gossip-helper:buildEntityProfile
-        → deriveDelta(delta, isLeftEntity) → {inCapacity, outCapacity}
-        → gossip:announce(profile)
-        → timestamp-based-update (newTimestamp > existing)
-        → routing/graph:buildNetworkGraph(gossip.profiles)
-        → routing/pathfinding:PathFinder.findRoutes
-        → optimal-routes-available-for-payments))
+        [RIGHTWARDS] accountMachine.deltas updated
+        [RIGHTWARDS] entity-tx/apply:openAccount [RIGHTWARDS] gossip-helper:buildEntityProfile
+        [RIGHTWARDS] deriveDelta(delta, isLeftEntity) [RIGHTWARDS] {inCapacity, outCapacity}
+        [RIGHTWARDS] gossip:announce(profile)
+        [RIGHTWARDS] timestamp-based-update (newTimestamp > existing)
+        [RIGHTWARDS] routing/graph:buildNetworkGraph(gossip.profiles)
+        [RIGHTWARDS] routing/pathfinding:PathFinder.findRoutes
+        [RIGHTWARDS] optimal-routes-available-for-payments))
 
     ;; Flow 3: Multi-Hop Forwarding
     (multi-hop-flow
       :pattern 'layer-cooperation
 
       '(account-layer:direct-payment-handler
-        → route not empty? → nextHop = route[1]
-        → accountMachine.pendingForward = {tokenId, amount, route}
-        → account-consensus returns
-        → entity-layer:account-handler
-        → pendingForward detected
-        → create EntityInput to nextHop
-        → delete accountMachine.pendingForward
-        → process(nextHopInput)
-        → recursive until target))
+        [RIGHTWARDS] route not empty? [RIGHTWARDS] nextHop = route[1]
+        [RIGHTWARDS] accountMachine.pendingForward = {tokenId, amount, route}
+        [RIGHTWARDS] account-consensus returns
+        [RIGHTWARDS] entity-layer:account-handler
+        [RIGHTWARDS] pendingForward detected
+        [RIGHTWARDS] create EntityInput to nextHop
+        [RIGHTWARDS] delete accountMachine.pendingForward
+        [RIGHTWARDS] process(nextHopInput)
+        [RIGHTWARDS] recursive until target))
 
     ;; Flow 4: Hub Rebalancing (Detection Only)
     (hub-rebalance-flow
@@ -595,13 +595,13 @@
       :execution 'missing  ;; GAP!
 
       '(entity-crontab:hubRebalanceHandler (every N frames)
-        → scan all accountMachines
-        → deriveDelta per account
-        → identify net-spenders (delta < 0)
-        → identify net-receivers (requestedRebalance > 0)
-        → calculate rebalanceAmount = min(totalDebt, totalRequested)
-        → create chatMessage "🔄 REBALANCE OPPORTUNITY"
-        → ❌ NO ACTUAL NETTING EXECUTION))
+        [RIGHTWARDS] scan all accountMachines
+        [RIGHTWARDS] deriveDelta per account
+        [RIGHTWARDS] identify net-spenders (delta < 0)
+        [RIGHTWARDS] identify net-receivers (requestedRebalance > 0)
+        [RIGHTWARDS] calculate rebalanceAmount = min(totalDebt, totalRequested)
+        [RIGHTWARDS] create chatMessage "[ANTICLOCKWISE] REBALANCE OPPORTUNITY"
+        [RIGHTWARDS] [X] NO ACTUAL NETTING EXECUTION))
 
     ;; Flow 5: Dispute Resolution
     (dispute-flow
@@ -609,48 +609,48 @@
       :subcontracts 'applied
 
       '(bilateral-disagreement
-        → initialDisputeProof submitted to Depository.sol
-        → challenge period starts
-        → finalDisputeProof with ProofBody{deltas, tokenIds, subcontracts}
-        → Depository:finalizeChannel
-        → apply subcontracts (SubcontractProvider:applyBatch)
-        → validate allowance constraints
-        → enforce deltas on-chain
-        → channel finalized))
+        [RIGHTWARDS] initialDisputeProof submitted to Depository.sol
+        [RIGHTWARDS] challenge period starts
+        [RIGHTWARDS] finalDisputeProof with ProofBody{deltas, tokenIds, subcontracts}
+        [RIGHTWARDS] Depository:finalizeChannel
+        [RIGHTWARDS] apply subcontracts (SubcontractProvider:applyBatch)
+        [RIGHTWARDS] validate allowance constraints
+        [RIGHTWARDS] enforce deltas on-chain
+        [RIGHTWARDS] channel finalized))
 
     ;; Flow 6: BFT Consensus
     (bft-consensus-flow
       :mode 'proposer-based
 
       '(validator sends EntityTx to proposer
-        → proposer adds to mempool
-        → proposer creates ProposedFrame{height, txs, hash, newState}
-        → broadcast to validators
-        → validators verify → sign frame
-        → send precommit to proposer
-        → proposer collects signatures
-        → threshold reached (≥2/3)?
-        → finalize frame → apply to EntityState
-        → create EnvSnapshot with narrative metadata))
+        [RIGHTWARDS] proposer adds to mempool
+        [RIGHTWARDS] proposer creates ProposedFrame{height, txs, hash, newState}
+        [RIGHTWARDS] broadcast to validators
+        [RIGHTWARDS] validators verify [RIGHTWARDS] sign frame
+        [RIGHTWARDS] send precommit to proposer
+        [RIGHTWARDS] proposer collects signatures
+        [RIGHTWARDS] threshold reached (≥2/3)?
+        [RIGHTWARDS] finalize frame [RIGHTWARDS] apply to EntityState
+        [RIGHTWARDS] create EnvSnapshot with narrative metadata))
 
     ;; Flow 7: World Scenario Execution
     (scenario-execution-flow
       :determinism 'seeded
 
       '(user loads diamond-dybvig.xln.js
-        → executor:executeScenario(scenario, {seed})
-        → mergeAndSortEvents → group by timestamp
-        → for each frame:
-          → executeEvent(event)
-            → executeAction (import, grid, payRandom, openAccount...)
-              → translate to RuntimeInput
-              → applyRuntimeInput(env)
-          → applyViewState to EnvSnapshot
-          → EnvSnapshot.title = frame.title
-          → EnvSnapshot.narrative = frame.description
-        → frontend reads Env.history
-        → TimeMachine enables playback
-        → NetworkTopology renders with camera from viewState)))
+        [RIGHTWARDS] executor:executeScenario(scenario, {seed})
+        [RIGHTWARDS] mergeAndSortEvents [RIGHTWARDS] group by timestamp
+        [RIGHTWARDS] for each frame:
+          [RIGHTWARDS] executeEvent(event)
+            [RIGHTWARDS] executeAction (import, grid, payRandom, openAccount...)
+              [RIGHTWARDS] translate to RuntimeInput
+              [RIGHTWARDS] applyRuntimeInput(env)
+          [RIGHTWARDS] applyViewState to EnvSnapshot
+          [RIGHTWARDS] EnvSnapshot.title = frame.title
+          [RIGHTWARDS] EnvSnapshot.narrative = frame.description
+        [RIGHTWARDS] frontend reads Env.history
+        [RIGHTWARDS] TimeMachine enables playback
+        [RIGHTWARDS] NetworkTopology renders with camera from viewState)))
 
   ;; ═══════════════════════════════════════════════════════════════════════
   ;; ARCHITECTURAL PATTERNS & INSIGHTS
@@ -664,7 +664,7 @@
       :insight "Consensus ≠ Discovery ≠ Routing")
 
     (emergence
-      :phenomenon "Bilateral consensus → global routing capability"
+      :phenomenon "Bilateral consensus [RIGHTWARDS] global routing capability"
       :no-coordinator 'yes
       :mechanism 'gossip-derived-graph)
 
@@ -677,7 +677,7 @@
     (deterministic-replay
       :all-state 'pure-functions
       :side-effects 'at-boundaries
-      :replay '(ServerFrame[] → deterministic-state-reconstruction))
+      :replay '(ServerFrame[] [RIGHTWARDS] deterministic-state-reconstruction))
 
     (optimistic-execution
       :bilateral '(execute-immediately, dispute-if-needed)

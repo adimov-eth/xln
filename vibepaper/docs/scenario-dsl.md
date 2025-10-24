@@ -70,20 +70,20 @@ type EntityTx =
 
 ```
 Scenario: r2c 1 2 100000
-  ↓
+  [DOWNWARDS]
 EntityTx: { type: 'r2c', data: { counterparty: '0x...02', tokenId: 1, amount: 100000n } }
-  ↓
+  [DOWNWARDS]
 Handler (entity-tx/handlers/settle.ts):
-  - Validate invariant: -100000 + 0 + 100000 = 0 ✓
+  - Validate invariant: -100000 + 0 + 100000 = 0 [CHECK]
   - Call Depository.settle(entity1, entity2, [{tokenId:1, leftDiff:-100000, rightDiff:0, collateralDiff:100000, ondeltaDiff:0}])
-  ↓
+  [DOWNWARDS]
 Depository emits: SettlementProcessed(entity1, entity2, 1, ...)
-  ↓
+  [DOWNWARDS]
 J-Watcher catches event:
   - Creates AccountTx: { type: 'account_settle', data: { tokenId:1, collateralDiff:100000 } }
-  ↓
+  [DOWNWARDS]
 Bilateral consensus processes settlement
-  ↓
+  [DOWNWARDS]
 Both sides update collateral += 100000
 ```
 
@@ -187,8 +187,8 @@ r2et 3 50000 0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb
 ## Priority
 
 **P0 (Essential for demos):**
-- r2c (reserve → collateral funding)
-- c2r (collateral → reserve withdrawal)
+- r2c (reserve [RIGHTWARDS] collateral funding)
+- c2r (collateral [RIGHTWARDS] reserve withdrawal)
 - r2r (direct reserve transfers)
 
 **P1 (Nice to have):**

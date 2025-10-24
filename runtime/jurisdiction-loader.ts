@@ -53,14 +53,14 @@ export function loadJurisdictions(): JurisdictionsData {
     const jurisdictionsContent = fs.readFileSync('./jurisdictions.json', 'utf8');
     cachedJurisdictions = JSON.parse(jurisdictionsContent);
 
-    console.log('📋 Jurisdictions loaded from file (cached for future use)');
+    console.log('[LIST] Jurisdictions loaded from file (cached for future use)');
     console.log(`  ├─ Version: ${cachedJurisdictions?.version}`);
     console.log(`  ├─ Last updated: ${cachedJurisdictions?.lastUpdated}`);
     console.log(`  └─ Jurisdictions: ${Object.keys(cachedJurisdictions?.jurisdictions || {}).join(', ')}`);
 
     return cachedJurisdictions!;
   } catch (error) {
-    console.error('❌ Failed to load jurisdictions.json:', error);
+    console.error('[X] Failed to load jurisdictions.json:', error);
     // Return a default structure if file doesn't exist
     cachedJurisdictions = {
       version: "1.0.0",
@@ -81,7 +81,7 @@ export function loadJurisdictions(): JurisdictionsData {
  */
 export function clearJurisdictionsCache(): void {
   cachedJurisdictions = null;
-  console.log('🔄 Jurisdictions cache cleared');
+  console.log('[ANTICLOCKWISE] Jurisdictions cache cleared');
 }
 
 /**

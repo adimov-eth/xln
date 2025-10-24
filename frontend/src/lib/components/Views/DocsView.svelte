@@ -152,7 +152,7 @@
     <!-- Show scenario player on intro page -->
     {#if currentDoc === 'README'}
       <div class="intro-scenario">
-        <h1>🧠 XLN Architecture</h1>
+        <h1>[BRAIN] XLN Architecture</h1>
         <p style="font-size: 1.125rem; margin-bottom: 2rem; color: var(--text-secondary);">
           Experience the first xlnomy — a 2×2×2 grid cube where value flows through 3D space.
         </p>

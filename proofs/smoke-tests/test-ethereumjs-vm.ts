@@ -18,20 +18,20 @@ const depositoryArtifact = JSON.parse(
 const bytecode = depositoryArtifact.bytecode;
 const abi = depositoryArtifact.abi;
 
-console.log('📦 Loaded Depository.sol artifact (IDepository implementation)');
+console.log('[PKG] Loaded Depository.sol artifact (IDepository implementation)');
 console.log(`   Bytecode size: ${bytecode.length / 2} bytes`);
 
 // Create EthereumJS VM
 const vm = await createVM();
 const common = vm.common;
 
-console.log('\n🚀 Created EthereumJS VM');
+console.log('\n[LAUNCH] Created EthereumJS VM');
 
 // Deployer account
 const deployerPrivKey = hexToBytes('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'); // Hardhat account #0
 const deployerAddress = createAddressFromPrivateKey(deployerPrivKey);
 
-console.log(`👤 Deployer: ${deployerAddress.toString()}`);
+console.log(`[USER] Deployer: ${deployerAddress.toString()}`);
 
 // Fund deployer
 const deployerAccount = createAccount({
@@ -40,11 +40,11 @@ const deployerAccount = createAccount({
 });
 await vm.stateManager.putAccount(deployerAddress, deployerAccount);
 
-console.log('💰 Funded deployer with 10000 ETH');
+console.log('[$] Funded deployer with 10000 ETH');
 
 // Deploy contract
 async function deployDepository() {
-  console.log('\n📝 Deploying Depository.sol...');
+  console.log('\n[MEMO] Deploying Depository.sol...');
 
   const tx = createLegacyTx({
     gasLimit: 100000000n, // Large contract needs lots of gas
@@ -55,24 +55,24 @@ async function deployDepository() {
   const result = await runTx(vm, { tx });
 
   if (result.execResult.exceptionError) {
-    console.error('❌ Deployment failed:', result.execResult.exceptionError);
+    console.error('[X] Deployment failed:', result.execResult.exceptionError);
     process.exit(1);
   }
 
   const deployedAddress = result.createdAddress!;
-  console.log(`✅ Deployed at: ${deployedAddress.toString()}`);
-  console.log(`⛽ Gas used: ${result.totalGasSpent}`);
+  console.log(`[OK] Deployed at: ${deployedAddress.toString()}`);
+  console.log(`[FUEL] Gas used: ${result.totalGasSpent}`);
 
   // Verify contract code exists
   const code = await vm.stateManager.getCode(deployedAddress);
-  console.log(`📋 Contract code length: ${code.length} bytes`);
+  console.log(`[LIST] Contract code length: ${code.length} bytes`);
 
   return deployedAddress;
 }
 
 // Test debugFundReserves
 async function testFundReserves(contractAddress: Address) {
-  console.log('\n🧪 Testing debugFundReserves...');
+  console.log('\n[TEST] Testing debugFundReserves...');
 
   // Encode function call: debugFundReserves(bytes32 entity, uint tokenId, uint amount)
   const entityId = '0x0000000000000000000000000000000000000000000000000000000000000001';
@@ -97,16 +97,16 @@ async function testFundReserves(contractAddress: Address) {
   const result = await runTx(vm, { tx });
 
   if (result.execResult.exceptionError) {
-    console.error('❌ Call failed:', result.execResult.exceptionError);
+    console.error('[X] Call failed:', result.execResult.exceptionError);
     return false;
   }
 
-  console.log(`✅ Transaction executed`);
-  console.log(`⛽ Gas used: ${result.totalGasSpent}`);
+  console.log(`[OK] Transaction executed`);
+  console.log(`[FUEL] Gas used: ${result.totalGasSpent}`);
 
   // Check logs (ReserveUpdated event)
   if (result.execResult.logs && result.execResult.logs.length > 0) {
-    console.log(`📜 Emitted ${result.execResult.logs.length} log(s)`);
+    console.log(`[DOC] Emitted ${result.execResult.logs.length} log(s)`);
   }
 
   return true;
@@ -120,15 +120,15 @@ async function testFundReserves(contractAddress: Address) {
 
     console.log('\n' + '='.repeat(60));
     if (success) {
-      console.log('✅ BROWSER EVM PROTOTYPE: SUCCESS');
+      console.log('[OK] BROWSER EVM PROTOTYPE: SUCCESS');
       console.log('   EthereumJS VM works! Ready for browser integration.');
       process.exit(0);
     } else {
-      console.log('❌ BROWSER EVM PROTOTYPE: FAILED');
+      console.log('[X] BROWSER EVM PROTOTYPE: FAILED');
       process.exit(1);
     }
   } catch (error) {
-    console.error('\n❌ Fatal error:', error);
+    console.error('\n[X] Fatal error:', error);
     process.exit(1);
   }
 })();

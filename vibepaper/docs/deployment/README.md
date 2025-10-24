@@ -296,16 +296,16 @@ free -h
 
 ## Critical Deployment Lessons
 
-### 1. Browser Build Configuration ⚠️ CRITICAL
+### 1. Browser Build Configuration [WARN] CRITICAL
 
 **Problem:** `bun build --target browser` doesn't bundle dependencies by default
 **Solution:** Always use `--bundle` flag
 
 ```bash
-# ❌ Wrong - leaves imports external
+# [X] Wrong - leaves imports external
 bun build src/server.ts --target browser --outfile frontend/static/server.js
 
-# ✅ Correct - bundles all dependencies
+# [OK] Correct - bundles all dependencies
 bun build src/server.ts --target browser --outfile frontend/static/server.js --bundle
 ```
 
@@ -320,24 +320,24 @@ bun build src/server.ts --target browser --outfile frontend/static/server.js --b
   --external net --external tls --external os --external util
 ```
 
-### 2. File Permissions with Nginx ⚠️ CRITICAL
+### 2. File Permissions with Nginx [WARN] CRITICAL
 
 **Problem:** Nginx can't read files in `/root/` directory
 **Solution:** Use proxy-only Nginx config
 
 ```nginx
-# ✅ Correct - proxy everything to Bun server
+# [OK] Correct - proxy everything to Bun server
 location / {
     proxy_pass http://localhost:8080;
 }
 
-# ❌ Wrong - can't read /root/xln/frontend/build/
+# [X] Wrong - can't read /root/xln/frontend/build/
 location / {
     root /root/xln/frontend/build;
 }
 ```
 
-### 3. Svelte Base Path Configuration ⚠️ CRITICAL
+### 3. Svelte Base Path Configuration [WARN] CRITICAL
 
 **Problem:** Svelte builds with `/xln` base path for GitHub Pages
 **Solution:** Set empty base path for server deployment
@@ -345,8 +345,8 @@ location / {
 ```javascript
 // frontend/svelte.config.js
 paths: {
-    base: '' // ✅ Empty for server deployment
-    // base: '/xln' // ❌ Only for GitHub Pages
+    base: '' // [OK] Empty for server deployment
+    // base: '/xln' // [X] Only for GitHub Pages
 }
 ```
 
@@ -375,34 +375,34 @@ pkill -f "bun run src/server.ts"
 ### 6. Debugging Checklist
 
 When deployment fails:
-1. ✓ Is `--target browser` used?
-2. ✓ Is `--bundle` flag present?
-3. ✓ Are ALL `--external` flags present?
-4. ✓ Is Svelte base path empty?
-5. ✓ Is Nginx in proxy mode (not static file serving)?
-6. ✓ Can browser access localhost:8080 directly?
-7. ✓ Check browser console for module resolution errors
+1. [CHECK] Is `--target browser` used?
+2. [CHECK] Is `--bundle` flag present?
+3. [CHECK] Are ALL `--external` flags present?
+4. [CHECK] Is Svelte base path empty?
+5. [CHECK] Is Nginx in proxy mode (not static file serving)?
+6. [CHECK] Can browser access localhost:8080 directly?
+7. [CHECK] Check browser console for module resolution errors
 
 ---
 
 ## Benefits
 
 ### Local Development
-- ✅ Single command: `./reset-networks.sh`
-- ✅ No manual address copying
-- ✅ No hardcoded addresses
-- ✅ Automatic browser sync
-- ✅ Three parallel jurisdictions for testing
+- [OK] Single command: `./reset-networks.sh`
+- [OK] No manual address copying
+- [OK] No hardcoded addresses
+- [OK] Automatic browser sync
+- [OK] Three parallel jurisdictions for testing
 
 ### Production
-- ✅ Simple nohup process management
-- ✅ Nginx reverse proxy
-- ✅ Easy updates with git pull
-- ✅ Standard Linux tools
-- ✅ SSL support via Certbot
+- [OK] Simple nohup process management
+- [OK] Nginx reverse proxy
+- [OK] Easy updates with git pull
+- [OK] Standard Linux tools
+- [OK] SSL support via Certbot
 
 ### Universal
-- ✅ Bun runtime everywhere
-- ✅ Browser-compatible server.js
-- ✅ Consistent build process
-- ✅ Minimal dependencies
+- [OK] Bun runtime everywhere
+- [OK] Browser-compatible server.js
+- [OK] Consistent build process
+- [OK] Minimal dependencies

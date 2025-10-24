@@ -77,12 +77,12 @@ export class ShakeDetector {
       this.shakeCount++;
       this.lastShakeTime = now;
 
-      console.log(`🤝 Shake detected: ${this.shakeCount}/${this.REQUIRED_SHAKES} (velocity: ${velocity.toFixed(1)} u/s)`);
+      console.log(`[HANDSHAKE] Shake detected: ${this.shakeCount}/${this.REQUIRED_SHAKES} (velocity: ${velocity.toFixed(1)} u/s)`);
 
       // Trigger rebalance after 3 shakes
       if (this.shakeCount >= this.REQUIRED_SHAKES) {
         this.shakeCount = 0;
-        console.log('✅ SHAKE GESTURE COMPLETE - Triggering rebalance!');
+        console.log('[OK] SHAKE GESTURE COMPLETE - Triggering rebalance!');
 
         return {
           type: 'shake-rebalance',

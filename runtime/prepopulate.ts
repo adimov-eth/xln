@@ -131,7 +131,7 @@ function upsertAccount(
     },
     frameHistory: [],
     pendingWithdrawals: new Map(),
-          requestedRebalance: new Map(), // Phase 2: C→R withdrawal tracking
+          requestedRebalance: new Map(), // Phase 2: C[RIGHTWARDS]R withdrawal tracking
   };
 
   replica.state.accounts.set(counterpartyId, accountMachine);
@@ -174,7 +174,7 @@ function ensureMutualCredit(
     env.gossip.announce(buildEntityProfile(rightReplica.state));
   }
 
-  console.log(`🤝 Ensured mutual credit: ${leftKey.slice(0, 10)}… ↔ ${rightKey.slice(0, 10)}…`);
+  console.log(`[HANDSHAKE] Ensured mutual credit: ${leftKey.slice(0, 10)}… <-> ${rightKey.slice(0, 10)}…`);
 }
 
 function pushFinalSnapshot(env: Env, description: string) {
@@ -203,13 +203,13 @@ function pushFinalSnapshot(env: Env, description: string) {
 }
 
 export async function prepopulate(env: Env, processUntilEmpty: (env: Env, inputs?: EntityInput[]) => Promise<any>): Promise<void> {
-  console.log('🌐 Starting XLN Prepopulation');
+  console.log('[WEB] Starting XLN Prepopulation');
   console.log('================================');
   console.log('Creating H-shaped network topology:');
   console.log('  • 2 Hubs (E1, E2) - connected crossbar');
   console.log('  • 4 Users (E3-E6) - split between hubs');
-  console.log('    - E3, E4 → Hub E1');
-  console.log('    - E5, E6 → Hub E2');
+  console.log('    - E3, E4 [RIGHTWARDS] Hub E1');
+  console.log('    - E5, E6 [RIGHTWARDS] Hub E2');
   console.log('  Visual: Clean H-shape with 6 entities total');
   console.log('================================\n');
 
@@ -221,12 +221,12 @@ export async function prepopulate(env: Env, processUntilEmpty: (env: Env, inputs
     throw new Error('Arrakis jurisdiction not found in available jurisdictions');
   }
 
-  console.log(`📋 Using jurisdiction: ${arrakis.name}`);
+  console.log(`[LIST] Using jurisdiction: ${arrakis.name}`);
   console.log(`  ├─ EntityProvider: ${arrakis.entityProviderAddress}`);
   console.log(`  └─ Depository: ${arrakis.depositoryAddress}`);
 
   // Step 1: Create 6 entities by getting proper entity IDs from blockchain
-  console.log('📦 Step 1: Creating 6 entities with blockchain-assigned IDs...');
+  console.log('[PKG] Step 1: Creating 6 entities with blockchain-assigned IDs...');
   console.log('  Each entity will get sequential ID from the blockchain');
 
   const entities: Array<{id: string, signer: string, isHub: boolean}> = [];
@@ -247,7 +247,7 @@ export async function prepopulate(env: Env, processUntilEmpty: (env: Env, inputs
       );
 
       entities.push({ id: entityId, signer, isHub });
-      console.log(`  ✓ Created ${entityName}: Entity #${entityNumber} (${entityId.slice(0, 10)}...)`);
+      console.log(`  [CHECK] Created ${entityName}: Entity #${entityNumber} (${entityId.slice(0, 10)}...)`);
 
       // Add to batch for import
       createEntityTxs.push({
@@ -260,7 +260,7 @@ export async function prepopulate(env: Env, processUntilEmpty: (env: Env, inputs
         }
       });
     } catch (error) {
-      console.error(`  ❌ Failed to create ${entityName}:`, error);
+      console.error(`  [X] Failed to create ${entityName}:`, error);
       // For demo/testing, fall back to simple sequential IDs if blockchain fails
       const entityNumber = i;
       const entityId = '0x' + entityNumber.toString(16).padStart(64, '0');
@@ -281,7 +281,7 @@ export async function prepopulate(env: Env, processUntilEmpty: (env: Env, inputs
           }
         }
       });
-      console.log(`  ⚠️ Using fallback ID for ${entityName}: Entity #${entityNumber}`);
+      console.log(`  [WARN] Using fallback ID for ${entityName}: Entity #${entityNumber}`);
     }
   }
 
@@ -291,13 +291,13 @@ export async function prepopulate(env: Env, processUntilEmpty: (env: Env, inputs
     entityInputs: []
   });
 
-  console.log(`\n  ✅ Imported ${entities.length} entities`);
+  console.log(`\n  [OK] Imported ${entities.length} entities`);
   entities.forEach((e) => {
     const entityNum = parseInt(e.id.slice(2), 16);  // Extract number from hex ID
     console.log(`    • Entity #${entityNum}: ${e.isHub ? 'HUB' : 'User'} (signer: ${e.signer})`);
   });
 
-  console.log('\n📡 Step 2: Connecting the two hubs (H crossbar)...');
+  console.log('\n[ANTENNA] Step 2: Connecting the two hubs (H crossbar)...');
 
   // Step 2: Connect Hub 1 and Hub 2 (the crossbar of the H)
   const hub1 = entities[0];
@@ -319,9 +319,9 @@ export async function prepopulate(env: Env, processUntilEmpty: (env: Env, inputs
 
   const hub1Num = parseInt(hub1.id.slice(2), 16);
   const hub2Num = parseInt(hub2.id.slice(2), 16);
-  console.log(`  🔗 Hub E${hub1Num} ←→ Hub E${hub2Num} connected (H crossbar)`);
+  console.log(`  [LINK] Hub E${hub1Num} [LEFTWARDS][RIGHTWARDS] Hub E${hub2Num} connected (H crossbar)`);
 
-  console.log('\n👥 Step 3: Connecting users to hubs (H vertical bars)...');
+  console.log('\n[TEAM] Step 3: Connecting users to hubs (H vertical bars)...');
 
   // Step 3: Connect users to hubs - Vertical H shape
   // Layout sorts by: degree DESC, then entityId ASC
@@ -341,9 +341,9 @@ export async function prepopulate(env: Env, processUntilEmpty: (env: Env, inputs
 
   const users = entities.slice(2); // [E3, E4, E5, E6]
 
-  // Alternate users between hubs: E3→hub1, E4→hub2, E5→hub1, E6→hub2
+  // Alternate users between hubs: E3[RIGHTWARDS]hub1, E4[RIGHTWARDS]hub2, E5[RIGHTWARDS]hub1, E6[RIGHTWARDS]hub2
   for (const [i, user] of users.entries()) {
-    const hub = (i % 2 === 0) ? hub1 : hub2; // Even index → hub1, odd → hub2
+    const hub = (i % 2 === 0) ? hub1 : hub2; // Even index [RIGHTWARDS] hub1, odd [RIGHTWARDS] hub2
 
     // User opens account with hub
     await processUntilEmpty(env, [{
@@ -357,10 +357,10 @@ export async function prepopulate(env: Env, processUntilEmpty: (env: Env, inputs
 
     const userNum = parseInt(user.id.slice(2), 16);
     const hubNum = parseInt(hub.id.slice(2), 16);
-    console.log(`  👤 User E${userNum} → Hub E${hubNum} connected (vertical bar)`);
+    console.log(`  [USER] User E${userNum} [RIGHTWARDS] Hub E${hubNum} connected (vertical bar)`);
   }
 
-  console.log('\n🎯 Step 4: Setting hub profiles with lower fees...');
+  console.log('\n[GOAL] Step 4: Setting hub profiles with lower fees...');
 
   // Step 4: Update hub profiles with lower routing fees
   for (const hub of [hub1, hub2]) {
@@ -385,10 +385,10 @@ export async function prepopulate(env: Env, processUntilEmpty: (env: Env, inputs
       }]
     }]);
 
-    console.log(`  💰 Hub E${hubNum} - routing fee: 50 PPM (0.005%)`);
+    console.log(`  [$] Hub E${hubNum} - routing fee: 50 PPM (0.005%)`);
   }
 
-  console.log('\n🏦 Step 5: Seeding mutual credit, collateral, and reserves...');
+  console.log('\n[BANK] Step 5: Seeding mutual credit, collateral, and reserves...');
 
   const HUB_CREDIT = usd(250_000);
   const HUB_COLLATERAL = usd(120_000);
@@ -423,11 +423,11 @@ export async function prepopulate(env: Env, processUntilEmpty: (env: Env, inputs
     });
   });
 
-  console.log('🗂️ Capturing final snapshot for time machine playback...');
+  console.log('[FILES] Capturing final snapshot for time machine playback...');
   pushFinalSnapshot(env, 'Prepopulate seeded H-topology');
 
   console.log('\n================================');
-  console.log('✅ Prepopulation Complete!');
+  console.log('[OK] Prepopulation Complete!');
   console.log('\nH-shaped network topology created:');
   console.log('  • 2 Hubs connected (H crossbar)');
   console.log('  • 4 Users: 2 per hub (H vertical bars)');

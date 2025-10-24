@@ -1,12 +1,12 @@
 # XLN Scheme Reimplementation Plan
 # Target: Racket - Feature-complete - Fresh redesign
 
-## 📊 Current Status (2025-10-24)
+## [STATS] Current Status (2025-10-24)
 
-**Phase 1: Foundation** - 🚧 30% Complete
-- ✅ types.rkt: State machines, domain types, RCPAN invariant
-- ✅ Working demo proving concepts
-- 🚧 Next: crypto.rkt, rlp.rkt, merkle.rkt
+**Phase 1: Foundation** - [WIP] 30% Complete
+- [OK] types.rkt: State machines, domain types, RCPAN invariant
+- [OK] Working demo proving concepts
+- [WIP] Next: crypto.rkt, rlp.rkt, merkle.rkt
 
 **Latest Commit:** `41f5e39 - feat: xln-scheme foundation - homoiconic consensus`
 
@@ -28,19 +28,19 @@ racket examples/basic-channel.rkt
 
 ---
 
-## Phase 1: Foundation (Week 1-2) 🚧 IN PROGRESS
+## Phase 1: Foundation (Week 1-2) [WIP] IN PROGRESS
 
 ### Core Abstractions
 ```
 xln-scheme/core/
-├── types.rkt           ✅ DONE - Record types, state machine definitions
-├── crypto.rkt          🚧 TODO - ECDSA (secp256k1), SHA256, Keccak256
-├── rlp.rkt             🚧 TODO - Ethereum-compatible serialization
-├── merkle.rkt          🚧 TODO - Merkle tree + proof verification
-└── monad.rkt           🚧 TODO - Free monad for effects
+├── types.rkt           [OK] DONE - Record types, state machine definitions
+├── crypto.rkt          [WIP] TODO - ECDSA (secp256k1), SHA256, Keccak256
+├── rlp.rkt             [WIP] TODO - Ethereum-compatible serialization
+├── merkle.rkt          [WIP] TODO - Merkle tree + proof verification
+└── monad.rkt           [WIP] TODO - Free monad for effects
 ```
 
-### Completed ✅
+### Completed [OK]
 - [x] **State machine macro**: `(define-machine name states transitions)` - WORKING
 - [x] **Domain types**: entity-id, account-key, delta, frame - WORKING
 - [x] **RCPAN invariant**: Enforced at construction time - PROVEN
@@ -48,7 +48,7 @@ xln-scheme/core/
 - [x] **Perspective calculations**: derive-capacity for left/right view - WORKING
 - [x] **Working demo**: `examples/basic-channel.rkt` runs successfully
 
-### In Progress 🚧
+### In Progress [WIP]
 - [ ] Effect algebra: `(define-effect-algebra XLN-Effects ...)`
 - [ ] RLP encoder/decoder with round-trip tests
 - [ ] ECDSA sign/verify via FFI (libsecp256k1)
@@ -91,8 +91,8 @@ xln-scheme/consensus/account/
    (pending-frame frame sig)
    (finalized counter deltas))
 
-  ((idle × propose-frame) → (pending-frame frame sig))
-  ((pending-frame × countersign) → (finalized counter' deltas')))
+  ((idle × propose-frame) [RIGHTWARDS] (pending-frame frame sig))
+  ((pending-frame × countersign) [RIGHTWARDS] (finalized counter' deltas')))
 ```
 
 **Deliverables:**
@@ -119,15 +119,15 @@ xln-scheme/consensus/entity/
    (proposed frame precommits)
    (committed height state-hash))
 
-  ((collecting × add-tx) → (collecting mempool'))
-  ((collecting × timeout) → (proposed frame ∅))
-  ((proposed × precommit) → (proposed frame sigs'))
-  ((proposed × quorum) → (committed h+1 hash')))
+  ((collecting × add-tx) [RIGHTWARDS] (collecting mempool'))
+  ((collecting × timeout) [RIGHTWARDS] (proposed frame ∅))
+  ((proposed × precommit) [RIGHTWARDS] (proposed frame sigs'))
+  ((proposed × quorum) [RIGHTWARDS] (committed h+1 hash')))
 ```
 
 **Deliverables:**
-- [ ] ADD_TX → PROPOSE → SIGN → COMMIT flow
-- [ ] Deterministic transaction ordering (nonce → from → kind)
+- [ ] ADD_TX [RIGHTWARDS] PROPOSE [RIGHTWARDS] SIGN [RIGHTWARDS] COMMIT flow
+- [ ] Deterministic transaction ordering (nonce [RIGHTWARDS] from [RIGHTWARDS] kind)
 - [ ] Quorum threshold verification (≥2/3)
 - [ ] A-root Merkle commitment
 - [ ] Byzantine scenario tests
@@ -146,7 +146,7 @@ xln-scheme/consensus/runtime.rkt
 (define states-stream
   (stream-scan transition initial-state inputs-stream))
 
-;; R→E→A routing via pattern matching
+;; R[RIGHTWARDS]E[RIGHTWARDS]A routing via pattern matching
 (define (route-input input)
   (match input
     [`(server ,_) (handle-server input)]
@@ -156,7 +156,7 @@ xln-scheme/consensus/runtime.rkt
 
 **Deliverables:**
 - [ ] Stream-based coordinator (not 100ms ticks)
-- [ ] R→E→A input routing
+- [ ] R[RIGHTWARDS]E[RIGHTWARDS]A input routing
 - [ ] Snapshot creation (periodic + on-demand)
 - [ ] Deterministic processing order
 
@@ -186,7 +186,7 @@ xln-scheme/network/
 **Deliverables:**
 - [ ] Profile announcement
 - [ ] Timestamp-based updates
-- [ ] Capacity calculation: `deriveDelta(delta, isLeft) → {in, out}`
+- [ ] Capacity calculation: `deriveDelta(delta, isLeft) [RIGHTWARDS] {in, out}`
 - [ ] Convergence tests
 
 ### Routing System
@@ -281,8 +281,8 @@ xln-scheme/api/
   '(machine
     (states idle pending finalized)
     (transitions
-      ((idle × propose) → pending)
-      ((pending × sign) → finalized))))
+      ((idle × propose) [RIGHTWARDS] pending)
+      ((pending × sign) [RIGHTWARDS] finalized))))
 
 ;; Generate verification conditions automatically
 (verify-liveness bilateral-machine)   ;; Proves no deadlocks
@@ -343,7 +343,7 @@ xln-scheme/api/
   #:invariant valid-counter?
 
   (transition propose
-    [idle → pending]
+    [idle [RIGHTWARDS] pending]
     #:when valid-signature?
     #:update set-frame
     #:emit broadcast-to-counterparty))
@@ -416,7 +416,7 @@ xln-scheme/
 ### Testing strategy:
 - **Unit**: Every pure function
 - **Property**: Determinism, Byzantine scenarios, CRPAN invariants
-- **Integration**: Full R→E→A flows, blockchain interactions
+- **Integration**: Full R[RIGHTWARDS]E[RIGHTWARDS]A flows, blockchain interactions
 - **Chaos**: Random inputs, crash recovery, network partitions
 
 ### Documentation:

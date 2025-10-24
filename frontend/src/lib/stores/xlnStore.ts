@@ -34,7 +34,7 @@ function exposeGlobalDebugObjects() {
       errorLog.log(message, source, details);
     };
 
-    console.log('🌍 GLOBAL DEBUG: XLN objects exposed');
+    console.log('[EARTH] GLOBAL DEBUG: XLN objects exposed');
     console.log('  window.XLN - All runtime functions (deriveDelta, isLeft, etc.)');
     console.log('  window.xlnEnv - Reactive environment store');
     console.log('  window.xlnErrorLog - Logs to Settings error panel');
@@ -72,14 +72,14 @@ export async function initializeXLN() {
   if (isInitialized) {
     const currentEnv = get(xlnEnvironment);
     if (currentEnv && currentEnv.replicas?.size > 0) {
-      console.log('🛑 PREVENTED RE-INITIALIZATION: XLN already has data, keeping existing state');
+      console.log('[STOP] PREVENTED RE-INITIALIZATION: XLN already has data, keeping existing state');
       return currentEnv;
     }
   }
 
   // FAILSAFE: Auto-disable loading after 10s to prevent stuck UI
   const loadingTimeout = setTimeout(() => {
-    console.error('⚠️ Loading timeout (10s) - forcing isLoading=false to prevent stuck UI');
+    console.error('[WARN] Loading timeout (10s) - forcing isLoading=false to prevent stuck UI');
     isLoading.set(false);
     error.set('Loading timed out. UI may be incomplete. Check Settings for details.');
   }, 10000);
@@ -119,14 +119,14 @@ export async function initializeXLN() {
       (window as any).xlnEnv = env;
     }
 
-    console.log('✅ XLN Environment initialized');
+    console.log('[OK] XLN Environment initialized');
     isInitialized = true;
 
     clearTimeout(loadingTimeout);
     return env;
   } catch (err) {
     clearTimeout(loadingTimeout);
-    console.error('🚨 XLN initialization failed:', err);
+    console.error('[ALERT] XLN initialization failed:', err);
 
     // Log to persistent error store
     const errorMessage = err instanceof Error ? err.message : 'Critical system failure during initialization';
@@ -162,7 +162,7 @@ export const xlnFunctions = derived([xlnEnvironment, xlnInstance], ([, $xlnInsta
 
   // If xlnInstance is missing, return empty functions that throw clear errors
   if (!$xlnInstance) {
-    console.error('❌ CRITICAL: xlnInstance is null - XLN not initialized');
+    console.error('[X] CRITICAL: xlnInstance is null - XLN not initialized');
     const notReady = () => { throw new Error('XLN not initialized'); };
     return {
       // Account utilities

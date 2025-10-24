@@ -44,7 +44,7 @@
         }
       }
 
-      console.log(`🔄 Manual rebalance trigger for entity ${selectedEntityId} (signer: ${signerId})`);
+      console.log(`[ANTICLOCKWISE] Manual rebalance trigger for entity ${selectedEntityId} (signer: ${signerId})`);
 
       // Get entity state
       const replica = env.replicas.get(`${selectedEntityId}:${signerId}`);
@@ -91,7 +91,7 @@
       resultLines.push(`Rebalance Analysis for Entity ${selectedEntityId.slice(-8)}:\n`);
 
       if (tokenMatches.size === 0) {
-        resultLines.push('✓ No rebalance needed');
+        resultLines.push('[CHECK] No rebalance needed');
         resultType = 'success';
       } else {
         for (const [tokenId, match] of tokenMatches.entries()) {
@@ -99,13 +99,13 @@
             resultLines.push(`\nToken ${tokenId}:`);
             resultLines.push(`  Net spenders owe: ${match.totalDebt.toString()}`);
             resultLines.push(`  Net receivers want: ${match.totalRequested.toString()}`);
-            resultLines.push(`  ✓ Can rebalance: ${match.rebalanceAmount.toString()}`);
+            resultLines.push(`  [CHECK] Can rebalance: ${match.rebalanceAmount.toString()}`);
             resultLines.push(`  Coverage: ${Number(match.rebalanceAmount * 100n) / Number(match.totalRequested || 1n)}%`);
           }
         }
-        resultLines.push(`\nℹ️  In production, hub would:`);
+        resultLines.push(`\n[INFO]  In production, hub would:`);
         resultLines.push(`  1. Request withdrawal sigs from net-spenders`);
-        resultLines.push(`  2. Atomic batch: C→R withdrawals + R→C deposits`);
+        resultLines.push(`  2. Atomic batch: C[RIGHTWARDS]R withdrawals + R[RIGHTWARDS]C deposits`);
         resultLines.push(`  3. Broadcast to chain`);
 
         resultType = 'success';
@@ -124,7 +124,7 @@
 </script>
 
 <div class="admin-panel">
-  <h3>🔧 Admin Controls</h3>
+  <h3>[TOOL] Admin Controls</h3>
   <p class="panel-description">
     Manual rebalance trigger (following 2019src.txt logic)
   </p>
@@ -148,7 +148,7 @@
       on:click={triggerRebalance}
       disabled={isExecuting || !selectedEntityId}
     >
-      {isExecuting ? '⏳ Analyzing...' : '🔄 Analyze Rebalance'}
+      {isExecuting ? '[WAIT] Analyzing...' : '[ANTICLOCKWISE] Analyze Rebalance'}
     </button>
   </div>
 

@@ -9,7 +9,7 @@ import type { RequestHandler } from './$types';
  *
  * Usage from frontend:
  *   fetch('/rpc/ethereum', { method: 'POST', body: jsonRpcPayload })
- *   → proxies to http://localhost:8545
+ *   [RIGHTWARDS] proxies to http://localhost:8545
  */
 
 const RPC_ENDPOINTS: Record<string, string> = {

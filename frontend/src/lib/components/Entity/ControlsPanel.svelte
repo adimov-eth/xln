@@ -64,7 +64,7 @@
         }]
       }]);
       
-      console.log('💬 Chat message sent and processed:', message);
+      console.log('[CHAT] Chat message sent and processed:', message);
       message = '';
     } catch (error) {
       console.error('Failed to send chat message:', error);
@@ -95,7 +95,7 @@
         }]
       }]);
       
-      console.log('📝 Proposal sent and processed:', proposalText);
+      console.log('[MEMO] Proposal sent and processed:', proposalText);
       proposalTitle = '';
       proposalDescription = '';
     } catch (error) {
@@ -116,7 +116,7 @@
       const currentProposal = replica?.state?.proposals?.get(selectedProposalId);
       if (currentProposal && currentProposal.votes.has(tab.signerId)) {
         const msg = `You have already voted on this proposal as "${currentProposal.votes.get(tab.signerId)}".`;
-        console.error('❌ Vote validation failed:', msg);
+        console.error('[X] Vote validation failed:', msg);
         alert(msg);
         return;
       }
@@ -137,7 +137,7 @@
         }]
       };
       
-      console.log('🗳️ FRONTEND-DEBUG: About to submit vote:', {
+      console.log('[VOTE] FRONTEND-DEBUG: About to submit vote:', {
         entityId: tab.entityId,
         signerId: tab.signerId,
         proposalId: selectedProposalId,
@@ -148,7 +148,7 @@
       // Direct process() for entityInputs (no runtimeTxs needed)
       await xln.process(env, [voteInput]);
       
-      console.log('✅ Vote submitted and processed successfully');
+      console.log('[OK] Vote submitted and processed successfully');
       selectedProposalId = '';
       voteChoice = '';
       voteComment = '';
@@ -182,11 +182,11 @@
         }]
       };
 
-      console.log('💳 Opening account with entity:', accountCounterparty);
+      console.log('[CARD] Opening account with entity:', accountCounterparty);
 
       await xln.process(env, [accountInput]);
 
-      console.log('✅ Account opened successfully');
+      console.log('[OK] Account opened successfully');
       accountCounterparty = '';
     } catch (error) {
       console.error('Failed to open account:', error);
@@ -209,7 +209,7 @@
   async function submitJtx() {
     if (!tab.entityId || !tab.signerId || !jtxRecipient.trim() || !jtxAmount || !jtxTokenId) {
       const msg = 'Please fill in all fields for the transfer.';
-      console.error('❌ Transfer validation failed:', msg);
+      console.error('[X] Transfer validation failed:', msg);
       alert(msg);
       return;
     }
@@ -217,7 +217,7 @@
     const recipientAddress = resolveRecipient(jtxRecipient.trim());
     const tokenIdNum = Number(jtxTokenId);
 
-    console.log('🔍 R2R Transfer Debug:');
+    console.log('[FIND] R2R Transfer Debug:');
     console.log('  From Entity:', tab.entityId);
     console.log('  To Entity:', recipientAddress);
     console.log('  Token ID:', tokenIdNum);
@@ -225,13 +225,13 @@
 
     if (isNaN(tokenIdNum)) {
       const msg = 'Invalid token selected. Please ensure the dropdown value is a number.';
-      console.error('❌ Transfer validation failed:', msg);
+      console.error('[X] Transfer validation failed:', msg);
       alert(msg);
       return;
     }
     if (jtxAmount <= 0) {
       const msg = 'Amount must be greater than zero.';
-      console.error('❌ Transfer validation failed:', msg);
+      console.error('[X] Transfer validation failed:', msg);
       alert(msg);
       return;
     }
@@ -239,7 +239,7 @@
     // Check for self-transfer
     if (tab.entityId === recipientAddress) {
       const msg = `Cannot transfer to yourself!\n\nYou are Entity #1 (${tab.entityId})\nTrying to send to: ${recipientAddress}\n\nTip: Try entering "2" to send to Entity #2 instead.`;
-      console.error('❌ Transfer validation failed:', msg);
+      console.error('[X] Transfer validation failed:', msg);
       alert(msg);
       return;
     }
@@ -251,15 +251,15 @@
 
 
       // Use SIMPLE reserveToReserve (what worked before!)
-      console.log('💸 Submitting SIMPLE reserveToReserve to blockchain...');
+      console.log('[$$] Submitting SIMPLE reserveToReserve to blockchain...');
 
       // Get jurisdiction info with debug
-      console.log('🔍 Getting ethereum jurisdiction...');
+      console.log('[FIND] Getting ethereum jurisdiction...');
       const ethJurisdiction = await xln.getJurisdictionByAddress('ethereum');
       if (!ethJurisdiction) {
         throw new Error('Ethereum jurisdiction not found');
       }
-      console.log('🔍 Found jurisdiction:', ethJurisdiction);
+      console.log('[FIND] Found jurisdiction:', ethJurisdiction);
 
       // Simple batch with ONLY reserveToReserve (like before)
       const simpleBatch = {
@@ -280,21 +280,21 @@
         hub_id: 0,
       };
 
-      console.log('🔍 Simple R2R batch:', simpleBatch);
+      console.log('[FIND] Simple R2R batch:', simpleBatch);
 
       // Use DIRECT reserveToReserve function call (simplest possible!)
       const weiAmount = (BigInt(Math.floor(jtxAmount * 1e18))).toString();
       const result = await xln.submitReserveToReserve(ethJurisdiction, tab.entityId, recipientAddress, tokenIdNum, weiAmount);
-      console.log('✅ Direct R2R function call confirmed:', result.txHash);
+      console.log('[OK] Direct R2R function call confirmed:', result.txHash);
       
       // Now wait for j-watcher to pick up the ReserveUpdated events and feed to entity machine
       // The j-watcher should automatically detect the events and create entity inputs
-      console.log('⏳ Waiting for j-watcher to process events...');
+      console.log('[WAIT] Waiting for j-watcher to process events...');
       
       // Give j-watcher time to process events
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      console.log('💸 Reserve transfer sent successfully to', recipientAddress);
+      console.log('[$$] Reserve transfer sent successfully to', recipientAddress);
       
       // Reset form
       jtxRecipient = '';
@@ -312,25 +312,25 @@
   {#if !tab.entityId || !tab.signerId}
     <div class="empty-controls">
       <div class="empty-message">
-        <h4>🎯 Select Entity & Signer First</h4>
+        <h4>[GOAL] Select Entity & Signer First</h4>
         <p>Please use the dropdown above to select:</p>
         <ul>
-          <li>📍 <strong>Jurisdiction</strong> (network)</li>
-          <li>👤 <strong>Signer</strong> (your identity)</li>
-          <li>🏢 <strong>Entity</strong> (which entity to control)</li>
+          <li>[PIN] <strong>Jurisdiction</strong> (network)</li>
+          <li>[USER] <strong>Signer</strong> (your identity)</li>
+          <li>[OFFICE] <strong>Entity</strong> (which entity to control)</li>
         </ul>
         <small>Once selected, controls will appear here for chat, proposals, voting, etc.</small>
       </div>
     </div>
   {:else}
     <select class="controls-dropdown" bind:value={selectedAction}>
-      <option value="chat" selected>💬 Create chat message</option>
-      <option value="proposal">📋 Add proposal</option>
-      <option value="vote">🗳️ Vote on proposal</option>
-      <option value="account">💳 Open account</option>
-      <option value="entity">🏛️ Form new entity</option>
-      <option value="jtx">💸 Send J-tx</option>
-      <option value="settings">⚙️ Update settings</option>
+      <option value="chat" selected>[CHAT] Create chat message</option>
+      <option value="proposal">[LIST] Add proposal</option>
+      <option value="vote">[VOTE] Vote on proposal</option>
+      <option value="account">[CARD] Open account</option>
+      <option value="entity">[COURT] Form new entity</option>
+      <option value="jtx">[$$] Send J-tx</option>
+      <option value="settings">[SET] Update settings</option>
     </select>
     
     <div class="controls-form">
@@ -366,9 +366,9 @@
         <label class="form-label" for="vote-choice">Vote:</label>
         <select id="vote-choice" class="form-input" bind:value={voteChoice}>
           <option value="">Select your vote...</option>
-          <option value="yes">✅ Yes</option>
-          <option value="no">❌ No</option>
-          <option value="abstain">🤷 Abstain</option>
+          <option value="yes">[OK] Yes</option>
+          <option value="no">[X] No</option>
+          <option value="abstain">[SHRUG] Abstain</option>
         </select>
       </div>
       <div class="form-group">
@@ -382,7 +382,7 @@
         <label class="form-label" for="jtx-recipient">Recipient Entity:</label>
         <input id="jtx-recipient" class="form-input" type="text" bind:value={jtxRecipient} placeholder="Entity number (e.g., 2, 3) or full entity ID..." />
         <div class="form-hint">
-          💡 Tip: Try entity number "2" to transfer to Entity #2
+          [IDEA] Tip: Try entity number "2" to transfer to Entity #2
         </div>
       </div>
       <div class="form-group">
@@ -413,7 +413,7 @@
         </select>
         {#if otherEntities.length === 0}
           <div class="form-hint">
-            💡 No other entities available. Create more entities first.
+            [IDEA] No other entities available. Create more entities first.
           </div>
         {/if}
       </div>

@@ -48,7 +48,7 @@
 ## Migration Strategy
 
 1. **Phase 0** (This PR): New /view structure, core panels
-2. **Phase 1**: Extract Graph3D from NetworkTopology → Graph3DPanel
+2. **Phase 1**: Extract Graph3D from NetworkTopology [RIGHTWARDS] Graph3DPanel
 3. **Phase 2**: Build Entities + Depository + Architect panels
 4. **Phase 3**: Wire up BrowserVM to Depository panel
 5. **Phase 4**: Deprecate NetworkTopology, redirect to XLNView

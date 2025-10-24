@@ -37,7 +37,7 @@
   - List of transitions (`AddEntry*`, `DeleteEntry*`, `AddLock*`, `DeleteLock*`).
   - Optional final state proof/signature if any transition was sent (sets status `sent`, increments dispute nonce (+2 for left, +1 for right), records timestamp).
 - Processes local entry/lock state machine:
-  - `AddEntryNew` → `AddEntrySent`, `DeleteEntryNew` → `DeleteEntrySent`.
+  - `AddEntryNew` [RIGHTWARDS] `AddEntrySent`, `DeleteEntryNew` [RIGHTWARDS] `DeleteEntrySent`.
   - `AddLockNew` validated against outbound capacity. On failure triggers reverse unlock on inbound channel and marks outcome.
   - `DeleteLockNew` transitions to sent with outcome metadata.
 - Sends payload over external RPC; collects addresses needing subsequent flush (e.g., when inbound counterparties must be updated) but leaves actual recursion to caller.
@@ -45,7 +45,7 @@
 ### 2.5 `updateChannel(addr, json)` – Applying Partner Transitions
 - Ensures local channel exists; builds one for hubs if missing.
 - Verifies acknowledgement signature against canonical dispute proof when `json.dispute_nonce` matches local nonce.
-  - On success, stores partner `ackSig`, clears `ackRequestedAt`, and promotes local states via `ackChannel()` (sent → ack transitions, apply released secrets to deltas).
+  - On success, stores partner `ackSig`, clears `ackRequestedAt`, and promotes local states via `ackChannel()` (sent [RIGHTWARDS] ack transitions, apply released secrets to deltas).
 - Handles nonce mismatch (partial rollback logic when right-side receives transitions built from previous state).
 - Iterates received transitions:
   - `AddEntrySent`/`DeleteEntrySent`: apply entry creation/removal.
@@ -130,7 +130,7 @@ Legacy/alternate handler (per-channel RPC) enabling credit/insurance tweaks, wit
 
 ## 7. Payment & Lock Scenarios
 1. **Outbound Payment Initiation**
-   - If sender has direct channel and outbound capacity ≥ amount, `payChannel` adds `AddLockNew` and flushes → partner receives transition.
+   - If sender has direct channel and outbound capacity ≥ amount, `payChannel` adds `AddLockNew` and flushes [RIGHTWARDS] partner receives transition.
    - If no capacity, payment fails and UI alerted.
 2. **Intermediate Hop Handling**
    - On receiving `AddLockSent`, hop decrypts onion:

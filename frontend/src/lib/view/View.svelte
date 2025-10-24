@@ -53,7 +53,7 @@
 
       // Step 3: Register BrowserVM jurisdiction (overrides DEFAULT_JURISDICTIONS)
       XLN.setBrowserVMJurisdiction(depositoryAddress, browserVMProvider);
-      console.log('[View] ✅ BrowserVM jurisdiction registered with browserVM instance');
+      console.log('[View] [OK] BrowserVM jurisdiction registered with browserVM instance');
 
       // CRITICAL: Initialize global xlnInstance for utility functions (deriveDelta, etc)
       // Graph3DPanel needs xlnFunctions even when using isolated stores
@@ -64,7 +64,7 @@
       const env = XLN.createEmptyEnv();
 
       // Step 5: Auto-create "Simnet" Xlnomy on first load
-      console.log('[View] 🌍 Auto-creating Simnet Xlnomy...');
+      console.log('[View] [EARTH] Auto-creating Simnet Xlnomy...');
       await XLN.applyRuntimeInput(env, {
         runtimeTxs: [{
           type: 'createXlnomy',
@@ -84,7 +84,7 @@
         runtimeTxs: [], // Grid entities were queued in previous step
         entityInputs: []
       });
-      console.log('[View] ✅ Grid entities created');
+      console.log('[View] [OK] Grid entities created');
       console.log('[View] Replicas:', env.replicas.size);
       console.log('[View] History frames:', env.history.length);
 
@@ -94,11 +94,11 @@
       localTimeIndex.set((env.history?.length || 1) - 1); // Set to latest frame
       localIsLive.set(true);
 
-      console.log('[View] ✅ Simnet Xlnomy ready with', env.replicas.size, 'entities');
-      console.log('[View] 💡 Use Architect panel to run scenarios or create new Xlnomies');
+      console.log('[View] [OK] Simnet Xlnomy ready with', env.replicas.size, 'entities');
+      console.log('[View] [IDEA] Use Architect panel to run scenarios or create new Xlnomies');
 
     } catch (err) {
-      console.error('[View] ❌ Failed to initialize XLN:', err);
+      console.error('[View] [X] Failed to initialize XLN:', err);
     }
 
     // Create Dockview
@@ -174,13 +174,13 @@
     const graph3d = dockview.addPanel({
       id: 'graph3d',
       component: 'graph3d',
-      title: '🌐 Graph3D',
+      title: '[WEB] Graph3D',
     });
 
     const entities = dockview.addPanel({
       id: 'entities',
       component: 'entities',
-      title: '🏢 Entities',
+      title: '[OFFICE] Entities',
       position: { direction: 'right', referencePanel: 'graph3d' },
     });
 
@@ -196,14 +196,14 @@
     const depository = dockview.addPanel({
       id: 'depository',
       component: 'depository',
-      title: '💰 Depository',
+      title: '[$] Depository',
       position: { direction: 'below', referencePanel: 'entities' },
     });
 
     const architect = dockview.addPanel({
       id: 'architect',
       component: 'architect',
-      title: '🎬 Architect',
+      title: '[TAKE] Architect',
       position: { direction: 'within', referencePanel: 'depository' },
     });
 
@@ -218,14 +218,14 @@
     const consolePanel = dockview.addPanel({
       id: 'console',
       component: 'console',
-      title: '📋 Console',
+      title: '[LIST] Console',
       position: { direction: 'within', referencePanel: 'depository' },
     });
 
     const runtimeIOPanel = dockview.addPanel({
       id: 'runtime-io',
       component: 'runtime-io',
-      title: '🔄 Runtime I/O',
+      title: '[ANTICLOCKWISE] Runtime I/O',
       position: { direction: 'within', referencePanel: 'depository' },
     });
   });

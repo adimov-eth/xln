@@ -57,7 +57,7 @@ struct SettlementDiff {
 }
 ```
 
-**Current Status:** ✅ COMPLETED
+**Current Status:** [OK] COMPLETED
 - settle() function implemented as public method
 - SettlementProcessed event defined and emitted
 - Can be called independently or via processBatch
@@ -75,12 +75,12 @@ struct SettlementDiff {
 **Event Flow:**
 ```
 SettlementProcessed(leftEntity, rightEntity, tokenId, ...)
-    ↓
-j_event → leftEntity (side='left', counterparty=rightEntity)
-j_event → rightEntity (side='right', counterparty=leftEntity)
+    [DOWNWARDS]
+j_event [RIGHTWARDS] leftEntity (side='left', counterparty=rightEntity)
+j_event [RIGHTWARDS] rightEntity (side='right', counterparty=leftEntity)
 ```
 
-**Current Status:** ✅ COMPLETED
+**Current Status:** [OK] COMPLETED
 - SettlementProcessed event listener added
 - handleSettlementProcessedEvent() feeds to both entities
 - Historical event processing included
@@ -100,11 +100,11 @@ j_event → rightEntity (side='right', counterparty=leftEntity)
 if (event.type === 'SettlementProcessed') {
     // Process settlement data
     // Update entity understanding
-    // Generate accountInput for a-machine ← NEXT STEP
+    // Generate accountInput for a-machine [LEFTWARDS] NEXT STEP
 }
 ```
 
-**Current Status:** 🔄 IN PROGRESS
+**Current Status:** [ANTICLOCKWISE] IN PROGRESS
 - SettlementProcessed j_event handler added to j-events.ts
 - Message formatting completed
 - Need to add accountInput generation logic
@@ -136,41 +136,41 @@ interface AccountMachine {
     mempool: AccountTx[];
     currentFrame: AccountFrame;
     sentTransitions: number;
-    deltas: Map<number, Delta>; // tokenId → Delta
+    deltas: Map<number, Delta>; // tokenId [RIGHTWARDS] Delta
     proofHeader: { cooperativeNonce: number; disputeNonce: number };
     proofBody: { tokenIds: number[]; deltas: bigint[] };
     hankoSignature?: string;
 }
 ```
 
-**Current Status:** ❌ PENDING
+**Current Status:** [X] PENDING
 - Types defined in types.ts
 - Giant per-token table needs implementation
 - Bilateral consensus mechanism needed
 
 ## Implementation Roadmap
 
-### Phase 1: Complete E→A Machine Integration ⏳ CURRENT
+### Phase 1: Complete E[RIGHTWARDS]A Machine Integration [WAIT] CURRENT
 1. **Feed SettlementProcessed events to A-Machine**
    - Add logic in handleJEvent to create accountInput messages
    - Route settlement events to appropriate account machines
    - Ensure bilateral processing (both entities get the event)
 
-### Phase 2: A-Machine Giant Per-Token Table 📋 NEXT
+### Phase 2: A-Machine Giant Per-Token Table [LIST] NEXT
 1. **Implement AccountMachine state management**
    - Add giant per-token table like old_src had
-   - Map: tokenId → Delta (collateral, ondelta, offdelta, credit limits)
+   - Map: tokenId [RIGHTWARDS] Delta (collateral, ondelta, offdelta, credit limits)
    - Account frame management for state snapshots
 
-### Phase 3: UI Integration 🎨 FUTURE
+### Phase 3: UI Integration [DESIGN] FUTURE
 1. **Update Accounts Panel**
    - List all entities with "Open Account" buttons
    - Cross-entity accountInput messaging workflow
-   - Account opening creates entity-tx → outputs re-fed as accountInput
+   - Account opening creates entity-tx [RIGHTWARDS] outputs re-fed as accountInput
 
-### Phase 4: End-to-End Testing 🧪 FUTURE
+### Phase 4: End-to-End Testing [TEST] FUTURE
 1. **Multi-layer consensus testing**
-   - Smart contract settlement → j-watcher → e-machine → a-machine
+   - Smart contract settlement [RIGHTWARDS] j-watcher [RIGHTWARDS] e-machine [RIGHTWARDS] a-machine
    - Bilateral account agreement verification
    - Dispute resolution pathways
 
@@ -271,4 +271,4 @@ This multi-layered consensus architecture provides a robust foundation for off-c
 3. **Flexibility:** Each layer can evolve independently
 4. **Usability:** Simple UI for complex multi-party agreements
 
-The next immediate step is completing the E→A machine integration to enable full end-to-end settlement processing.
+The next immediate step is completing the E[RIGHTWARDS]A machine integration to enable full end-to-end settlement processing.

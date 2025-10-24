@@ -169,7 +169,7 @@ export class VRHammer {
       });
     }
 
-    console.log(`⚖️ HAMMER HIT: Account ${fromEntityId} ↔ ${toEntityId}`);
+    console.log(`[SCALES] HAMMER HIT: Account ${fromEntityId} <-> ${toEntityId}`);
   }
 
   /**

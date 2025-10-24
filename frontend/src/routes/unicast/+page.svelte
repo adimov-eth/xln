@@ -11,7 +11,7 @@
   <div class="header">
     <h1>Why Broadcast Dies at Scale</h1>
     <p class="subtitle">Visual proof: O(n) broadcast bottleneck vs O(1) unicast routing</p>
-    <a href="/" class="back-link">← Back to xln.finance</a>
+    <a href="/" class="back-link">[LEFTWARDS] Back to xln.finance</a>
   </div>
 
   <div class="visualization-container">

@@ -69,7 +69,7 @@
     if (!replica) return;
 
     try {
-      console.log(`💳 NEW-FLOW: Opening account with Entity ${$xlnFunctions!.formatEntityId(targetEntityId)} via entity transaction`);
+      console.log(`[CARD] NEW-FLOW: Opening account with Entity ${$xlnFunctions!.formatEntityId(targetEntityId)} via entity transaction`);
 
       const xln = await getXLN();
       const env = $xlnEnvironment;
@@ -88,7 +88,7 @@
       };
 
       await xln.process(env, [accountRequestInput]);
-      console.log(`✅ Account request sent to local e-machine for Entity ${$xlnFunctions!.formatEntityId(targetEntityId)}`);
+      console.log(`[OK] Account request sent to local e-machine for Entity ${$xlnFunctions!.formatEntityId(targetEntityId)}`);
     } catch (error) {
       console.error('Failed to send account request:', error);
       alert(`Failed to send account request: ${(error as Error)?.message || 'Unknown error'}`);
@@ -129,7 +129,7 @@
 
       <!-- Add Account Section -->
       <div class="add-account-section">
-        <h5>➕ Open New Account</h5>
+        <h5>+ Open New Account</h5>
         <select class="entity-select" bind:value={selectedNewEntityId}>
           <option value="">Select an entity...</option>
           {#each allEntities.filter(e => !e.hasAccount) as entity}
@@ -147,7 +147,7 @@
             }
           }}
         >
-          📝 Open Account
+          [MEMO] Open Account
         </button>
       </div>
     {/if}

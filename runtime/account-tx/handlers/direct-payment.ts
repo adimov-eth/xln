@@ -46,7 +46,7 @@ export function handleDirectPayment(
   const paymentToEntity = accountTx.data.toEntityId;
 
   if (!paymentFromEntity || !paymentToEntity) {
-    console.error(`❌ CONSENSUS-FAILURE: Missing explicit payment direction`);
+    console.error(`[X] CONSENSUS-FAILURE: Missing explicit payment direction`);
     console.error(`  AccountTx:`, safeStringify(accountTx));
     return {
       success: false,
@@ -66,9 +66,9 @@ export function handleDirectPayment(
     // Right requests value from left - left lends to right - delta INCREASES
     canonicalDelta = amount;
   } else {
-    console.error(`❌ CONSENSUS-FAILURE: Payment entities don't match account`);
-    console.error(`  Account: ${leftEntity.slice(-4)} ↔ ${rightEntity.slice(-4)}`);
-    console.error(`  Payment: ${paymentFromEntity.slice(-4)} → ${paymentToEntity.slice(-4)}`);
+    console.error(`[X] CONSENSUS-FAILURE: Payment entities don't match account`);
+    console.error(`  Account: ${leftEntity.slice(-4)} <-> ${rightEntity.slice(-4)}`);
+    console.error(`  Payment: ${paymentFromEntity.slice(-4)} [RIGHTWARDS] ${paymentToEntity.slice(-4)}`);
     return {
       success: false,
       error: 'FATAL: Payment entities must match account entities (no cross-account routing)',
@@ -106,9 +106,9 @@ export function handleDirectPayment(
 
   // Events differ by perspective but state is identical
   if (isOurFrame) {
-    events.push(`💸 Sent ${amount.toString()} token ${tokenId} to Entity ${accountMachine.counterpartyEntityId.slice(-4)} ${description ? '(' + description + ')' : ''}`);
+    events.push(`[$$] Sent ${amount.toString()} token ${tokenId} to Entity ${accountMachine.counterpartyEntityId.slice(-4)} ${description ? '(' + description + ')' : ''}`);
   } else {
-    events.push(`💰 Received ${amount.toString()} token ${tokenId} from Entity ${paymentFromEntity.slice(-4)} ${description ? '(' + description + ')' : ''}`);
+    events.push(`[$] Received ${amount.toString()} token ${tokenId} from Entity ${paymentFromEntity.slice(-4)} ${description ? '(' + description + ')' : ''}`);
   }
 
   // Update current frame
@@ -124,38 +124,38 @@ export function handleDirectPayment(
 
   // Check if we need to forward the payment (multi-hop routing)
   const isOutgoing = paymentFromEntity === accountMachine.proofHeader.fromEntity;
-  console.log(`🔍 FORWARD-CHECK: route=${route ? `[${route.map(r => r.slice(-4)).join(',')}]` : 'null'}`);
-  console.log(`🔍 FORWARD-CHECK: isOutgoing=${isOutgoing}, paymentFrom=${paymentFromEntity.slice(-4)}, proofHeader.from=${accountMachine.proofHeader.fromEntity.slice(-4)}`);
+  console.log(`[FIND] FORWARD-CHECK: route=${route ? `[${route.map(r => r.slice(-4)).join(',')}]` : 'null'}`);
+  console.log(`[FIND] FORWARD-CHECK: isOutgoing=${isOutgoing}, paymentFrom=${paymentFromEntity.slice(-4)}, proofHeader.from=${accountMachine.proofHeader.fromEntity.slice(-4)}`);
 
   if (route && route.length > 0 && !isOutgoing) {
-    console.log(`🔍 FORWARD-CHECK: Passed first check (route.length=${route.length}, isOutgoing=${isOutgoing})`);
+    console.log(`[FIND] FORWARD-CHECK: Passed first check (route.length=${route.length}, isOutgoing=${isOutgoing})`);
     // Check if we're intermediate hop: route[0] should be current entity
     const currentEntityInRoute = route[0];
     const finalTarget = route[route.length - 1];
 
     if (!currentEntityInRoute || !finalTarget) {
-      console.error(`❌ Empty route in payment - invalid payment routing`);
+      console.error(`[X] Empty route in payment - invalid payment routing`);
       return { success: false, error: 'Invalid payment route', events };
     }
 
-    console.log(`🔍 FORWARD-CHECK: currentInRoute=${currentEntityInRoute.slice(-4)}, proofHeader.from=${accountMachine.proofHeader.fromEntity.slice(-4)}, final=${finalTarget.slice(-4)}`);
-    console.log(`🔍 FORWARD-CHECK: Check result: ${currentEntityInRoute === accountMachine.proofHeader.fromEntity && currentEntityInRoute !== finalTarget}`);
+    console.log(`[FIND] FORWARD-CHECK: currentInRoute=${currentEntityInRoute.slice(-4)}, proofHeader.from=${accountMachine.proofHeader.fromEntity.slice(-4)}, final=${finalTarget.slice(-4)}`);
+    console.log(`[FIND] FORWARD-CHECK: Check result: ${currentEntityInRoute === accountMachine.proofHeader.fromEntity && currentEntityInRoute !== finalTarget}`);
 
     // If we're in the route but not the final destination, forward
     if (currentEntityInRoute === accountMachine.proofHeader.fromEntity && currentEntityInRoute !== finalTarget) {
       const nextHop = route[1]; // Next entity after us
 
       if (!nextHop) {
-        console.error(`❌ No next hop in route for forwarding`);
+        console.error(`[X] No next hop in route for forwarding`);
         return { success: false, error: 'Invalid route: no next hop', events };
       }
 
       if (accountMachine.counterpartyEntityId === nextHop) {
-        console.error(`❌ Routing error: received from ${nextHop} but should forward to them`);
+        console.error(`[X] Routing error: received from ${nextHop} but should forward to them`);
       } else {
         // Add forwarding event
         events.push(
-          `↪️ Forwarding payment to ${finalTarget.slice(-4)} via ${route.length - 1} more hops`
+          `-> Forwarding payment to ${finalTarget.slice(-4)} via ${route.length - 1} more hops`
         );
 
         // Store forwarding info for entity-consensus to create next hop transaction

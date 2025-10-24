@@ -8,7 +8,7 @@ import fs from 'fs';
  * IMPORTANT: This HTTPS config is ONLY for `vite dev` (development server)
  *
  * Production deployment:
- * - `bun run build` generates static files → frontend/build/
+ * - `bun run build` generates static files [RIGHTWARDS] frontend/build/
  * - nginx serves static files with its OWN HTTPS config
  * - This vite.config.ts is NOT used in production
  *
@@ -28,7 +28,7 @@ if (!hasCerts) {
 }
 
 if (!hasCerts) {
-	console.warn('⚠️  HTTPS certs not found. Run: ./generate-certs.sh');
+	console.warn('[WARN]  HTTPS certs not found. Run: ./generate-certs.sh');
 	console.warn('   (Optional - only needed for local HTTPS development)');
 }
 

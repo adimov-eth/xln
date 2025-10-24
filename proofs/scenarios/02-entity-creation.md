@@ -22,8 +22,8 @@
 
 ## Success Criteria
 
-✅ Entity registered on-chain
-✅ Runtime replica created
-✅ Reserves populated from J-Watcher
-✅ UI shows entity node
-✅ Height incremented
+[OK] Entity registered on-chain
+[OK] Runtime replica created
+[OK] Reserves populated from J-Watcher
+[OK] UI shows entity node
+[OK] Height incremented

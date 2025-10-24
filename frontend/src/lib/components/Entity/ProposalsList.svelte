@@ -69,9 +69,9 @@
 
         <div class="voting-info">
           <div class="vote-counts">
-            <span class="vote-yes">✅ {voteInfo.yesCount} yes</span>
-            <span class="vote-no">❌ {voteInfo.noCount} no</span>
-            <span class="vote-abstain">⚪ {voteInfo.abstainCount} abstain</span>
+            <span class="vote-yes">[OK] {voteInfo.yesCount} yes</span>
+            <span class="vote-no">[X] {voteInfo.noCount} no</span>
+            <span class="vote-abstain">o {voteInfo.abstainCount} abstain</span>
           </div>
 
           <div class="threshold-info">

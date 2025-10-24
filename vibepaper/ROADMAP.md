@@ -16,7 +16,7 @@
 - Zero infrastructure (no servers, no RPC)
 
 **Milestones:**
-- ✅ v0.0.1 - BrowserVM working, panel foundation
+- [OK] v0.0.1 - BrowserVM working, panel foundation
 - [ ] v0.1.0 - Full 4-panel workspace (Graph3D, Entities, Depository, Architect)
 - [ ] v0.2.0 - First scenario running end-to-end in simnet
 - [ ] v0.3.0 - VR mode working in Quest browser
@@ -71,7 +71,7 @@
 ## Market Expansion
 
 ### Year 1-2 (2026-2027): Capture Niche
-**Target:** Cross-border remittances (Philippines ↔ US)
+**Target:** Cross-border remittances (Philippines <-> US)
 
 **Why:**
 - $700B/year market
@@ -91,10 +91,10 @@
 **Expand to 50+ corridors**
 
 **Wedge markets:**
-- Nigeria ↔ UK (diaspora)
-- Mexico ↔ US (largest corridor)
-- India ↔ UAE (labor migration)
-- Argentina ↔ Anywhere (inflation escape)
+- Nigeria <-> UK (diaspora)
+- Mexico <-> US (largest corridor)
+- India <-> UAE (labor migration)
+- Argentina <-> Anywhere (inflation escape)
 
 **Revenue Target:** $70M/year (10% of global remittances)
 
@@ -119,7 +119,7 @@
 
 ## Technical Evolution
 
-### IDepository → ERC Standard
+### IDepository [RIGHTWARDS] ERC Standard
 **Timeline:** Q2-Q3 2026
 
 **Goal:** Submit IDepository interface as Ethereum ERC
@@ -165,7 +165,7 @@
 
 ## User Experience
 
-### Simnet → Mainnet Graduation
+### Simnet [RIGHTWARDS] Mainnet Graduation
 **User journey:**
 
 1. **Try in browser** (simnet) - Zero commitment

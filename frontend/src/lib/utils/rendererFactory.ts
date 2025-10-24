@@ -42,7 +42,7 @@ export async function createRenderer(
         renderer.xr.enabled = true;
       }
 
-      console.log('[Renderer] ✅ WebGPU renderer created');
+      console.log('[Renderer] [OK] WebGPU renderer created');
       return renderer as any; // Type assertion for compatibility
     } catch (error) {
       console.error('[Renderer] WebGPU initialization failed:', error);
@@ -61,7 +61,7 @@ function createWebGLRenderer(antialias: boolean, xrEnabled: boolean): THREE.WebG
     renderer.xr.enabled = true;
   }
 
-  console.log('[Renderer] ✅ WebGL renderer created');
+  console.log('[Renderer] [OK] WebGL renderer created');
   return renderer;
 }
 

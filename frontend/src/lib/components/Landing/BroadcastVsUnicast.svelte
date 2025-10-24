@@ -296,7 +296,7 @@
         </label>
       </div>
       <button on:click={togglePlay} class="play-btn">
-        {isPlaying ? '⏸ Stop Auto' : '▶ Auto Ramp'}
+        {isPlaying ? '|| Stop Auto' : '> Auto Ramp'}
       </button>
     </div>
   </div>
@@ -328,8 +328,8 @@
 
       <div class="devices-layer">
         <div class="status-bar">
-          <span style="color: {deviceColor('ok')}">✓ {broadcastAlive} alive</span>
-          <span style="color: {deviceColor('pruned')}">✗ {broadcastDead} dead/pruned</span>
+          <span style="color: {deviceColor('ok')}">[CHECK] {broadcastAlive} alive</span>
+          <span style="color: {deviceColor('pruned')}">[BALLOT] {broadcastDead} dead/pruned</span>
         </div>
         <svg class="device-scene" viewBox="0 0 {viewWidth} {viewHeight}" xmlns="http://www.w3.org/2000/svg">
           <!-- Raycast lines (when block finalizes, ALL nodes download) -->
@@ -452,7 +452,7 @@
 
       <div class="devices-layer">
         <div class="status-bar">
-          <span style="color: {deviceColor('ok')}">✓ {unicastAlive} alive</span>
+          <span style="color: {deviceColor('ok')}">[CHECK] {unicastAlive} alive</span>
         </div>
         <svg class="device-scene" viewBox="0 0 {viewWidth} {viewHeight}" xmlns="http://www.w3.org/2000/svg">
           {#each unicastDevices as device, i}
@@ -472,15 +472,15 @@
 
   <div class="insight">
     {#if currentTPS <= 10}
-      <p>✓ At low TPS, both architectures work fine</p>
+      <p>[CHECK] At low TPS, both architectures work fine</p>
     {:else if currentTPS <= 100}
-      <p>⚠ Broadcast: Phones struggling. Unicast: Still perfect.</p>
+      <p>[WARN] Broadcast: Phones struggling. Unicast: Still perfect.</p>
     {:else if currentTPS <= 1000}
-      <p>❌ Broadcast: Only servers survive. Unicast: All devices fine (L1 still 1 TPS)</p>
+      <p>[X] Broadcast: Only servers survive. Unicast: All devices fine (L1 still 1 TPS)</p>
     {:else if currentTPS <= 100000}
-      <p>💥 Broadcast: Datacenter-only (centralization). Unicast: Everyone fine.</p>
+      <p>[BOOM] Broadcast: Datacenter-only (centralization). Unicast: Everyone fine.</p>
     {:else}
-      <p>☠️ Broadcast: Complete failure. Unicast: Infinite scalability — L1 never changes.</p>
+      <p>[SKULL] Broadcast: Complete failure. Unicast: Infinite scalability — L1 never changes.</p>
     {/if}
   </div>
 </div>

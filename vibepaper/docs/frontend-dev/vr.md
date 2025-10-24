@@ -9,9 +9,9 @@ xln supports full WebXR immersive VR mode, optimized for Meta Quest 3. Experienc
 ### Controller Interaction
 
 **Right/Left Controller:**
-- **Point + Trigger** → Grab entity
-- **Hold Trigger** → Drag entity in 3D space
-- **Release** → Drop entity at new position
+- **Point + Trigger** [RIGHTWARDS] Grab entity
+- **Hold Trigger** [RIGHTWARDS] Drag entity in 3D space
+- **Release** [RIGHTWARDS] Drop entity at new position
 
 **Movement:**
 - **Free fly** - No teleport, rotate entire universe around you
@@ -136,7 +136,7 @@ if (vrGrabbedEntity && vrGrabController) {
 
 Test VR code without headset:
 ```javascript
-// Chrome DevTools → More tools → WebXR
+// Chrome DevTools [RIGHTWARDS] More tools [RIGHTWARDS] WebXR
 // Emulate Quest 3 controllers
 ```
 
@@ -151,9 +151,9 @@ Test VR code without headset:
 5. Optional: Enable "Passthrough" checkbox
 6. Click "Enter VR"
 7. Put on headset
-8. Point controller at entity → pull trigger
-9. Move controller → entity follows
-10. Release trigger → entity stays
+8. Point controller at entity [RIGHTWARDS] pull trigger
+9. Move controller [RIGHTWARDS] entity follows
+10. Release trigger [RIGHTWARDS] entity stays
 
 ### In-VR Interaction
 
@@ -178,7 +178,7 @@ Test VR code without headset:
 **Target:** 120Hz (8.3ms per frame)
 
 **Current Performance:**
-- 6 entities: 120Hz sustained ✅
+- 6 entities: 120Hz sustained [OK]
 - 20 entities: 90Hz typical
 - 50 entities: 72Hz (limit)
 - Lightning: ~2ms overhead per hub
@@ -320,9 +320,9 @@ NetworkTopology.svelte
 ## Future Enhancements
 
 1. **Gesture Controls**
-   - Two-hand pinch → scale network
-   - Palm push → time machine forward
-   - Fist clench → pause/play
+   - Two-hand pinch [RIGHTWARDS] scale network
+   - Palm push [RIGHTWARDS] time machine forward
+   - Fist clench [RIGHTWARDS] pause/play
 
 2. **Collaborative VR**
    - Multiple users in same xln network

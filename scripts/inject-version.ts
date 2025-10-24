@@ -35,9 +35,9 @@ export const VERSION = ${JSON.stringify(version, null, 2)} as const;
 `
   );
 
-  console.log(`✅ Version info injected: ${gitShort} - ${gitMessage.split('\n')[0].slice(0, 50)}`);
+  console.log(`[OK] Version info injected: ${gitShort} - ${gitMessage.split('\n')[0].slice(0, 50)}`);
 } catch (error) {
-  console.error('❌ Failed to inject version:', error);
+  console.error('[X] Failed to inject version:', error);
   // Create fallback version to prevent build failures
   const fallback = {
     hash: 'unknown',

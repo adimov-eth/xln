@@ -18,9 +18,9 @@ Taproot adds:
 - Script privacy (hide unused branches)
 
 Taproot does NOT add:
-- ❌ Loops
-- ❌ State storage  
-- ❌ Complex computation
+- [X] Loops
+- [X] State storage  
+- [X] Complex computation
 ```
 
 **Possible workarounds (all bad):**
@@ -62,11 +62,11 @@ XLN scaling model:
 - REA/A-machines: Millions of TPS (bilateral)
 
 Ethereum mainnet perfectly matches J-machine requirements:
-✅ 15 TPS (more than enough)
-✅ Consumer-grade full nodes (security)
-✅ Programmable (enforceDebts works)
-✅ Sovereign (no DA risk)
-✅ Composable (DeFi integrations)
+[OK] 15 TPS (more than enough)
+[OK] Consumer-grade full nodes (security)
+[OK] Programmable (enforceDebts works)
+[OK] Sovereign (no DA risk)
+[OK] Composable (DeFi integrations)
 
 All other chains:
 - Solana: Wrong VM, not worth rewrite
@@ -92,10 +92,10 @@ All other chains:
 ```
 
 **Skip entirely:**
-- ❌ All rollups (DA risk for zero benefit)
-- ❌ Solana (wrong VM)
-- ❌ TON (vaporware)
-- ❌ IOTA/Hedera/Hyperledger (broken/niche)
-- ❌ Bitcoin (can't run enforceDebts without upgrades)
+- [X] All rollups (DA risk for zero benefit)
+- [X] Solana (wrong VM)
+- [X] TON (vaporware)
+- [X] IOTA/Hedera/Hyperledger (broken/niche)
+- [X] Bitcoin (can't run enforceDebts without upgrades)
 
 ---

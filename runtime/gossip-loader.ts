@@ -23,14 +23,14 @@ export async function loadPersistedProfiles(db: any, gossip: { announce: (p: Pro
         });
         profileCount++;
       } catch (parseError) {
-        console.warn(`⚠️ Failed to parse profile from key ${key}:`, parseError);
+        console.warn(`[WARN] Failed to parse profile from key ${key}:`, parseError);
       }
     }
 
-    console.log(`📡 Restored ${profileCount} profiles from DB into gossip`);
+    console.log(`[ANTENNA] Restored ${profileCount} profiles from DB into gossip`);
     return profileCount;
   } catch (error) {
-    console.error('❌ Failed to load persisted profiles:', error);
+    console.error('[X] Failed to load persisted profiles:', error);
     return 0;
   }
 }

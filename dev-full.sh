@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e  # Exit on error
 
-echo "🚀 XLN Full Development Environment"
+echo "[LAUNCH] XLN Full Development Environment"
 echo ""
 
 # ============================================================================
@@ -10,32 +10,32 @@ echo ""
 
 check_bun() {
     if ! command -v bun &> /dev/null; then
-        echo "❌ bun not found"
-        echo "📥 Install: curl -fsSL https://bun.sh/install | bash"
+        echo "[X] bun not found"
+        echo "[INBOX] Install: curl -fsSL https://bun.sh/install | bash"
         exit 1
     fi
-    echo "✅ bun $(bun --version)"
+    echo "[OK] bun $(bun --version)"
 }
 
 check_hardhat() {
     # Hardhat is installed as a dev dependency in jurisdictions/
     # Just verify jurisdictions/node_modules exists - check_dependencies handles install
     if [ ! -d "jurisdictions/node_modules" ]; then
-        echo "📦 Hardhat will be installed with contract dependencies..."
+        echo "[PKG] Hardhat will be installed with contract dependencies..."
     else
-        echo "✅ Hardhat available (for local blockchain)"
+        echo "[OK] Hardhat available (for local blockchain)"
     fi
 }
 
 check_dependencies() {
-    echo "📦 Checking dependencies (auto-installs new packages)..."
+    echo "[PKG] Checking dependencies (auto-installs new packages)..."
     bun install
     (cd frontend && bun install)
     (cd jurisdictions && bun install)
-    echo "✅ All dependencies up to date"
+    echo "[OK] All dependencies up to date"
 }
 
-echo "🔍 Checking prerequisites..."
+echo "[FIND] Checking prerequisites..."
 check_bun
 check_hardhat
 check_dependencies
@@ -47,7 +47,7 @@ echo ""
 
 cleanup() {
     echo ""
-    echo "🛑 Stopping all development services..."
+    echo "[STOP] Stopping all development services..."
     pkill -f "vite dev" 2>/dev/null || true
     pkill -f "bun.*server" 2>/dev/null || true
     pkill -f "bun build.*watch" 2>/dev/null || true
@@ -62,7 +62,7 @@ trap cleanup SIGINT SIGTERM
 # GIT VERSION
 # ============================================================================
 
-echo "📝 Injecting git version info..."
+echo "[MEMO] Injecting git version info..."
 bun run scripts/inject-version.ts
 echo ""
 
@@ -70,38 +70,38 @@ echo ""
 # BLOCKCHAIN SETUP (DISABLED - Using BrowserVM/simnet now)
 # ============================================================================
 
-# echo "🔄 Auto-resetting networks and redeploying contracts..."
+# echo "[ANTICLOCKWISE] Auto-resetting networks and redeploying contracts..."
 # ./reset-networks.sh
 # if [ $? -ne 0 ]; then
-#     echo "❌ Network reset failed!"
+#     echo "[X] Network reset failed!"
 #     exit 1
 # fi
-echo "✅ Using BrowserVM (simnet) - no external blockchain needed"
+echo "[OK] Using BrowserVM (simnet) - no external blockchain needed"
 
 # ============================================================================
 # TYPESCRIPT VALIDATION (FAIL-FAST)
 # ============================================================================
 
 echo ""
-echo "🔍 CRITICAL: TypeScript validation (BLOCKS development on errors)..."
+echo "[FIND] CRITICAL: TypeScript validation (BLOCKS development on errors)..."
 
-echo "🔍 Validating /src TypeScript..."
+echo "[FIND] Validating /src TypeScript..."
 if ! bun x tsc --noEmit --project .; then
     echo ""
-    echo "❌ DEVELOPMENT BLOCKED: /src has TypeScript errors"
-    echo "💡 Fix errors with: bun run check"
+    echo "[X] DEVELOPMENT BLOCKED: /src has TypeScript errors"
+    echo "[IDEA] Fix errors with: bun run check"
     exit 1
 fi
-echo "✅ /src TypeScript validation passed"
+echo "[OK] /src TypeScript validation passed"
 
-echo "🔍 Validating /frontend Svelte components..."
+echo "[FIND] Validating /frontend Svelte components..."
 # Note: Temporarily skip svelte-check due to esbuild service crashes on style blocks
 # The actual TypeScript in browserVMProvider.ts has been fixed
-echo "⚠️  Skipping svelte-check (esbuild service instability)"
-echo "✅ Frontend validation passed (TypeScript-only check)"
+echo "[WARN]  Skipping svelte-check (esbuild service instability)"
+echo "[OK] Frontend validation passed (TypeScript-only check)"
 
 echo ""
-echo "🎉 ALL VALIDATION PASSED - Starting development servers..."
+echo "[DONE] ALL VALIDATION PASSED - Starting development servers..."
 echo ""
 
 # ============================================================================
@@ -111,12 +111,12 @@ echo ""
 mkdir -p frontend/static
 
 # Start TypeScript watchers (optional - comment out if too noisy)
-# echo "🔍 Starting continuous TypeScript checking..."
+# echo "[FIND] Starting continuous TypeScript checking..."
 # bun x tsc --noEmit --watch --project . &
 # (cd frontend && bun run check:watch) &
 
 # Initial runtime build
-echo "📦 Building runtime for frontend..."
+echo "[PKG] Building runtime for frontend..."
 bun build runtime/runtime.ts \
   --target=browser \
   --outfile=frontend/static/runtime.js \
@@ -127,18 +127,18 @@ bun build runtime/runtime.ts \
   --external net --external tls --external os --external util
 
 # Verify browser compatibility
-echo "🧪 Testing browser bundle compatibility..."
+echo "[TEST] Testing browser bundle compatibility..."
 if grep -q 'require("http")\|require("fs")' frontend/static/runtime.js; then
-    echo "❌ CRITICAL: runtime.js contains Node.js modules"
+    echo "[X] CRITICAL: runtime.js contains Node.js modules"
     exit 1
 fi
-echo "✅ Browser bundle verified"
+echo "[OK] Browser bundle verified"
 
 # Copy jurisdictions (ignore if identical)
 cp jurisdictions.json frontend/static/jurisdictions.json 2>/dev/null || true
 
 # Watch runtime changes
-echo "📦 Starting runtime watch..."
+echo "[PKG] Starting runtime watch..."
 bun build runtime/runtime.ts \
   --target=browser \
   --outfile=frontend/static/runtime.js \
@@ -153,23 +153,23 @@ bun build runtime/runtime.ts \
 # START VITE
 # ============================================================================
 
-echo "🌐 Starting Vite dev server..."
+echo "[WEB] Starting Vite dev server..."
 (cd frontend && bun --bun run dev) &
 
 sleep 3
 
 echo ""
-echo "✅ ✅ ✅ DEVELOPMENT ENVIRONMENT READY ✅ ✅ ✅"
+echo "[OK] [OK] [OK] DEVELOPMENT ENVIRONMENT READY [OK] [OK] [OK]"
 echo ""
-echo "🌐 Frontend: http://localhost:8080"
-echo "🌐 HTTPS:    https://localhost:8080 (if certs available)"
-echo "🧪 Blockchain: BrowserVM (in-browser simnet, no external chain)"
-echo "📦 Auto-rebuild: Enabled (runtime.js + frontend)"
-echo "🔍 Type checking: Running continuously"
+echo "[WEB] Frontend: http://localhost:8080"
+echo "[WEB] HTTPS:    https://localhost:8080 (if certs available)"
+echo "[TEST] Blockchain: BrowserVM (in-browser simnet, no external chain)"
+echo "[PKG] Auto-rebuild: Enabled (runtime.js + frontend)"
+echo "[FIND] Type checking: Running continuously"
 echo ""
-echo "💡 Press Ctrl+C to stop all services"
+echo "[IDEA] Press Ctrl+C to stop all services"
 echo ""
-echo "ℹ️  To use external blockchains: Uncomment reset-networks.sh in dev-full.sh"
+echo "[INFO]  To use external blockchains: Uncomment reset-networks.sh in dev-full.sh"
 echo ""
 
 # Keep running

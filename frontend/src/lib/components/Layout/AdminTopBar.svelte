@@ -2,13 +2,13 @@
   import { viewMode, viewModeOperations, type ViewMode } from '../../stores/viewModeStore';
 
   const viewTabs: Array<{ mode: ViewMode; icon: string; label: string; title: string }> = [
-    { mode: 'home', icon: '🏠', label: 'Home', title: 'XLN Overview' },
-    { mode: 'settings', icon: '⚙️', label: 'Settings', title: 'Settings & Configuration' },
-    { mode: 'docs', icon: '📚', label: 'Docs', title: 'Documentation' },
-    { mode: 'brainvault', icon: '🧠', label: 'Wallet', title: 'BrainVault Wallet Generator' },
-    { mode: 'graph3d', icon: '🗺️', label: 'Graph 3D', title: '3D Network Topology' },
-    { mode: 'panels', icon: '📊', label: 'Panels', title: 'Entity Panels' },
-    { mode: 'terminal', icon: '💻', label: 'Terminal', title: 'Console View' }
+    { mode: 'home', icon: '[HOME]', label: 'Home', title: 'XLN Overview' },
+    { mode: 'settings', icon: '[SET]', label: 'Settings', title: 'Settings & Configuration' },
+    { mode: 'docs', icon: '[DOCS]', label: 'Docs', title: 'Documentation' },
+    { mode: 'brainvault', icon: '[BRAIN]', label: 'Wallet', title: 'BrainVault Wallet Generator' },
+    { mode: 'graph3d', icon: '[MAP]', label: 'Graph 3D', title: '3D Network Topology' },
+    { mode: 'panels', icon: '[STATS]', label: 'Panels', title: 'Entity Panels' },
+    { mode: 'terminal', icon: '[PC]', label: 'Terminal', title: 'Console View' }
   ];
 
   $: activeView = $viewMode;

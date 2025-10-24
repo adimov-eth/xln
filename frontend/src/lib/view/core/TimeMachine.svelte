@@ -244,7 +244,7 @@
     <button on:click={localTimeOperations.goToHistoryStart} title="Go to start (Home)">
       <SkipBack size={16} />
     </button>
-    <button on:click={localTimeOperations.stepBackward} title="Step back (←)">
+    <button on:click={localTimeOperations.stepBackward} title="Step back ([LEFTWARDS])">
       <ChevronLeft size={16} />
     </button>
     <button on:click={togglePlay} class="play-btn" title="Play/Pause (Space)">
@@ -254,7 +254,7 @@
         <Play size={18} />
       {/if}
     </button>
-    <button on:click={localTimeOperations.stepForward} title="Step forward (→)">
+    <button on:click={localTimeOperations.stepForward} title="Step forward ([RIGHTWARDS])">
       <ChevronRight size={16} />
     </button>
     <button on:click={localTimeOperations.goToLive} title="Go to live (End)">

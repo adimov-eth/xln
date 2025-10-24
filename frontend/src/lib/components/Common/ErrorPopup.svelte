@@ -73,11 +73,11 @@
   {#each $errors as error (error.id)}
     <div class="error-popup">
       <div class="error-content">
-        <span class="error-icon">⚠️</span>
+        <span class="error-icon">[WARN]</span>
         <span class="error-message">{error.message}</span>
       </div>
       <button class="error-close" on:click={() => removeError(error.id)}>
-        ✕
+        [MULTIPLICATION]
       </button>
     </div>
   {/each}

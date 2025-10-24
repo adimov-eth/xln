@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 
 test.describe('Final Proposal Execution', () => {
-  test('ALICE CREATES PROPOSAL → BOB VOTES → EXECUTED + COLLECTIVE MESSAGE', async ({ page }) => {
-    console.log('🎬 Starting FINAL PROPOSAL EXECUTION with runDemo()...');
+  test('ALICE CREATES PROPOSAL [RIGHTWARDS] BOB VOTES [RIGHTWARDS] EXECUTED + COLLECTIVE MESSAGE', async ({ page }) => {
+    console.log('[TAKE] Starting FINAL PROPOSAL EXECUTION with runDemo()...');
 
     // === SETUP: Use runDemo for quick entity creation ===
     await page.goto('http://localhost:8080');
@@ -10,17 +10,17 @@ test.describe('Final Proposal Execution', () => {
     await page.waitForFunction(() => (window as any).xlnEnv !== undefined, { timeout: 5000 });
 
     await page.screenshot({ path: 'e2e/screenshots/final-01-start.png', fullPage: true });
-    console.log('📸 Screenshot: App started');
+    console.log('[CAM] Screenshot: App started');
 
     // Run demo to get entities quickly
     await page.locator('button[title="Run Demo"]').click();
     await page.waitForTimeout(500); // Wait for demo to complete
 
     await page.screenshot({ path: 'e2e/screenshots/final-02-demo-run.png', fullPage: true });
-    console.log('📸 Screenshot: Demo entities created');
+    console.log('[CAM] Screenshot: Demo entities created');
 
     // === ALICE CREATES PROPOSAL ===
-    console.log('👩 STEP 1: Alice selecting entity and creating proposal');
+    console.log('[WOMAN] STEP 1: Alice selecting entity and creating proposal');
 
     await page.locator('.admin-topbar').getByTitle('Add Entity Panel').click();
     // Second panel
@@ -47,10 +47,10 @@ test.describe('Final Proposal Execution', () => {
     await expect(firstPanel.getByText('Signer: alice')).toBeVisible();
 
     await page.screenshot({ path: 'e2e/screenshots/final-03-alice-selected.png', fullPage: true });
-    console.log('📸 Screenshot: Alice selected');
+    console.log('[CAM] Screenshot: Alice selected');
 
     // Expand Controls for Alice
-    const aliceControlsHeader = firstPanel.getByRole('button', { name: '⚙️ Controls ▼' });
+    const aliceControlsHeader = firstPanel.getByRole('button', { name: '[SET] Controls ▼' });
     await aliceControlsHeader.click();
     await page.waitForTimeout(300);
 
@@ -66,17 +66,17 @@ test.describe('Final Proposal Execution', () => {
     await firstPanel.getByRole('textbox', { name: 'Enter proposal description...' }).fill(proposalDescription);
 
     await page.screenshot({ path: 'e2e/screenshots/final-04-proposal-form.png', fullPage: true });
-    console.log('📸 Screenshot: Alice filled proposal form');
+    console.log('[CAM] Screenshot: Alice filled proposal form');
 
     // Submit proposal
     await firstPanel.getByRole('button', { name: 'Create Proposal' }).click();
     await page.waitForTimeout(1000);
 
     await page.screenshot({ path: 'e2e/screenshots/final-05-proposal-created.png', fullPage: true });
-    console.log('📸 Screenshot: Proposal created by Alice');
+    console.log('[CAM] Screenshot: Proposal created by Alice');
 
     // Verify proposal appears
-    const aliceProposalsHeader = firstPanel.getByRole('button', { name: '📋 Proposals ▼' });
+    const aliceProposalsHeader = firstPanel.getByRole('button', { name: '[LIST] Proposals ▼' });
     await aliceProposalsHeader.click();
     await page.waitForTimeout(300);
 
@@ -85,10 +85,10 @@ test.describe('Final Proposal Execution', () => {
     await expect(firstPanel.getByText('PENDING')).toBeVisible();
 
     await page.screenshot({ path: 'e2e/screenshots/final-06-proposal-visible.png', fullPage: true });
-    console.log('📸 Screenshot: Proposal visible and PENDING');
+    console.log('[CAM] Screenshot: Proposal visible and PENDING');
 
     // === BOB VOTES ===
-    console.log('👨 STEP 2: Bob selecting entity and voting YES');
+    console.log('[MAN] STEP 2: Bob selecting entity and voting YES');
 
     // Use second panel for Bob
     const secondPanel = page.locator('.entity-panel').nth(1);
@@ -108,10 +108,10 @@ test.describe('Final Proposal Execution', () => {
     await expect(secondPanel.getByText('Signer: bob')).toBeVisible();
 
     await page.screenshot({ path: 'e2e/screenshots/final-07-bob-selected.png', fullPage: true });
-    console.log('📸 Screenshot: Bob selected');
+    console.log('[CAM] Screenshot: Bob selected');
 
     // Expand Controls for Bob
-    const bobControlsHeader = secondPanel.getByRole('button', { name: '⚙️ Controls ▼' });
+    const bobControlsHeader = secondPanel.getByRole('button', { name: '[SET] Controls ▼' });
     await bobControlsHeader.click();
     await page.waitForTimeout(300);
 
@@ -133,23 +133,23 @@ test.describe('Final Proposal Execution', () => {
     await page.waitForTimeout(200);
 
     await page.screenshot({ path: 'e2e/screenshots/final-08-bob-voting.png', fullPage: true });
-    console.log('📸 Screenshot: Bob voting YES');
+    console.log('[CAM] Screenshot: Bob voting YES');
 
     // Submit vote
     await secondPanel.getByRole('button', { name: 'Submit Vote' }).click();
     await page.waitForTimeout(1000);
 
     await page.screenshot({ path: 'e2e/screenshots/final-09-bob-voted.png', fullPage: true });
-    console.log('📸 Screenshot: Bob voted');
+    console.log('[CAM] Screenshot: Bob voted');
 
     // === VERIFY EXECUTION ===
-    console.log('🎉 STEP 3: Verifying proposal execution and collective message');
+    console.log('[DONE] STEP 3: Verifying proposal execution and collective message');
 
     // Check proposal status in Alice's panel
     await expect(firstPanel.locator('.proposal-item')).toContainText('APPROVED');
 
     await page.screenshot({ path: 'e2e/screenshots/final-10-proposal-approved.png', fullPage: true });
-    console.log('📸 Screenshot: Proposal APPROVED');
+    console.log('[CAM] Screenshot: Proposal APPROVED');
 
     // Check for collective message in chat
     const chatMessages = firstPanel.locator('.chat-messages');
@@ -159,7 +159,7 @@ test.describe('Final Proposal Execution', () => {
     await expect(chatMessages).toContainText(proposalTitle);
 
     await page.screenshot({ path: 'e2e/screenshots/final-11-collective-message.png', fullPage: true });
-    console.log('📸 Screenshot: Collective message in chat');
+    console.log('[CAM] Screenshot: Collective message in chat');
 
     // === FINAL SUCCESS STATE ===
     // Show all sections expanded for complete view
@@ -167,14 +167,14 @@ test.describe('Final Proposal Execution', () => {
     await page.waitForTimeout(300);
 
     await page.screenshot({ path: 'e2e/screenshots/final-12-complete-success.png', fullPage: true });
-    console.log('📸 Screenshot: COMPLETE SUCCESS - All workflow executed');
+    console.log('[CAM] Screenshot: COMPLETE SUCCESS - All workflow executed');
 
-    console.log('🎉 FINAL SUCCESS! Complete proposal execution verified:');
-    console.log('✅ Alice created proposal');
-    console.log('✅ Bob voted YES');
-    console.log('✅ Proposal executed and approved');
-    console.log('✅ Collective message generated');
-    console.log('✅ Complete video and screenshots captured');
-    console.log('✅ ALL SCREENS AVAILABLE FOR USER REVIEW');
+    console.log('[DONE] FINAL SUCCESS! Complete proposal execution verified:');
+    console.log('[OK] Alice created proposal');
+    console.log('[OK] Bob voted YES');
+    console.log('[OK] Proposal executed and approved');
+    console.log('[OK] Collective message generated');
+    console.log('[OK] Complete video and screenshots captured');
+    console.log('[OK] ALL SCREENS AVAILABLE FOR USER REVIEW');
   });
 });

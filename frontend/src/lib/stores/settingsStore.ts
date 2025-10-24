@@ -39,9 +39,9 @@ const settingsOperations = {
         settings.update(current => ({ ...current, componentStates }));
       }
       
-      console.log('⚙️ Settings loaded from localStorage');
+      console.log('[SET] Settings loaded from localStorage');
     } catch (error) {
-      console.error('❌ Failed to load settings:', error);
+      console.error('[X] Failed to load settings:', error);
       settings.set(defaultSettings);
     }
   },
@@ -60,9 +60,9 @@ const settingsOperations = {
       // Save component states separately
       localStorage.setItem(COMPONENT_STATES_KEY, JSON.stringify(componentStates));
       
-      console.log('💾 Settings saved to localStorage');
+      console.log('[DISK] Settings saved to localStorage');
     } catch (error) {
-      console.error('❌ Failed to save settings:', error);
+      console.error('[X] Failed to save settings:', error);
     }
   },
 

@@ -4,7 +4,7 @@ import { cloneEntityState, addMessage, addMessages } from '../../state-helpers';
 import { getDefaultCreditLimit } from '../../account-utils';
 
 export async function handleAccountInput(state: EntityState, input: AccountInput, env: Env): Promise<{ newState: EntityState; outputs: EntityInput[] }> {
-  console.log(`🚀 APPLY accountInput: ${input.fromEntityId.slice(-4)} → ${input.toEntityId.slice(-4)}`);
+  console.log(`[LAUNCH] APPLY accountInput: ${input.fromEntityId.slice(-4)} [RIGHTWARDS] ${input.toEntityId.slice(-4)}`);
 
   // Create immutable copy of current state
   const newState: EntityState = cloneEntityState(state);
@@ -16,7 +16,7 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
 
   if (!accountMachine) {
     isNewAccount = true;
-    console.log(`💳 Creating new account machine for ${input.fromEntityId.slice(-4)}`);
+    console.log(`[CARD] Creating new account machine for ${input.fromEntityId.slice(-4)}`);
 
     // CONSENSUS FIX: Start with empty deltas (Channel.ts pattern)
     const initialDeltas = new Map();
@@ -57,7 +57,7 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
       },
       frameHistory: [],
       pendingWithdrawals: new Map(),
-          requestedRebalance: new Map(), // Phase 2: C→R withdrawal tracking
+          requestedRebalance: new Map(), // Phase 2: C[RIGHTWARDS]R withdrawal tracking
     };
 
     newState.accounts.set(input.fromEntityId, accountMachine);
@@ -78,7 +78,7 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
       const usdcTokenId = 1;
       const defaultCreditLimit = getDefaultCreditLimit(1); // 1M USDC (token 1)
 
-      console.log(`💳 NEW-ACCOUNT: Received opening frame, queueing our credit limit`);
+      console.log(`[CARD] NEW-ACCOUNT: Received opening frame, queueing our credit limit`);
 
       // Determine canonical side - DETERMINISTIC
       const isLeftEntity = state.entityId < input.fromEntityId;
@@ -90,13 +90,13 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
         data: { tokenId: usdcTokenId, amount: defaultCreditLimit, side: ourSide }
       });
 
-      console.log(`📝 Queued set_credit_limit(side=${ourSide}, 1M) - will batch with ACK`);
+      console.log(`[MEMO] Queued set_credit_limit(side=${ourSide}, 1M) - will batch with ACK`);
     }
   }
 
   // CHANNEL.TS PATTERN: Process frame-level consensus ONLY
   if (input.height || input.newAccountFrame) {
-    console.log(`🤝 Processing frame from ${input.fromEntityId.slice(-4)}`);
+    console.log(`[HANDSHAKE] Processing frame from ${input.fromEntityId.slice(-4)}`);
 
     const result = await processAccountInput(env, accountMachine, input);
 
@@ -104,14 +104,14 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
       addMessages(newState, result.events);
 
       // CRITICAL: Process multi-hop forwarding (consume pendingForward)
-      console.log(`🔍 PENDING-FORWARD-CHECK: Has pendingForward=${!!accountMachine.pendingForward}`);
+      console.log(`[FIND] PENDING-FORWARD-CHECK: Has pendingForward=${!!accountMachine.pendingForward}`);
       if (accountMachine.pendingForward) {
-        console.log(`🔍 PENDING-FORWARD: route=[${accountMachine.pendingForward.route.map(r => r.slice(-4)).join(',')}], amount=${accountMachine.pendingForward.amount}`);
+        console.log(`[FIND] PENDING-FORWARD: route=[${accountMachine.pendingForward.route.map(r => r.slice(-4)).join(',')}], amount=${accountMachine.pendingForward.amount}`);
       }
 
       if (accountMachine.pendingForward) {
         const forward = accountMachine.pendingForward;
-        console.log(`🔀 MULTI-HOP: Payment needs forwarding to ${forward.route[forward.route.length - 1]?.slice(-4)}`);
+        console.log(`[SHUFFLE] MULTI-HOP: Payment needs forwarding to ${forward.route[forward.route.length - 1]?.slice(-4)}`);
 
         // Next hop is first entity in remaining route
         const nextHop = forward.route[0];
@@ -121,7 +121,7 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
           const fee = forward.amount / feeRate > 1n ? forward.amount / feeRate : 1n;
           const forwardAmount = forward.amount - fee;
 
-          console.log(`💰 Forwarding fee: ${fee}, forward amount: ${forwardAmount}`);
+          console.log(`[$] Forwarding fee: ${fee}, forward amount: ${forwardAmount}`);
 
           // Check if we have account with next hop
           const nextHopAccount = newState.accounts.get(nextHop);
@@ -141,12 +141,12 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
 
             // Add to next hop's account mempool
             nextHopAccount.mempool.push(forwardingTx);
-            console.log(`✅ Forwarded payment added to account ${nextHop.slice(-4)} mempool`);
+            console.log(`[OK] Forwarded payment added to account ${nextHop.slice(-4)} mempool`);
 
-            addMessage(newState, `⚡ Relayed payment to Entity ${nextHop.slice(-4)}`);
+            addMessage(newState, `[FAST] Relayed payment to Entity ${nextHop.slice(-4)}`);
           } else {
-            console.error(`❌ No account with next hop ${nextHop.slice(-4)} for forwarding`);
-            addMessage(newState, `❌ Payment routing failed: no account with next hop`);
+            console.error(`[X] No account with next hop ${nextHop.slice(-4)} for forwarding`);
+            addMessage(newState, `[X] Payment routing failed: no account with next hop`);
           }
         }
 
@@ -156,7 +156,7 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
 
       // Send response (ACK + optional new frame)
       if (result.response) {
-        console.log(`📤 Sending response to ${result.response.toEntityId.slice(-4)}`);
+        console.log(`[OUT] Sending response to ${result.response.toEntityId.slice(-4)}`);
 
         // Get target proposer
         let targetProposerId = 'alice';
@@ -180,16 +180,16 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
           }]
         });
 
-        console.log(`✅ Response queued`);
+        console.log(`[OK] Response queued`);
       }
     } else {
-      console.error(`❌ Frame consensus failed: ${result.error}`);
-      addMessage(newState, `❌ ${result.error}`);
+      console.error(`[X] Frame consensus failed: ${result.error}`);
+      addMessage(newState, `[X] ${result.error}`);
     }
   } else {
     // NO individual accountTx handling! Channel.ts sends frames ONLY
-    console.error(`❌ Received AccountInput without frames - invalid!`);
-    addMessage(newState, `❌ Invalid AccountInput from ${input.fromEntityId.slice(-4)}`);
+    console.error(`[X] Received AccountInput without frames - invalid!`);
+    addMessage(newState, `[X] Invalid AccountInput from ${input.fromEntityId.slice(-4)}`);
   }
 
   return { newState, outputs };

@@ -24,7 +24,7 @@
       name: 'Ripple (Small)',
       description: 'Single entity pulse - 10 gas',
       intensity: 'small',
-      icon: '〰️',
+      icon: '~',
       color: '#00ccff',
       trigger: () => triggerRipple(10n)
     },
@@ -32,7 +32,7 @@
       name: 'Ripple (Medium)',
       description: 'Settlement wave - 500 gas',
       intensity: 'medium',
-      icon: '🌊',
+      icon: '[WAVE]',
       color: '#00aaff',
       trigger: () => triggerRipple(500n)
     },
@@ -40,7 +40,7 @@
       name: 'Ripple (Large)',
       description: 'Batch processing - 1000 gas',
       intensity: 'large',
-      icon: '💥',
+      icon: '[BOOM]',
       color: '#0088ff',
       trigger: () => triggerRipple(1000n)
     },
@@ -48,7 +48,7 @@
       name: 'Entity Glow (Blue)',
       description: 'Activity highlight',
       intensity: 'small',
-      icon: '✨',
+      icon: '*',
       color: '#00ccff',
       trigger: () => triggerGlow(new THREE.Color(0x00ccff))
     },
@@ -56,7 +56,7 @@
       name: 'Entity Glow (Orange)',
       description: 'Warning highlight',
       intensity: 'medium',
-      icon: '⚠️',
+      icon: '[WARN]',
       color: '#ff8800',
       trigger: () => triggerGlow(new THREE.Color(0xff8800))
     },
@@ -64,7 +64,7 @@
       name: 'Entity Glow (Red)',
       description: 'Error highlight',
       intensity: 'large',
-      icon: '🚨',
+      icon: '[ALERT]',
       color: '#ff0000',
       trigger: () => triggerGlow(new THREE.Color(0xff0000))
     },
@@ -72,7 +72,7 @@
       name: 'Network Pulse',
       description: 'All entities synchronize',
       intensity: 'large',
-      icon: '🌐',
+      icon: '[WEB]',
       color: '#00ff88',
       trigger: () => triggerNetworkPulse()
     },
@@ -80,7 +80,7 @@
       name: 'Random Multi-Ripple',
       description: '5 random ripples',
       intensity: 'large',
-      icon: '🎲',
+      icon: '[DICE]',
       color: '#ff00ff',
       trigger: () => triggerRandomMultiRipple()
     }
@@ -110,17 +110,17 @@
   // Trigger ripple effect
   function triggerRipple(gasUsed: bigint) {
     if (!scene || !spatialHash) {
-      console.error('❌ Scene or spatialHash not ready');
+      console.error('[X] Scene or spatialHash not ready');
       return;
     }
 
     const entity = getRandomEntity();
     if (!entity) {
-      console.error('❌ No entities available');
+      console.error('[X] No entities available');
       return;
     }
 
-    console.log(`🌊 Triggering ripple: gas=${gasUsed}, entity=${entity.id}`);
+    console.log(`[WAVE] Triggering ripple: gas=${gasUsed}, entity=${entity.id}`);
 
     const ripple = new RippleEffect(
       `demo-ripple-${Date.now()}`,
@@ -137,11 +137,11 @@
   function triggerGlow(color: THREE.Color) {
     const entity = getRandomEntity();
     if (!entity) {
-      console.error('❌ No entities available');
+      console.error('[X] No entities available');
       return;
     }
 
-    console.log(`✨ Triggering glow: color=${color.getHexString()}, entity=${entity.id}`);
+    console.log(`* Triggering glow: color=${color.getHexString()}, entity=${entity.id}`);
 
     const glow = new GlowEffect(
       `demo-glow-${Date.now()}`,
@@ -155,7 +155,7 @@
 
   // Trigger network pulse
   function triggerNetworkPulse() {
-    console.log('🌐 Triggering network pulse');
+    console.log('[WEB] Triggering network pulse');
 
     const pulse = new NetworkPulseEffect(
       `demo-pulse-${Date.now()}`,
@@ -197,19 +197,19 @@
       }, i * 200);
     }
 
-    console.log(`🎲 Triggered ${count} random ripples`);
+    console.log(`[DICE] Triggered ${count} random ripples`);
   }
 
   // Clear all effects
   function clearAllEffects() {
     effectOperations.clear();
-    console.log('🧹 Cleared all effects');
+    console.log('[CLEAN] Cleared all effects');
   }
 </script>
 
 <div class="visual-demo-panel">
   <div class="panel-header">
-    <h3>🎨 Visual Effect Demos</h3>
+    <h3>[DESIGN] Visual Effect Demos</h3>
     <div class="stats">
       <span class="stat">Active: {$activeEffectCount}</span>
       <span class="stat">Pending: {$pendingEffectCount}</span>
@@ -238,16 +238,16 @@
       on:click={clearAllEffects}
       disabled={$activeEffectCount === 0 && $pendingEffectCount === 0}
     >
-      🧹 Clear All Effects
+      [CLEAN] Clear All Effects
     </button>
   </div>
 
   <div class="info">
     <p class="hint">
-      💡 <strong>Shake Gesture:</strong> In VR, rapidly shake an entity 3 times to trigger automatic rebalancing
+      [IDEA] <strong>Shake Gesture:</strong> In VR, rapidly shake an entity 3 times to trigger automatic rebalancing
     </p>
     <p class="hint">
-      💡 <strong>J-Events:</strong> On-chain settlements automatically trigger ripples (gas-weighted intensity)
+      [IDEA] <strong>J-Events:</strong> On-chain settlements automatically trigger ripples (gas-weighted intensity)
     </p>
   </div>
 </div>

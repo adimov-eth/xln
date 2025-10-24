@@ -12,7 +12,7 @@ async function setThreshold(page: Page, value: number) {
 }
 
 async function addValidator(page: Page) {
-  await page.getByRole('button', { name: '➕ Add Validator' }).click();
+  await page.getByRole('button', { name: '+ Add Validator' }).click();
 }
 
 async function pickSignerInRow(page: Page, rowIndex: number, signerText: string) {
@@ -22,8 +22,8 @@ async function pickSignerInRow(page: Page, rowIndex: number, signerText: string)
 }
 
 test.describe('Step by Step Proposal Flow', () => {
-  test('0 PANELS → CREATE ALICE,BOB ENTITY → 2 PANELS → PROPOSALS', async ({ page }) => {
-    console.log('🎬 Starting step-by-step proposal flow...');
+  test('0 PANELS [RIGHTWARDS] CREATE ALICE,BOB ENTITY [RIGHTWARDS] 2 PANELS [RIGHTWARDS] PROPOSALS', async ({ page }) => {
+    console.log('[TAKE] Starting step-by-step proposal flow...');
 
     // === STEP 1: VERIFY 0 PANELS ===
     await page.goto('http://localhost:8080');
@@ -31,14 +31,14 @@ test.describe('Step by Step Proposal Flow', () => {
     await page.waitForFunction(() => (window as any).xlnEnv !== undefined, { timeout: 5000 });
 
     const initialPanels = await page.locator('.entity-panel').count();
-    console.log(`📊 STEP 1: Initial panels = ${initialPanels}`);
+    console.log(`[STATS] STEP 1: Initial panels = ${initialPanels}`);
     expect(initialPanels).toBe(0);
 
     await page.screenshot({ path: 'e2e/screenshots/step-01-zero-panels.png', fullPage: true });
-    console.log('📸 Screenshot: 0 panels confirmed');
+    console.log('[CAM] Screenshot: 0 panels confirmed');
 
     // === STEP 2: CREATE ALICE,BOB ENTITY ===
-    console.log('🏗️ STEP 2: Creating entity with alice and bob');
+    console.log('[BUILD] STEP 2: Creating entity with alice and bob');
 
     await page.locator('text=Formation').click();
     await page.fill('#entityNameInput', 'Alice Bob Council');
@@ -49,7 +49,7 @@ test.describe('Step by Step Proposal Flow', () => {
     await setThreshold(page, 2); // Both must vote
 
     await page.screenshot({ path: 'e2e/screenshots/step-02-entity-form.png', fullPage: true });
-    console.log('📸 Screenshot: Entity form with alice and bob');
+    console.log('[CAM] Screenshot: Entity form with alice and bob');
 
     // Create entity
     await page.getByRole('button', { name: /Create Entity/i }).click();
@@ -66,34 +66,34 @@ test.describe('Step by Step Proposal Flow', () => {
     await page.waitForTimeout(1000); // Wait for auto-panels
 
     const finalPanels = await page.locator('.entity-panel').count();
-    console.log(`📊 STEP 2 RESULT: Final panels = ${finalPanels}`);
+    console.log(`[STATS] STEP 2 RESULT: Final panels = ${finalPanels}`);
     expect(finalPanels).toBe(2);
 
     await page.screenshot({ path: 'e2e/screenshots/step-03-two-panels-created.png', fullPage: true });
-    console.log('📸 Screenshot: 2 panels auto-created');
+    console.log('[CAM] Screenshot: 2 panels auto-created');
 
     // === STEP 3: VERIFY PANELS HAVE SELECTED REPLICAS ===
-    console.log('🎯 STEP 3: Verifying panels have alice and bob replicas selected');
+    console.log('[GOAL] STEP 3: Verifying panels have alice and bob replicas selected');
 
     // Check that panels show entity content (not empty state)
     const emptyStates = await page.locator('.empty-panel-state').count();
     const consensusSections = await page.locator('.component-header').filter({ hasText: 'Consensus State' }).count();
 
-    console.log(`📊 Empty states: ${emptyStates}, Consensus sections: ${consensusSections}`);
+    console.log(`[STATS] Empty states: ${emptyStates}, Consensus sections: ${consensusSections}`);
 
     // Since we auto-create panels with entity/signer selected, they should show content
     expect(consensusSections).toBeGreaterThan(0);
 
     await page.screenshot({ path: 'e2e/screenshots/step-04-panels-with-content.png', fullPage: true });
-    console.log('📸 Screenshot: Panels showing content sections');
+    console.log('[CAM] Screenshot: Panels showing content sections');
 
     // === STEP 4: ALICE CREATES PROPOSAL ===
-    console.log('👩 STEP 4: Alice creating proposal in first panel');
+    console.log('[WOMAN] STEP 4: Alice creating proposal in first panel');
 
     const alicePanel = page.locator('.entity-panel').first();
 
     // Expand Controls
-    const aliceControlsHeader = alicePanel.getByRole('button', { name: '⚙️ Controls ▼' });
+    const aliceControlsHeader = alicePanel.getByRole('button', { name: '[SET] Controls ▼' });
     await aliceControlsHeader.click();
     await page.waitForTimeout(300);
 
@@ -108,10 +108,10 @@ test.describe('Step by Step Proposal Flow', () => {
       .fill('Approve $80K budget for Q4 operations and development');
 
     await page.screenshot({ path: 'e2e/screenshots/step-05-alice-proposal-form.png', fullPage: true });
-    console.log('📸 Screenshot: Alice filled proposal form');
+    console.log('[CAM] Screenshot: Alice filled proposal form');
 
     // Submit proposal and monitor server processing
-    console.log('📝 Alice submitting proposal...');
+    console.log('[MEMO] Alice submitting proposal...');
 
     // Listen for proposal processing logs
     page.on('console', msg => {
@@ -120,7 +120,7 @@ test.describe('Step by Step Proposal Flow', () => {
         msg.text().includes('proposal') ||
         msg.text().includes('processUntilEmpty')
       ) {
-        console.log('📝 Console:', msg.text());
+        console.log('[MEMO] Console:', msg.text());
       }
     });
 
@@ -128,10 +128,10 @@ test.describe('Step by Step Proposal Flow', () => {
     await page.waitForTimeout(2000); // More time to see processing
 
     await page.screenshot({ path: 'e2e/screenshots/step-06-proposal-created.png', fullPage: true });
-    console.log('📸 Screenshot: Proposal created by Alice');
+    console.log('[CAM] Screenshot: Proposal created by Alice');
 
     // === STEP 5: VERIFY PROPOSAL APPEARS ===
-    console.log('🔍 STEP 5: Verifying proposal appears in proposals section');
+    console.log('[FIND] STEP 5: Verifying proposal appears in proposals section');
 
     // Expand Proposals section
     const aliceProposalsHeader = alicePanel.getByRole('button', { name: 'Proposals ▼' });
@@ -143,10 +143,10 @@ test.describe('Step by Step Proposal Flow', () => {
     await expect(alicePanel.locator('#proposals-tab-1').getByText('Q4 Budget Decision: Approve $')).toBeVisible();
 
     await page.screenshot({ path: 'e2e/screenshots/step-07-proposal-visible.png', fullPage: true });
-    console.log('📸 Screenshot: Proposal visible in UI');
+    console.log('[CAM] Screenshot: Proposal visible in UI');
 
     // === STEP 6: BOB VOTES ===
-    console.log('👨 STEP 6: Bob voting in second panel');
+    console.log('[MAN] STEP 6: Bob voting in second panel');
 
     const bobPanel = page.locator('.entity-panel').nth(1);
 
@@ -169,15 +169,15 @@ test.describe('Step by Step Proposal Flow', () => {
     await commentField.fill('Approved - good budget allocation');
 
     await page.screenshot({ path: 'e2e/screenshots/step-08-bob-voting.png', fullPage: true });
-    console.log('📸 Screenshot: Bob voting YES');
+    console.log('[CAM] Screenshot: Bob voting YES');
 
     // Submit vote and check for console logs
-    console.log('🗳️ Bob submitting vote...');
+    console.log('[VOTE] Bob submitting vote...');
 
     // Listen for console logs to debug vote submission
     page.on('console', msg => {
       if (msg.text().includes('Vote submitted') || msg.text().includes('vote')) {
-        console.log('🗳️ Console:', msg.text());
+        console.log('[VOTE] Console:', msg.text());
       }
     });
 
@@ -185,16 +185,16 @@ test.describe('Step by Step Proposal Flow', () => {
     await page.waitForTimeout(2000); // Extra time for consensus processing
 
     await page.screenshot({ path: 'e2e/screenshots/step-09-bob-voted.png', fullPage: true });
-    console.log('📸 Screenshot: Bob submitted vote');
+    console.log('[CAM] Screenshot: Bob submitted vote');
 
     // === STEP 7: VERIFY PROPOSAL EXECUTION ===
-    console.log('🎉 STEP 7: Verifying proposal execution');
+    console.log('[DONE] STEP 7: Verifying proposal execution');
 
     // Wait for vote to be processed
     await page.waitForTimeout(1000);
 
     // EXPAND PROPOSALS IN BOTH PANELS to see current status
-    console.log('📋 Expanding Proposals sections in both panels...');
+    console.log('[LIST] Expanding Proposals sections in both panels...');
 
     // Expand Alice's proposals section (if collapsed)
     await expect(alicePanel.locator('.proposal-item')).toContainText('APPROVED');
@@ -206,18 +206,18 @@ test.describe('Step by Step Proposal Flow', () => {
 
     // Check if proposal shows 2 votes now
     const proposalText = await alicePanel.locator('.proposal-item').textContent();
-    console.log('📊 Alice panel proposal text:', proposalText);
+    console.log('[STATS] Alice panel proposal text:', proposalText);
 
     // Check if Bob's panel has any proposal items at all
     const bobProposalItems = bobPanel.locator('.proposal-item');
     const bobProposalCount = await bobProposalItems.count();
-    console.log('📊 Bob panel proposal count:', bobProposalCount);
+    console.log('[STATS] Bob panel proposal count:', bobProposalCount);
 
     if (bobProposalCount > 0) {
       const bobProposalText = await bobProposalItems.first().textContent();
-      console.log('📊 Bob panel proposal text:', bobProposalText);
+      console.log('[STATS] Bob panel proposal text:', bobProposalText);
     } else {
-      console.log('⚠️ Bob panel has NO proposals - checking server state...');
+      console.log('[WARN] Bob panel has NO proposals - checking server state...');
 
       // Check server state directly
       const serverState = await page.evaluate(async () => {
@@ -227,14 +227,14 @@ test.describe('Step by Step Proposal Flow', () => {
         const replicas = env.replicas as Map<string, EntityReplica>;
         const entityId = Array.from(replicas.keys())[0]?.split(':')[0];
 
-        console.log('🔍 Server entity ID:', entityId);
-        console.log('🔍 Total replicas:', replicas.size);
+        console.log('[FIND] Server entity ID:', entityId);
+        console.log('[FIND] Total replicas:', replicas.size);
 
         const aliceReplica: EntityReplica | undefined = replicas.get(`${entityId}:alice`);
         const bobReplica: EntityReplica | undefined = replicas.get(`${entityId}:bob`);
 
-        console.log('🔍 Alice replica proposals:', aliceReplica?.state?.proposals?.size || 0);
-        console.log('🔍 Bob replica proposals:', bobReplica?.state?.proposals?.size || 0);
+        console.log('[FIND] Alice replica proposals:', aliceReplica?.state?.proposals?.size || 0);
+        console.log('[FIND] Bob replica proposals:', bobReplica?.state?.proposals?.size || 0);
 
         return {
           entityId,
@@ -244,7 +244,7 @@ test.describe('Step by Step Proposal Flow', () => {
         };
       });
 
-      console.log('🔍 Server state:', serverState);
+      console.log('[FIND] Server state:', serverState);
     }
 
     // Check for either APPROVED or 2 yes votes
@@ -252,50 +252,50 @@ test.describe('Step by Step Proposal Flow', () => {
     const hasTwoVotes = proposalText?.includes('2 yes');
 
     if (hasApproved) {
-      console.log('✅ Proposal shows APPROVED');
+      console.log('[OK] Proposal shows APPROVED');
     } else if (hasTwoVotes) {
-      console.log('✅ Proposal shows 2 yes votes');
+      console.log('[OK] Proposal shows 2 yes votes');
       // If shows 2 votes but not approved yet, wait a bit more
       await page.waitForTimeout(1000);
     } else {
-      console.log('⚠️ Proposal still pending - might need more time or there is an issue');
+      console.log('[WARN] Proposal still pending - might need more time or there is an issue');
     }
 
     await page.screenshot({ path: 'e2e/screenshots/step-10-proposal-approved.png', fullPage: true });
-    console.log('📸 Screenshot: Proposal APPROVED');
+    console.log('[CAM] Screenshot: Proposal APPROVED');
 
     // Check chat messages in both panels
     const aliceChatText = await alicePanel.locator('.chat-messages').textContent();
-    console.log('📊 Alice chat messages:', aliceChatText);
+    console.log('[STATS] Alice chat messages:', aliceChatText);
 
     const bobChatText = await bobPanel.locator('.chat-messages').textContent();
-    console.log('📊 Bob chat messages:', bobChatText);
+    console.log('[STATS] Bob chat messages:', bobChatText);
 
     const hasCollectiveInAlice =
       aliceChatText?.includes('[COLLECTIVE]') && aliceChatText?.includes('Q4 Budget Decision');
     const hasCollectiveInBob = bobChatText?.includes('[COLLECTIVE]') && bobChatText?.includes('Q4 Budget Decision');
 
     if (hasCollectiveInAlice || hasCollectiveInBob) {
-      console.log('✅ Collective message found');
+      console.log('[OK] Collective message found');
     } else {
-      console.log('⚠️ Collective message not found - proposal might still be pending');
+      console.log('[WARN] Collective message not found - proposal might still be pending');
     }
 
     await page.screenshot({ path: 'e2e/screenshots/step-11-collective-message.png', fullPage: true });
-    console.log('📸 Screenshot: Collective message in chat');
+    console.log('[CAM] Screenshot: Collective message in chat');
 
     // === FINAL SUCCESS ===
     await page.screenshot({ path: 'e2e/screenshots/step-12-complete-success.png', fullPage: true });
-    console.log('📸 Screenshot: COMPLETE SUCCESS');
+    console.log('[CAM] Screenshot: COMPLETE SUCCESS');
 
-    console.log('🎉 STEP-BY-STEP SUCCESS!');
-    console.log('✅ Started with 0 panels');
-    console.log('✅ Created alice,bob entity');
-    console.log('✅ Got 2 panels with selected replicas');
-    console.log('✅ Alice created proposal');
-    console.log('✅ Bob voted YES');
-    console.log('✅ Proposal executed');
-    console.log('✅ Collective message generated');
-    console.log('✅ ALL SCREENSHOTS CAPTURED');
+    console.log('[DONE] STEP-BY-STEP SUCCESS!');
+    console.log('[OK] Started with 0 panels');
+    console.log('[OK] Created alice,bob entity');
+    console.log('[OK] Got 2 panels with selected replicas');
+    console.log('[OK] Alice created proposal');
+    console.log('[OK] Bob voted YES');
+    console.log('[OK] Proposal executed');
+    console.log('[OK] Collective message generated');
+    console.log('[OK] ALL SCREENSHOTS CAPTURED');
   });
 });

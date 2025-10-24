@@ -86,8 +86,8 @@
   ];
 
   function formatPrompt(prompt: typeof PROMPTS[0]): string {
-    const metricsFormatted = prompt.metrics.map(m => `${m} — ☐/1000`).join('\n');
-    return `Read xln.finance/c.txt fully, then:\n\nYou are ${prompt.persona}.\n${prompt.task}\n\nOutput TL;DR:\n${metricsFormatted}\n→ Final Verdict: (one-line insight)`;
+    const metricsFormatted = prompt.metrics.map(m => `${m} — [ ]/1000`).join('\n');
+    return `Read xln.finance/c.txt fully, then:\n\nYou are ${prompt.persona}.\n${prompt.task}\n\nOutput TL;DR:\n${metricsFormatted}\n[RIGHTWARDS] Final Verdict: (one-line insight)`;
   }
 
   function handleSubmit() {
@@ -182,7 +182,7 @@
 
   async function submitEvaluation() {
     if (!submissionText || submissionText.length < 100) {
-      submissionStatus = '❌ Please paste the full response';
+      submissionStatus = '[X] Please paste the full response';
       setTimeout(() => submissionStatus = '', 3000);
       return;
     }
@@ -200,7 +200,7 @@
       const result = await response.json();
 
       if (result.success) {
-        submissionStatus = `✅ Submitted! ID: ${result.submissionId}`;
+        submissionStatus = `[OK] Submitted! ID: ${result.submissionId}`;
         submissionText = '';
         shareUrl = '';
         setTimeout(() => {
@@ -208,11 +208,11 @@
           showSubmitForm = false;
         }, 3000);
       } else {
-        submissionStatus = `❌ ${result.error}`;
+        submissionStatus = `[X] ${result.error}`;
         setTimeout(() => submissionStatus = '', 4000);
       }
     } catch (error) {
-      submissionStatus = '❌ API server not running (start with: bun api-server.ts)';
+      submissionStatus = '[X] API server not running (start with: bun api-server.ts)';
       setTimeout(() => submissionStatus = '', 4000);
     }
   }
@@ -324,21 +324,21 @@
         <h2>Triple-S First Principles</h2>
         <div class="principles-grid">
           <div class="principle-card">
-            <div class="principle-icon">⚡</div>
+            <div class="principle-icon">[FAST]</div>
             <h3>Scalable</h3>
             <p><strong>Unicast (1-to-1)</strong> architecture enables unbounded horizontal scaling. No broadcast bottlenecks, no global consensus delays.</p>
             <p class="principle-detail">O(1) per-hop updates vs O(n) broadcast overhead. Counterparties self-select optimal routing paths through Coasian negotiation — from CBDCs to coffee, village to globe.</p>
             <p class="principle-detail">There is simply no other way to scale to the entire planet. The internet already proved unicast wins at global scale.</p>
           </div>
           <div class="principle-card">
-            <div class="principle-icon">🔒</div>
+            <div class="principle-icon">[LOCK]</div>
             <h3>Secure</h3>
             <p><strong>Every phone and laptop will be a full node by default.</strong> Non-negotiable.</p>
             <p class="principle-detail">L1 blockchains handle only final netting — not every coffee purchase. This ultra-low settlement load means even phones can verify the entire chain. State pruning keeps storage minimal: full verification, not full history. No light clients, no trust assumptions.</p>
             <p class="principle-detail">This implements the original vision of Satoshi and Vitalik: self-sovereign verification without trusted intermediaries. Your keys, your node, your rules.</p>
           </div>
           <div class="principle-card">
-            <div class="principle-icon">✨</div>
+            <div class="principle-icon">*</div>
             <h3>Simple</h3>
             <p><strong>Banking 2.0</strong> with zero new terminology invented.</p>
             <p class="principle-detail">Credit, collateral, reserves, transfers. Concepts you already know. No zkSNARKs to understand, no merkle trees to audit. Just finance, but programmable.</p>
@@ -411,7 +411,7 @@
         <div class="superprompt-section">
           <div class="superprompt-actions">
             <button on:click={copySuperprompt} class="copy-super-btn">
-              {copiedCard === -2 ? '✓ Copied' : 'Copy Superprompt'}
+              {copiedCard === -2 ? '[CHECK] Copied' : 'Copy Superprompt'}
             </button>
             <button on:click={() => showSubmitForm = !showSubmitForm} class="submit-toggle-btn">
               {showSubmitForm ? 'Hide Form' : 'Submit Results'}
@@ -475,7 +475,7 @@
               </div>
             </div>
             <button on:click={(e) => copyAllPrompts(e)} class="copy-all-btn">
-              {copiedCard === -1 ? '✓ Copied All' : 'Copy All 10'}
+              {copiedCard === -1 ? '[CHECK] Copied All' : 'Copy All 10'}
             </button>
           </div>
 
@@ -490,7 +490,7 @@
                   <div class="card-content">
                     <pre class="prompt-text">{formatPrompt(prompt)}</pre>
                     <button on:click|stopPropagation={(e) => copyPrompt(i, e)} class="copy-btn">
-                      {copiedCard === i ? '✓ Copied' : 'Copy Prompt'}
+                      {copiedCard === i ? '[CHECK] Copied' : 'Copy Prompt'}
                     </button>
                   </div>
                 {/if}
@@ -503,7 +503,7 @@
 
     {#if showInvite}
       <div class="invite-form">
-        <div class="invite-label">🔐 Early Access (Invite Only)</div>
+        <div class="invite-label">[LOCK] Early Access (Invite Only)</div>
         <input
           type="text"
           bind:value={inviteCode}
@@ -525,7 +525,7 @@
       <div class="context-highlight">
         <a href="/c.txt" target="_blank" class="context-link">
           <div class="context-header">
-            <span class="context-icon">📄</span>
+            <span class="context-icon">[DOC]</span>
             <span class="context-title">xln.finance/c.txt</span>
           </div>
           <div class="context-desc">Complete source: All Solidity contracts + TypeScript runtime + Architecture docs (~120k tokens) — Context for AI analysis</div>
@@ -1096,7 +1096,7 @@
   }
 
   .properties-list li::before {
-    content: "✓";
+    content: "[CHECK]";
     position: absolute;
     left: 0;
     color: #4fd18b;

@@ -16,7 +16,7 @@
 │
 ├── integration/                        # E2E scenarios (Playwright)
 │   ├── tutorial-working-demo.spec.ts  # Full tutorial workflow
-│   ├── payment-flow.spec.ts           # Entity creation → funding → transfer
+│   ├── payment-flow.spec.ts           # Entity creation [RIGHTWARDS] funding [RIGHTWARDS] transfer
 │   ├── consensus-round.spec.ts        # BFT consensus verification
 │   └── browser-evm.spec.ts            # BrowserVM panel integration
 │
@@ -33,9 +33,9 @@
 **BrowserVM Smoke Test**
 ```bash
 bun proofs/smoke-tests/test-ethereumjs-vm.ts
-# ✅ Deploys Depository.sol
-# ✅ Calls debugFundReserves()
-# ✅ Verifies logs emitted
+# [OK] Deploys Depository.sol
+# [OK] Calls debugFundReserves()
+# [OK] Verifies logs emitted
 # Time: ~3s
 ```
 
@@ -120,12 +120,12 @@ async function test() {
   // Execute (one core operation)
   // Assert (throw on failure)
 
-  console.log('✅ [Feature] works');
+  console.log('[OK] [Feature] works');
   process.exit(0);
 }
 
 test().catch(err => {
-  console.error('❌ Failed:', err);
+  console.error('[X] Failed:', err);
   process.exit(1);
 });
 ```

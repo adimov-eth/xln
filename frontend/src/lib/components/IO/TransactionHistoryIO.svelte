@@ -31,9 +31,9 @@
 
 <div class="history-io-section">
   <div class="history-header">
-    <h3>📊 Transaction History & I/O</h3>
+    <h3>[STATS] Transaction History & I/O</h3>
     <button class="collapse-btn" on:click={toggleCollapse} class:collapsed={isCollapsed}>
-      {isCollapsed ? '▶' : '▼'}
+      {isCollapsed ? '>' : '▼'}
     </button>
   </div>
   
@@ -42,17 +42,17 @@
       <div class="server-io-container">
         <div class="server-column">
           <div class="server-column-header">
-            📨 Server Input (What's happening this tick)
+            [MAIL] Server Input (What's happening this tick)
             <span class="status-indicator">
-              {$timeState.isLive ? '⚡ Current' : '🕰️ Historical'}
+              {$timeState.isLive ? '[FAST] Current' : '[TIME] Historical'}
             </span>
           </div>
           
           <div class="server-section">
             <div class="section-header">
-              <h4>🖥️ Server Transactions</h4>
+              <h4>[PC] Server Transactions</h4>
               <button class="json-toggle-btn" on:click={() => toggleJsonDetails('serverTxs')}>
-                {showJsonDetails.serverTxs ? '📋 Hide JSON' : '🔍 Show JSON'}
+                {showJsonDetails.serverTxs ? '[LIST] Hide JSON' : '[FIND] Show JSON'}
               </button>
             </div>
             <div class="server-txs-list">
@@ -60,8 +60,8 @@
                 {#each serverInput.serverTxs as tx, index}
                   <div class="input-item">
                     <div class="summary-line">
-                      <strong>🖥️ {tx.type}</strong>: {tx.entityId}:{tx.signerId}
-                      {tx.data.isProposer ? ' (👑 Proposer)' : ' (✅ Validator)'}
+                      <strong>[PC] {tx.type}</strong>: {tx.entityId}:{tx.signerId}
+                      {tx.data.isProposer ? ' ([ADMIN] Proposer)' : ' ([OK] Validator)'}
                     </div>
                     {#if showJsonDetails.serverTxs}
                       <div class="json-details">
@@ -79,9 +79,9 @@
           
           <div class="server-section">
             <div class="section-header">
-              <h4>🔄 Entity Inputs</h4>
+              <h4>[ANTICLOCKWISE] Entity Inputs</h4>
               <button class="json-toggle-btn" on:click={() => toggleJsonDetails('entityInputs')}>
-                {showJsonDetails.entityInputs ? '📋 Hide JSON' : '🔍 Show JSON'}
+                {showJsonDetails.entityInputs ? '[LIST] Hide JSON' : '[FIND] Show JSON'}
               </button>
             </div>
             <div class="entity-inputs-list">
@@ -91,11 +91,11 @@
                     <div class="summary-line">
                       <strong>Entity {$xlnFunctions!.formatEntityId(input.entityId)}:{input.signerId}</strong>
                       {#if input.entityTxs && input.entityTxs.length > 0}
-                        <br>📝 <strong>{input.entityTxs.length} transactions:</strong>
+                        <br>[MEMO] <strong>{input.entityTxs.length} transactions:</strong>
                         {#each input.entityTxs as tx, i}
-                          <br>  {i+1}. {tx.type === 'chat' ? `💬 Chat: "${tx.data.message}"` :
-                                       tx.type === 'propose' ? `📝 Propose: "${tx.data.action.data.message}"` :
-                                       tx.type === 'vote' ? `🗳️ Vote: ${tx.data.choice}` : `⚙️ ${tx.type}`}
+                          <br>  {i+1}. {tx.type === 'chat' ? `[CHAT] Chat: "${tx.data.message}"` :
+                                       tx.type === 'propose' ? `[MEMO] Propose: "${tx.data.action.data.message}"` :
+                                       tx.type === 'vote' ? `[VOTE] Vote: ${tx.data.choice}` : `[SET] ${tx.type}`}
                         {/each}
                       {/if}
                     </div>
@@ -116,17 +116,17 @@
         
         <div class="server-column">
           <div class="server-column-header">
-            📤 Server Output (What's being sent and where)
+            [OUT] Server Output (What's being sent and where)
             <span class="status-indicator">
-              {$timeState.isLive ? '⚡ Current' : '🕰️ Historical'}
+              {$timeState.isLive ? '[FAST] Current' : '[TIME] Historical'}
             </span>
           </div>
           
           <div class="server-section">
             <div class="section-header">
-              <h4>🚀 Entity Outputs</h4>
+              <h4>[LAUNCH] Entity Outputs</h4>
               <button class="json-toggle-btn" on:click={() => toggleJsonDetails('entityOutputs')}>
-                {showJsonDetails.entityOutputs ? '📋 Hide JSON' : '🔍 Show JSON'}
+                {showJsonDetails.entityOutputs ? '[LIST] Hide JSON' : '[FIND] Show JSON'}
               </button>
             </div>
             <div class="entity-outputs-list">
@@ -134,15 +134,15 @@
                 {#each serverOutputs as output, index}
                   <div class="input-item">
                     <div class="summary-line">
-                      <strong>📤 {index + 1}. → Entity {$xlnFunctions!.formatEntityId(output.entityId)}:{output.signerId}</strong>
+                      <strong>[OUT] {index + 1}. [RIGHTWARDS] Entity {$xlnFunctions!.formatEntityId(output.entityId)}:{output.signerId}</strong>
                       {#if output.entityTxs && output.entityTxs.length > 0}
-                        <br>📝 <strong>{output.entityTxs.length} transactions:</strong>
+                        <br>[MEMO] <strong>{output.entityTxs.length} transactions:</strong>
                         {#each output.entityTxs as tx, i}
-                          <br>  {i+1}. {tx.type === 'chat' ? `💬 Chat: "${tx.data.message}"` :
-                                       tx.type === 'propose' ? `📝 Propose: "${tx.data.action.data.message}"` :
-                                       tx.type === 'vote' ? `🗳️ Vote: ${tx.data.choice}` :
-                                       tx.type === 'accountInput' ? `💳 AccountInput: ${tx.data.accountTx?.type || 'unknown'}` :
-                                       `⚙️ ${tx.type}`}
+                          <br>  {i+1}. {tx.type === 'chat' ? `[CHAT] Chat: "${tx.data.message}"` :
+                                       tx.type === 'propose' ? `[MEMO] Propose: "${tx.data.action.data.message}"` :
+                                       tx.type === 'vote' ? `[VOTE] Vote: ${tx.data.choice}` :
+                                       tx.type === 'accountInput' ? `[CARD] AccountInput: ${tx.data.accountTx?.type || 'unknown'}` :
+                                       `[SET] ${tx.type}`}
                         {/each}
                       {/if}
                     </div>

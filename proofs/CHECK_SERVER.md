@@ -79,7 +79,7 @@ bun run dev
 
 Once `bun run dev` shows:
 ```
-✅ ✅ ✅ DEVELOPMENT ENVIRONMENT READY ✅ ✅ ✅
+[OK] [OK] [OK] DEVELOPMENT ENVIRONMENT READY [OK] [OK] [OK]
 ```
 
 You can run E2E tests:

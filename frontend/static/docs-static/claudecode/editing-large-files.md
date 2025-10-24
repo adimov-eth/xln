@@ -104,17 +104,17 @@ This pattern works for ANY file >1000 lines:
    - Debugging unknown error (need context)
    - Major restructure (need full view)
 
-**Default:** Grep → Index → Offset Read → Edit
+**Default:** Grep [RIGHTWARDS] Index [RIGHTWARDS] Offset Read [RIGHTWARDS] Edit
 
 ## Example Session
 
 ```typescript
 // User: "Fix the force-directed layout to prevent entities from overlapping"
 
-// ❌ BAD (60k tokens):
+// [X] BAD (60k tokens):
 Read file="/Users/egor/xln/frontend/src/lib/components/Network/NetworkTopology.svelte"
 
-// ✅ GOOD (1k tokens):
+// [OK] GOOD (1k tokens):
 // Check index: applyForceDirectedLayout is lines 1043-1182
 Read file="/Users/egor/xln/frontend/src/lib/components/Network/NetworkTopology.svelte"
      offset=1043

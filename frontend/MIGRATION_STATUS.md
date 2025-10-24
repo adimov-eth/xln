@@ -1,6 +1,6 @@
 # XLN Svelte Migration Status
 
-## ✅ Completed Components
+## [OK] Completed Components
 
 ### Core Infrastructure
 - **Types System** (`src/lib/types/index.ts`)
@@ -50,26 +50,26 @@
   - Global styling and layout structure
   - Store initialization orchestration
 
-## ✅ Recently Completed
+## [OK] Recently Completed
 
 ### Entity Panel System
-- **EntityPanel.svelte** ✅ - Individual entity panel component with collapsible sections
-- **EntityDropdown.svelte** ✅ - Hierarchical entity selection with search
-- **EntityProfile.svelte** ✅ - Entity information display with avatars
-- **ConsensusState.svelte** ✅ - Consensus status component
-- **ChatMessages.svelte** ✅ - Chat message display and input
-- **ProposalsList.svelte** ✅ - Proposals with voting interface
-- **TransactionHistory.svelte** ✅ - Transaction history display
-- **ControlsPanel.svelte** ✅ - Entity action controls
+- **EntityPanel.svelte** [OK] - Individual entity panel component with collapsible sections
+- **EntityDropdown.svelte** [OK] - Hierarchical entity selection with search
+- **EntityProfile.svelte** [OK] - Entity information display with avatars
+- **ConsensusState.svelte** [OK] - Consensus status component
+- **ChatMessages.svelte** [OK] - Chat message display and input
+- **ProposalsList.svelte** [OK] - Proposals with voting interface
+- **TransactionHistory.svelte** [OK] - Transaction history display
+- **ControlsPanel.svelte** [OK] - Entity action controls
 
 ### Layout Components
-- **TimeMachine.svelte** ✅ - Time navigation controls with keyboard shortcuts
-- **AdminTopBar.svelte** ✅ - Complete admin interface with settings modal
+- **TimeMachine.svelte** [OK] - Time navigation controls with keyboard shortcuts
+- **AdminTopBar.svelte** [OK] - Complete admin interface with settings modal
 
 ### Main Application
-- **App.svelte** ✅ - Full application with entity panels, I/O section, and formation tabs
+- **App.svelte** [OK] - Full application with entity panels, I/O section, and formation tabs
 
-## 🚧 Minor Remaining Tasks
+## [WIP] Minor Remaining Tasks
 
 ### Formation & Jurisdiction
 - **EntityFormation.svelte** - Entity creation form
@@ -82,7 +82,7 @@
 - **Avatar.svelte** - Signer/entity avatar display
 - **LoadingSpinner.svelte** - Loading state component
 
-## 📊 Migration Progress
+## [STATS] Migration Progress
 
 ### Architecture Decisions Made
 1. **Store-First Architecture**: All state management through Svelte stores
@@ -92,13 +92,13 @@
 5. **Modular Structure**: Clear separation of concerns between stores, utils, and components
 
 ### Key Features Preserved
-- ✅ Multi-panel entity viewing
-- ✅ Real-time consensus updates
-- ✅ Time machine functionality (store level)
-- ✅ Settings persistence
-- ✅ Tab system with localStorage
-- ✅ XLN server integration
-- ✅ Error handling and recovery
+- [OK] Multi-panel entity viewing
+- [OK] Real-time consensus updates
+- [OK] Time machine functionality (store level)
+- [OK] Settings persistence
+- [OK] Tab system with localStorage
+- [OK] XLN server integration
+- [OK] Error handling and recovery
 
 ### Performance Improvements
 - **Reactive Updates**: Only re-render when data actually changes
@@ -106,9 +106,9 @@
 - **Efficient State Management**: Centralized stores with derived values
 - **Lazy Loading**: Components load only when needed
 
-## 🎯 Migration Status: 98% Complete - NEARLY READY FOR PRODUCTION
+## [GOAL] Migration Status: 98% Complete - NEARLY READY FOR PRODUCTION
 
-### ✅ Fully Functional Features
+### [OK] Fully Functional Features
 1. **Multi-Panel Entity System** - Complete with all entity components
 2. **Time Machine Navigation** - Full time travel functionality
 3. **Admin Controls** - All admin operations working
@@ -117,13 +117,13 @@
 6. **Entity Formation** - Basic entity creation interface
 7. **Jurisdiction Status** - Blockchain connection monitoring
 
-### 🔧 Minor Polish Items (Optional)
+### [TOOL] Minor Polish Items (Optional)
 - Enhanced entity formation with validator selection UI
 - Additional modal components for better UX
 - Performance optimizations for large datasets
 - Accessibility improvements
 
-## 🔧 Technical Notes
+## [TOOL] Technical Notes
 
 ### Component Communication
 - **Props Down**: Parent components pass data via props
@@ -137,7 +137,7 @@
 - **Recovery**: Automatic retry mechanisms where appropriate
 - **User Feedback**: Clear error messages and recovery options
 
-## 🚀 Ready for Development
+## [LAUNCH] Ready for Development
 
 The foundation is complete and ready for component implementation. The next developer can:
 

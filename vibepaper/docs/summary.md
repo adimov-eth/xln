@@ -26,7 +26,7 @@ The invariant:
 
 reserves[entity][token] += amount
 
-2. **Move Reserve → Collateral**  
+2. **Move Reserve [RIGHTWARDS] Collateral**  
 The entity transfers tokens from its reserve into a channel with a counterparty.  
 - The tokens become **collateral** in the channel.  
 - By default, new collateral is attributed to the right side.  

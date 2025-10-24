@@ -15,7 +15,7 @@ export function signAccountFrame(
   const content = `${entityId}-${frameHash}-${privateData}`;
   const signature = `sig_${Buffer.from(content).toString('base64').slice(0, 32)}`;
 
-  console.log(`✍️ Signed frame ${frameHash.slice(0, 10)} by ${entityId.slice(-4)}: ${signature.slice(0, 20)}...`);
+  console.log(`[WRITE] Signed frame ${frameHash.slice(0, 10)} by ${entityId.slice(-4)}: ${signature.slice(0, 20)}...`);
   return signature;
 }
 
@@ -32,9 +32,9 @@ export function verifyAccountSignature(
   const isValid = signature === expectedSignature;
 
   if (isValid) {
-    console.log(`✅ Valid signature from ${entityId.slice(-4)} for frame ${frameHash.slice(0, 10)}`);
+    console.log(`[OK] Valid signature from ${entityId.slice(-4)} for frame ${frameHash.slice(0, 10)}`);
   } else {
-    console.log(`❌ Invalid signature from ${entityId.slice(-4)} for frame ${frameHash.slice(0, 10)}`);
+    console.log(`[X] Invalid signature from ${entityId.slice(-4)} for frame ${frameHash.slice(0, 10)}`);
     console.log(`   Expected: ${expectedSignature.slice(0, 20)}...`);
     console.log(`   Received: ${signature.slice(0, 20)}...`);
   }
@@ -63,7 +63,7 @@ export function getSignerFromSignature(signature: string, frameHash: string): st
       return parts[0] || null; // Return entityId or null if empty
     }
   } catch (error) {
-    console.log(`⚠️ Failed to parse signature: ${error}`);
+    console.log(`[WARN] Failed to parse signature: ${error}`);
   }
 
   return null;
@@ -91,7 +91,7 @@ export function validateAccountSignatures(
 
   const allValid = validSigners.length === expectedSigners.length;
 
-  console.log(`🔍 Signature validation: ${validSigners.length}/${expectedSigners.length} valid (${allValid ? 'PASS' : 'FAIL'})`);
+  console.log(`[FIND] Signature validation: ${validSigners.length}/${expectedSigners.length} valid (${allValid ? 'PASS' : 'FAIL'})`);
 
   return { valid: allValid, validSigners };
 }

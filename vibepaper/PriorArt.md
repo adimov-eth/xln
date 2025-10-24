@@ -52,7 +52,7 @@ XLN: "$0.00001 fee, 3 seconds"
 
 ## Against Rollups
 ```
-Rollups: "We'll decentralize the sequencer someday™"
+Rollups: "We'll decentralize the sequencer somedayTM"
 XLN: "No sequencer needed"
 
 Rollups: "Trust our data availability committee"

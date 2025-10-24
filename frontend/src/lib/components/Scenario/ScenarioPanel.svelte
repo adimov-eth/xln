@@ -56,9 +56,9 @@
       }
 
       scenarioText = await response.text();
-      console.log('📜 Loaded scenario:', scenario.name);
+      console.log('[DOC] Loaded scenario:', scenario.name);
     } catch (error) {
-      console.error('❌ Failed to load scenario:', error);
+      console.error('[X] Failed to load scenario:', error);
       parseErrors = [(error as Error).message];
     } finally {
       isLoading = false;
@@ -104,7 +104,7 @@
         throw new Error('Environment not initialized');
       }
 
-      addOutput('🔍 Parsing scenario...', 'step');
+      addOutput('[FIND] Parsing scenario...', 'step');
 
       // Parse scenario using XLN module
       const parsed = XLN.parseScenario(scenarioText);
@@ -113,14 +113,14 @@
         parseErrors = parsed.errors.map((e: any) =>
           `Line ${e.lineNumber}: ${e.message}${e.context ? ` (${e.context})` : ''}`
         );
-        addOutput(`❌ Parse failed: ${parsed.errors.length} errors`, 'error');
+        addOutput(`[X] Parse failed: ${parsed.errors.length} errors`, 'error');
         isExecuting = false;
         return;
       }
 
-      addOutput(`✓ Parsed ${parsed.scenario.steps?.length || 0} steps`, 'success');
+      addOutput(`[CHECK] Parsed ${parsed.scenario.steps?.length || 0} steps`, 'success');
       addOutput('', 'info');
-      addOutput('🎬 Executing scenario...', 'step');
+      addOutput('[TAKE] Executing scenario...', 'step');
       addOutput('', 'info');
 
       // Execute scenario with step-by-step output
@@ -146,19 +146,19 @@
       addOutput('', 'info');
       if (result.success) {
         addOutput('═══════════════════════════════════════', 'success');
-        addOutput(`✅ Scenario complete!`, 'success');
+        addOutput(`[OK] Scenario complete!`, 'success');
         addOutput(`   Generated ${result.framesGenerated} frames`, 'success');
         addOutput('═══════════════════════════════════════', 'success');
       } else {
-        addOutput('❌ Execution failed:', 'error');
+        addOutput('[X] Execution failed:', 'error');
         result.errors.forEach((e: any) => {
           addOutput(`   t=${e.timestamp}s: ${e.error}`, 'error');
         });
         parseErrors = result.errors.map((e: any) => `t=${e.timestamp}s: ${e.error}`);
       }
     } catch (error) {
-      console.error('❌ Scenario execution failed:', error);
-      addOutput(`❌ Fatal error: ${(error as Error).message}`, 'error');
+      console.error('[X] Scenario execution failed:', error);
+      addOutput(`[X] Fatal error: ${(error as Error).message}`, 'error');
       parseErrors = [(error as Error).message];
     } finally {
       isExecuting = false;
@@ -191,7 +191,7 @@
 <div class="scenario-panel">
   <!-- Header -->
   <div class="panel-header">
-    <h3>🎬 Scenarios</h3>
+    <h3>[TAKE] Scenarios</h3>
   </div>
 
   <!-- Scenario Selector -->
@@ -210,7 +210,7 @@
       <div class="editor-header">
         <span class="editor-title">Scenario Script</span>
         <button on:click={executeScenario} class="execute-btn" disabled={isLoading || isExecuting}>
-          {isExecuting ? '⏳ Executing...' : isLoading ? '⏳ Loading...' : '▶️ Execute'}
+          {isExecuting ? '[WAIT] Executing...' : isLoading ? '[WAIT] Loading...' : '> Execute'}
         </button>
       </div>
 
@@ -247,7 +247,7 @@
       <!-- Parse Errors -->
       {#if parseErrors.length > 0}
         <div class="parse-errors">
-          <div class="error-header">⚠️ Errors:</div>
+          <div class="error-header">[WARN] Errors:</div>
           {#each parseErrors as error}
             <div class="error-item">{error}</div>
           {/each}

@@ -80,7 +80,7 @@ export async function createXlnomy(options: {
     await createGridEntities(xlnomy, env);
   }
 
-  console.log(`[Xlnomy] ✅ "${name}" created with ${xlnomy.entities.length} entities queued`);
+  console.log(`[Xlnomy] [OK] "${name}" created with ${xlnomy.entities.length} entities queued`);
 
   return xlnomy;
 }
@@ -145,9 +145,9 @@ async function createGridEntities(xlnomy: Xlnomy, env: any): Promise<void> {
   // Base entity number for this Xlnomy (each Xlnomy gets 8 sequential IDs)
   // xlnomies.size = count of EXISTING xlnomies (doesn't include current one being created)
   const xlnomyIndex = env?.xlnomies ? env.xlnomies.size : 0;
-  const baseEntityNum = xlnomyIndex * 8 + 1; // Index 0→1-8, Index 1→9-16, Index 2→17-24
+  const baseEntityNum = xlnomyIndex * 8 + 1; // Index 0[RIGHTWARDS]1-8, Index 1[RIGHTWARDS]9-16, Index 2[RIGHTWARDS]17-24
 
-  console.log(`[Xlnomy] "${xlnomy.name}" (index ${xlnomyIndex}) → Entity IDs ${baseEntityNum}-${baseEntityNum + 7}`);
+  console.log(`[Xlnomy] "${xlnomy.name}" (index ${xlnomyIndex}) [RIGHTWARDS] Entity IDs ${baseEntityNum}-${baseEntityNum + 7}`);
 
   for (let i = 0; i < 8; i++) {
     const entityNum = baseEntityNum + i;
@@ -194,7 +194,7 @@ async function createGridEntities(xlnomy: Xlnomy, env: any): Promise<void> {
     env.runtimeInput.runtimeTxs.push(...entityInputs);
   }
 
-  console.log(`[Xlnomy] ✅ Grid queued: ${gridEntities.length} entities at positions`);
+  console.log(`[Xlnomy] [OK] Grid queued: ${gridEntities.length} entities at positions`);
 }
 
 /**

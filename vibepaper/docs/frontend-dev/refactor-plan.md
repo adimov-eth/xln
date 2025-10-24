@@ -1,6 +1,6 @@
 # Frontend Refactoring Plan - Breaking Down God Components
 
-## 🎯 Problem: Monster Files
+## [GOAL] Problem: Monster Files
 
 **Current State:**
 - `NetworkTopology.svelte`: **5933 lines** (3879 script + 1462 style) - 62+ functions
@@ -12,7 +12,7 @@
 
 ---
 
-## 📦 NetworkTopology.svelte Split Strategy (Priority: HIGH)
+## [PKG] NetworkTopology.svelte Split Strategy (Priority: HIGH)
 
 ### Current Structure Analysis
 
@@ -82,7 +82,7 @@
 
 ---
 
-## 🔨 Proposed Refactor (Idiomatic Svelte)
+## [HAMMER] Proposed Refactor (Idiomatic Svelte)
 
 ### Strategy 1: Extract Pure Logic to TypeScript Modules
 
@@ -232,7 +232,7 @@ Keep NetworkTopology as a "shell" that accepts plugins:
 
 ---
 
-## 📊 Estimated Line Reduction
+## [STATS] Estimated Line Reduction
 
 | File | Before | After | Reduction |
 |------|--------|-------|-----------|
@@ -248,34 +248,34 @@ Keep NetworkTopology as a "shell" that accepts plugins:
 
 ---
 
-## 🚦 Refactor Phases
+## [LIGHTS] Refactor Phases
 
 ### Phase 1: Extract Pure Logic (2-3 hours)
 - Create `/lib/network3d/` directory
-- Move layout algorithms → `LayoutEngine.ts`
-- Move entity logic → `EntityManager.ts`
-- Move connection logic → `ConnectionManager.ts`
+- Move layout algorithms [RIGHTWARDS] `LayoutEngine.ts`
+- Move entity logic [RIGHTWARDS] `EntityManager.ts`
+- Move connection logic [RIGHTWARDS] `ConnectionManager.ts`
 - **Test:** Ensure 3D still renders correctly
 
 ### Phase 2: Extract Animation (1-2 hours)
-- Move animation loop → `AnimationController.ts`
-- Move particles → `ParticleSystem.ts`
-- Move ripples → `RippleEffects.ts`
+- Move animation loop [RIGHTWARDS] `AnimationController.ts`
+- Move particles [RIGHTWARDS] `ParticleSystem.ts`
+- Move ripples [RIGHTWARDS] `RippleEffects.ts`
 - **Test:** Ensure animations still work
 
 ### Phase 3: Extract Input (1 hour)
-- Move mouse/touch → `InputHandler.ts`
-- Move VR → `VRControllers.ts`
+- Move mouse/touch [RIGHTWARDS] `InputHandler.ts`
+- Move VR [RIGHTWARDS] `VRControllers.ts`
 - **Test:** Ensure dragging/clicking works
 
 ### Phase 4: Extract UI Components (1 hour)
-- Split controls → `NetworkControls.svelte`
-- Split route UI → `RouteHighlighter.svelte`
+- Split controls [RIGHTWARDS] `NetworkControls.svelte`
+- Split route UI [RIGHTWARDS] `RouteHighlighter.svelte`
 - **Test:** Ensure UI interactions work
 
 ---
 
-## 🎯 Priority Order
+## [GOAL] Priority Order
 
 1. **NetworkTopology.svelte** (5933 lines) - HIGHEST PRIORITY
    - Most complex
@@ -301,7 +301,7 @@ Keep NetworkTopology as a "shell" that accepts plugins:
 
 ---
 
-## ⚠️ Risks & Mitigation
+## [WARN] Risks & Mitigation
 
 **Risk 1: Breaking existing functionality**
 - **Mitigation:** Incremental refactor, test after each phase
@@ -317,7 +317,7 @@ Keep NetworkTopology as a "shell" that accepts plugins:
 
 ---
 
-## 💡 Recommendation
+## [IDEA] Recommendation
 
 **Start with Phase 1 (Pure Logic Extraction):**
 1. Create `EntityManager.ts` (250 lines)
@@ -325,13 +325,13 @@ Keep NetworkTopology as a "shell" that accepts plugins:
 3. Create `LayoutEngine.ts` (200 lines)
 4. Update NetworkTopology to use managers
 
-**Result:** 5933 → ~3500 lines (-41%) in 2-3 hours
+**Result:** 5933 [RIGHTWARDS] ~3500 lines (-41%) in 2-3 hours
 
 **Then:** Reassess. If it feels good, continue with Phases 2-4. If not, stop here.
 
 ---
 
-## 🔗 Related Files to Refactor (Lower Priority)
+## [LINK] Related Files to Refactor (Lower Priority)
 
 - `AccountPanel.svelte` (1609 lines) - Split into 3 components
 - `SettingsView.svelte` (1201 lines) - Split into 4 tabs

@@ -34,7 +34,7 @@ export async function waitForXLNReady(playwright: any): Promise<void> {
     }`
   });
 
-  console.log('✅ XLN runtime loaded');
+  console.log('[OK] XLN runtime loaded');
 }
 
 /**
@@ -112,7 +112,7 @@ export async function createEntity(playwright: any, entityNumber?: number): Prom
     }`
   });
 
-  console.log(`✅ Created entity: ${entityId}`);
+  console.log(`[OK] Created entity: ${entityId}`);
   return entityId;
 }
 
@@ -153,7 +153,7 @@ export async function openAccount(
 
   await playwright.browser_wait_for({ time: 2 });
 
-  console.log(`✅ Opened account: ${fromEntityId} ↔ ${toEntityId}`);
+  console.log(`[OK] Opened account: ${fromEntityId} <-> ${toEntityId}`);
 }
 
 /**
@@ -201,7 +201,7 @@ export async function sendPayment(
 
   await playwright.browser_wait_for({ time: 2 });
 
-  console.log(`✅ Sent payment: ${fromEntityId} → ${toEntityId} (${amount})`);
+  console.log(`[OK] Sent payment: ${fromEntityId} [RIGHTWARDS] ${toEntityId} (${amount})`);
 }
 
 /**
@@ -237,7 +237,7 @@ export async function verifyAccountState(
     // Note: Can't pass parameters directly with MCP, would need to embed in function
   });
 
-  console.log(`✅ Account verified: ${entityId} ↔ ${counterpartyId}`);
+  console.log(`[OK] Account verified: ${entityId} <-> ${counterpartyId}`);
   return result?.exists || false;
 }
 
@@ -250,7 +250,7 @@ export async function takeScreenshot(playwright: any, name: string): Promise<voi
     fullPage: true
   });
 
-  console.log(`📸 Screenshot saved: ${name}.png`);
+  console.log(`[CAM] Screenshot saved: ${name}.png`);
 }
 
 /**
@@ -272,7 +272,7 @@ export async function resetState(playwright: any): Promise<void> {
     function: `async () => {
       if (window.XLN?.clearDatabaseAndHistory) {
         await window.XLN.clearDatabaseAndHistory();
-        console.log('✅ Database cleared');
+        console.log('[OK] Database cleared');
       }
     }`
   });

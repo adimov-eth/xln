@@ -48,11 +48,11 @@ Expected output:
 Alice: #(struct:entity-id 1)
 Bob: #(struct:entity-id 2)
 Channel key (canonical): #(struct:account-key ...)
-✓ Canonical ordering verified
+[CHECK] Canonical ordering verified
 
 === Demo 2: RCPAN Invariant ===
 Valid delta created: #(struct:delta ...)
-✓ Caught error: RCPAN invariant violated
+[CHECK] Caught error: RCPAN invariant violated
 ...
 ```
 
@@ -61,17 +61,17 @@ Valid delta created: #(struct:delta ...)
 ```
 xln-scheme/
 ├── core/
-│   ├── types.rkt           ✅ State machines, domain types, RCPAN
-│   ├── crypto.rkt          🚧 ECDSA, SHA256, Keccak256
-│   ├── rlp.rkt             🚧 Ethereum serialization
-│   └── merkle.rkt          🚧 Merkle trees
+│   ├── types.rkt           [OK] State machines, domain types, RCPAN
+│   ├── crypto.rkt          [WIP] ECDSA, SHA256, Keccak256
+│   ├── rlp.rkt             [WIP] Ethereum serialization
+│   └── merkle.rkt          [WIP] Merkle trees
 ├── consensus/
-│   ├── account/            🚧 Bilateral state machine
-│   ├── entity/             🚧 BFT state machine
-│   └── runtime.rkt         🚧 Coordinator
+│   ├── account/            [WIP] Bilateral state machine
+│   ├── entity/             [WIP] BFT state machine
+│   └── runtime.rkt         [WIP] Coordinator
 ├── examples/
-│   └── basic-channel.rkt   ✅ Proof of concepts
-└── tests/                  🚧 Property-based tests
+│   └── basic-channel.rkt   [OK] Proof of concepts
+└── tests/                  [WIP] Property-based tests
 ```
 
 ## Key Innovations Over TypeScript
@@ -94,7 +94,7 @@ xln-scheme/
 (delta 1 1000 300 0 100 200 1000 1000)  ; −100 ≤ 300 ≤ 1200
 
 ;; This errors at runtime (would be compile-time with Typed Racket):
-(delta 1 1000 2000 0 100 200 1000 1000)  ; 2000 > 1200 ✗
+(delta 1 1000 2000 0 100 200 1000 1000)  ; 2000 > 1200 [BALLOT]
 ;; error: RCPAN invariant violated
 ```
 

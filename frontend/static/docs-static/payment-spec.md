@@ -74,7 +74,7 @@ function applyDirectPaymentTx(
     timestamp: Date.now()
   };
 
-  events.push(`💸 Initiating payment of ${tx.data.amount} token ${tx.data.tokenId} to ${tx.data.recipientEntityId}`);
+  events.push(`[$$] Initiating payment of ${tx.data.amount} token ${tx.data.tokenId} to ${tx.data.recipientEntityId}`);
 
   return { events, accountInputs: [accountInput] };
 }
@@ -165,11 +165,11 @@ case 'direct-payment': {
 
     // Apply payment
     delta.offdelta += amount;
-    events.push(`💸 Sent ${amount} token ${tokenId} to ${accountMachine.counterpartyEntityId}`);
+    events.push(`[$$] Sent ${amount} token ${tokenId} to ${accountMachine.counterpartyEntityId}`);
   } else {
     // Incoming payment
     delta.offdelta -= amount;
-    events.push(`💰 Received ${amount} token ${tokenId} from ${accountMachine.counterpartyEntityId}`);
+    events.push(`[$] Received ${amount} token ${tokenId} from ${accountMachine.counterpartyEntityId}`);
   }
 
   return { success: true, events };
@@ -356,7 +356,7 @@ async function applyHashlockPaymentTx(
   };
 
   return {
-    events: [`🔒 Initiating hashlock payment via ${route.join(' → ')}`],
+    events: [`[LOCK] Initiating hashlock payment via ${route.join(' [RIGHTWARDS] ')}`],
     accountInputs: [accountInput]
   };
 }
@@ -398,7 +398,7 @@ case 'add-hashlock': {
     delta!.offdelta += amount; // Temporarily reduce our capacity
   }
 
-  events.push(`🔒 Added hashlock ${hash.slice(0, 8)} for ${amount}`);
+  events.push(`[LOCK] Added hashlock ${hash.slice(0, 8)} for ${amount}`);
 
   // Trigger forwarding in entity machine
   if (!isOurFrame) {
@@ -431,7 +431,7 @@ case 'settle-hashlock': {
   // Transfer is already applied via offdelta when hashlock was added
   // Just need to clean up
 
-  events.push(`✅ Settled hashlock ${hash.slice(0, 8)} with secret`);
+  events.push(`[OK] Settled hashlock ${hash.slice(0, 8)} with secret`);
 
   // Propagate secret backwards
   if (hashlock.incomingChannelId) {
@@ -475,7 +475,7 @@ async function processHashlockForwards(env: Env, entityId: string): Promise<Enti
         data: { hash: hashlock.hash, secret }
       });
 
-      console.log(`🎯 Final recipient of payment: ${data.finalData.description}`);
+      console.log(`[GOAL] Final recipient of payment: ${data.finalData.description}`);
     } else if (data.nextHop) {
       // Forward to next hop
       const nextAccountMachine = env.accountMachines.get(
@@ -699,13 +699,13 @@ export async function findPaymentRoute(
   const routes = pathFinder.findRoutes(source, target, amount);
 
   if (routes.length === 0) {
-    console.log(`❌ No route found from ${source} to ${target} for ${amount}`);
+    console.log(`[X] No route found from ${source} to ${target} for ${amount}`);
     return null;
   }
 
   // Select best route (lowest fee by default)
   const bestRoute = routes[0];
-  console.log(`✅ Found route: ${bestRoute.path.join(' → ')}, fee: ${bestRoute.totalFee}`);
+  console.log(`[OK] Found route: ${bestRoute.path.join(' [RIGHTWARDS] ')}, fee: ${bestRoute.totalFee}`);
 
   return bestRoute.path;
 }

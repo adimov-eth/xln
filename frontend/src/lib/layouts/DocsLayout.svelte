@@ -88,14 +88,14 @@
       on:click={() => mobileMenuOpen = !mobileMenuOpen}
       aria-label="Toggle menu"
     >
-      ☰
+      [MENU]
     </button>
   </header>
 
   <!-- Sidebar -->
   <aside class="docs-sidebar" class:open={mobileMenuOpen}>
     <div class="sidebar-header">
-      <a href="/" class="logo">← XLN</a>
+      <a href="/" class="logo">[LEFTWARDS] XLN</a>
     </div>
 
     <div class="search-box">

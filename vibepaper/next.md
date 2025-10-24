@@ -10,46 +10,46 @@ Painfully obvious visual proof that Broadcast O(n) dies at scale, Unicast O(1) d
 #### LEFT: Broadcast O(n) - "What Everyone Else Does"
 ```
 [Blockchain growing at top - visible chain of blocks]
-        ↓
+        [DOWNWARDS]
 [J-Machine Square - "Global Consensus Layer"]
-  Every 5 sec: New block → RAY-CAST to ALL nodes below
-        ↓ ↓ ↓ ↓ ↓ ↓ ↓ (literal rays/connections to every node)
+  Every 5 sec: New block [RIGHTWARDS] RAY-CAST to ALL nodes below
+        [DOWNWARDS] [DOWNWARDS] [DOWNWARDS] [DOWNWARDS] [DOWNWARDS] [DOWNWARDS] [DOWNWARDS] (literal rays/connections to every node)
 
 [Hardware Tiers - Bottom]
-📱 Phones (10 nodes)      - Max capacity: 10 TPS
-💻 Laptops (20 nodes)     - Max capacity: 100 TPS
-🏢 Datacenters (5 nodes)  - Max capacity: 1000 TPS
+[PHONE] Phones (10 nodes)      - Max capacity: 10 TPS
+[PC] Laptops (20 nodes)     - Max capacity: 100 TPS
+[OFFICE] Datacenters (5 nodes)  - Max capacity: 1000 TPS
 
 TPS Ramping:
-• 1 TPS:   All green ✓
-• 10 TPS:  Phones yellow (struggling), some go offline → "syncing..."
+• 1 TPS:   All green [CHECK]
+• 10 TPS:  Phones yellow (struggling), some go offline [RIGHTWARDS] "syncing..."
 • 100 TPS: Phones RED (dead/pruned), Laptops yellow
-• 1K TPS:  Only datacenters survive → CENTRALIZATION
-• 1M TPS:  💥 Complete failure, all nodes dead
+• 1K TPS:  Only datacenters survive [RIGHTWARDS] CENTRALIZATION
+• 1M TPS:  [BOOM] Complete failure, all nodes dead
 
 Offline behavior:
 - Node goes gray, shows "syncing..."
 - Must catch up on all missed blocks
-- Phones/laptops give up (can't sync fast enough) → "pruned node"
+- Phones/laptops give up (can't sync fast enough) [RIGHTWARDS] "pruned node"
 ```
 
 #### RIGHT: Unicast O(1) - "What xln Does"
 ```
 [Same blockchain at top - only 1 TPS always]
-        ↓
+        [DOWNWARDS]
 [Hub-Spoke Layer - Netting]
   L2 bilateral txs (fast dots between users+hubs)
   Only periodic rebalancing hits J-layer
-        ↓ (single ray - constant rate)
+        [DOWNWARDS] (single ray - constant rate)
 [J-Machine Square]
 
 [Same Hardware Tiers]
-📱💻🏢 All stay GREEN regardless of L2 TPS
+[PHONE][PC][OFFICE] All stay GREEN regardless of L2 TPS
 
 TPS Ramping:
-• 1 L2 TPS:    → 1 L1 TPS    ✓
-• 1M L2 TPS:   → 1 L1 TPS    ✓ (still!)
-• ∞ L2 TPS:    → 1 L1 TPS    ✓
+• 1 L2 TPS:    [RIGHTWARDS] 1 L1 TPS    [CHECK]
+• 1M L2 TPS:   [RIGHTWARDS] 1 L1 TPS    [CHECK] (still!)
+• ∞ L2 TPS:    [RIGHTWARDS] 1 L1 TPS    [CHECK]
 
 Key message: L1 rate is CONSTANT (netting layer absorbs all L2 traffic)
 ```
@@ -57,14 +57,14 @@ Key message: L1 rate is CONSTANT (netting layer absorbs all L2 traffic)
 ### Implementation Details
 
 #### Hardware Primitives (COMPLETED)
-✅ Created all 4 device SVGs with embedded EVM logos:
-- 📱 `phone.svg` - ~10 TPS capacity
-- 💻 `laptop.svg` - ~100 TPS capacity
-- 🖥️ `server.svg` - ~1K TPS capacity
-- 🏢 `datacenter.svg` - ~100K TPS capacity
+[OK] Created all 4 device SVGs with embedded EVM logos:
+- [PHONE] `phone.svg` - ~10 TPS capacity
+- [PC] `laptop.svg` - ~100 TPS capacity
+- [PC] `server.svg` - ~1K TPS capacity
+- [OFFICE] `datacenter.svg` - ~100K TPS capacity
 
-✅ All use `fill="currentColor"` for dynamic theming
-✅ EVM logo embedded inside each device (scaled, centered)
+[OK] All use `fill="currentColor"` for dynamic theming
+[OK] EVM logo embedded inside each device (scaled, centered)
 
 #### J-Machine Block Representation
 - Square block (like in screenshot)
@@ -137,35 +137,35 @@ if (currentTPS > node.maxCapacity) {
 
 ```
          [J-Machine Block at Center]
-                ↓ Broadcasts to all ↓
+                [DOWNWARDS] Broadcasts to all [DOWNWARDS]
 
-   Ring 1 (closest): 🏢 Datacenters (4 nodes)
-   Ring 2: 🖥️ Servers (8 nodes)
-   Ring 3: 💻 Laptops (12 nodes)
-   Ring 4 (outer): 📱 Phones (20 nodes)
+   Ring 1 (closest): [OFFICE] Datacenters (4 nodes)
+   Ring 2: [PC] Servers (8 nodes)
+   Ring 3: [PC] Laptops (12 nodes)
+   Ring 4 (outer): [PHONE] Phones (20 nodes)
 ```
 
 ### Evolution by TPS Stage:
 
 **1 TPS (Stage 1):**
 - All 44 nodes: Green, equal participants
-- Full decentralization ✓
+- Full decentralization [CHECK]
 - Every node is a full J-machine validator
 
 **10 TPS (Stage 2):**
-- Phones (outer ring) turn gray → "RPC zombies"
-- Dotted lines from zombies → point to datacenters
+- Phones (outer ring) turn gray [RIGHTWARDS] "RPC zombies"
+- Dotted lines from zombies [RIGHTWARDS] point to datacenters
 - Visual: Outer ring fades to 30% opacity
 - Caption: "Phones give up, become RPC clients (trust datacenters)"
 
 **100 TPS (Stage 3):**
-- Laptops die → RPC zombies → lines to datacenters
+- Laptops die [RIGHTWARDS] RPC zombies [RIGHTWARDS] lines to datacenters
 - Servers/Datacenters still green
 - Visual: Network radius shrinks (only inner 2 rings visible)
 - Caption: "Consumer hardware eliminated"
 
 **1K TPS (Stage 4):**
-- Servers die → RPC zombies
+- Servers die [RIGHTWARDS] RPC zombies
 - Only datacenters green (4 nodes in center)
 - Visual: Tiny network, 4 nodes total
 - Caption: "Datacenter-only = Centralization"
@@ -220,7 +220,7 @@ rings.forEach(ring => {
 
 ### Animation Sequence:
 1. Start at 1 TPS - show full radial network (all green)
-2. Auto-ramp every 8 seconds: 1 → 10 → 100 → 1K → 10K → 100K → 1M
+2. Auto-ramp every 8 seconds: 1 [RIGHTWARDS] 10 [RIGHTWARDS] 100 [RIGHTWARDS] 1K [RIGHTWARDS] 10K [RIGHTWARDS] 100K [RIGHTWARDS] 1M
 3. As TPS increases:
    - Outer rings fade/die sequentially
    - Radius visually contracts (zoom in to center)
@@ -243,14 +243,14 @@ rings.forEach(ring => {
 4. **Mobile layout:** Stack broadcast/unicast vertically or make single view switchable?
 
 ### Current Status (After Session):
-- ✅ 100 nodes (70% phones, 24% laptops, 5% servers, 1% datacenter)
-- ✅ TPS slider (manual 1-1000 + auto-ramp mode)
-- ✅ Blockchain visualization (consensus block fills 0/10 → 10/10, then finalizes)
-- ✅ Finalized blocks move to historical chain (left side)
-- ✅ Device health degradation on broadcast side
-- ✅ Jail bars pattern for datacenter censorship (at 10K+ TPS)
-- ✅ RPC zombie lines (dead nodes → datacenter)
-- ✅ Mirrored layout (broadcast/unicast identical starting positions)
+- [OK] 100 nodes (70% phones, 24% laptops, 5% servers, 1% datacenter)
+- [OK] TPS slider (manual 1-1000 + auto-ramp mode)
+- [OK] Blockchain visualization (consensus block fills 0/10 [RIGHTWARDS] 10/10, then finalizes)
+- [OK] Finalized blocks move to historical chain (left side)
+- [OK] Device health degradation on broadcast side
+- [OK] Jail bars pattern for datacenter censorship (at 10K+ TPS)
+- [OK] RPC zombie lines (dead nodes [RIGHTWARDS] datacenter)
+- [OK] Mirrored layout (broadcast/unicast identical starting positions)
 
 ### Low-Hanging Fruit (Next Session):
 
@@ -261,13 +261,13 @@ rings.forEach(ring => {
    - This PROVES the broadcast bottleneck visually
 
 2. **Random tx submission** (10 min) - Nodes randomly send tx to consensus block
-   - Small dots flying from random nodes → consensus block
+   - Small dots flying from random nodes [RIGHTWARDS] consensus block
    - Rate based on current TPS
    - Shows network activity
 
 3. **Random uptime (16/5 vs 24/7)** (20 min)
    - Phones/laptops: Randomly go offline even at low TPS
-   - Show "offline" → "syncing..." → back online (if can catch up)
+   - Show "offline" [RIGHTWARDS] "syncing..." [RIGHTWARDS] back online (if can catch up)
    - Datacenters: Always online
    - This shows uptime is also a centralizing force
 

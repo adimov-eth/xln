@@ -424,7 +424,7 @@ describe("Depository", function () {
         }
       }
       
-      console.log("✅ All entities 1-20 are properly pre-funded!");
+      console.log("[OK] All entities 1-20 are properly pre-funded!");
     });
 
     it("should execute reserveToReserve transfer between pre-funded entities", async function () {
@@ -470,7 +470,7 @@ describe("Depository", function () {
       expect(finalBalance1).to.equal(initialBalance1 - transferAmount);
       expect(finalBalance2).to.equal(initialBalance2 + transferAmount);
       
-      console.log("✅ Reserve-to-reserve transfer working!");
+      console.log("[OK] Reserve-to-reserve transfer working!");
     });
 
   });

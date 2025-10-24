@@ -104,7 +104,7 @@ async function tryOpenDb(): Promise<boolean> {
     dbOpenPromise = (async () => {
       try {
         await db.open();
-        console.log('✅ Database opened');
+        console.log('[OK] Database opened');
         return true;
       } catch (error) {
         // Check if IndexedDB is completely blocked (Safari incognito)
@@ -114,12 +114,12 @@ async function tryOpenDb(): Promise<boolean> {
            error.name === 'InvalidStateError');
 
         if (isBlocked) {
-          console.log('⚠️ IndexedDB blocked (incognito/private mode) - running in-memory');
+          console.log('[WARN] IndexedDB blocked (incognito/private mode) - running in-memory');
           return false;
         }
 
         // Other errors - log but assume DB is available
-        console.warn('⚠️ DB open warning:', error instanceof Error ? error.message : error);
+        console.warn('[WARN] DB open warning:', error instanceof Error ? error.message : error);
         return true;
       }
     })();
@@ -156,7 +156,7 @@ const startJEventWatcher = async (env: Env): Promise<void> => {
     // Get the Arrakis jurisdiction (primary testnet)
     const arrakis = await getJurisdictionByAddress('arrakis');
     if (!arrakis) {
-      console.warn('⚠️ Arrakis jurisdiction not found, skipping j-watcher');
+      console.warn('[WARN] Arrakis jurisdiction not found, skipping j-watcher');
       return;
     }
 
@@ -168,10 +168,10 @@ const startJEventWatcher = async (env: Env): Promise<void> => {
       arrakis.depositoryAddress
     );
 
-    console.log('✅ J-Event Watcher started successfully');
-    console.log(`🔭 Monitoring: ${arrakis.address}`);
-    console.log(`📍 EntityProvider: ${arrakis.entityProviderAddress}`);
-    console.log(`📍 Depository: ${arrakis.depositoryAddress}`);
+    console.log('[OK] J-Event Watcher started successfully');
+    console.log(`[TELESCOPE] Monitoring: ${arrakis.address}`);
+    console.log(`[PIN] EntityProvider: ${arrakis.entityProviderAddress}`);
+    console.log(`[PIN] Depository: ${arrakis.depositoryAddress}`);
     
     // J-watcher now handles its own periodic sync every 500ms
     // Set up a periodic check to process any queued events from j-watcher
@@ -192,7 +192,7 @@ const startJEventWatcher = async (env: Env): Promise<void> => {
     }, 100); // Check every 100ms to process j-watcher events quickly
     
   } catch (error) {
-    logError("RUNTIME_TICK", '❌ Failed to start J-Event Watcher:', error);
+    logError("RUNTIME_TICK", '[X] Failed to start J-Event Watcher:', error);
   }
 };
 
@@ -214,25 +214,25 @@ const applyRuntimeInput = async (
   try {
     // SECURITY: Validate runtime input
     if (!runtimeInput) {
-      log.error('❌ Null runtime input provided');
+      log.error('[X] Null runtime input provided');
       return { entityOutbox: [], mergedInputs: [] };
     }
     if (!Array.isArray(runtimeInput.runtimeTxs)) {
-      log.error(`❌ Invalid runtimeTxs: expected array, got ${typeof runtimeInput.runtimeTxs}`);
+      log.error(`[X] Invalid runtimeTxs: expected array, got ${typeof runtimeInput.runtimeTxs}`);
       return { entityOutbox: [], mergedInputs: [] };
     }
     if (!Array.isArray(runtimeInput.entityInputs)) {
-      log.error(`❌ Invalid entityInputs: expected array, got ${typeof runtimeInput.entityInputs}`);
+      log.error(`[X] Invalid entityInputs: expected array, got ${typeof runtimeInput.entityInputs}`);
       return { entityOutbox: [], mergedInputs: [] };
     }
 
     // SECURITY: Resource limits
     if (runtimeInput.runtimeTxs.length > 1000) {
-      log.error(`❌ Too many runtime transactions: ${runtimeInput.runtimeTxs.length} > 1000`);
+      log.error(`[X] Too many runtime transactions: ${runtimeInput.runtimeTxs.length} > 1000`);
       return { entityOutbox: [], mergedInputs: [] };
     }
     if (runtimeInput.entityInputs.length > 10000) {
-      log.error(`❌ Too many entity inputs: ${runtimeInput.entityInputs.length} > 10000`);
+      log.error(`[X] Too many entity inputs: ${runtimeInput.entityInputs.length} > 10000`);
       return { entityOutbox: [], mergedInputs: [] };
     }
 
@@ -248,7 +248,7 @@ const applyRuntimeInput = async (
       try {
         validateEntityInput(input);
       } catch (error) {
-        logError("RUNTIME_TICK", `🚨 CRITICAL FINANCIAL ERROR: Invalid merged EntityInput[${i}]!`, {
+        logError("RUNTIME_TICK", `[ALERT] CRITICAL FINANCIAL ERROR: Invalid merged EntityInput[${i}]!`, {
           error: (error as Error).message,
           input
         });
@@ -287,11 +287,11 @@ const applyRuntimeInput = async (
             env.activeXlnomy = xlnomy.name;
           }
 
-          console.log(`[Runtime] ✅ Xlnomy "${xlnomy.name}" created`);
+          console.log(`[Runtime] [OK] Xlnomy "${xlnomy.name}" created`);
           console.log(`[Runtime] Grid entities queued in runtimeInput: ${env.runtimeInput.runtimeTxs.length} txs`);
           console.log(`[Runtime] Active Xlnomy: ${env.activeXlnomy}`);
         } catch (error) {
-          console.error(`[Runtime] ❌ Failed to create Xlnomy:`, error);
+          console.error(`[Runtime] [X] Failed to create Xlnomy:`, error);
         }
       } else if (runtimeTx.type === 'importReplica') {
         if (DEBUG)
@@ -313,17 +313,17 @@ const applyRuntimeInput = async (
             messages: [],
             proposals: new Map(),
             config: runtimeTx.data.config,
-            // 💰 Initialize financial state
+            // [$] Initialize financial state
             reserves: new Map(), // tokenId -> bigint amount
             accounts: new Map(), // counterpartyEntityId -> AccountMachine
 
-            // 🔭 J-machine tracking
+            // [TELESCOPE] J-machine tracking
             jBlock: 0, // Must start from 0 to resync all reserves
 
-            // ⏰ Crontab system - will be initialized on first use
+            // [ALARM] Crontab system - will be initialized on first use
             crontabState: undefined,
 
-            // 📦 J-Batch system - will be initialized on first use
+            // [PKG] J-Batch system - will be initialized on first use
             jBatchState: undefined,
           },
         };
@@ -358,12 +358,12 @@ const applyRuntimeInput = async (
         }
 
         if (typeof actualJBlock !== 'number') {
-          logError("RUNTIME_TICK", `💥 ENTITY-CREATION-BUG: Just created entity with invalid jBlock!`);
-          logError("RUNTIME_TICK", `💥   Expected: 0 (number), Got: ${typeof actualJBlock}, Value: ${actualJBlock}`);
+          logError("RUNTIME_TICK", `[BOOM] ENTITY-CREATION-BUG: Just created entity with invalid jBlock!`);
+          logError("RUNTIME_TICK", `[BOOM]   Expected: 0 (number), Got: ${typeof actualJBlock}, Value: ${actualJBlock}`);
           // Force fix immediately
           if (createdReplica) {
             createdReplica.state.jBlock = 0;
-            console.log(`💥   FIXED: Set jBlock to 0 for replica ${replicaKey}`);
+            console.log(`[BOOM]   FIXED: Set jBlock to 0 for replica ${replicaKey}`);
           }
         }
       }
@@ -384,7 +384,7 @@ const applyRuntimeInput = async (
           if (entityReplicaKeys.length > 0) {
             const firstReplicaKey = entityReplicaKeys[0];
             if (!firstReplicaKey) {
-              logError("RUNTIME_TICK", `❌ Invalid replica key for entity ${entityInput.entityId}`);
+              logError("RUNTIME_TICK", `[X] Invalid replica key for entity ${entityInput.entityId}`);
               continue;
             }
             const firstReplica = env.replicas.get(firstReplicaKey);
@@ -397,7 +397,7 @@ const applyRuntimeInput = async (
 
         // Fallback if still no signerId
         if (!actualSignerId || actualSignerId === '') {
-          console.warn(`⚠️ No signerId and unable to determine proposer for entity ${entityInput.entityId.slice(0,10)}...`);
+          console.warn(`[WARN] No signerId and unable to determine proposer for entity ${entityInput.entityId.slice(0,10)}...`);
           continue; // Skip this input
         }
       }
@@ -410,9 +410,9 @@ const applyRuntimeInput = async (
       if (entityReplica) {
         if (DEBUG) {
           console.log(`Processing input for ${replicaKey}:`);
-          if (entityInput.entityTxs!.length) console.log(`  → ${entityInput.entityTxs!.length} transactions`);
-          if (entityInput.proposedFrame) console.log(`  → Proposed frame: ${entityInput.proposedFrame.hash}`);
-          if (entityInput.precommits?.size) console.log(`  → ${entityInput.precommits.size} precommits`);
+          if (entityInput.entityTxs!.length) console.log(`  [RIGHTWARDS] ${entityInput.entityTxs!.length} transactions`);
+          if (entityInput.proposedFrame) console.log(`  [RIGHTWARDS] Proposed frame: ${entityInput.proposedFrame.hash}`);
+          if (entityInput.precommits?.size) console.log(`  [RIGHTWARDS] ${entityInput.precommits.size} precommits`);
         }
 
         const { newState, outputs } = await applyEntityInput(env, entityReplica, entityInput);
@@ -426,7 +426,7 @@ const applyRuntimeInput = async (
           try {
             validateEntityOutput(output);
           } catch (error) {
-            logError("RUNTIME_TICK", `🚨 CRITICAL FINANCIAL ERROR: Invalid EntityOutput[${index}] from ${replicaKey}!`, {
+            logError("RUNTIME_TICK", `[ALERT] CRITICAL FINANCIAL ERROR: Invalid EntityOutput[${index}] from ${replicaKey}!`, {
               error: (error as Error).message,
               output
             });
@@ -450,7 +450,7 @@ const applyRuntimeInput = async (
       env.timestamp = Date.now();
 
       // Capture snapshot BEFORE clearing (to show what was actually processed)
-      const inputDescription = `Tick ${env.height - 1}: ${env.runtimeInput.runtimeTxs.length} runtimeTxs, ${mergedInputs.length} merged entityInputs → ${entityOutbox.length} outputs`;
+      const inputDescription = `Tick ${env.height - 1}: ${env.runtimeInput.runtimeTxs.length} runtimeTxs, ${mergedInputs.length} merged entityInputs [RIGHTWARDS] ${entityOutbox.length} outputs`;
       const processedInput = {
         runtimeTxs: [...env.runtimeInput.runtimeTxs],
         entityInputs: [...mergedInputs], // Use merged inputs instead of raw inputs
@@ -463,7 +463,7 @@ const applyRuntimeInput = async (
       // Capture snapshot with the actual processed input and outputs
       await captureSnapshot(env, env.history, db, processedInput, entityOutbox, inputDescription);
     } else {
-      console.log(`⚪ SKIP-FRAME: No runtimeTxs, entityInputs, or outputs - not creating empty frame`);
+      console.log(`o SKIP-FRAME: No runtimeTxs, entityInputs, or outputs - not creating empty frame`);
     }
 
     // Notify Svelte about environment changes
@@ -471,9 +471,9 @@ const applyRuntimeInput = async (
     
     // CRITICAL FIX: Initialize gossip layer if missing
     if (!env.gossip) {
-      console.log(`🚨 CRITICAL: gossip layer missing from environment, creating new one`);
+      console.log(`[ALERT] CRITICAL: gossip layer missing from environment, creating new one`);
       env.gossip = createGossipLayer();
-      console.log(`✅ Gossip layer created and added to environment`);
+      console.log(`[OK] Gossip layer created and added to environment`);
     }
 
     // Compare old vs new entities
@@ -495,7 +495,7 @@ const applyRuntimeInput = async (
       const oldReplicaKey = oldEntityKeys[0];
       const newReplicaKey = newEntityKeys[0];
       if (!oldReplicaKey || !newReplicaKey) {
-        logError("RUNTIME_TICK", `❌ Invalid replica keys: old=${oldReplicaKey}, new=${newReplicaKey}`);
+        logError("RUNTIME_TICK", `[X] Invalid replica keys: old=${oldReplicaKey}, new=${newReplicaKey}`);
         // Continue with empty outbox instead of crashing
       } else {
       // REPLICA-STRUCTURE logs removed - not consensus-critical
@@ -505,14 +505,14 @@ const applyRuntimeInput = async (
     notifyEnvChange(env);
 
     if (DEBUG && entityOutbox.length > 0) {
-      console.log(`📤 Outputs: ${entityOutbox.length} messages`);
+      console.log(`[OUT] Outputs: ${entityOutbox.length} messages`);
       entityOutbox.forEach((output, i) => {
         console.log(
-          `  ${i + 1}. → ${output.signerId} (${output.entityTxs ? `${output.entityTxs.length} txs` : ''}${output.proposedFrame ? ` proposal: ${output.proposedFrame.hash.slice(0, 10)}...` : ''}${output.precommits ? ` ${output.precommits.size} precommits` : ''})`,
+          `  ${i + 1}. [RIGHTWARDS] ${output.signerId} (${output.entityTxs ? `${output.entityTxs.length} txs` : ''}${output.proposedFrame ? ` proposal: ${output.proposedFrame.hash.slice(0, 10)}...` : ''}${output.precommits ? ` ${output.precommits.size} precommits` : ''})`,
         );
       });
     } else if (DEBUG && entityOutbox.length === 0) {
-      console.log(`📤 No outputs generated`);
+      console.log(`[OUT] No outputs generated`);
     }
 
     // Replica states dump removed - too verbose
@@ -523,20 +523,20 @@ const applyRuntimeInput = async (
     // Performance logging
     const endTime = Date.now();
     if (DEBUG) {
-      console.log(`⏱️  Tick ${env.height - 1} completed in ${endTime - startTime}ms`);
+      console.log(`[TIMER]  Tick ${env.height - 1} completed in ${endTime - startTime}ms`);
     }
 
     // APPLY-SERVER-INPUT-FINAL-RETURN removed
     return { entityOutbox, mergedInputs };
   } catch (error) {
-    log.error(`❌ Error processing runtime input:`, error);
+    log.error(`[X] Error processing runtime input:`, error);
     return { entityOutbox: [], mergedInputs: [] };
   }
 };
 
 // This is the new, robust main function that replaces the old one.
 const main = async (): Promise<Env> => {
-  console.log('🚀 RUNTIME.JS VERSION: 2025-10-05-16:45 - GRID POSITIONS + ACTIVITY HIGHLIGHTS');
+  console.log('[LAUNCH] RUNTIME.JS VERSION: 2025-10-05-16:45 - GRID POSITIONS + ACTIVITY HIGHLIGHTS');
 
   // Open database before any operations
   const dbReady = await tryOpenDb();
@@ -546,23 +546,23 @@ const main = async (): Promise<Env> => {
     try {
       const { loadJurisdictions } = await import('./jurisdiction-loader');
       const jurisdictions = loadJurisdictions();
-      console.log('🔍 STARTUP: Current jurisdictions content (from centralized loader):');
-      console.log('📍 Arrakis Depository:', jurisdictions.jurisdictions['arrakis']?.contracts?.depository);
-      console.log('📍 Arrakis EntityProvider:', jurisdictions.jurisdictions['arrakis']?.contracts?.entityProvider);
-      console.log('📍 Last updated:', jurisdictions.lastUpdated);
-      console.log('📍 Full Arrakis config:', safeStringify(jurisdictions.jurisdictions['arrakis']));
+      console.log('[FIND] STARTUP: Current jurisdictions content (from centralized loader):');
+      console.log('[PIN] Arrakis Depository:', jurisdictions.jurisdictions['arrakis']?.contracts?.depository);
+      console.log('[PIN] Arrakis EntityProvider:', jurisdictions.jurisdictions['arrakis']?.contracts?.entityProvider);
+      console.log('[PIN] Last updated:', jurisdictions.lastUpdated);
+      console.log('[PIN] Full Arrakis config:', safeStringify(jurisdictions.jurisdictions['arrakis']));
     } catch (error) {
-      console.log('⚠️ Failed to load jurisdictions:', (error as Error).message);
+      console.log('[WARN] Failed to load jurisdictions:', (error as Error).message);
     }
   }
 
   // Initialize gossip layer
-  console.log('🕸️ Initializing gossip layer...');
+  console.log('[WEB] Initializing gossip layer...');
   const gossipLayer = createGossipLayer();
-  console.log('✅ Gossip layer initialized');
+  console.log('[OK] Gossip layer initialized');
 
   // Load persisted profiles from database into gossip layer
-  console.log('📡 Loading persisted profiles from database...');
+  console.log('[ANTENNA] Loading persisted profiles from database...');
   await loadPersistedProfiles(db, gossipLayer);
 
   // First, create default environment with gossip layer
@@ -578,20 +578,20 @@ const main = async (): Promise<Env> => {
   // Try to load saved state from database
   try {
     if (!dbReady) {
-      console.log('💾 Database unavailable - starting fresh');
+      console.log('[DISK] Database unavailable - starting fresh');
       throw new Error('DB_UNAVAILABLE');
     }
 
-    console.log('📥 Loading state from database...');
+    console.log('[INBOX] Loading state from database...');
     const latestHeightBuffer = await withTimeout(db.get(Buffer.from('latest_height')), 2000);
 
     const latestHeight = parseInt(latestHeightBuffer.toString(), 10);
-    console.log(`📊 BROWSER-DEBUG: Found latest height in DB: ${latestHeight}`);
+    console.log(`[STATS] BROWSER-DEBUG: Found latest height in DB: ${latestHeight}`);
 
-    console.log(`📊 Found latest height: ${latestHeight}, loading ${latestHeight + 1} snapshots...`);
+    console.log(`[STATS] Found latest height: ${latestHeight}, loading ${latestHeight + 1} snapshots...`);
 
     // Load snapshots starting from 1 (height 0 is initial state, no snapshot saved)
-    console.log(`📥 Loading snapshots: 1 to ${latestHeight}...`);
+    console.log(`[INBOX] Loading snapshots: 1 to ${latestHeight}...`);
     const snapshots = [];
 
     // Start from 1 since height 0 is initial state with no snapshot
@@ -600,19 +600,19 @@ const main = async (): Promise<Env> => {
         const buffer = await db.get(Buffer.from(`snapshot:${i}`));
         const snapshot = decode(buffer);
         snapshots.push(snapshot);
-        console.log(`📦 Snapshot ${i}: loaded ${buffer.length} bytes`);
+        console.log(`[PKG] Snapshot ${i}: loaded ${buffer.length} bytes`);
       } catch (error) {
-        logError("RUNTIME_TICK", `❌ Failed to load snapshot ${i}:`, error);
-        console.warn(`⚠️ Snapshot ${i} missing, continuing with available data...`);
+        logError("RUNTIME_TICK", `[X] Failed to load snapshot ${i}:`, error);
+        console.warn(`[WARN] Snapshot ${i} missing, continuing with available data...`);
       }
     }
 
     if (snapshots.length === 0) {
-      console.log(`📦 No snapshots found (latestHeight: ${latestHeight}), using fresh environment`);
+      console.log(`[PKG] No snapshots found (latestHeight: ${latestHeight}), using fresh environment`);
       throw new Error('LEVEL_NOT_FOUND');
     }
 
-    console.log(`📊 Successfully loaded ${snapshots.length}/${latestHeight} snapshots (starting from height 1)`);
+    console.log(`[STATS] Successfully loaded ${snapshots.length}/${latestHeight} snapshots (starting from height 1)`);
     env.history = snapshots;
 
     if (snapshots.length > 0) {
@@ -620,7 +620,7 @@ const main = async (): Promise<Env> => {
 
       // CRITICAL: Validate snapshot has proper replicas data
       if (!latestSnapshot.replicas) {
-        console.warn('⚠️ Latest snapshot missing replicas data, using fresh environment');
+        console.warn('[WARN] Latest snapshot missing replicas data, using fresh environment');
         throw new Error('LEVEL_NOT_FOUND');
       }
 
@@ -630,7 +630,7 @@ const main = async (): Promise<Env> => {
         for (const [id, profile] of Object.entries(latestSnapshot.gossip.profiles)) {
           gossipLayer.profiles.set(id, profile as Profile);
         }
-        console.log(`📡 Restored gossip profiles: ${Object.keys(latestSnapshot.gossip.profiles).length} entries`);
+        console.log(`[ANTENNA] Restored gossip profiles: ${Object.keys(latestSnapshot.gossip.profiles).length} entries`);
       }
 
       // CRITICAL: Convert replicas to proper Map if needed (handle deserialization from DB)
@@ -642,12 +642,12 @@ const main = async (): Promise<Env> => {
           // Deserialized from DB - convert object to Map
           replicasMap = new Map(Object.entries(latestSnapshot.replicas));
         } else {
-          console.warn('⚠️ Invalid replicas format in snapshot, using fresh environment');
+          console.warn('[WARN] Invalid replicas format in snapshot, using fresh environment');
           throw new Error('LEVEL_NOT_FOUND');
         }
       } catch (conversionError) {
-        logError("RUNTIME_TICK", '❌ Failed to convert replicas to Map:', conversionError);
-        console.warn('⚠️ Falling back to fresh environment');
+        logError("RUNTIME_TICK", '[X] Failed to convert replicas to Map:', conversionError);
+        console.warn('[WARN] Falling back to fresh environment');
         throw new Error('LEVEL_NOT_FOUND');
       }
 
@@ -667,8 +667,8 @@ const main = async (): Promise<Env> => {
         history: snapshots, // Include the loaded history
         gossip: gossipLayer, // Use restored gossip layer
       };
-      console.log(`✅ History restored. Runtime is at height ${env.height} with ${env.history.length} snapshots.`);
-      console.log(`📈 Snapshot details:`, {
+      console.log(`[OK] History restored. Runtime is at height ${env.height} with ${env.history.length} snapshots.`);
+      console.log(`[UP] Snapshot details:`, {
         height: env.height,
         replicaCount: env.replicas.size,
         timestamp: new Date(env.timestamp).toISOString(),
@@ -683,12 +683,12 @@ const main = async (): Promise<Env> => {
        error.message?.includes('Entry not found'));
 
     if (isTimeout || isNotFound) {
-      console.log('📦 No saved state found - starting fresh');
+      console.log('[PKG] No saved state found - starting fresh');
     } else if (error instanceof Error && error.message === 'DB_UNAVAILABLE') {
       // Already logged above
     } else {
-      console.warn('⚠️ Error loading state:', error instanceof Error ? error.message : error);
-      console.log('📦 Starting fresh');
+      console.warn('[WARN] Error loading state:', error instanceof Error ? error.message : error);
+      console.log('[PKG] Starting fresh');
     }
   }
 
@@ -697,41 +697,41 @@ const main = async (): Promise<Env> => {
   // Only run demos in Node.js environment, not browser
   if (!isBrowser) {
     // DISABLED: Hanko tests during development
-    console.log('\n🚀 Hanko tests disabled during development - focusing on core functionality');
+    console.log('\n[LAUNCH] Hanko tests disabled during development - focusing on core functionality');
     
     // // Add hanko demo to the main execution
-    // console.log('\n🖋️  Testing Complete Hanko Implementation...');
+    // console.log('\n[PEN]  Testing Complete Hanko Implementation...');
     // await demoCompleteHanko();
 
-    // // 🧪 Run basic Hanko functionality tests first
-    // console.log('\n🧪 Running basic Hanko functionality tests...');
+    // // [TEST] Run basic Hanko functionality tests first
+    // console.log('\n[TEST] Running basic Hanko functionality tests...');
     // await runBasicHankoTests();
 
-    // // 🧪 Run comprehensive Depository-Hanko integration tests
-    // console.log('\n🧪 Running comprehensive Depository-Hanko integration tests...');
+    // // [TEST] Run comprehensive Depository-Hanko integration tests
+    // console.log('\n[TEST] Running comprehensive Depository-Hanko integration tests...');
     // try {
     //   await runDepositoryHankoTests();
     // } catch (error) {
     //   console.log(
-    //     'ℹ️  Depository integration tests skipped (contract setup required):',
+    //     '[INFO]  Depository integration tests skipped (contract setup required):',
     //     (error as Error).message?.substring(0, 100) || 'Unknown error',
     //   );
     // }
   } else {
-    console.log('🌐 Browser environment: Demos available via UI buttons, not auto-running');
+    console.log('[WEB] Browser environment: Demos available via UI buttons, not auto-running');
   }
 
-  log.info(`🎯 Runtime startup complete. Height: ${env.height}, Entities: ${env.replicas.size}`);
+  log.info(`[GOAL] Runtime startup complete. Height: ${env.height}, Entities: ${env.replicas.size}`);
 
   // Debug final state before starting j-watcher
   if (isBrowser) {
-    console.log(`🔍 BROWSER-DEBUG: Final state before j-watcher start:`);
-    console.log(`🔍   Environment height: ${env.height}`);
-    console.log(`🔍   Total replicas: ${env.replicas.size}`);
+    console.log(`[FIND] BROWSER-DEBUG: Final state before j-watcher start:`);
+    console.log(`[FIND]   Environment height: ${env.height}`);
+    console.log(`[FIND]   Total replicas: ${env.replicas.size}`);
     for (const [replicaKey, replica] of env.replicas.entries()) {
       const [entityId, signerId] = replicaKey.split(':');
       if (entityId && signerId) {
-        console.log(`🔍   Entity ${entityId.slice(0,10)}... (${signerId}): jBlock=${replica.state.jBlock}, isProposer=${replica.isProposer}`);
+        console.log(`[FIND]   Entity ${entityId.slice(0,10)}... (${signerId}): jBlock=${replica.state.jBlock}, isProposer=${replica.isProposer}`);
       }
     }
   }
@@ -740,7 +740,7 @@ const main = async (): Promise<Env> => {
   // Re-enable by uncommenting this block when blockchain integration is needed
   /*
   if (!jWatcherStarted) {
-    console.log('🔭 STARTING-JWATCHER: Snapshots loaded, starting j-watcher (non-blocking)...');
+    console.log('[TELESCOPE] STARTING-JWATCHER: Snapshots loaded, starting j-watcher (non-blocking)...');
 
     Promise.race([
       startJEventWatcher(env),
@@ -748,17 +748,17 @@ const main = async (): Promise<Env> => {
     ])
       .then(() => {
         jWatcherStarted = true;
-        console.log('🔭 JWATCHER-READY: J-watcher started successfully');
+        console.log('[TELESCOPE] JWATCHER-READY: J-watcher started successfully');
       })
       .catch((error) => {
-        console.warn('⚠️  J-Event Watcher startup failed or timed out (non-critical):', error.message);
+        console.warn('[WARN]  J-Event Watcher startup failed or timed out (non-critical):', error.message);
         console.warn('    UI will load anyway. Blockchain sync will retry in background.');
       });
   } else {
-    console.log('🔭 JWATCHER-SKIP: J-watcher already started, skipping');
+    console.log('[TELESCOPE] JWATCHER-SKIP: J-watcher already started, skipping');
   }
   */
-  console.log('🔭 J-WATCHER: Disabled (external RPC not needed for simnet demo)');
+  console.log('[TELESCOPE] J-WATCHER: Disabled (external RPC not needed for simnet demo)');
 
   return env;
 };
@@ -773,7 +773,7 @@ const getCurrentHistoryIndex = () => (env.history || []).length - 1;
 
 // Server-specific clearDatabase that also resets history
 const clearDatabaseAndHistory = async () => {
-  console.log('🗑️ Clearing database and resetting runtime history...');
+  console.log('[TRASH] Clearing database and resetting runtime history...');
 
   // Clear the Level database
   await clearDatabase(db);
@@ -788,7 +788,7 @@ const clearDatabaseAndHistory = async () => {
     gossip: createGossipLayer(),
   };
 
-  console.log('✅ Database and runtime history cleared');
+  console.log('[OK] Database and runtime history cleared');
 };
 
 // Export j-watcher status for frontend display
@@ -915,8 +915,8 @@ if (!isBrowser) {
         const noDemoFlag = globalThis.process.env['NO_DEMO'] === '1' || globalThis.process.argv.includes('--no-demo');
 
         if (!noDemoFlag) {
-          console.log('✅ Node.js environment initialized. Running demo for local testing...');
-          console.log('💡 To skip demo, use: NO_DEMO=1 bun run src/runtime.ts or --no-demo flag');
+          console.log('[OK] Node.js environment initialized. Running demo for local testing...');
+          console.log('[IDEA] To skip demo, use: NO_DEMO=1 bun run src/runtime.ts or --no-demo flag');
           await runDemo(env);
 
           // Start j-watcher after demo completes
@@ -927,30 +927,30 @@ if (!isBrowser) {
             await verifyJurisdictionRegistrations();
           }, 2000);
         } else {
-          console.log('✅ Node.js environment initialized. Demo skipped (NO_DEMO=1 or --no-demo)');
-          console.log('💡 Use XLN.runDemo(env) to run demo manually if needed');
+          console.log('[OK] Node.js environment initialized. Demo skipped (NO_DEMO=1 or --no-demo)');
+          console.log('[IDEA] Use XLN.runDemo(env) to run demo manually if needed');
           
           // J-watcher is already started in main(), no need to start again
         }
       }
     })
     .catch(error => {
-      logError("RUNTIME_TICK", '❌ An error occurred during Node.js auto-execution:', error);
+      logError("RUNTIME_TICK", '[X] An error occurred during Node.js auto-execution:', error);
     });
 }
 
 // === BLOCKCHAIN VERIFICATION ===
 const verifyJurisdictionRegistrations = async () => {
-  console.log('\n🔍 === JURISDICTION VERIFICATION ===');
-  console.log('📋 Verifying entity registrations across all jurisdictions...\n');
+  console.log('\n[FIND] === JURISDICTION VERIFICATION ===');
+  console.log('[LIST] Verifying entity registrations across all jurisdictions...\n');
 
   const jurisdictions = await getAvailableJurisdictions();
 
   for (const jurisdiction of jurisdictions) {
     try {
-      console.log(`🏛️ ${jurisdiction.name}:`);
-      console.log(`   📡 RPC: ${jurisdiction.address}`);
-      console.log(`   📄 Contract: ${jurisdiction.entityProviderAddress}`);
+      console.log(`[COURT] ${jurisdiction.name}:`);
+      console.log(`   [ANTENNA] RPC: ${jurisdiction.address}`);
+      console.log(`   [DOC] Contract: ${jurisdiction.entityProviderAddress}`);
 
       // Connect to this jurisdiction's network
       const { entityProvider } = await connectToEthereum(jurisdiction);
@@ -959,11 +959,11 @@ const verifyJurisdictionRegistrations = async () => {
       const nextNumber = await entityProvider['nextNumber']!();
       const registeredCount = Number(nextNumber) - 1;
 
-      console.log(`   📊 Registered Entities: ${registeredCount}`);
+      console.log(`   [STATS] Registered Entities: ${registeredCount}`);
 
       // Read registered entities
       if (registeredCount > 0) {
-        console.log(`   📝 Entity Details:`);
+        console.log(`   [MEMO] Entity Details:`);
         for (let i = 1; i <= registeredCount; i++) {
           try {
             const entityId = generateNumberedEntityId(i);
@@ -977,12 +977,12 @@ const verifyJurisdictionRegistrations = async () => {
 
       console.log('');
     } catch (error) {
-      logError("RUNTIME_TICK", `   ❌ Failed to verify ${jurisdiction.name}:`, error instanceof Error ? error.message : error);
+      logError("RUNTIME_TICK", `   [X] Failed to verify ${jurisdiction.name}:`, error instanceof Error ? error.message : error);
       console.log('');
     }
   }
 
-  console.log('✅ Jurisdiction verification complete!\n');
+  console.log('[OK] Jurisdiction verification complete!\n');
 };
 
 // === HANKO DEMO FUNCTION ===
@@ -993,18 +993,18 @@ const demoCompleteHanko = async (): Promise<void> => {
     const isBrowser = typeof window !== 'undefined';
 
     if (isBrowser) {
-      console.log('🎯 Browser environment detected - running simplified Hanko demo...');
-      console.log('✅ Basic signature verification available');
-      console.log('💡 Full test suite available in Node.js environment');
-      console.log('✅ Hanko browser demo completed!');
+      console.log('[GOAL] Browser environment detected - running simplified Hanko demo...');
+      console.log('[OK] Basic signature verification available');
+      console.log('[IDEA] Full test suite available in Node.js environment');
+      console.log('[OK] Hanko browser demo completed!');
       return;
     }
 
-    console.log('🎯 Complete Hanko test suite disabled during strict TypeScript mode');
+    console.log('[GOAL] Complete Hanko test suite disabled during strict TypeScript mode');
     // await runCompleteHankoTests();
-    console.log('✅ Complete Hanko tests skipped!');
+    console.log('[OK] Complete Hanko tests skipped!');
   } catch (error) {
-    logError("RUNTIME_TICK", '❌ Complete Hanko tests failed:', error);
+    logError("RUNTIME_TICK", '[X] Complete Hanko tests failed:', error);
     throw error;
   }
 };
@@ -1012,20 +1012,20 @@ const demoCompleteHanko = async (): Promise<void> => {
 // Create a wrapper for runDemo that provides better browser feedback
 const runDemoWrapper = async (env: Env): Promise<Env> => {
   try {
-    console.log('🚀 Starting XLN Consensus Demo...');
-    console.log('📊 This will demonstrate entity creation, consensus, and message passing');
+    console.log('[LAUNCH] Starting XLN Consensus Demo...');
+    console.log('[STATS] This will demonstrate entity creation, consensus, and message passing');
 
     const result = await runDemo(env);
 
-    console.log('✅ XLN Demo completed successfully!');
-    console.log('🎯 Check the entity cards above to see the results');
-    console.log('🕰️ Use the time machine to replay the consensus steps');
+    console.log('[OK] XLN Demo completed successfully!');
+    console.log('[GOAL] Check the entity cards above to see the results');
+    console.log('[TIME] Use the time machine to replay the consensus steps');
 
     // J-watcher is already started in main(), no need to start again
 
     return result;
   } catch (error) {
-    logError("RUNTIME_TICK", '❌ XLN Demo failed:', error);
+    logError("RUNTIME_TICK", '[X] XLN Demo failed:', error);
     throw error;
   }
 };
@@ -1049,7 +1049,7 @@ let cascading = false;
 export const process = async (env: Env, inputs?: EntityInput[], runtimeDelay = 0) => {
   // Cascade lock: prevent interleaving when delay > tick interval
   if (cascading) {
-    console.warn('⏸️ SKIP-CASCADE: Previous cascade still running');
+    console.warn('|| SKIP-CASCADE: Previous cascade still running');
     return env;
   }
 
@@ -1066,7 +1066,7 @@ export const process = async (env: Env, inputs?: EntityInput[], runtimeDelay = 0
     try {
       validateEntityInput(o);
     } catch (error) {
-      logError("RUNTIME_TICK", `🚨 CRITICAL FINANCIAL ERROR: Invalid EntityInput detected!`, {
+      logError("RUNTIME_TICK", `[ALERT] CRITICAL FINANCIAL ERROR: Invalid EntityInput detected!`, {
         error: (error as Error).message,
         entityId: o.entityId.slice(0,10),
         signerId: o.signerId,
@@ -1079,7 +1079,7 @@ export const process = async (env: Env, inputs?: EntityInput[], runtimeDelay = 0
   outputs.forEach((output, i) => {
     if (output.entityTxs?.some(tx => tx.type === 'vote')) {
       console.log(
-        `🗳️ VOTE-DEBUG: Input ${i + 1} contains vote transactions:`,
+        `[VOTE] VOTE-DEBUG: Input ${i + 1} contains vote transactions:`,
         output.entityTxs.filter(tx => tx.type === 'vote'),
       );
     }
@@ -1093,18 +1093,18 @@ export const process = async (env: Env, inputs?: EntityInput[], runtimeDelay = 0
       outputs = result.entityOutbox;
 
       if (outputs.length > 0) {
-        console.log(`🔥 PROCESS-CASCADE: Iteration ${iterationCount}, ${outputs.length} outputs`);
+        console.log(`[FIRE] PROCESS-CASCADE: Iteration ${iterationCount}, ${outputs.length} outputs`);
       }
 
       // Visual delay between cascade iterations (AFTER processing, before next iteration)
       if (outputs.length > 0 && runtimeDelay > 0) {
-        console.log(`⏱️ CASCADE-DELAY: Waiting ${runtimeDelay}ms before next iteration...`);
+        console.log(`[TIMER] CASCADE-DELAY: Waiting ${runtimeDelay}ms before next iteration...`);
         await sleep(runtimeDelay);
       }
     }
 
     if (iterationCount >= maxIterations) {
-      console.warn('⚠️ process() reached maximum iterations');
+      console.warn('[WARN] process() reached maximum iterations');
     }
 
     // Auto-persist to LevelDB after processing
@@ -1138,7 +1138,7 @@ export const saveEnvToDB = async (env: Env): Promise<void> => {
     });
     await db.put(Buffer.from(`snapshot:${env.height}`), Buffer.from(snapshot));
   } catch (err) {
-    console.error('❌ Failed to save to LevelDB:', err);
+    console.error('[X] Failed to save to LevelDB:', err);
   }
 };
 
@@ -1189,9 +1189,9 @@ export const clearDB = async (): Promise<void> => {
     if (!dbReady) return;
 
     await db.clear();
-    console.log('✅ LevelDB cleared');
+    console.log('[OK] LevelDB cleared');
   } catch (err) {
-    console.error('❌ Failed to clear LevelDB:', err);
+    console.error('[X] Failed to clear LevelDB:', err);
   }
 };
 

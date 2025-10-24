@@ -33,7 +33,7 @@ Edit `jurisdictions.json`:
 {
   "jurisdictions": {
     "ethereum": {
-      "rpc": "http://192.168.0.197:8545",  // ← Use your actual IP
+      "rpc": "http://192.168.0.197:8545",  // [LEFTWARDS] Use your actual IP
       ...
     }
   }
@@ -81,16 +81,16 @@ ngrok http 8080
 ### VR Button Detection
 
 The VR button appears only when:
-1. ✅ Page served over HTTPS (or localhost)
-2. ✅ `navigator.xr.isSessionSupported('immersive-vr')` returns true
-3. ✅ Oculus browser (check console for WebXR Detection log)
+1. [OK] Page served over HTTPS (or localhost)
+2. [OK] `navigator.xr.isSessionSupported('immersive-vr')` returns true
+3. [OK] Oculus browser (check console for WebXR Detection log)
 
 Check browser console on Quest for:
 ```
-🥽 WebXR Detection: {
+[GOGGLES] WebXR Detection: {
   hasNavigatorXR: true,
-  isSessionSupported: true,  // ← Must be true
-  isSecureContext: true,     // ← Must be true for production
+  isSessionSupported: true,  // [LEFTWARDS] Must be true
+  isSecureContext: true,     // [LEFTWARDS] Must be true for production
   ...
 }
 ```
@@ -115,8 +115,8 @@ bun run dev
 
 | Service | Default | Network Accessible | Port |
 |---------|---------|-------------------|------|
-| Vite | ✅ 0.0.0.0 | Yes | 8080 |
-| Hardhat | ❌ 127.0.0.1 → ✅ 0.0.0.0 | Yes (after fix) | 8545 |
+| Vite | [OK] 0.0.0.0 | Yes | 8080 |
+| Hardhat | [X] 127.0.0.1 [RIGHTWARDS] [OK] 0.0.0.0 | Yes (after fix) | 8545 |
 
 ## Troubleshooting
 
@@ -132,4 +132,4 @@ bun run dev
 
 **Connection refused from Oculus**
 - Firewall blocking port 8080 or 8545
-- macOS: System Settings → Network → Firewall → Allow incoming
+- macOS: System Settings [RIGHTWARDS] Network [RIGHTWARDS] Firewall [RIGHTWARDS] Allow incoming

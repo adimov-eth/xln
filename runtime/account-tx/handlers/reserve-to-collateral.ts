@@ -1,14 +1,14 @@
 /**
- * Reserve → Collateral Handler (Account Level)
+ * Reserve [RIGHTWARDS] Collateral Handler (Account Level)
  *
- * Processes on-chain R→C event to update bilateral account state.
+ * Processes on-chain R[RIGHTWARDS]C event to update bilateral account state.
  * Both entities receive identical event and MUST compute identical state.
  *
  * Reference: Depository.sol reserveToCollateral (line 1035)
  * Reference: 2019src.txt lines 233-239 (reserveToChannel pattern)
  *
  * CRITICAL: Uses ABSOLUTE values from contract event, not deltas.
- * This prevents drift from multiple R→C operations.
+ * This prevents drift from multiple R[RIGHTWARDS]C operations.
  */
 
 import { AccountMachine, AccountTx } from '../../types';
@@ -21,7 +21,7 @@ export function handleReserveToCollateral(
   const { tokenId, collateral, ondelta, side } = accountTx.data;
   const events: string[] = [];
 
-  console.log(`💰 Processing R→C event: token ${tokenId}, collateral=${collateral}, ondelta=${ondelta}, side=${side}`);
+  console.log(`[$] Processing R[RIGHTWARDS]C event: token ${tokenId}, collateral=${collateral}, ondelta=${ondelta}, side=${side}`);
 
   // CRITICAL: Both entities receive this event and MUST compute identical state
   // collateral and ondelta are ABSOLUTE values from contract, not deltas
@@ -32,7 +32,7 @@ export function handleReserveToCollateral(
   // Get or create delta
   let delta = accountMachine.deltas.get(tokenId);
   if (!delta) {
-    console.log(`💰 Creating new delta for token ${tokenId} (first R→C event)`);
+    console.log(`[$] Creating new delta for token ${tokenId} (first R[RIGHTWARDS]C event)`);
     const defaultCreditLimit = getDefaultCreditLimit(tokenId);
     delta = {
       tokenId,
@@ -57,17 +57,17 @@ export function handleReserveToCollateral(
   const collateralDiff = collateralBigInt - oldCollateral;
   const ondeltaDiff = ondeltaBigInt - oldOndelta;
 
-  console.log(`💰 R→C state update:`);
-  console.log(`   Collateral: ${oldCollateral} → ${collateralBigInt} (diff: ${collateralDiff})`);
-  console.log(`   Ondelta: ${oldOndelta} → ${ondeltaBigInt} (diff: ${ondeltaDiff})`);
+  console.log(`[$] R[RIGHTWARDS]C state update:`);
+  console.log(`   Collateral: ${oldCollateral} [RIGHTWARDS] ${collateralBigInt} (diff: ${collateralDiff})`);
+  console.log(`   Ondelta: ${oldOndelta} [RIGHTWARDS] ${ondeltaBigInt} (diff: ${ondeltaDiff})`);
 
   if (side === 'receiving') {
     events.push(
-      `💰 Collateral +${collateralDiff} (now ${collateralBigInt}) - counterparty deposited token ${tokenId}`
+      `[$] Collateral +${collateralDiff} (now ${collateralBigInt}) - counterparty deposited token ${tokenId}`
     );
   } else {
     events.push(
-      `📤 Collateral +${collateralDiff} (now ${collateralBigInt}) - we deposited token ${tokenId}`
+      `[OUT] Collateral +${collateralDiff} (now ${collateralBigInt}) - we deposited token ${tokenId}`
     );
   }
 
@@ -82,7 +82,7 @@ export function handleReserveToCollateral(
     accountMachine.currentFrame.deltas.push(totalDelta);
   }
 
-  console.log(`✅ R→C processed successfully for token ${tokenId}`);
+  console.log(`[OK] R[RIGHTWARDS]C processed successfully for token ${tokenId}`);
 
   return { success: true, events };
 }

@@ -5,7 +5,7 @@
 
 set -e
 
-echo "🚀 XLN Server Setup (Pure Bun)"
+echo "[LAUNCH] XLN Server Setup (Pure Bun)"
 echo "=============================="
 
 # Colors
@@ -15,10 +15,10 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-log_info() { echo -e "${BLUE}ℹ️  $1${NC}"; }
-log_success() { echo -e "${GREEN}✅ $1${NC}"; }
-log_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
-log_error() { echo -e "${RED}❌ $1${NC}"; }
+log_info() { echo -e "${BLUE}[INFO]  $1${NC}"; }
+log_success() { echo -e "${GREEN}[OK] $1${NC}"; }
+log_warning() { echo -e "${YELLOW}[WARN]  $1${NC}"; }
+log_error() { echo -e "${RED}[X] $1${NC}"; }
 
 # Check if running as root
 if [ "$EUID" -ne 0 ]; then
@@ -30,17 +30,17 @@ ACTUAL_USER="${SUDO_USER:-$(whoami)}"
 USER_HOME=$(eval echo ~$ACTUAL_USER)
 
 # 1. System Update
-log_info "1️⃣  Updating system..."
+log_info "1⃣  Updating system..."
 apt-get update -qq && apt-get upgrade -y
 log_success "System updated"
 
 # 2. Install essentials (no Node.js needed!)
-log_info "2️⃣  Installing essential packages..."
+log_info "2⃣  Installing essential packages..."
 apt-get install -y curl wget git htop unzip build-essential nginx
 log_success "Essential packages installed"
 
 # 3. Install Bun (only thing we need!)
-log_info "3️⃣  Installing Bun..."
+log_info "3⃣  Installing Bun..."
 if ! sudo -u $ACTUAL_USER bash -c 'command -v bun >/dev/null 2>&1'; then
     sudo -u $ACTUAL_USER bash -c 'curl -fsSL https://bun.sh/install | bash'
     
@@ -55,13 +55,13 @@ else
 fi
 
 # 4. Create XLN directory
-log_info "4️⃣  Setting up XLN directory..."
+log_info "4⃣  Setting up XLN directory..."
 XLN_DIR="$USER_HOME/xln"
 sudo -u $ACTUAL_USER mkdir -p "$XLN_DIR/logs"
 log_success "XLN directory ready"
 
 # 5. Configure Nginx (same as before)
-log_info "5️⃣  Configuring Nginx..."
+log_info "5⃣  Configuring Nginx..."
 cat > /etc/nginx/sites-available/xln << EOF
 server {
     listen 80;
@@ -105,7 +105,7 @@ systemctl restart nginx
 log_success "Nginx configured"
 
 # 6. Create systemd service for XLN (instead of PM2)
-log_info "6️⃣  Creating systemd service..."
+log_info "6⃣  Creating systemd service..."
 cat > /etc/systemd/system/xln.service << EOF
 [Unit]
 Description=XLN Consensus Debugger
@@ -133,49 +133,49 @@ systemctl enable xln
 log_success "Systemd service created"
 
 # 7. Create deployment script
-log_info "7️⃣  Creating deployment script..."
+log_info "7⃣  Creating deployment script..."
 sudo -u $ACTUAL_USER cat > "$XLN_DIR/deploy.sh" << 'EOF'
 #!/bin/bash
 # XLN Deployment Script - Lessons learned from Vultr deployment
 set -e
 
-echo "🚀 Deploying XLN (Pure Bun)..."
+echo "[LAUNCH] Deploying XLN (Pure Bun)..."
 cd "$(dirname "$0")"
 
 # Pull changes if git repo
 if [ -d ".git" ]; then
-    echo "📥 Pulling latest changes..."
+    echo "[INBOX] Pulling latest changes..."
     git pull origin main
 fi
 
 # Install deps with Bun
-echo "📦 Installing dependencies..."
+echo "[PKG] Installing dependencies..."
 export PATH="$HOME/.bun/bin:$PATH"
 bun install
 
 # CRITICAL: Build server.js with bundled dependencies for browser
-echo "🔧 Building server.js with bundled dependencies..."
+echo "[TOOL] Building server.js with bundled dependencies..."
 mkdir -p frontend/static dist
 bun build src/server.ts --target=browser --outdir=dist --minify --external http --external https --external zlib --external fs --external path --external crypto --external stream --external buffer --external url --external net --external tls --external os --external util
 cp dist/server.js frontend/static/server.js
 
 # Build frontend with Bun
-echo "🏗️  Building frontend..."
+echo "[BUILD]  Building frontend..."
 cd frontend
 bun install
 bun run build
 cd ..
 
 # CRITICAL: Copy bundled server.js to build directory
-echo "📋 Copying bundled server.js to build directory..."
+echo "[LIST] Copying bundled server.js to build directory..."
 cp frontend/static/server.js frontend/build/server.js
 
 # Kill any existing background processes
-echo "🛑 Stopping existing server processes..."
+echo "[STOP] Stopping existing server processes..."
 pkill -f "bun run serve" || true
 
 # Start server in background (don't use systemd - it was problematic)
-echo "🚀 Starting XLN server in background..."
+echo "[LAUNCH] Starting XLN server in background..."
 mkdir -p logs
 nohup bun run serve.ts > logs/xln.log 2>&1 &
 
@@ -184,16 +184,16 @@ sleep 3
 
 # Test if server is responding
 if curl -s http://localhost:8080/healthz > /dev/null; then
-    echo "✅ Server is responding!"
+    echo "[OK] Server is responding!"
 else
-    echo "⚠️  Server might still be starting, checking logs..."
+    echo "[WARN]  Server might still be starting, checking logs..."
     tail -5 logs/xln.log
 fi
 
-echo "✅ Deployment complete!"
-echo "🌐 XLN running at: http://$(curl -s ifconfig.me 2>/dev/null || echo 'YOUR_SERVER_IP')"
-echo "📊 Check status: tail -f logs/xln.log"
-echo "📊 Check processes: ps aux | grep bun"
+echo "[OK] Deployment complete!"
+echo "[WEB] XLN running at: http://$(curl -s ifconfig.me 2>/dev/null || echo 'YOUR_SERVER_IP')"
+echo "[STATS] Check status: tail -f logs/xln.log"
+echo "[STATS] Check processes: ps aux | grep bun"
 EOF
 
 chmod +x "$XLN_DIR/deploy.sh"
@@ -201,7 +201,7 @@ chown $ACTUAL_USER:$ACTUAL_USER "$XLN_DIR/deploy.sh"
 log_success "Deployment script created"
 
 # 8. Configure firewall
-log_info "8️⃣  Configuring firewall..."
+log_info "8⃣  Configuring firewall..."
 apt-get install -y ufw
 ufw --force reset >/dev/null
 ufw default deny incoming >/dev/null
@@ -213,20 +213,20 @@ ufw --force enable >/dev/null
 log_success "Firewall configured"
 
 echo ""
-echo "🎉 Pure Bun Setup Complete!"
+echo "[DONE] Pure Bun Setup Complete!"
 echo "=========================="
-log_success "No PM2, no Node.js - just Bun! 🚀"
+log_success "No PM2, no Node.js - just Bun! [LAUNCH]"
 echo ""
-echo "📋 Next steps:"
+echo "[LIST] Next steps:"
 echo "   1. Clone XLN to $XLN_DIR"
 echo "   2. Run: cd $XLN_DIR && ./deploy.sh"
 echo "   3. Access at: http://YOUR_SERVER_IP"
 echo ""
-echo "🔧 Service management:"
+echo "[TOOL] Service management:"
 echo "   • Start: sudo systemctl start xln"
 echo "   • Stop: sudo systemctl stop xln"
 echo "   • Status: sudo systemctl status xln"
 echo "   • Logs: journalctl -u xln -f"
 echo "   • Restart: sudo systemctl restart xln"
 echo ""
-log_success "Ready for pure Bun deployment! ⚡"
+log_success "Ready for pure Bun deployment! [FAST]"

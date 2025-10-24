@@ -18,7 +18,7 @@ import type { JurisdictionConfig } from './types';
  * Batch structure matching Depository.sol (lines 203-231)
  */
 export interface JBatch {
-  // Reserve ↔ External Token (deposits/withdrawals to/from blockchain)
+  // Reserve <-> External Token (deposits/withdrawals to/from blockchain)
   reserveToExternalToken: Array<{
     receivingEntity: string;
     tokenId: number;
@@ -31,14 +31,14 @@ export interface JBatch {
     amount: bigint;
   }>;
 
-  // Reserve ↔ Reserve (entity-to-entity transfers)
+  // Reserve <-> Reserve (entity-to-entity transfers)
   reserveToReserve: Array<{
     receivingEntity: string;
     tokenId: number;
     amount: bigint;
   }>;
 
-  // Reserve → Collateral (fund account)
+  // Reserve [RIGHTWARDS] Collateral (fund account)
   reserveToCollateral: Array<{
     tokenId: number;
     receivingEntity: string; // Which entity is depositing
@@ -48,7 +48,7 @@ export interface JBatch {
     }>;
   }>;
 
-  // Settlements (simplified R↔C operations via settle())
+  // Settlements (simplified R<->C operations via settle())
   settlements: Array<{
     leftEntity: string;
     rightEntity: string;
@@ -139,7 +139,7 @@ export function isBatchEmpty(batch: JBatch): boolean {
 }
 
 /**
- * Add reserve → collateral operation to batch
+ * Add reserve [RIGHTWARDS] collateral operation to batch
  */
 export function batchAddReserveToCollateral(
   jBatchState: JBatchState,
@@ -148,7 +148,7 @@ export function batchAddReserveToCollateral(
   tokenId: number,
   amount: bigint
 ): void {
-  // Check if we already have an R→C entry for this entity+counterparty+token
+  // Check if we already have an R[RIGHTWARDS]C entry for this entity+counterparty+token
   // If yes, aggregate amounts
   const existing = jBatchState.batch.reserveToCollateral.find(
     op => op.receivingEntity === entityId && op.tokenId === tokenId
@@ -171,7 +171,7 @@ export function batchAddReserveToCollateral(
     });
   }
 
-  console.log(`📦 jBatch: Added R→C ${amount} token ${tokenId} for ${entityId.slice(-4)}→${counterpartyId.slice(-4)}`);
+  console.log(`[PKG] jBatch: Added R[RIGHTWARDS]C ${amount} token ${tokenId} for ${entityId.slice(-4)}[RIGHTWARDS]${counterpartyId.slice(-4)}`);
 }
 
 /**
@@ -220,11 +220,11 @@ export function batchAddSettlement(
     });
   }
 
-  console.log(`📦 jBatch: Added settlement ${leftEntity.slice(-4)}↔${rightEntity.slice(-4)}, ${diffs.length} tokens`);
+  console.log(`[PKG] jBatch: Added settlement ${leftEntity.slice(-4)}<->${rightEntity.slice(-4)}, ${diffs.length} tokens`);
 }
 
 /**
- * Add reserve → reserve transfer to batch
+ * Add reserve [RIGHTWARDS] reserve transfer to batch
  */
 export function batchAddReserveToReserve(
   jBatchState: JBatchState,
@@ -238,7 +238,7 @@ export function batchAddReserveToReserve(
     amount,
   });
 
-  console.log(`📦 jBatch: Added R→R ${amount} token ${tokenId} to ${receivingEntity.slice(-4)}`);
+  console.log(`[PKG] jBatch: Added R[RIGHTWARDS]R ${amount} token ${tokenId} to ${receivingEntity.slice(-4)}`);
 }
 
 /**
@@ -269,13 +269,13 @@ export async function broadcastBatch(
   jurisdiction: any // JurisdictionConfig
 ): Promise<{ success: boolean; txHash?: string; error?: string }> {
   if (isBatchEmpty(jBatchState.batch)) {
-    console.log('📦 jBatch: Empty batch, skipping broadcast');
+    console.log('[PKG] jBatch: Empty batch, skipping broadcast');
     return { success: true };
   }
 
   const batchSize = getBatchSize(jBatchState.batch);
-  console.log(`📤 Broadcasting batch for ${entityId.slice(-4)}: ${batchSize} operations`);
-  console.log(`📤 Batch contents:`, safeStringify(jBatchState.batch, 2));
+  console.log(`[OUT] Broadcasting batch for ${entityId.slice(-4)}: ${batchSize} operations`);
+  console.log(`[OUT] Batch contents:`, safeStringify(jBatchState.batch, 2));
 
   try {
     const { connectToEthereum } = await import('./evm');
@@ -283,19 +283,19 @@ export async function broadcastBatch(
     // Connect to jurisdiction
     const { depository } = await connectToEthereum(jurisdiction);
 
-    console.log(`📤 Submitting batch to Depository contract...`);
+    console.log(`[OUT] Submitting batch to Depository contract...`);
     console.log(`   Entity: ${entityId.slice(-4)}`);
-    console.log(`   Operations: R→C=${jBatchState.batch.reserveToCollateral.length}, Settlements=${jBatchState.batch.settlements.length}, R→R=${jBatchState.batch.reserveToReserve.length}`);
+    console.log(`   Operations: R[RIGHTWARDS]C=${jBatchState.batch.reserveToCollateral.length}, Settlements=${jBatchState.batch.settlements.length}, R[RIGHTWARDS]R=${jBatchState.batch.reserveToReserve.length}`);
 
     // Submit to Depository.processBatch (same pattern as evm.ts:338)
     const tx = await depository['processBatch']!(entityId, jBatchState.batch, {
       gasLimit: 5000000, // High limit for complex batches
     });
 
-    console.log(`⏳ Waiting for batch transaction to mine: ${tx.hash}`);
+    console.log(`[WAIT] Waiting for batch transaction to mine: ${tx.hash}`);
     const receipt = await tx.wait();
 
-    console.log(`✅ Batch broadcasted successfully!`);
+    console.log(`[OK] Batch broadcasted successfully!`);
     console.log(`   Tx Hash: ${receipt.transactionHash}`);
     console.log(`   Block: ${receipt.blockNumber}`);
     console.log(`   Gas Used: ${receipt.gasUsed.toString()}`);
@@ -312,7 +312,7 @@ export async function broadcastBatch(
     };
   } catch (error: unknown) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error(`❌ Batch broadcast failed for ${entityId.slice(-4)}:`, error);
+    console.error(`[X] Batch broadcast failed for ${entityId.slice(-4)}:`, error);
     jBatchState.failedAttempts++;
 
     return {
@@ -340,14 +340,14 @@ export function shouldBroadcastBatch(
 
   // Trigger 1: Batch is full
   if (batchSize >= MAX_BATCH_SIZE) {
-    console.log(`📦 jBatch: Full (${batchSize}/${MAX_BATCH_SIZE}) - triggering broadcast`);
+    console.log(`[PKG] jBatch: Full (${batchSize}/${MAX_BATCH_SIZE}) - triggering broadcast`);
     return true;
   }
 
   // Trigger 2: Timeout since last broadcast
   const timeSinceLastBroadcast = currentTimestamp - jBatchState.lastBroadcast;
   if (timeSinceLastBroadcast >= BATCH_TIMEOUT_MS) {
-    console.log(`📦 jBatch: Timeout (${timeSinceLastBroadcast}ms) - triggering broadcast`);
+    console.log(`[PKG] jBatch: Timeout (${timeSinceLastBroadcast}ms) - triggering broadcast`);
     return true;
   }
 

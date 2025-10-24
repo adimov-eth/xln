@@ -85,8 +85,8 @@ function syncTimeControls(frameIndex) {
     <span class="proposal-status executed">EXECUTED</span>
   </div>
   <div class="proposal-votes">
-    <div class="vote-item">alice - ✅ yes: "Looks good"</div>
-    <div class="vote-item">bob - ❌ no: "Too restrictive"</div>
+    <div class="vote-item">alice - [OK] yes: "Looks good"</div>
+    <div class="vote-item">bob - [X] no: "Too restrictive"</div>
   </div>
   <div class="proposal-progress">
     <div class="progress-bar" style="width: 66%"></div>
@@ -146,8 +146,8 @@ function renderTransactionHistory(transactions) {
 ```
 
 **Visualization Principles**:
-- Clear directional indicators (→ THIS REPLICA, FROM THIS REPLICA →)
-- Type-specific icons (💬 chat, 📋 propose, 🗳️ vote)
+- Clear directional indicators ([RIGHTWARDS] THIS REPLICA, FROM THIS REPLICA [RIGHTWARDS])
+- Type-specific icons ([CHAT] chat, [LIST] propose, [VOTE] vote)
 - Consistent formatting
 - No artificial limits (show all transactions)
 
@@ -155,9 +155,9 @@ function renderTransactionHistory(transactions) {
 ```javascript
 // Visual indicators for replica state
 function getReplicaStatusIcon(replica) {
-  if (replica.isProposer) return '👑';
-  if (replica.mempool.length > 0) return '📤';
-  return '✅';
+  if (replica.isProposer) return '[ADMIN]';
+  if (replica.mempool.length > 0) return '[OUT]';
+  return '[OK]';
 }
 
 // Progress visualization
@@ -289,7 +289,7 @@ function showError(message, context = '') {
   const errorDiv = document.createElement('div');
   errorDiv.className = 'error-message';
   errorDiv.innerHTML = `
-    <span class="error-icon">⚠️</span>
+    <span class="error-icon">[WARN]</span>
     <span class="error-text">${message}</span>
     ${context ? `<span class="error-context">${context}</span>` : ''}
   `;

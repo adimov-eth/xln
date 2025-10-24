@@ -95,7 +95,7 @@ export const effectOperations = {
           queue.active.set(effect.id, effect);
           queue.stats.totalExecuted++;
         } catch (error) {
-          console.error('❌ Effect execution failed:', effect.type, error);
+          console.error('[X] Effect execution failed:', effect.type, error);
           queue.stats.droppedFrames++;
         }
       }
@@ -111,7 +111,7 @@ export const effectOperations = {
             queue.completed.push(id);
           }
         } catch (error) {
-          console.error('❌ Effect update failed:', effect.type, error);
+          console.error('[X] Effect update failed:', effect.type, error);
           effect.cleanup();
           toRemove.push(id);
           queue.stats.droppedFrames++;

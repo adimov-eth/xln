@@ -25,13 +25,13 @@
 <div class="xln-scenario-wrapper" style="height: {height}">
   {#if error}
     <div class="error-state">
-      <p>⚠️ {error}</p>
+      <p>[WARN] {error}</p>
     </div>
   {:else if loaded}
     <div class="xln-scenario">
       <!-- TODO: Integrate NetworkTopology when ready -->
       <div class="placeholder">
-        <p>🎮 Interactive 3D visualization</p>
+        <p>[GAME] Interactive 3D visualization</p>
         <p>Scenario: <code>{scenario}</code></p>
         <small>NetworkTopology integration coming soon</small>
       </div>

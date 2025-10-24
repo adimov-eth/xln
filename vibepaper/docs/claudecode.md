@@ -22,12 +22,12 @@ XLN (Cross-Local Network) is a cross-jurisdictional off-chain settlement network
 - **Solution**: Account requests now originate from EntityTx decisions
 - **Flow**:
   ```
-  EntityTx('account_request') → Local account creation → Bubble AccountInput → Route to target
+  EntityTx('account_request') [RIGHTWARDS] Local account creation [RIGHTWARDS] Bubble AccountInput [RIGHTWARDS] Route to target
   ```
 - **Benefits**: Entity-first architecture, consensus integration, distributed-ready
 
 #### 3. Reserve Structure Migration
-- **Changed**: `Map<string, AssetBalance>` → `Map<string, bigint>`
+- **Changed**: `Map<string, AssetBalance>` [RIGHTWARDS] `Map<string, bigint>`
 - **Simplified**: Direct `tokenId => amount` mapping, metadata from TOKEN_REGISTRY
 - **Fixed**: Frontend BigInt handling, type safety, display formatting
 
@@ -86,7 +86,7 @@ bunx hardhat run scripts/verify-contract-functions.cjs --network ethereum
 4. **Global Scale Testing**: Verify portfolio bars scale correctly across entities
 
 #### Architectural Improvements
-1. **Full Entity Output Bubbling**: Complete the EntityTx → EntityInput routing system
+1. **Full Entity Output Bubbling**: Complete the EntityTx [RIGHTWARDS] EntityInput routing system
 2. **Account Symmetry**: Ensure both entities get proper account machines
 3. **Settlement Integration**: Connect A-machine with E-machine consensus
 4. **Real Signatures**: Replace mock signatures with actual cryptographic ones
@@ -102,7 +102,7 @@ bunx hardhat run scripts/verify-contract-functions.cjs --network ethereum
 #### Entity vs Input Distinction (Critical Understanding)
 - **EntityTx**: What an entity decides to do (internal consensus decision)
 - **EntityInput**: What happens TO an entity (external input from other entities/server)
-- **Example**: Entity A decides to open account (EntityTx) → Creates message for Entity B (EntityInput)
+- **Example**: Entity A decides to open account (EntityTx) [RIGHTWARDS] Creates message for Entity B (EntityInput)
 
 #### Financial State Integrity
 - **jBlock tracking**: Essential for preventing duplicate j-event processing
@@ -118,11 +118,11 @@ bunx hardhat run scripts/verify-contract-functions.cjs --network ethereum
 ### Known Issues & Workarounds
 
 #### Fixed Issues
-- ✅ BigInt serialization errors → Proper toString() conversion
-- ✅ Duplicate j-events on reload → Proper snapshot loading timing
-- ✅ Reserve display corruption → Fixed structure mapping
-- ✅ Multiple j-watcher instances → Added startup guard
-- ✅ Jurisdiction resets → Hardcoded to Ethereum
+- [OK] BigInt serialization errors [RIGHTWARDS] Proper toString() conversion
+- [OK] Duplicate j-events on reload [RIGHTWARDS] Proper snapshot loading timing
+- [OK] Reserve display corruption [RIGHTWARDS] Fixed structure mapping
+- [OK] Multiple j-watcher instances [RIGHTWARDS] Added startup guard
+- [OK] Jurisdiction resets [RIGHTWARDS] Hardcoded to Ethereum
 
 #### Current Limitations
 - **Demo Mode**: Still uses mock signatures and prefunded accounts

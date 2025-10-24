@@ -8,11 +8,11 @@
   {#if replica}
     <div class="consensus-item">
       <span class="consensus-label">Status:</span>
-      <span class="consensus-value consensus-status-unlocked">🔓 Unlocked</span>
+      <span class="consensus-value consensus-status-unlocked">[UNLOCK] Unlocked</span>
     </div>
     <div class="consensus-item">
       <span class="consensus-label">Role:</span>
-      <span class="consensus-value">👁️ Validator</span>
+      <span class="consensus-value">[VIEW] Validator</span>
     </div>
     <div class="consensus-item">
       <span class="consensus-label">Frame Height:</span>
@@ -20,7 +20,7 @@
     </div>
     <div class="consensus-item">
       <span class="consensus-label">J-Block:</span>
-      <span class="consensus-value consensus-jblock">🔭 {replica.state?.jBlock || 0}</span>
+      <span class="consensus-value consensus-jblock">[TELESCOPE] {replica.state?.jBlock || 0}</span>
     </div>
     <div class="consensus-item">
       <span class="consensus-label">Messages:</span>
