@@ -12,7 +12,9 @@ logs/*
 .env.*.local
 
 # Lock files
+bun.lock
 bun.lockb
+frontend/bun.lock
 jurisdictions/bun.lock
 
 # Frontend generated files
@@ -41,7 +43,10 @@ pids/
 proofs/test-results/
 proofs/**/test-results/
 proofs/playwright-report/
-proofs/screenshots/
+proofs/screenshots/*
+!proofs/screenshots/.gitkeep
+proofs/e2e/screenshots/*
+!proofs/e2e/screenshots/.gitkeep
 playwright-report/
 test-results/
 .playwright-mcp/
@@ -83,3 +88,6 @@ db/
 package-lock.json
 pnpm-lock.yaml
 yarn.lock
+
+# Backup files
+*.bak2
