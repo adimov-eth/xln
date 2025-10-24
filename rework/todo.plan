@@ -1,0 +1,417 @@
+# XLN Scheme Reimplementation Plan
+# Target: Racket - Feature-complete - Fresh redesign
+
+## Core Principles
+
+1. **Homoiconic**: State machines as data structures
+2. **Coinductive**: Infinite streams, not discrete ticks
+3. **Effect boundary**: Pure consensus core, impure shell
+4. **Sound by construction**: Dependent types prove RCPAN
+5. **Macro-generated**: DSL for consensus machines + verification
+
+---
+
+## Phase 1: Foundation (Week 1-2)
+
+### Core Abstractions
+```
+xln-scheme/core/
+├── types.rkt           # Record types, state machine definitions
+├── crypto.rkt          # ECDSA (secp256k1), SHA256, Keccak256
+├── rlp.rkt             # Ethereum-compatible serialization
+├── merkle.rkt          # Merkle tree + proof verification
+└── monad.rkt           # Free monad for effects
+```
+
+**Deliverables:**
+- [ ] State machine macro: `(define-machine name states transitions)`
+- [ ] Effect algebra: `(define-effect-algebra XLN-Effects ...)`
+- [ ] RLP encoder/decoder with round-trip tests
+- [ ] ECDSA sign/verify via FFI (libsecp256k1)
+- [ ] Merkle root computation + proof generation
+- [ ] Property-based tests for determinism
+
+**Key Innovation:**
+State machines ARE S-expressions. Introspectable, composable, verifiable.
+
+---
+
+## Phase 2: Consensus Machines (Week 3-4)
+
+### Bilateral Consensus (Account Layer)
+```
+xln-scheme/consensus/account/
+├── machine.rkt         # State machine definition
+├── handlers.rkt        # Transaction handlers (payment, credit-limit, etc)
+├── delta.rkt           # Perspective-aware delta calculations
+└── verification.rkt    # RCPAN invariant checking
+```
+
+**State Machine:**
+```scheme
+(define-machine bilateral-channel
+  ((idle)
+   (pending-frame frame sig)
+   (finalized counter deltas))
+
+  ((idle × propose-frame) → (pending-frame frame sig))
+  ((pending-frame × countersign) → (finalized counter' deltas')))
+```
+
+**Deliverables:**
+- [ ] Bilateral state machine with pattern matching
+- [ ] Transaction handlers: payment, add-delta, set-credit-limit
+- [ ] Delta derivation with left/right perspective
+- [ ] Frame signing (2-of-2 required)
+- [ ] Counter mechanism (replay protection)
+- [ ] RCPAN type refinement (compile-time proof)
+
+### BFT Consensus (Entity Layer)
+```
+xln-scheme/consensus/entity/
+├── machine.rkt         # BFT state machine
+├── proposer.rkt        # Frame proposal logic
+├── quorum.rkt          # Signature collection (≥2/3 threshold)
+└── validation.rkt      # Frame verification
+```
+
+**State Machine:**
+```scheme
+(define-machine entity-consensus
+  ((collecting mempool)
+   (proposed frame precommits)
+   (committed height state-hash))
+
+  ((collecting × add-tx) → (collecting mempool'))
+  ((collecting × timeout) → (proposed frame ∅))
+  ((proposed × precommit) → (proposed frame sigs'))
+  ((proposed × quorum) → (committed h+1 hash')))
+```
+
+**Deliverables:**
+- [ ] ADD_TX → PROPOSE → SIGN → COMMIT flow
+- [ ] Deterministic transaction ordering (nonce → from → kind)
+- [ ] Quorum threshold verification (≥2/3)
+- [ ] A-root Merkle commitment
+- [ ] Byzantine scenario tests
+
+### Runtime Coordinator
+```
+xln-scheme/consensus/runtime.rkt
+```
+
+**Architecture:**
+```scheme
+;; NOT tick polling - continuous stream
+(define inputs-stream
+  (stream-append external-events internal-events))
+
+(define states-stream
+  (stream-scan transition initial-state inputs-stream))
+
+;; R→E→A routing via pattern matching
+(define (route-input input)
+  (match input
+    [`(server ,_) (handle-server input)]
+    [`(entity ,id ,_) (handle-entity id input)]
+    [`(account ,key ,_) (handle-account key input)]))
+```
+
+**Deliverables:**
+- [ ] Stream-based coordinator (not 100ms ticks)
+- [ ] R→E→A input routing
+- [ ] Snapshot creation (periodic + on-demand)
+- [ ] Deterministic processing order
+
+---
+
+## Phase 3: Network Layer (Week 5)
+
+### Gossip Protocol
+```
+xln-scheme/network/
+├── gossip.rkt          # CRDT lattice for profiles
+├── discovery.rkt       # Capacity derivation from deltas
+└── convergence.rkt     # Timestamp-based merge
+```
+
+**Key Insight:**
+```scheme
+;; Gossip = Lattice CRDT (automatic convergence)
+(struct profile (entity-id timestamp capacities) #:transparent)
+
+(define (lattice-merge p1 p2)
+  (if (> (profile-timestamp p1) (profile-timestamp p2))
+      p1
+      p2))
+```
+
+**Deliverables:**
+- [ ] Profile announcement
+- [ ] Timestamp-based updates
+- [ ] Capacity calculation: `deriveDelta(delta, isLeft) → {in, out}`
+- [ ] Convergence tests
+
+### Routing System
+```
+xln-scheme/routing/
+├── graph.rkt           # Network topology from gossip
+├── pathfinding.rkt     # Modified Dijkstra
+└── fees.rkt            # Backwards fee calculation
+```
+
+**Deliverables:**
+- [ ] Network graph construction
+- [ ] PathFinder: Dijkstra with capacity constraints
+- [ ] Multi-route support (up to 100 routes)
+- [ ] Fee calculation (backwards from target to source)
+
+---
+
+## Phase 4: Blockchain Integration (Week 6)
+
+### Smart Contract FFI
+```
+xln-scheme/blockchain/
+├── contracts.rkt       # ABIs (EntityProvider, Depository, SubcontractProvider)
+├── evm.rkt             # Web3 FFI or JSON-RPC
+├── batch.rkt           # Batch operation encoding
+└── events.rkt          # Event log watching
+```
+
+**Deliverables:**
+- [ ] Contract ABI loading
+- [ ] EVM connection (local/remote)
+- [ ] processBatch encoding
+- [ ] Event watching (ReserveUpdated, SettlementProcessed)
+- [ ] Integration tests with Hardhat/Anvil
+
+---
+
+## Phase 5: Persistence (Week 7)
+
+### Write-Ahead Log + Snapshots
+```
+xln-scheme/storage/
+├── wal.rkt             # Append-only log with CRC32
+├── snapshot.rkt        # LZ4-compressed state snapshots
+└── leveldb.rkt         # KV store bindings (or SQLite fallback)
+```
+
+**WAL Pattern:**
+```scheme
+(define (apply-with-wal change state)
+  (do [_ <- (wal-append change)]
+      [state' <- (pure (apply-change state change))]
+      [_ <- (leveldb-batch-write state')]
+      (pure state')))
+```
+
+**Deliverables:**
+- [ ] WAL append with checksums
+- [ ] Snapshot creation (periodic triggers)
+- [ ] Recovery on restart
+- [ ] Deterministic replay tests
+- [ ] Crash recovery scenarios
+
+---
+
+## Phase 6: API & Frontend Integration (Week 8)
+
+### WebSocket Server
+```
+xln-scheme/api/
+├── websocket.rkt       # Live connection for frontend
+├── rpc.rkt             # JSON-RPC handlers
+└── scenarios.rkt       # World DSL execution
+```
+
+**Deliverables:**
+- [ ] WebSocket server for state sync
+- [ ] JSON-RPC endpoints
+- [ ] Time machine support (historical queries)
+- [ ] World scenario executor
+- [ ] Frontend integration tests
+
+---
+
+## Design Improvements Over TypeScript
+
+### 1. Homoiconic State Machines
+```scheme
+;; State machine IS data - can be queried, composed, verified
+(define bilateral-machine
+  '(machine
+    (states idle pending finalized)
+    (transitions
+      ((idle × propose) → pending)
+      ((pending × sign) → finalized))))
+
+;; Generate verification conditions automatically
+(verify-liveness bilateral-machine)   ;; Proves no deadlocks
+(verify-safety bilateral-machine)      ;; Proves invariants hold
+```
+
+### 2. Effect System (Pure Core)
+```scheme
+;; Consensus logic is PURE - no hidden state
+(define/contract (bilateral-transition state input)
+  (-> State? Input? (Free XLN-Effects (cons State? (listof Output?))))
+  ...)
+
+;; Effects handled at boundary
+(run-with-io (bilateral-transition state input))
+```
+
+### 3. Dependent Types (RCPAN Proven)
+```scheme
+(define-type Delta
+  (Refine [δ : Integer]
+          [L_left : Natural]
+          [L_right : Natural]
+          [C : Natural]
+          (and (<= (- L_left) δ)
+               (<= δ (+ C L_right)))))
+
+;; Invalid deltas rejected at COMPILE TIME
+```
+
+### 4. Stream-Based (Not Tick Polling)
+```scheme
+;; Coinductive - infinite stream
+(define states-stream
+  (stream-scan transition initial-state inputs-stream))
+
+;; Observe forever
+(stream-for-each handle-snapshot states-stream)
+```
+
+### 5. Pattern Matching (No If-Else Spaghetti)
+```scheme
+(match (cons state input)
+  [`((idle ,_) . (propose-frame ,frame))
+   (pending frame)]
+
+  [`((pending ,frame) . (countersign ,sig))
+   #:when (verify-signature? sig frame)
+   (finalized (increment-counter state) frame)]
+
+  [_ (error "Invalid transition")])
+```
+
+### 6. Macro DSL
+```scheme
+(define-consensus bilateral
+  #:states [idle pending finalized]
+  #:invariant valid-counter?
+
+  (transition propose
+    [idle → pending]
+    #:when valid-signature?
+    #:update set-frame
+    #:emit broadcast-to-counterparty))
+
+;; Macro generates:
+;; - State machine code
+;; - Property tests
+;; - Verification conditions
+;; - API endpoints
+```
+
+---
+
+## Success Criteria
+
+- [ ] **Determinism**: Replay from genesis produces identical state
+- [ ] **Byzantine tolerance**: ≥2/3 quorum required, tolerates f < n/3 faults
+- [ ] **Performance**: Process 100 entities with <100ms latency
+- [ ] **Soundness**: RCPAN invariant proven at compile time
+- [ ] **Emergence**: Routing converges without coordination
+- [ ] **Frontend parity**: Visualizes network, time machine works
+- [ ] **World scenarios**: Execute diamond-dybvig, phantom-grid identically
+
+---
+
+## Directory Structure
+
+```
+xln-scheme/
+├── core/               # Primitives (crypto, RLP, merkle, monads)
+├── consensus/
+│   ├── account/        # Bilateral state machine
+│   ├── entity/         # BFT state machine
+│   └── runtime.rkt     # Coordinator
+├── network/
+│   ├── gossip.rkt      # CRDT lattice
+│   └── routing/        # Graph, pathfinding
+├── blockchain/
+│   ├── contracts.rkt   # ABIs
+│   └── evm.rkt         # Web3 FFI
+├── storage/
+│   ├── wal.rkt         # Write-ahead log
+│   ├── snapshot.rkt    # State snapshots
+│   └── leveldb.rkt     # KV store
+├── api/
+│   ├── websocket.rkt   # Live connection
+│   ├── rpc.rkt         # JSON-RPC
+│   └── scenarios.rkt   # World DSL
+├── tests/
+│   ├── unit/           # Pure function tests
+│   ├── property/       # QuickCheck-style
+│   └── integration/    # Full system tests
+└── examples/           # Demo scenarios
+```
+
+---
+
+## Development Approach
+
+### Week-by-week focus:
+1. **Foundation**: Get crypto + RLP + merkle working
+2. **Consensus**: Bilateral + BFT state machines proven sound
+3. **Network**: Gossip + routing convergence
+4. **Blockchain**: EVM integration tested
+5. **Persistence**: WAL + snapshots + recovery
+6. **API**: Frontend connects, scenarios execute
+7. **Polish**: Performance tuning, documentation
+8. **Verification**: Formal proofs of key properties
+
+### Testing strategy:
+- **Unit**: Every pure function
+- **Property**: Determinism, Byzantine scenarios, CRPAN invariants
+- **Integration**: Full R→E→A flows, blockchain interactions
+- **Chaos**: Random inputs, crash recovery, network partitions
+
+### Documentation:
+- Code comments in S-expression style
+- Architecture diagrams as S-expressions
+- Literate programming for key algorithms
+- Migration guide from TypeScript
+
+---
+
+## Philosophy
+
+**Code = Data = S-expressions**
+
+The entire system is introspectable, composable, verifiable. State machines are data structures. Effects are values. Time is a stream. Gossip is a lattice.
+
+Homoiconicity enables:
+- **Introspection**: Query running system structure
+- **Composition**: Combine state machines algebraically
+- **Verification**: Generate proofs from definitions
+- **Macros**: Extend language for domain
+
+**Coinductive, not inductive**
+
+Channels don't terminate. Streams unfold forever. The observation produces itself.
+
+`OneHand (fun c => hear c)` - sound without clapper.
+
+---
+
+**Status**: Ready to implement.
+
+**First commit**: Core types + crypto primitives.
+
+λ.
