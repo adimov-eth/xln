@@ -107,7 +107,7 @@
     (list
      (account-frame-height frame)
      (account-frame-timestamp frame)
-     (string->bytes/utf-8 (account-frame-prev-frame-hash frame))
+     (account-frame-prev-frame-hash frame)  ; Already bytes
      ;; Encode transactions
      (map (lambda (tx)
             (list (string->bytes/utf-8 (account-tx-type tx))
@@ -142,8 +142,8 @@
 
      (define prev-hash
        (if (= (account-machine-height machine) 0)
-           "genesis"
-           (bytes->string/utf-8 (account-frame-state-hash (account-machine-current-frame machine)))))
+           #"genesis"  ; Use bytes for genesis too
+           (account-frame-state-hash (account-machine-current-frame machine))))
 
      (define new-height (+ (account-machine-height machine) 1))
 
@@ -212,7 +212,7 @@
             (not (null? (account-input-prev-signatures input)))
             (let* ([pending (account-machine-pending-frame machine)]
                    [their-sig (car (account-input-prev-signatures input))]
-                   [our-hash (bytes->string/utf-8 (account-frame-state-hash pending))])
+                   [our-hash (account-frame-state-hash pending)])
               (when (and (= (account-input-height input) (account-frame-height pending))
                          (equal? their-sig our-hash))
                 (displayln "[LOCK] COMMIT: Frame signed by both parties")
@@ -231,8 +231,8 @@
              (let* ([received-frame (account-input-new-account-frame input)]
                     [expected-prev-hash
                      (if (= (account-machine-height machine) 0)
-                         "genesis"
-                         (bytes->string/utf-8 (account-frame-state-hash (account-machine-current-frame machine))))])
+                         #"genesis"
+                         (account-frame-state-hash (account-machine-current-frame machine)))])
                (cond
                  ;; Chain broken
                  [(not (equal? (account-frame-prev-frame-hash received-frame) expected-prev-hash))
@@ -256,7 +256,7 @@
                         (set-account-machine-pending-frame! machine #f)
                         ;; Fall through to sign their frame
                         (let ([frame-hash (account-frame-state-hash received-frame)]
-                              [our-signature (bytes->string/utf-8 (account-frame-state-hash received-frame))])
+                              [our-signature (account-frame-state-hash received-frame)])
                           (displayln (format "[OK] Signing frame ~a" (account-frame-height received-frame)))
                           (account-input
                            (account-machine-entity-id machine)
@@ -271,7 +271,7 @@
                  [else
                   (displayln "[OK] Frame chain verified")
                   (define frame-hash (account-frame-state-hash received-frame))
-                  (define our-signature (bytes->string/utf-8 frame-hash))
+                  (define our-signature frame-hash)
                   (displayln (format "[OK] Signing frame ~a" (account-frame-height received-frame)))
                   (account-input
                    (account-machine-entity-id machine)
