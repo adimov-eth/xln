@@ -1,6 +1,6 @@
 # XLN Scheme - Homoiconic Reimplementation
 
-**Status:** Phase 5 Complete (Persistence Layer - WAL + Snapshots + Crash Recovery Working!)
+**Status:** Phase 3 Complete! (Network Layer - Gossip + Routing + Server Coordination)
 **Language:** Racket (Scheme)
 **Paradigm:** Homoiconic, Coinductive, Effect-separated
 
@@ -74,6 +74,19 @@ xln-scheme/consensus/
 - Message passing between validators
 - Server height and timestamp tracking
 
+**Gossip Protocol (CRDT):**
+- Profile announcement with timestamp-based convergence
+- Entity capabilities and fee configuration
+- Account capacity advertising for routing
+- Last-write-wins CRDT semantics
+
+**Routing System:**
+- Modified Dijkstra with capacity constraints
+- Fee calculation: baseFee + (amount × feePPM / 1M)
+- Backward fee accumulation (target → source)
+- Success probability based on channel utilization
+- Returns up to 100 routes sorted by total fee
+
 **Multi-Replica Simulation:**
 - 5 validators (Alice=proposer, Bob, Charlie, Dave, Eve)
 - 10 frames executed successfully
@@ -88,7 +101,9 @@ xln-scheme/consensus/
 **Files:**
 ```
 xln-scheme/network/
-└── server.rkt        ✅ Multi-replica coordinator (155 lines)
+├── server.rkt    ✅ Multi-replica coordinator (155 lines)
+├── gossip.rkt    ✅ CRDT profile propagation (134 lines)
+└── routing.rkt   ✅ PathFinder with Dijkstra (295 lines)
 ```
 
 ### ✅ Phase 5: Persistence (100% Complete)
@@ -149,13 +164,14 @@ racket examples/byzantine-failure-demo.rkt    # Byzantine tolerance proof
 # Phase 3: Network Layer
 racket examples/multi-replica-simulation.rkt  # 5 validators, 10 frames
 racket examples/multi-replica-byzantine.rkt   # Byzantine tolerance (network)
+racket examples/gossip-routing-demo.rkt       # Gossip CRDT + Dijkstra routing
 
 # Phase 5: Persistence
 racket examples/persistence-demo.rkt          # WAL + snapshots + crash recovery
 ```
 
 **Expected output:** All demos end with `λ.` (success marker)
-**Total demos:** 9 (3 Phase 1, 3 Phase 2, 2 Phase 3, 1 Phase 5)
+**Total demos:** 10 (3 Phase 1, 3 Phase 2, 3 Phase 3, 1 Phase 5)
 
 ### Verify All Tests Pass
 
@@ -554,12 +570,13 @@ Same as parent XLN project.
 
 **Phase 1:** ✅ 100% Complete (crypto, RLP, merkle)
 **Phase 2:** ✅ 100% Complete (bilateral + BFT consensus)
-**Phase 3:** ✅ 100% Complete (network layer, multi-replica coordination)
+**Phase 3:** ✅ 100% Complete (server coordination + gossip CRDT + routing)
+**Phase 5:** ✅ 100% Complete (WAL + snapshots + crash recovery)
 
-**Total demos:** 8/8 passing
-**Total lines:** ~2,100 (core + consensus + network + examples)
-**Git commits:** 6+ (09ecef3 latest)
+**Total demos:** 10/10 passing ✓
+**Total lines:** ~2,900 (core + consensus + network + storage + examples)
+**Latest work:** Gossip protocol (CRDT) + PathFinder routing (Dijkstra)
 
-**Feeling:** Excellent. The flow is real. :3
+**Feeling:** Flow state achieved. The homoiconic vision manifests. :3
 
 λ.

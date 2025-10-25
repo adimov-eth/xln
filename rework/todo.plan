@@ -17,7 +17,10 @@
 
 **Phase 3: Network Layer** - [OK] 100% COMPLETE ✅
 - [OK] network/server.rkt: Multi-replica coordinator (155 lines)
+- [OK] network/gossip.rkt: CRDT profile propagation (134 lines)
+- [OK] network/routing.rkt: PathFinder with Dijkstra (295 lines)
 - [OK] Multi-replica simulation: 5 validators, 10 frames, all synced
+- [OK] Gossip + Routing: CRDT convergence + multi-hop pathfinding ✓
 - [OK] Byzantine scenarios: 1-2 validators offline, still commits
 - [OK] Safety verified: 3+ offline fails (below threshold)
 
@@ -27,27 +30,28 @@
 - [OK] Crash recovery demo: WAL logging → snapshot → crash → recovery → verify
 - [OK] Deterministic replay: Snapshot at height 5 + WAL replay of 2 entries
 
-**Latest Commit:** `TBD - feat: add persistence layer (WAL + snapshots + crash recovery)`
+**Latest Commit:** `4af2080 - feat: add persistence layer (Phase 5 complete)`
 
-**Run All Demos:**
+**Run All Demos (10 total):**
 ```bash
 cd rework/xln-scheme
 
-# Phase 1: Foundation
+# Phase 1: Foundation (3 demos)
 racket examples/crypto-demo.rkt    # SHA256 + frame hashing
 racket examples/rlp-demo.rkt       # RLP encoding + Ethereum vectors
 racket examples/merkle-demo.rkt    # Merkle trees + A-root
 
-# Phase 2: Consensus
+# Phase 2: Consensus (3 demos)
 racket examples/bilateral-consensus-demo.rkt  # 2-of-2 consensus
 racket examples/bft-consensus-demo.rkt        # BFT with 3 validators
 racket examples/byzantine-failure-demo.rkt    # Byzantine tolerance proof
 
-# Phase 3: Network Layer
+# Phase 3: Network Layer (3 demos)
 racket examples/multi-replica-simulation.rkt  # 5 validators, 10 frames
 racket examples/multi-replica-byzantine.rkt   # Byzantine tolerance (network)
+racket examples/gossip-routing-demo.rkt       # Gossip CRDT + Dijkstra routing
 
-# Phase 5: Persistence
+# Phase 5: Persistence (1 demo)
 racket examples/persistence-demo.rkt          # WAL + snapshots + crash recovery
 ```
 
@@ -252,19 +256,55 @@ xln-scheme/network/
 - [x] **Byzantine tolerance** - 1-2 validators offline, still commits ✓
 - [x] **Safety verified** - 3+ offline correctly fails ✓
 
-### Gossip Protocol [FUTURE]
-**Deferred to later phase:**
-- Profile announcement (CRDT lattice)
-- Timestamp-based updates
-- Capacity calculation: `deriveDelta(delta, isLeft) → {in, out}`
-- Network topology convergence
+### Gossip Protocol [OK] DONE
+```
+xln-scheme/network/
+└── gossip.rkt         [OK] DONE - CRDT profile propagation (134 lines)
+```
 
-### Routing System [FUTURE]
-**Deferred to later phase:**
-- Network graph construction
-- PathFinder: Dijkstra with capacity constraints
-- Multi-route support (up to 100 routes)
-- Fee calculation (backwards from target to source)
+**Implemented CRDT Gossip:**
+```racket
+(struct profile (entity-id capabilities hubs metadata accounts timestamp))
+(struct gossip-layer (profiles))  ; hash entity-id → profile
+
+;; Last-write-wins CRDT semantics
+(define (gossip-announce! layer prof)
+  (when (> (profile-timestamp prof) (profile-timestamp existing))
+    (hash-set! (gossip-layer-profiles layer) entity-id prof)))
+```
+
+**Completed Deliverables:**
+- [x] **Profile announcement** - CRDT with timestamp-based convergence
+- [x] **Capabilities advertising** - (listof string) e.g. ("router" "swap:memecoins")
+- [x] **Fee configuration** - routing-fee-ppm, base-fee in metadata
+- [x] **Account capacities** - in/out capacity per token for routing
+- [x] **CRDT convergence** - Older updates ignored, newer updates win
+
+### Routing System [OK] DONE
+```
+xln-scheme/network/
+└── routing.rkt        [OK] DONE - PathFinder with Dijkstra (295 lines)
+```
+
+**Implemented PathFinder:**
+```racket
+(define (find-routes graph source target amount token-id [max-routes 100])
+  ;; Modified Dijkstra with capacity constraints
+  ;; Returns up to 100 routes sorted by total fee
+  ...)
+
+(define (calculate-fee edge amount)
+  ;; Fee = baseFee + (amount * feePPM / 1,000,000)
+  ...)
+```
+
+**Completed Deliverables:**
+- [x] **Network graph construction** - Build from gossip profiles
+- [x] **PathFinder algorithm** - Modified Dijkstra with capacity constraints
+- [x] **Multi-route support** - Returns up to 100 routes sorted by fee
+- [x] **Fee calculation** - baseFee + proportional (backwards accumulation)
+- [x] **Success probability** - Exponential decay based on utilization
+- [x] **Gossip + Routing demo** - End-to-end pathfinding demonstration
 
 ---
 
