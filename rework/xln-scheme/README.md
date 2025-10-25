@@ -13,7 +13,7 @@
 
 ## Current Status
 
-**All 5 phases complete. 13 demos passing. ~4,500 lines of homoiconic consensus.**
+**All 5 phases complete. 14 demos passing. ~4,500 lines of homoiconic consensus.**
 
 ✅ **Phase 1: Foundation** - Crypto (SHA256, frame hashing), RLP encoding, Merkle trees
 ✅ **Phase 2: Consensus** - Bilateral (2-of-2) + BFT (≥2/3 quorum) state machines
@@ -33,7 +33,7 @@ The system demonstrates **homoiconicity** through self-introspection:
 (define layers (find-layers xln-system))
 (define machines (find-machines xln-system))
 (define metrics (get-metrics xln-system))
-;; => (files 24) (lines ~4500) (demos 13) (passing "13/13")
+;; => (files 24) (lines ~4500) (demos 14) (passing "14/14")
 ```
 
 This isn't documentation ABOUT the system - **this IS the system**, expressed as introspectable data.
@@ -63,14 +63,14 @@ This isn't documentation ABOUT the system - **this IS the system**, expressed as
 - `storage/wal.rkt` - Append-only log with SHA256 integrity
 - `storage/snapshot.rkt` - S-expression state snapshots
 
-### Demonstrations (13 passing)
+### Demonstrations (14 passing)
 
 **Phase 1:** crypto-demo, rlp-demo, merkle-demo
 **Phase 2:** bilateral-consensus-demo, bft-consensus-demo, byzantine-failure-demo
 **Phase 3:** multi-replica-simulation, multi-replica-byzantine, gossip-routing-demo
 **Phase 4:** blockchain-demo
 **Phase 5:** persistence-demo
-**Meta:** basic-channel (foundation), architecture-query (introspection)
+**Meta:** basic-channel (foundation), architecture-query (queries), architecture-tree (visualization)
 
 ## Quick Start
 

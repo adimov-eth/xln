@@ -246,8 +246,8 @@
     (metrics
       (files 24)
       (lines ~4500)
-      (demos 13)
-      (passing "13/13")
+      (demos 14)
+      (passing "14/14")
       (phases-complete "5/5")
       (modules
         (core 4)
