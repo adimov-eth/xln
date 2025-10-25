@@ -1,6 +1,6 @@
 # XLN Scheme - Homoiconic Reimplementation
 
-**Status:** Phase 3 Complete! (Network Layer - Gossip + Routing + Server Coordination)
+**Status:** Phase 4 Complete! (Blockchain Integration - Simulated Chain State)
 **Language:** Racket (Scheme)
 **Paradigm:** Homoiconic, Coinductive, Effect-separated
 
@@ -106,6 +106,35 @@ xln-scheme/network/
 └── routing.rkt   ✅ PathFinder with Dijkstra (295 lines)
 ```
 
+### ✅ Phase 4: Blockchain Integration (100% Complete)
+
+**Simulated Chain State:**
+- Entity registration on-chain (numbered entities)
+- Reserve management (fund/withdraw/transfer)
+- Settlement processing (bilateral + multi-hop)
+- Event log tracking (EntityRegistered, ReserveUpdated, SettlementProcessed)
+
+**Off-Chain → On-Chain Flow:**
+- Consensus machines generate deltas
+- Settlements submitted to chain
+- Reserves updated atomically
+- Event logs provide audit trail
+
+**Demo Scenarios:**
+- Register 3 entities (Alice, Bob, Charlie)
+- Fund reserves for all entities
+- Process bilateral settlement (Alice → Bob)
+- Verify on-chain state matches off-chain deltas
+- Multi-hop settlement (Alice → Bob → Charlie)
+
+**Files:**
+```
+xln-scheme/blockchain/
+└── types.rkt         ✅ Chain state + events (176 lines)
+```
+
+**Note:** Currently simulated (no actual JSON-RPC FFI). Future: Replace with real EVM connection.
+
 ### ✅ Phase 5: Persistence (100% Complete)
 
 **Write-Ahead Log (WAL):**
@@ -166,12 +195,15 @@ racket examples/multi-replica-simulation.rkt  # 5 validators, 10 frames
 racket examples/multi-replica-byzantine.rkt   # Byzantine tolerance (network)
 racket examples/gossip-routing-demo.rkt       # Gossip CRDT + Dijkstra routing
 
+# Phase 4: Blockchain Integration
+racket examples/blockchain-demo.rkt           # Simulated chain state + settlements
+
 # Phase 5: Persistence
 racket examples/persistence-demo.rkt          # WAL + snapshots + crash recovery
 ```
 
 **Expected output:** All demos end with `λ.` (success marker)
-**Total demos:** 10 (3 Phase 1, 3 Phase 2, 3 Phase 3, 1 Phase 5)
+**Total demos:** 11 (3 Phase 1, 3 Phase 2, 3 Phase 3, 1 Phase 4, 1 Phase 5)
 
 ### Verify All Tests Pass
 
@@ -570,13 +602,14 @@ Same as parent XLN project.
 
 **Phase 1:** ✅ 100% Complete (crypto, RLP, merkle)
 **Phase 2:** ✅ 100% Complete (bilateral + BFT consensus)
-**Phase 3:** ✅ 100% Complete (server coordination + gossip CRDT + routing)
+**Phase 3:** ✅ 100% Complete (server + gossip CRDT + routing)
+**Phase 4:** ✅ 100% Complete (blockchain integration - simulated)
 **Phase 5:** ✅ 100% Complete (WAL + snapshots + crash recovery)
 
-**Total demos:** 10/10 passing ✓
-**Total lines:** ~2,900 (core + consensus + network + storage + examples)
-**Latest work:** Gossip protocol (CRDT) + PathFinder routing (Dijkstra)
+**Total demos:** 11/11 passing ✓
+**Total lines:** ~3,100 (core + consensus + network + blockchain + storage + examples)
+**Latest work:** Blockchain integration (chain state + settlements)
 
-**Feeling:** Flow state achieved. The homoiconic vision manifests. :3
+**Feeling:** Productive unfolding continues. Code = Data. :3
 
 λ.
