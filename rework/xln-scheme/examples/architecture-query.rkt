@@ -56,21 +56,17 @@
      (filter (lambda (c) (and (pair? c) (eq? (car c) 'layer))) components)]
     [_ '()]))
 
-(define (find-machines system)
-  (define (extract-machines component)
+(define (find-in-layers system tag)
+  "Extract components with given tag from all layers"
+  (define (extract component)
     (match component
       [`(layer ,name . ,contents)
-       (filter (lambda (c) (and (pair? c) (eq? (car c) 'machine))) contents)]
+       (filter (lambda (c) (and (pair? c) (eq? (car c) tag))) contents)]
       [_ '()]))
-  (apply append (map extract-machines (find-layers system))))
+  (apply append (map extract (find-layers system))))
 
-(define (find-modules system)
-  (define (extract-modules component)
-    (match component
-      [`(layer ,name . ,contents)
-       (filter (lambda (c) (and (pair? c) (eq? (car c) 'module))) contents)]
-      [_ '()]))
-  (apply append (map extract-modules (find-layers system))))
+(define (find-machines system) (find-in-layers system 'machine))
+(define (find-modules system) (find-in-layers system 'module))
 
 (define (get-metrics system)
   (match system
