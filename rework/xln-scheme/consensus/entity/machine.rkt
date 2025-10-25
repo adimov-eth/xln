@@ -313,9 +313,13 @@
                 outbox)))
 
   ;; Handle precommits (PRECOMMIT collection phase)
+  ;; Proposer: has proposal, collects precommits
+  ;; Non-proposer: has locked-frame, receives commit notification
   (when (and (entity-input-precommits input)
-             (entity-replica-proposal replica))
-    (define proposal (entity-replica-proposal replica))
+             (or (entity-replica-proposal replica)
+                 (entity-replica-locked-frame replica)))
+    (define proposal (or (entity-replica-proposal replica)
+                        (entity-replica-locked-frame replica)))
     (define config (entity-state-config (entity-replica-state replica)))
 
     ;; Collect signatures
@@ -339,13 +343,9 @@
     (when (>= total-power threshold)
       (displayln "[LOCK] COMMIT: Quorum reached, committing frame!")
 
-      ;; Apply new state with incremented height
+      ;; Apply new state (already has correct height from proposal)
       (define committed-state (proposed-entity-frame-new-state proposal))
-      (define new-state-with-height
-        (struct-copy entity-state committed-state
-                     [height (+ (entity-state-height committed-state) 1)]))
-
-      (set-entity-replica-state! replica new-state-with-height)
+      (set-entity-replica-state! replica committed-state)
 
       ;; Clear proposal state
       (set-entity-replica-proposal! replica #f)
