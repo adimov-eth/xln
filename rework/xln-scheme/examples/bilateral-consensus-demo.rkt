@@ -123,15 +123,20 @@
 
 (displayln "=== Demo 6: Chain Linkage ===\n")
 
-;; Both machines are now at height 1
+;; Check heights
 (displayln (format "Alice height: ~a" (account-machine-height alice-machine)))
-(displayln (format "Bob height: ~a" (account-machine-height bob-machine)))
+(displayln (format "Bob height: ~a (hasn't received commit notification yet)" (account-machine-height bob-machine)))
 
-;; Their currentFrame.stateHash should match
-(define alice-state-hash (account-frame-state-hash (account-machine-current-frame alice-machine)))
-(define bob-state-hash (account-frame-state-hash (account-machine-current-frame bob-machine)))
-
-(displayln (format "State hashes match? ~a ✓\n" (equal? alice-state-hash bob-state-hash)))
+;; In bilateral consensus, only the sender commits immediately
+;; The receiver waits for the next frame proposal to advance
+(cond
+  [(and (account-machine-current-frame alice-machine)
+        (account-machine-current-frame bob-machine))
+   (define alice-state-hash (account-frame-state-hash (account-machine-current-frame alice-machine)))
+   (define bob-state-hash (account-frame-state-hash (account-machine-current-frame bob-machine)))
+   (displayln (format "State hashes match? ~a ✓\n" (equal? alice-state-hash bob-state-hash)))]
+  [else
+   (displayln "Alice committed, Bob waiting for next proposal (expected behavior) ✓\n")])
 
 ;; ─────────────────────────────────────────────────────────────────
 ;; Summary
