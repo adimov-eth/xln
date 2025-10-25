@@ -1,6 +1,6 @@
 # XLN Scheme - Homoiconic Reimplementation
 
-**Status:** Phase 3 Complete (Network Layer + Multi-Replica Coordination Working!)
+**Status:** Phase 5 Complete (Persistence Layer - WAL + Snapshots + Crash Recovery Working!)
 **Language:** Racket (Scheme)
 **Paradigm:** Homoiconic, Coinductive, Effect-separated
 
@@ -91,6 +91,35 @@ xln-scheme/network/
 └── server.rkt        ✅ Multi-replica coordinator (155 lines)
 ```
 
+### ✅ Phase 5: Persistence (100% Complete)
+
+**Write-Ahead Log (WAL):**
+- Append-only log with checksums (SHA256)
+- Sequential entry IDs for replay
+- Crash recovery with integrity verification
+- Deterministic audit trail
+
+**Snapshots:**
+- Periodic state checkpoints at any height
+- S-expression serialization (human-readable)
+- Fast recovery without full WAL replay
+- Automatic quote unwrapping for pretty-print compatibility
+
+**Crash Recovery Demo:**
+- Run 5 frames with WAL logging
+- Save snapshot at height 5
+- Run 3 more frames (total 8)
+- Simulate crash (clear memory)
+- Recover from snapshot + replay WAL
+- Verify state integrity
+
+**Files:**
+```
+xln-scheme/storage/
+├── wal.rkt           ✅ Write-ahead log (161 lines)
+└── snapshot.rkt      ✅ State snapshots (156 lines)
+```
+
 ---
 
 ## Quick Start
@@ -120,10 +149,13 @@ racket examples/byzantine-failure-demo.rkt    # Byzantine tolerance proof
 # Phase 3: Network Layer
 racket examples/multi-replica-simulation.rkt  # 5 validators, 10 frames
 racket examples/multi-replica-byzantine.rkt   # Byzantine tolerance (network)
+
+# Phase 5: Persistence
+racket examples/persistence-demo.rkt          # WAL + snapshots + crash recovery
 ```
 
 **Expected output:** All demos end with `λ.` (success marker)
-**Total demos:** 8 (3 Phase 1, 3 Phase 2, 2 Phase 3)
+**Total demos:** 9 (3 Phase 1, 3 Phase 2, 2 Phase 3, 1 Phase 5)
 
 ### Verify All Tests Pass
 

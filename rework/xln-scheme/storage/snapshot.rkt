@@ -142,8 +142,13 @@
   (displayln (format "[SNAPSHOT] Loading from ~a..." file-path))
 
   ;; Read snapshot data
+  (define raw-data (with-input-from-file file-path read))
+
+  ;; Unwrap quote if present (pretty-print adds quote prefix)
   (define snapshot-data
-    (with-input-from-file file-path read))
+    (match raw-data
+      [(list 'quote data) data]
+      [data data]))
 
   (match snapshot-data
     [(list 'snapshot height timestamp replicas-list)
@@ -153,9 +158,11 @@
      (set-server-env-timestamp! env timestamp)
 
      ;; Deserialize replicas
-     (for ([(key replica-data) replicas-list])
-       (define replica (deserialize-replica replica-data))
-       (hash-set! (server-env-replicas env) key replica))
+     (for ([entry replicas-list])
+       (match entry
+         [(cons key replica-data)
+          (define replica (deserialize-replica replica-data))
+          (hash-set! (server-env-replicas env) key replica)]))
 
      (displayln (format "[SNAPSHOT] Loaded ~a replicas at height ~a"
                         (length replicas-list)

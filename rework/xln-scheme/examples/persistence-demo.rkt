@@ -102,6 +102,10 @@
       (define validator (get-replica env entity-id target-signer))
       (handle-entity-input validator commit-notif timestamp)))
 
+  ;; Update server height and timestamp
+  (set-server-env-height! env frame-num)
+  (set-server-env-timestamp! env timestamp)
+
   (displayln ""))
 
 (displayln (format "Completed 5 frames\n"))
@@ -155,6 +159,10 @@
     (when (not (equal? target-signer "alice"))
       (define validator (get-replica env entity-id target-signer))
       (handle-entity-input validator commit-notif timestamp)))
+
+  ;; Update server height and timestamp
+  (set-server-env-height! env frame-num)
+  (set-server-env-timestamp! env timestamp)
 
   (displayln ""))
 
