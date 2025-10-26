@@ -41,13 +41,21 @@ racket examples/bft-consensus-demo.rkt > /dev/null && echo "    ✓ BFT works"
 echo ""
 
 # Test Network + Blockchain + Persistence
-echo "[4/4] Testing Integration..."
+echo "[4/5] Testing Integration..."
 echo "  → Gossip + Multi-hop routing..."
 racket examples/gossip-routing-demo.rkt > /dev/null && echo "    ✓ Network works"
 echo "  → Blockchain settlement..."
 racket examples/blockchain-demo.rkt > /dev/null && echo "    ✓ Blockchain works"
 echo "  → WAL + Crash recovery..."
 racket examples/persistence-demo.rkt > /dev/null && echo "    ✓ Persistence works"
+echo ""
+
+# Test XLN Innovations (RCPAN + Subcontracts)
+echo "[5/5] Testing XLN Innovations..."
+echo "  → RCPAN invariant (credit + collateral)..."
+racket examples/rcpan-demo.rkt > /dev/null && echo "    ✓ RCPAN works"
+echo "  → HTLCs (atomic swaps)..."
+racket examples/htlc-demo.rkt > /dev/null && echo "    ✓ Subcontracts work"
 echo ""
 
 # Run all demos with output
@@ -65,6 +73,8 @@ DEMOS=(
     "examples/gossip-routing-demo.rkt"
     "examples/blockchain-demo.rkt"
     "examples/persistence-demo.rkt"
+    "examples/rcpan-demo.rkt"
+    "examples/htlc-demo.rkt"
     "examples/architecture-query.rkt"
     "examples/architecture-tree.rkt"
     "examples/architecture-validate.rkt"
