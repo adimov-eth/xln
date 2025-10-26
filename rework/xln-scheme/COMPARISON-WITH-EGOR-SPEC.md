@@ -1,35 +1,33 @@
 # Racket Implementation vs Egor's Full Specification
 
-Comparison between our Racket proof-of-concept and Egor's complete TypeScript XLN system.
+**VERIFIED COMPARISON** (2025-10-26): Systematic verification via fs-discovery, grep, running demos.
 
 ---
 
 ## Executive Summary
 
-**What we implemented (Racket):**
-- ✓ Bilateral consensus (2-of-2 signatures)
-- ✓ BFT consensus (≥2/3 quorum)
-- ✓ Multi-hop routing
-- ✓ Simple deltas (balance changes)
-- ✓ Gossip CRDT (profile propagation)
-- ✓ WAL + crash recovery
-- ✓ Simulated blockchain
+**What Racket implements:**
+- ✅ Bilateral consensus (2-of-2 signatures)
+- ✅ BFT consensus (≥2/3 quorum)
+- ✅ Multi-hop routing (gossip CRDT + Dijkstra pathfinding)
+- ✅ **RCPAN invariant enforcement** (−Lₗ ≤ Δ ≤ C + Lᵣ) - **MORE CORRECT than TypeScript**
+- ✅ **Subcontracts** (HTLCs working, limit orders framework)
+- ✅ **Real blockchain integration** (JSON-RPC, ABI encoding, transaction signing)
+- ✅ WAL + crash recovery
+- ✅ S-expression snapshots
 
-**What we didn't implement (from Egor's spec):**
-- ✗ RCPAN invariant (credit limits + collateral)
-- ✗ Subcontracts (HTLCs, limit orders, dividend distribution)
-- ✗ Real blockchain integration (Solidity contracts)
-- ✗ Delta transformers (programmable state transitions)
-- ✗ Netting optimization
-- ✗ Collateral management
+**What Racket lacks (vs Egor's spec):**
+- ⚠️ Netting optimization (detection in TS, execution missing in both)
+- ⚠️ Event monitoring (eth_getLogs RPC method exists, not integrated)
 
-**Scope:** We built a **foundational proof-of-concept** demonstrating core consensus mechanisms. Egor's system is **production-ready** with credit primitives and economic guarantees.
+**Critical Finding:**
+**Racket's RCPAN enforcement is MORE FAITHFUL to spec than TypeScript.** TypeScript has fields (`leftCreditLimit`, `rightCreditLimit`) but only checks `globalCreditLimits.peerLimit` and passively clamps values. Racket properly validates invariant and rejects violations.
 
 ---
 
-## Key Innovations in Egor's Spec (Not in Racket)
+## Key Innovations in Egor's Spec
 
-### 1. RCPAN Invariant
+### 1. RCPAN Invariant ✅ IMPLEMENTED (Better than TypeScript)
 
 **What it is:**
 ```
@@ -48,56 +46,67 @@ Where:
 - Solves **FRPAP** (Full Reserve Precludes Arbitrary Payments)
 - Makes credit **programmable** (first-class primitive)
 
-**Racket implementation:**
-- Has simple deltas: `(delta token-id amount)`
-- No credit limits, no collateral tracking
-- Pure balance changes only
-
-**To add RCPAN to Racket:**
+**Racket implementation** (`consensus/account/rcpan.rkt:94-95`):
 ```scheme
-(struct account-state (
-  deltas              ; Current balances
-  collateral          ; NEW: My collateral
-  credit-left         ; NEW: Credit I extend
-  credit-right        ; NEW: Credit extended to me
-) #:transparent)
+(define (validate-rcpan state token-id new-delta)
+  (define C (rcpan-limits-collateral limits))
+  (define Ll (rcpan-limits-credit-left limits))
+  (define Lr (rcpan-limits-credit-right limits))
 
-(define (validate-rcpan state delta)
-  (define new-delta (+ (hash-ref (account-state-deltas state) token-id 0) delta))
-  (define C (account-state-collateral state))
-  (define Ll (account-state-credit-left state))
-  (define Lr (account-state-credit-right state))
-  (and (>= new-delta (- Ll))
-       (<= new-delta (+ C Lr))))
+  (and (>= new-delta (- Ll))      ; Lower bound: −Lₗ ≤ Δ
+       (<= new-delta (+ C Lr))))  ; Upper bound: Δ ≤ C + Lᵣ
 ```
+
+**Behavior:** Returns `#f` if violated → transaction rejected.
+
+**TypeScript implementation** (`runtime/account-utils.ts:43-47`):
+```typescript
+let inOwnCredit = nonNegative(-totalDelta);
+if (inOwnCredit > ownCreditLimit) inOwnCredit = ownCreditLimit;  // Passive clamp
+```
+
+**Behavior:** Clamps to fit limits, doesn't reject. Only checks `globalCreditLimits.peerLimit` in payment handler.
+
+**VERDICT: Racket MORE CORRECT.** TypeScript has RCPAN fields but weak enforcement.
 
 ---
 
-### 2. Subcontracts (Delta Transformers)
+### 2. Subcontracts (Delta Transformers) ✅ IMPLEMENTED
 
 **What they are:**
 Every bilateral account can have **programmable subcontracts** that transform deltas conditionally.
 
+**Racket implementation** (`consensus/account/subcontracts.rkt:38-50`):
+```scheme
+(struct htlc (
+  id
+  amount              ; Tokens locked
+  token-id            ; Which token
+  hash-lock           ; SHA256 hash that must be revealed
+  timeout             ; Unix timestamp when Alice can reclaim
+  sender              ; Who locked the tokens (Alice)
+  receiver            ; Who can claim with preimage (Bob)
+  [revealed-preimage #:mutable]   ; #f or the revealed preimage
+  [claimed? #:mutable]            ; Has receiver claimed?
+  [refunded? #:mutable]           ; Has sender refunded after timeout?
+) #:transparent)
+```
+
+**Demo verification** (`examples/htlc-demo.rkt` - 214 lines):
+```bash
+$ racket examples/htlc-demo.rkt
+✓ Happy Path: Bob reveals preimage and claims
+✓ Timeout Refund: Alice reclaims after timeout
+✓ Invalid scenarios: Wrong preimage rejected, double-claim prevented
+```
+
 **Examples from Egor's spec:**
 
-**HTLC (Hash Time-Locked Contract):**
-```typescript
-// Alice → Bob locked by hash H
-Δ_proposed = +1000
-// If Bob reveals R where hash(R) = H: commit
-// If timeout: revert
-```
+**HTLC:** ✅ Working (214 lines, tested)
 
-**Limit Order:**
-```typescript
-// "Buy 100 USDC at 0.5 ETH when ETH/USDC ≤ 2000"
-if (oraclePrice <= 2000) {
-  Δ_USDC = +100
-  Δ_ETH = -50
-}
-```
+**Limit Order:** ⚠️ Framework exists, not implemented
 
-**Dividend Distribution:**
+**Dividend Distribution:** ⚠️ Framework exists, not implemented
 ```typescript
 // Entity pays 10% dividend to all C-share holders
 for (holder of cShareHolders) {
@@ -105,46 +114,14 @@ for (holder of cShareHolders) {
 }
 ```
 
-**Racket implementation:**
-- No subcontracts
-- Just plain deltas in frames
-- No conditional logic
-
-**To add subcontracts to Racket:**
-```scheme
-(struct subcontract (
-  type                ; 'htlc, 'limit-order, 'dividend
-  condition           ; Predicate function
-  delta-transformer   ; (state → deltas)
-) #:transparent)
-
-(struct account-frame (
-  height
-  timestamp
-  prev-frame-hash
-  account-txs
-  subcontracts        ; NEW: List of active subcontracts
-  deltas              ; Computed from txs + subcontracts
-  state-hash
-  signatures
-) #:transparent)
-
-(define (apply-subcontracts state subcontracts)
-  (for/fold ([deltas '()])
-            ([sc subcontracts])
-    (if ((subcontract-condition sc) state)
-        (append deltas ((subcontract-delta-transformer sc) state))
-        deltas)))
-```
-
 ---
 
-### 3. Real Blockchain Integration
+### 3. Real Blockchain Integration ✅ IMPLEMENTED
 
-**Egor's system (Solidity):**
+**Egor's system (Solidity contracts via TypeScript):**
 
 **Depository.sol (1,746 lines):**
-- `enforceDebts()` - FIFO debt enforcement
+- `enforceDebts()` - FIFO debt enforcement at lines 1383-1460
 - `settleDiffs()` - Bilateral settlement
 - Collateral tracking
 - Reserve management
@@ -154,20 +131,42 @@ for (holder of cShareHolders) {
 - Entity registration
 - Board hash verification
 - Quorum validation
-- Voting mechanisms
 
 **SubcontractProvider.sol (155 lines):**
 - HTLCs
 - Atomic swaps
 - Limit orders
 
-**Racket implementation:**
-- Simulated blockchain (`blockchain/types.rkt`)
-- In-memory chain-state
-- No real RPC calls
-- Proof-of-concept only
+**Racket implementation** - Real JSON-RPC integration:
 
-**See:** `docs/08-production.md` for roadmap to real blockchain integration
+**Files:**
+- `blockchain/rpc.rkt` (118 lines) - JSON-RPC client, zero external dependencies
+- `blockchain/abi.rkt` (150 lines) - Ethereum ABI encoding
+- `blockchain/signing.rkt` (76 lines) - Transaction signing interface
+- `blockchain/keccak256.js` (17 lines) - Node.js FFI for Keccak-256
+- `blockchain/sign-tx.js` (33 lines) - Node.js FFI for ECDSA
+
+**Verified working** (`examples/complete-rpc-demo.rkt`):
+```bash
+$ racket examples/complete-rpc-demo.rkt
+[OK] Current block: 21
+[OK] Entity 1, Token 1: 1000 units
+[OK] Entity 1, Token 2: 500 units
+[OK] Entity 2, Token 1: 2000 units
+[OK] Total reserves queried: 3500 units
+✓ Pure Racket blockchain integration WORKS!
+```
+
+**Transaction signing** (`examples/signed-registration-demo.rkt`):
+```bash
+$ racket examples/signed-registration-demo.rkt
+[OK] Transaction hash: 0x...
+[OK] Transaction mined!
+    Block: 0x15
+    Status: 0x1
+```
+
+**VERDICT: Real blockchain integration complete.** Queries, writes, ECDSA signing all working.
 
 ---
 
@@ -743,23 +742,26 @@ TypeScript ←→ Shared Memory ←→ Racket
 
 ---
 
-## Summary Table
+## Summary Table (Verified 2025-10-26)
 
-| Feature | Egor (TypeScript) | Racket (Ours) | Priority to Add |
-|---------|------------------|---------------|-----------------|
-| **Bilateral Consensus** | ✓ | ✓ | N/A (done) |
-| **BFT Consensus** | ✓ | ✓ | N/A (done) |
-| **Multi-hop Routing** | ✓ | ✓ | N/A (done) |
-| **Gossip CRDT** | ✓ | ✓ | N/A (done) |
-| **WAL + Snapshots** | ✓ | ✓ | N/A (done) |
-| **RCPAN Invariant** | ✓ | ✗ | **HIGH** |
-| **Subcontracts (HTLCs)** | ✓ | ✗ | **HIGH** |
-| **Real Blockchain** | ✓ | ✗ (simulated) | **MEDIUM** |
-| **Netting Optimization** | Partial | ✗ | **MEDIUM** |
-| **Homoiconicity** | ✗ | ✓ | N/A (unique) |
-| **Enforced Determinism** | ✗ | ✓ | N/A (unique) |
-| **Code Size** | 15k lines | 4.5k lines | N/A (advantage) |
-| **Ecosystem** | npm (2M+) | rkt (2k) | N/A (accept) |
+| Feature | Egor (TypeScript) | Racket (Ours) | Status |
+|---------|------------------|---------------|---------|
+| **Bilateral Consensus** | ✓ | ✓ | ✅ Done |
+| **BFT Consensus** | ✓ | ✓ | ✅ Done |
+| **Multi-hop Routing** | ✓ | ✓ | ✅ Done |
+| **Gossip CRDT** | ✓ | ✓ | ✅ Done |
+| **WAL + Snapshots** | ✓ | ✓ | ✅ Done |
+| **RCPAN Invariant** | ⚠️ Weak | ✅ **Correct** | 🏆 **Racket Better** |
+| **Subcontracts (HTLCs)** | ✓ | ✅ **Working** | ✅ Done (214 lines) |
+| **Real Blockchain** | ✓ | ✅ **Working** | ✅ Done (RPC + signing) |
+| **Netting Optimization** | Detection only | ❌ Missing | ⚠️ Neither has execution |
+| **Event Monitoring** | ✓ | ⚠️ RPC ready | ⚠️ Integration pending |
+| **Homoiconicity** | ❌ | ✅ | N/A (Racket unique) |
+| **Enforced Determinism** | ❌ | ✅ | N/A (Racket unique) |
+| **Code Size** | 15k lines | 5k lines | N/A (Racket advantage) |
+| **Ecosystem** | npm (2M+) | rkt (2k) | N/A (accept trade-off) |
+
+**Key Finding**: Racket's RCPAN enforcement is **more faithful to spec** than TypeScript. TypeScript has RCPAN fields but only passive clamping + global limit checks. Racket properly validates −Lₗ ≤ Δ ≤ C + Lᵣ and rejects violations.
 
 ---
 

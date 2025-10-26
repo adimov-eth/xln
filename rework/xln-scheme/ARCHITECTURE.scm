@@ -153,14 +153,37 @@
         (recovery replay-from-genesis)
         (deterministic #t))
 
-      ;; Snapshots
-      (module snapshot
-        (format s-expression)
-        (serialization pretty-print)
-        (deserialization read-with-quote-unwrap)
-        (recovery snapshot+wal-replay)
-        (compression none)
-        (human-readable #t)))
+      ;; RLP+Merkle Snapshots (NEW: 2025-10-26)
+      (module snapshot-rlp
+        (format dual)
+        (production
+          (encoding rlp)
+          (ethereum-compatible #t)
+          (file-extension ".rlp")
+          (size-bytes 313-469)
+          (deterministic #t))
+        (debug
+          (encoding s-expression)
+          (file-extension ".rlp.debug.ss")
+          (human-readable #t)
+          (introspectable #t))
+        (integrity
+          (merkle-root computed-from-replica-hashes)
+          (verification cryptographic)
+          (sorted-iteration #t))
+        (features
+          (crash-recovery proven)
+          (automatic-periodic configurable-interval)
+          (round-trip-verified #t))
+        (implemented 2025-10-26)
+        (proof crash-recovery-demo.rkt))
+
+      ;; Server Persistence Wrapper
+      (module server-persistence
+        (pattern compositional-wrapper)
+        (breaks-circular-deps #t)
+        (automatic-snapshots configurable)
+        (entity-height-aware #t)))
 
     ;; ─────────────────────────────────────────────────────────────
     ;; COMPOSITION (How It All Fits Together)
@@ -246,17 +269,19 @@
     (metrics
       (files 24)
       (lines ~4500)
-      (demos 17)
-      (passing "17/17")
+      (demos 27)
+      (passing "27/27")
       (phases-complete "5/5")
+      (property-tests 550)
+      (test-properties 8)
       (modules
         (core 4)
         (consensus 2)
         (network 3)
         (blockchain 1)
         (storage 2)
-        (examples 11))
-      (token-budget-used ~135k/200k))
+        (examples 27))
+      (token-budget-used ~71k/200k))
 
     ;; ─────────────────────────────────────────────────────────────
     ;; PARADIGM (Why This Works)

@@ -1,4 +1,4 @@
-#lang racket/base
+#lang racket
 
 ;; ═══════════════════════════════════════════════════════════════════
 ;; XLN Cryptography - SHA256 (Built-in, No FFI)
@@ -10,9 +10,24 @@
 ;; ═══════════════════════════════════════════════════════════════════
 
 (require file/sha1
-         racket/contract)
+         racket/contract
+         racket/format
+         racket/system
+         racket/string
+         racket/path)
 
 (provide (all-defined-out))
+
+;; ─────────────────────────────────────────────────────────────────
+;; Utility Functions
+;; ─────────────────────────────────────────────────────────────────
+
+;; Convert bytes to hexadecimal string
+(define/contract (bytes->hex-string bs)
+  (-> bytes? string?)
+  (apply string-append
+         (for/list ([b (bytes->list bs)])
+           (~r b #:base 16 #:min-width 2 #:pad-string "0"))))
 
 ;; ─────────────────────────────────────────────────────────────────
 ;; Hash Functions
@@ -23,14 +38,29 @@
   (-> bytes? bytes?)
   (sha256-bytes data))
 
-;; Keccak256 - Ethereum compatibility
-;; Note: Using SHA256 as placeholder (keccak256 ≠ SHA256)
-;; TODO: Implement proper Keccak-256 once crypto support available
+;; Keccak256 - Ethereum compatibility via Node.js ethers
 (define/contract (keccak256 data)
   (-> bytes? bytes?)
-  ;; For MVP, using SHA256 as approximation
-  ;; Real Keccak-256 differs from SHA3-256 in padding
-  (sha256-bytes data))
+  ;; Convert bytes to hex string
+  (define hex-input
+    (apply string-append
+           (for/list ([b (bytes->list data)])
+             (format "~a" (~r b #:base 16 #:min-width 2 #:pad-string "0")))))
+
+  ;; Call Node.js script
+  (define script-path
+    (build-path (current-directory) "blockchain" "keccak256.js"))
+
+  (define output
+    (with-output-to-string
+      (lambda ()
+        (system* (find-executable-path "node") script-path hex-input))))
+
+  ;; Convert hex output back to bytes
+  (define clean-output (string-trim output))
+  (list->bytes
+    (for/list ([i (in-range 0 (string-length clean-output) 2)])
+      (string->number (substring clean-output i (+ i 2)) 16))))
 
 ;; Hash arbitrary S-expression (for frame hashing)
 (define/contract (hash-sexp sexp)
