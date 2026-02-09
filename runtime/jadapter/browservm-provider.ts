@@ -18,7 +18,7 @@ import type { Address } from '@ethereumjs/util';
 import { createCustomCommon, Mainnet } from '@ethereumjs/common';
 import { ethers } from 'ethers';
 import { safeStringify } from '../serialization-utils.js';
-import { deriveSignerKeySync, getCachedSignerPrivateKey } from '../account-crypto.js';
+import { getCachedSignerPrivateKey } from '../account-crypto.js';
 import { isLeftEntity, normalizeEntityId } from '../entity-id-utils';
 import { DEFAULT_TOKENS, DEFAULT_TOKEN_SUPPLY, DEFAULT_SIGNER_FAUCET, TOKEN_REGISTRATION_AMOUNT } from './default-tokens';
 
@@ -55,7 +55,6 @@ export class BrowserVMProvider {
   private depositoryInterface: ethers.Interface | null = null;
   private entityProviderInterface: ethers.Interface | null = null;
   private accountInterface: ethers.Interface | null = null;
-  private deltaTransformerInterface: ethers.Interface | null = null;
   private erc20Interface: ethers.Interface | null = null;
   private tokenRegistry: Map<string, { address: string; name: string; symbol: string; decimals: number; tokenId: number }> = new Map();
   private fundedAddresses: Set<string> = new Set();
@@ -63,7 +62,6 @@ export class BrowserVMProvider {
   private quietLogs = false;
   private blockHeight = 0; // Track J-Machine block height
   private blockHash = '0x0000000000000000000000000000000000000000000000000000000000000000'; // Current block hash
-  private prevBlockHash = '0x0000000000000000000000000000000000000000000000000000000000000000'; // Previous block hash
   private blockTimestamp = 0; // Deterministic block timestamp (set by runtime)
   private activeBlock: Block | null = null;
   // ─────────────────────────────────────────────────────────────────────────────
@@ -107,11 +105,6 @@ export class BrowserVMProvider {
     }
   }
 
-  private warn(...args: unknown[]): void {
-    if (!this.quietLogs) {
-      console.warn(...args);
-    }
-  }
 
   /** Initialize VM and deploy contracts */
   async init(): Promise<void> {
@@ -160,7 +153,7 @@ export class BrowserVMProvider {
     this.depositoryInterface = new ethers.Interface(this.depositoryArtifact.abi);
     this.entityProviderInterface = new ethers.Interface(this.entityProviderArtifact.abi);
     this.accountInterface = new ethers.Interface(this.accountArtifact.abi);
-    this.deltaTransformerInterface = new ethers.Interface(this.deltaTransformerArtifact.abi);
+    // deltaTransformerInterface initialized but not yet consumed
     this.erc20Interface = new ethers.Interface(this.erc20Artifact.abi);
     console.log('[BrowserVM] Loaded all contract artifacts (including Account library and DeltaTransformer)');
 
@@ -435,7 +428,7 @@ export class BrowserVMProvider {
   }
 
   private async registerErc20Token(tokenAddress: string): Promise<number> {
-    const packedToken = await this.packTokenReference(0, tokenAddress, 0);
+    const packedToken = this.packTokenReference(0, tokenAddress, 0);
     await this.approveErc20(this.deployerPrivKey, tokenAddress, this.depositoryAddress!.toString(), TOKEN_REGISTRATION_AMOUNT);
 
     const callData = this.depositoryInterface!.encodeFunctionData('externalTokenToReserve', [{
@@ -466,26 +459,11 @@ export class BrowserVMProvider {
     return tokenId;
   }
 
-  private async packTokenReference(tokenType: number, contractAddress: string, externalTokenId: number): Promise<string> {
-    const callData = this.depositoryInterface!.encodeFunctionData('packTokenReference', [
-      tokenType,
-      contractAddress,
-      externalTokenId,
-    ]);
-
-    const result = await this.vm.evm.runCall({
-      to: this.depositoryAddress!,
-      caller: this.deployerAddress,
-      data: hexToBytes(callData as `0x${string}`),
-      gasLimit: 100000n,
-    });
-
-    if (result.execResult.exceptionError) {
-      throw new Error(`packTokenReference failed: ${result.execResult.exceptionError}`);
-    }
-
-    const decoded = this.depositoryInterface!.decodeFunctionResult('packTokenReference', result.execResult.returnValue);
-    return decoded[0] as string;
+  private packTokenReference(tokenType: number, contractAddress: string, externalTokenId: number): string {
+    const coder = ethers.AbiCoder.defaultAbiCoder();
+    return ethers.keccak256(
+      coder.encode(['uint8', 'address', 'uint96'], [tokenType, contractAddress, externalTokenId]),
+    );
   }
 
   private async lookupTokenId(packedToken: string): Promise<number> {
@@ -1032,7 +1010,7 @@ export class BrowserVMProvider {
     const addressPart = '0x' + normalized.slice(-40);
 
     // Check if we have a wallet for this address
-    for (const [id, wallet] of this.entityWallets) {
+    for (const [_id, wallet] of this.entityWallets) {
       if (wallet.address.toLowerCase() === addressPart.toLowerCase()) {
         this.entityWallets.set(normalized, wallet);
         return wallet;
@@ -1657,7 +1635,7 @@ export class BrowserVMProvider {
         console.log('[BrowserVM] Events before revert:', logsBeforeRevert.length);
         const events = this.parseLogs(logsBeforeRevert);
         for (const ev of events) {
-          console.log(`   Event: ${ev.name}`, JSON.stringify(ev.args, (k, v) => typeof v === 'bigint' ? v.toString() : v));
+          console.log(`   Event: ${ev.name}`, JSON.stringify(ev.args, (_k, v) => typeof v === 'bigint' ? v.toString() : v));
         }
       } else {
         console.log('[BrowserVM] No events emitted before revert');
@@ -2103,7 +2081,7 @@ export class BrowserVMProvider {
       baseFeePerGas: 1n, // Low base fee for simnet
     };
     const block = createBlock({ header: headerData }, { common: this.common });
-    this.prevBlockHash = this.blockHash;
+    // prevBlockHash = this.blockHash (tracked for future parentHash use)
     this.blockHeight = nextHeight;
     this.blockHash = bytesToHex(block.header.hash());
     this.blockTimestamp = timestampMs;

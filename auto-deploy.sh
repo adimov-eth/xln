@@ -10,11 +10,7 @@ git pull origin main
 
 # Add bun to PATH
 export PATH="$HOME/.bun/bin:$PATH"
-if [ "${XLN_DEPLOY_FRONTEND:-0}" = "1" ]; then
-  ./deploy.sh --frontend --skip-pull
-else
-  ./deploy.sh --skip-pull
-fi
+./deploy.sh --skip-pull
 
 echo "✅ Deployed at $(date)"
 echo "✅ Server status:"

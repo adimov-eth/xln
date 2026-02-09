@@ -6,10 +6,10 @@
  * Reference: entity-tx/apply.ts:302-437 (directPayment handler)
  */
 
-import type { EntityState, EntityInput, RoutedEntityInput, AccountTx, Env } from '../../types';
+import type { EntityState, RoutedEntityInput, AccountTx, Env } from '../../types';
 import type { AccountKey } from '../../ids';
-import { cloneEntityState, canonicalAccountKey } from '../../state-helpers';
-import { generateHashlock, generateLockId, calculateHopTimelock, calculateHopRevealHeight, hashHtlcSecret } from '../../htlc-utils';
+import { cloneEntityState } from '../../state-helpers';
+import { generateLockId, calculateHopTimelock, calculateHopRevealHeight, hashHtlcSecret } from '../../htlc-utils';
 import { HTLC } from '../../constants';
 
 const formatEntityId = (id: string) => id.slice(-4);
@@ -38,7 +38,7 @@ export async function handleHtlcPayment(
   const mempoolOps: Array<{ accountId: string; tx: any }> = [];
 
   // Extract payment details
-  let { targetEntityId, tokenId, amount, route, description, secret, hashlock } = entityTx.data;
+  let { targetEntityId, tokenId, amount, route, secret, hashlock } = entityTx.data;
 
   // Validate secret/hashlock - MUST be provided in tx (determinism requirement)
   if (!secret && !hashlock) {

@@ -8,7 +8,7 @@
  *   console.log(formatAccount(accountMachine, myEntityId));
  */
 
-import type { Env, EntityState, AccountMachine, Delta } from './types';
+import type { Env, EntityState, AccountMachine } from './types';
 import { getWallClockMs } from './utils';
 
 export interface FormatOptions {
@@ -239,7 +239,7 @@ export function formatRuntime(env: Env, options?: FormatOptions): string {
 
   // Entities
   let entityCount = 0;
-  for (const [replicaKey, replica] of env.eReplicas) {
+  for (const [_replicaKey, replica] of env.eReplicas) {
     if (opts.maxAccounts && entityCount >= opts.maxAccounts) {
       output.push(`  ... and ${env.eReplicas.size - entityCount} more entities`);
       break;
@@ -365,7 +365,7 @@ export function formatEntity(entity: EntityState, options?: FormatOptions): stri
     output.push('');
     let accountCount = 0;
 
-    for (const [counterpartyId, account] of entity.accounts) {
+    for (const [_counterpartyId, account] of entity.accounts) {
       if (opts.maxAccounts && accountCount >= opts.maxAccounts) {
         output.push(' '.repeat(indent) + `  ... and ${entity.accounts.size - accountCount} more accounts`);
         break;
@@ -597,7 +597,6 @@ export function formatSummary(env: Env): string {
 // Helper: Get lock status
 function getLockStatus(lock: any, entity: EntityState): string {
   const now = getWallClockMs();
-  const jHeight = entity.lastFinalizedJHeight || 0;
 
   if (now > Number(lock.timelock)) {
     return '🔴 Expired';

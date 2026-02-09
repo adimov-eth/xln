@@ -13,7 +13,7 @@
  */
 
 import type { AccountMachine, AccountFrame, AccountTx, AccountInput, AccountInputProposal, AccountInputAck, Env, EntityState, Delta, Result } from './types';
-import { Ok, Err, isOk, isErr } from './types';
+import { Ok, Err, isOk } from './types';
 
 /** Type guard: input has frame-level consensus fields (proposal or ack) */
 function isFrameInput(input: AccountInput): input is AccountInputProposal | AccountInputAck {
@@ -21,9 +21,9 @@ function isFrameInput(input: AccountInput): input is AccountInputProposal | Acco
 }
 import { cloneAccountMachine, getAccountPerspective, findSigningReplica } from './state-helpers';
 import { isLeft } from './account-utils';
-import { signAccountFrame, verifyAccountSignature } from './account-crypto';
-import { cryptoHash as hash, formatEntityId, HEAVY_LOGS } from './utils';
-import { logDebug, logInfo, logWarn, logError } from './logger';
+import { signAccountFrame } from './account-crypto';
+import { cryptoHash as hash, HEAVY_LOGS } from './utils';
+import { logDebug, logWarn } from './logger';
 import { safeStringify } from './serialization-utils';
 import { validateAccountFrame as validateAccountFrameStrict } from './validation-utils';
 import { processAccountTx } from './account-tx/apply';
@@ -870,7 +870,7 @@ export async function handleAccountInput(
     // CRITICAL: Extract FULL delta states for hash verification (same as proposer does)
     // This ensures hash verification includes credit limits, collateral, allowances
     const ourFullDeltaStates: import('./types').Delta[] = [];
-    for (const [tokenId, delta] of sortedOurTokens) {
+    for (const [_tokenId, delta] of sortedOurTokens) {
       // CRITICAL: Use offdelta ONLY for filtering (same as delta comparison)
       const totalDelta = delta.offdelta;
       // Apply SAME filtering as proposer (skip unused tokens)

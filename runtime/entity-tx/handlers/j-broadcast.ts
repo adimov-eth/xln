@@ -15,7 +15,7 @@
 
 import type { EntityState, EntityTx, EntityInput, Env, JTx, JInput } from '../../types';
 import { cloneEntityState, addMessage } from '../../state-helpers';
-import { isBatchEmpty, getBatchSize, createEmptyBatch, cloneJBatch } from '../../j-batch';
+import { isBatchEmpty, getBatchSize, cloneJBatch } from '../../j-batch';
 
 export async function handleJBroadcast(
   entityState: EntityState,

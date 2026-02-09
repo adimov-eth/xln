@@ -1,0 +1,31 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "bun"],
+    "allowImportingTsExtensions": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "noUncheckedIndexedAccess": false,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "exactOptionalPropertyTypes": false,
+    "noPropertyAccessFromIndexSignature": false
+  },
+  "include": [
+    "xln.ts",
+    "runtime/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "brainvault/**/*",
+    "runtime/scenarios/**/*",
+    "runtime/scenarios-api.ts",
+    "runtime/scripts/**/*",
+    "runtime/typechain/**/*",
+    "runtime/runtime-check.js",
+    "runtime/server-bundle.js",
+    "runtime/cli.ts",
+    "scripts/**/*",
+    "**/*.test.ts"
+  ]
+}

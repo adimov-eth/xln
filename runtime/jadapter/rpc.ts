@@ -99,15 +99,6 @@ export async function createRpcAdapter(
   const anyCallbacks = new Set<JEventCallback>();
 
   // Check if RPC supports snapshots (anvil/hardhat)
-  const supportsSnapshots = async (): Promise<boolean> => {
-    try {
-      const rpc = provider as ethers.JsonRpcProvider;
-      await rpc.send('evm_snapshot', []);
-      return true;
-    } catch {
-      return false;
-    }
-  };
 
   const adapter: JAdapter = {
     mode: config.mode,
@@ -671,7 +662,7 @@ export async function createRpcAdapter(
 
     // === High-level J-tx submission ===
     async submitTx(jTx: JTx, options: { env: any; signerId?: string; timestamp?: number }): Promise<JSubmitResult> {
-      const { env, signerId, timestamp } = options;
+      const { env, signerId } = options;
 
       console.log(`📤 [JAdapter:rpc] submitTx type=${jTx.type} entity=${jTx.entityId.slice(-4)}`);
 
@@ -763,7 +754,6 @@ export async function createRpcAdapter(
         'event HankoBatchProcessed(bytes32 indexed entityId, bytes32 indexed hankoHash, uint256 nonce, bool success)',
       ];
       const depositoryIface = new ethers.Interface(depositoryABI);
-      const depositoryForQuery = new ethers.Contract(addresses.depository, depositoryABI, provider);
 
       watcherInterval = setInterval(async () => {
         if (!watcherEnv) return;

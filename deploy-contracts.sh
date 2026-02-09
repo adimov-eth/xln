@@ -257,19 +257,11 @@ deploy_to_network() {
     fi
     echo "   ✅ CRITICAL: R2R smoke test PASSED - Contracts fully functional"
 
-    # Build and update frontend bundle with latest runtime.js
-    echo "   🔧 Updating frontend bundle with latest runtime code..."
     cd ..
-    if bun build runtime/runtime.ts --target=browser --outdir=dist --minify --external http --external https --external zlib --external fs --external path --external crypto --external stream --external buffer --external url --external net --external tls --external os --external util; then
-        echo "   ✅ Runtime built successfully"
-        if cp dist/runtime.js frontend/static/runtime.js; then
-            echo "   ✅ Frontend bundle updated with latest runtime.js"
-        else
-            echo "   ⚠️ Failed to copy runtime.js to frontend (continuing anyway)"
-        fi
-    else
-        echo "   ⚠️ Runtime build failed (continuing anyway)"
-    fi
+    bun run size:check || {
+      echo "   ❌ Bytecode size gate failed"
+      return 1
+    }
     cd jurisdictions
 
     # Store both addresses in variables for later use
@@ -384,15 +376,7 @@ EOF
 
     echo "   ✅ Unified jurisdictions configuration saved"
 
-    # Update ALL jurisdiction files to prevent sync issues
-    echo "   🔄 Syncing jurisdictions to all frontend locations..."
-    cp jurisdictions.json frontend/static/jurisdictions.json 2>/dev/null || true
-    cp jurisdictions.json frontend/build/jurisdictions.json 2>/dev/null || true
-    if [ -f "frontend/.svelte-kit/output/client/jurisdictions.json" ]; then
-        cp jurisdictions.json frontend/.svelte-kit/output/client/jurisdictions.json 2>/dev/null || true
-        echo "   ✅ Updated SvelteKit output file"
-    fi
-    echo "   ✅ All jurisdiction files synchronized"
+    echo "   ✅ Jurisdiction config written for runtime/ops"
     echo ""
     echo "🎯 Deployment complete!"
     echo "📋 Next: Restart server to use new contracts"

@@ -152,7 +152,7 @@ export const signHashesAsSingleEntity = signEntityHashes;
 export async function buildQuorumHanko(
   env: Env,
   entityId: string,
-  hash: string,
+  _hash: string,
   signatures: Array<{ signerId: string; signature: string }>,
   config: { threshold: bigint; validators: string[]; shares: Record<string, bigint> }
 ): Promise<HankoString> {
@@ -368,7 +368,6 @@ export async function verifyHankoForHash(
 
     // CRITICAL: Verify recovered addresses match entity's board validators
     let expectedAddresses: string[] = [];
-    let boardVerified = false;
 
     if (env && env.eReplicas) {
       const replica: any = Array.from(env.eReplicas.values()).find((r: any) => r.state?.entityId === expectedEntityId);
@@ -449,7 +448,6 @@ export async function verifyHankoForHash(
           return { valid: false, entityId: null };
         }
       }
-      boardVerified = true;
     } else {
       // Self-contained verification: the Hanko IS the board declaration
       // Reconstruct board from claim's entityIndexes + recovered signatures + placeholders
@@ -463,9 +461,7 @@ export async function verifyHankoForHash(
           signerWeightSum += matchingClaim.weights[i];
         }
       }
-      if (signerWeightSum >= matchingClaim.threshold) {
-        boardVerified = true;
-      } else {
+      if (signerWeightSum < matchingClaim.threshold) {
         console.warn(`❌ Hanko self-contained: insufficient weight ${signerWeightSum}/${matchingClaim.threshold}`);
         return { valid: false, entityId: null };
       }

@@ -15,7 +15,7 @@
 
 import { main, process as runtimeProcess, applyRuntimeInput, startP2P, startRuntimeLoop } from './runtime';
 import { safeStringify } from './serialization-utils';
-import type { Env, EntityInput, RuntimeInput } from './types';
+import type { Env, RoutedEntityInput, RuntimeInput, JurisdictionEvent, JReplica } from './types';
 import type { AccountKey, TokenId } from './ids';
 import { encodeBoard, hashBoard } from './entity-factory';
 import { deriveSignerKeySync } from './account-crypto';
@@ -45,7 +45,7 @@ let processGuardsInstalled = false;
 
  
 
-const summarizeJWatcherEvents = (inputs: EntityInput[]): { totalEvents: number; summary: string } => {
+const summarizeJWatcherEvents = (inputs: RoutedEntityInput[]): { totalEvents: number; summary: string } => {
   const counts = new Map<string, number>();
   let totalEvents = 0;
   for (const input of inputs) {
@@ -53,7 +53,13 @@ const summarizeJWatcherEvents = (inputs: EntityInput[]): { totalEvents: number; 
     for (const tx of txs) {
       if (tx?.type === 'j_event' && tx?.data?.events) {
         for (const ev of tx.data.events) {
-          const name = ev?.type || ev?.name || 'Unknown';
+          const evAny = ev as any;
+          const name =
+            typeof evAny?.type === 'string'
+              ? evAny.type
+              : typeof evAny?.name === 'string'
+                ? evAny.name
+                : 'Unknown';
           counts.set(name, (counts.get(name) ?? 0) + 1);
           totalEvents += 1;
         }
@@ -97,7 +103,15 @@ const drainJWatcherQueue = async (env: Env, label = 'J-WATCHER'): Promise<void> 
 
 const applyJEventsToEnv = async (env: Env, events: JEvent[], label = 'J-EVENTS'): Promise<void> => {
   if (!events || events.length === 0) return;
-  const grouped = new Map<string, { events: Array<{ type: string; data: Record<string, unknown> }>; blockNumber: number; blockHash: string; transactionHash: string }>();
+  const grouped = new Map<
+    string,
+    {
+      events: JurisdictionEvent[];
+      blockNumber: number;
+      blockHash: string;
+      transactionHash: string;
+    }
+  >();
 
   for (const ev of events) {
     const entity = (ev as any)?.args?.entity || (ev as any)?.args?.entityId || (ev as any)?.args?.leftEntity;
@@ -109,12 +123,15 @@ const applyJEventsToEnv = async (env: Env, events: JEvent[], label = 'J-EVENTS')
       blockHash: ev.blockHash ?? '0x',
       transactionHash: ev.transactionHash ?? '0x',
     };
-    entry.events.push({ type: ev.name ?? (ev as any).type ?? 'Unknown', data: (ev as any).args ?? {} });
+    entry.events.push({
+      type: (ev.name ?? (ev as any).type ?? 'ReserveUpdated') as JurisdictionEvent['type'],
+      data: ((ev as any).args ?? {}) as JurisdictionEvent['data'],
+    } as JurisdictionEvent);
     grouped.set(key, entry);
   }
 
   const observedAt = Date.now();
-  const entityInputs: EntityInput[] = [];
+  const entityInputs: RoutedEntityInput[] = [];
   for (const [entityId, entry] of grouped.entries()) {
     entityInputs.push({
       entityId,
@@ -123,6 +140,10 @@ const applyJEventsToEnv = async (env: Env, events: JEvent[], label = 'J-EVENTS')
         type: 'j_event',
         data: {
           from: 'j-event',
+          event: entry.events[0] ?? ({
+            type: 'ReserveUpdated',
+            data: { entity: entityId, tokenId: 0, newBalance: '0' },
+          } as JurisdictionEvent),
           events: entry.events,
           observedAt,
           blockNumber: entry.blockNumber,
@@ -310,7 +331,7 @@ const ensureHubPairMeshCredit = async (env: Env, leftEntityId: string, rightEnti
     return;
   }
 
-  const entityInputs: EntityInput[] = [];
+  const entityInputs: RoutedEntityInput[] = [];
   const leftHasAccount = hasAccount(env, leftEntityId, rightEntityId);
   const rightHasAccount = hasAccount(env, rightEntityId, leftEntityId);
 
@@ -343,7 +364,7 @@ const ensureHubPairMeshCredit = async (env: Env, leftEntityId: string, rightEnti
     console.warn(`[XLN] Hub mesh account open timed out: ${leftEntityId.slice(0, 8)}.. ↔ ${rightEntityId.slice(0, 8)}..`);
   }
 
-  const creditInputs: EntityInput[] = [
+  const creditInputs: RoutedEntityInput[] = [
     {
       entityId: leftEntityId,
       signerId: leftSignerId,
@@ -505,9 +526,8 @@ const updateJurisdictionsJson = async (
     const fs = await import('fs/promises');
     const path = await import('path');
     const candidates = [
+      path.join(process.cwd(), 'jurisdictions', 'jurisdictions.json'),
       path.join(process.cwd(), 'jurisdictions.json'),
-      path.join(process.cwd(), 'frontend', 'static', 'jurisdictions.json'),
-      path.join(process.cwd(), 'frontend', 'build', 'jurisdictions.json'),
       '/var/www/html/jurisdictions.json',
     ];
 
@@ -568,7 +588,6 @@ export type XlnServerOptions = {
 const DEFAULT_OPTIONS: XlnServerOptions = {
   port: 8080,
   host: '0.0.0.0',
-  staticDir: './frontend/build',
   relaySeeds: ['ws://localhost:8080/relay'],
   serverId: 'xln-server',
 };
@@ -960,7 +979,7 @@ const handleRelayMessage = async (ws: any, msg: any, env: Env | null) => {
       if (storeGossipProfile(normalized)) stored += 1;
       // Mirror into server env gossip cache so runtime-side routing can resolve immediately.
       try {
-        env.gossip?.announce?.(normalized);
+        env?.gossip?.announce?.(normalized);
       } catch (error) {
         pushRelayDebugEvent({
           event: 'error',
@@ -1060,7 +1079,7 @@ const handleRelayMessage = async (ws: any, msg: any, env: Env | null) => {
     // Local delivery for entity_input — server IS the relay, no need for self-WS-client
     if (type === 'entity_input' && env && payload) {
       try {
-        let input: EntityInput;
+        let input: RoutedEntityInput;
         if (msg.encrypted && typeof payload === 'string') {
           // Decrypt using server's keypair (derived from runtimeSeed)
           if (!serverKeyPair && env.runtimeSeed) {
@@ -1068,13 +1087,13 @@ const handleRelayMessage = async (ws: any, msg: any, env: Env | null) => {
             console.log(`[RELAY] Derived server decryption key`);
           }
           if (!serverKeyPair) throw new Error('No server encryption key for local decrypt');
-          input = decryptJSON<EntityInput>(payload, serverKeyPair.privateKey);
+          input = decryptJSON<RoutedEntityInput>(payload, serverKeyPair.privateKey);
           console.log(`[RELAY] → decrypted entity_input: entityId=${input.entityId?.slice(-8)} txs=${input.entityTxs?.length ?? 0}`);
         } else {
-          input = payload as EntityInput;
+          input = payload as RoutedEntityInput;
           console.log(`[RELAY] → plaintext entity_input: entityId=${input.entityId?.slice(-8)}`);
         }
-        await applyRuntimeInput(env, { runtimeTxs: [], entityInputs: [{ ...input, from }] });
+        await applyRuntimeInput(env, { runtimeTxs: [], entityInputs: [input] });
         console.log(`[RELAY] → delivered to runtime`);
         pushRelayDebugEvent({
           event: 'delivery',
@@ -1193,7 +1212,7 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
     const allowLocal = process.env.ALLOW_LOCAL_RPC_PROXY === 'true';
     const explicitUpstream = process.env.RPC_UPSTREAM_URL || process.env.PUBLIC_RPC_URL || process.env.ANVIL_RPC;
     const jMachineRpc = env?.activeJurisdiction
-      ? env.jReplicas.get(env.activeJurisdiction)?.rpcUrl
+      ? env.jReplicas.get(env.activeJurisdiction)?.rpcs?.[0]
       : undefined;
     const upstream = explicitUpstream || jMachineRpc || '';
     const isLocal =
@@ -1452,12 +1471,13 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
 
       if (globalJAdapter.mode === 'browservm') {
         const browserVM = globalJAdapter.getBrowserVM();
-        if (!browserVM?.fundSignerWallet) {
+        const fundSignerWallet = (browserVM as any)?.fundSignerWallet;
+        if (typeof fundSignerWallet !== 'function') {
           faucetLock.release();
           return new Response(JSON.stringify({ error: 'BrowserVM faucet unavailable' }), { status: 503, headers });
         }
         const amountWei = ethers.parseUnits(amount, 18);
-        await (browserVM as any).fundSignerWallet(userAddress, amountWei);
+        await fundSignerWallet.call(browserVM, userAddress, amountWei);
         faucetLock.release();
         console.log(`[${logPrefix}] BrowserVM funded ${userAddress} amount=${amount}`);
         return new Response(JSON.stringify({
@@ -1901,7 +1921,7 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
     // Fetch deployed contract addresses from jurisdictions.json
     const fs = await import('fs/promises');
     const path = await import('path');
-    let fromReplica = undefined;
+    let fromReplica: JReplica | undefined;
     try {
       // Try cwd first, then fallback to /root/xln (prod)
       const cwdPath = path.join(process.cwd(), 'jurisdictions.json');
@@ -1914,11 +1934,19 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
 
       if (arrakisConfig?.contracts) {
         fromReplica = {
+          name: arrakisConfig?.name ?? 'arrakis',
+          blockNumber: 0n,
+          stateRoot: new Uint8Array(32),
+          mempool: [],
+          blockDelayMs: 0,
+          lastBlockTimestamp: Date.now(),
+          position: { x: 0, y: 0, z: 0 },
           depositoryAddress: arrakisConfig.contracts.depository,
           entityProviderAddress: arrakisConfig.contracts.entityProvider,
           contracts: arrakisConfig.contracts,
+          rpcs: [anvilRpc],
           chainId: arrakisConfig.chainId ?? 31337,
-        } as any;
+        };
         console.log('[XLN] Loaded contract addresses from jurisdictions.json');
       }
     } catch (err) {
@@ -1949,7 +1977,7 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
     // Ensure fromReplica carries correct chainId (override if stale)
     if (fromReplica && fromReplica.chainId !== detectedChainId) {
       console.warn(`[XLN] fromReplica chainId (${fromReplica.chainId}) does not match RPC chainId (${detectedChainId}) - overriding`);
-      fromReplica.chainId = detectedChainId as any;
+      fromReplica.chainId = detectedChainId;
     }
 
     globalJAdapter = await createJAdapter({
@@ -2220,14 +2248,14 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
       if (req.headers.get('upgrade') === 'websocket') {
         const wsType = pathname === '/relay' ? 'relay' : pathname === '/rpc' ? 'rpc' : null;
         if (wsType) {
-          const upgraded = server.upgrade(req, { data: { type: wsType, env } });
+          const upgraded = (server as any).upgrade(req, { data: { type: wsType, env } });
           if (upgraded) return undefined as any;
         }
         return new Response('WebSocket upgrade failed', { status: 400 });
       }
 
       // REST API
-      if (pathname.startsWith('/api/')) {
+      if (pathname.startsWith('/api/') || pathname === '/rpc') {
         return handleApi(req, pathname, env);
       }
 
@@ -2359,7 +2387,7 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
 // CLI ENTRY POINT
 // ============================================================================
 
-if (import.meta.main) {
+if ((import.meta as any).main) {
   console.log('═══ SERVER.TS ENTRY POINT ═══');
   console.log('ENV: USE_ANVIL =', process.env.USE_ANVIL);
   console.log('ENV: ANVIL_RPC =', process.env.ANVIL_RPC);
@@ -2376,7 +2404,7 @@ if (import.meta.main) {
   const options: Partial<XlnServerOptions> = {
     port: Number(getArg('--port', '8080')),
     host: getArg('--host', '0.0.0.0'),
-    staticDir: getArg('--static-dir', './frontend/build'),
+    staticDir: getArg('--static-dir'),
     serverId: getArg('--server-id', 'xln-server'),
   };
 

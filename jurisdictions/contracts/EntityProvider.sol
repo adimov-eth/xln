@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import "./Token.sol";
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "./ECDSA.sol";
-import "hardhat/console.sol";
 
 contract EntityProvider is ERC1155 { 
   struct Entity {

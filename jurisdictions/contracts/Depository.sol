@@ -44,10 +44,6 @@ contract Depository is ReentrancyGuardLite {
 
   // Immutable EntityProvider (set in constructor, gas-efficient static calls)
   address public immutable entityProvider;
-
-  // Multi-provider support (legacy - will be removed)
-  mapping(address => bool) public approvedEntityProviders;
-  address[] public entityProvidersList;
   
   mapping (bytes32 => mapping (uint => uint)) public _reserves;
 
@@ -68,6 +64,7 @@ contract Depository is ReentrancyGuardLite {
 
   address public immutable admin;
   bool public emergencyPause;
+  bool public unsafeBatchEnabled;
 
   // Insurance cursor - tracks iteration position per insured entity
   mapping(bytes32 => uint256) public insuranceCursor;
@@ -76,6 +73,7 @@ contract Depository is ReentrancyGuardLite {
   event DebtEnforced(bytes32 indexed debtor, bytes32 indexed creditor, uint256 indexed tokenId, uint256 amountPaid, uint256 remainingAmount, uint256 newDebtIndex);
   event DebtForgiven(bytes32 indexed debtor, bytes32 indexed creditor, uint256 indexed tokenId, uint256 amountForgiven, uint256 debtIndex);
   event EmergencyPauseToggled(bool isPaused);
+  event UnsafeBatchPolicyUpdated(bool enabled);
 
   modifier onlyAdmin() {
     if (msg.sender != admin) revert E2();
@@ -94,7 +92,6 @@ contract Depository is ReentrancyGuardLite {
   // Events related to disputes and cooperative closures
   event DisputeStarted(bytes32 indexed sender, bytes32 indexed counterentity, uint indexed disputeNonce, bytes32 proofbodyHash, bytes initialArguments);
   event DisputeFinalized(bytes32 indexed sender, bytes32 indexed counterentity, uint indexed initialDisputeNonce, bytes32 initialProofbodyHash, bytes32 finalProofbodyHash);
-  event CooperativeClose(bytes32 indexed sender, bytes32 indexed counterentity, uint indexed cooperativeNonce);
 
   // ═══════════════════════════════════════════════════════════════════════════
   // CANONICAL J-EVENTS (Single Source of Truth - must match j-event-watcher.ts)
@@ -123,12 +120,6 @@ contract Depository is ReentrancyGuardLite {
   event ReserveUpdated(bytes32 indexed entity, uint indexed tokenId, uint newBalance);
   event SecretRevealed(bytes32 indexed hashlock, bytes32 indexed revealer, bytes32 secret);
 
-  // Debug events (remove in production)
-  event DebugSettleStart(bytes32 leftEntity, bytes32 rightEntity, uint256 sigLen, address entityProvider);
-
-  //event ChannelUpdated(address indexed receiver, address indexed addr, uint tokenId);
-
-
   uint8 constant TypeERC20 = 0;
   uint8 constant TypeERC721 = 1;
   uint8 constant TypeERC1155 = 2;
@@ -144,60 +135,9 @@ contract Depository is ReentrancyGuardLite {
   // Efficient token lookup: packedToken -> internalTokenId
   mapping(bytes32 => uint256) public tokenToId;
 
-  // === MULTI-PROVIDER MANAGEMENT ===
-  
-  event EntityProviderAdded(address indexed provider);
-  event EntityProviderRemoved(address indexed provider);
-  
-  modifier onlyApprovedProvider(address provider) {
-    require(approvedEntityProviders[provider], "!provider");
-    _;
-  }
-  
-  /**
-   * @notice Add an EntityProvider to approved list
-   * @param provider EntityProvider contract address
-   */
-  function addEntityProvider(address provider) external onlyAdmin {
-    require(provider != address(0), "!addr");
-    require(!approvedEntityProviders[provider], "exists");
-    approvedEntityProviders[provider] = true;
-    entityProvidersList.push(provider);
-    emit EntityProviderAdded(provider);
-  }
-  
-  /**
-   * @notice Remove an EntityProvider from approved list  
-   * @param provider EntityProvider contract address
-   */
-  function removeEntityProvider(address provider) external onlyAdmin {
-    require(provider != address(0), "!addr");
-    require(approvedEntityProviders[provider], "!ok");
-    approvedEntityProviders[provider] = false;
-    
-    // Remove from list
-    for (uint i = 0; i < entityProvidersList.length; i++) {
-      if (entityProvidersList[i] == provider) {
-        entityProvidersList[i] = entityProvidersList[entityProvidersList.length - 1];
-        entityProvidersList.pop();
-        break;
-      }
-    }
-    emit EntityProviderRemoved(provider);
-  }
-  
-  /**
-   * @notice Get all approved EntityProviders
-   */
-  function getApprovedProviders() external view returns (address[] memory) {
-    return entityProvidersList;
-  }
-
   constructor(address _entityProvider) {
-    require(_entityProvider != address(0), "EntityProvider cannot be zero address");
+    if (_entityProvider == address(0)) revert E2();
     entityProvider = _entityProvider;
-    approvedEntityProviders[_entityProvider] = true;
-    entityProvidersList.push(_entityProvider);
     admin = msg.sender;
     _tokens.push(TokenMetadata({ contractAddress: address(0), externalTokenId: 0, tokenType: TypeERC20 }));
   }
@@ -210,6 +150,12 @@ contract Depository is ReentrancyGuardLite {
     emit EmergencyPauseToggled(isPaused);
   }
 
+  function setUnsafeBatchEnabled(bool enabled) external onlyAdmin {
+    if (unsafeBatchEnabled == enabled) return;
+    unsafeBatchEnabled = enabled;
+    emit UnsafeBatchPolicyUpdated(enabled);
+  }
+
   /// @notice Set dispute delay for an entity (0 = use default)
   /// @dev Hubs get shorter delays, end users get longer delays
   function setEntityDisputeDelay(bytes32 entity, uint256 delayBlocks) external onlyAdmin {
@@ -218,7 +164,7 @@ contract Depository is ReentrancyGuardLite {
 
   /// @notice Set default dispute delay for entities without custom setting
   function setDefaultDisputeDelay(uint256 delayBlocks) external onlyAdmin {
-    require(delayBlocks > 0, "!delay");
+    if (delayBlocks == 0) revert E1();
     defaultDisputeDelay = delayBlocks;
   }
 
@@ -228,7 +174,7 @@ contract Depository is ReentrancyGuardLite {
   }
 
   function getTokenMetadata(uint256 tokenId) external view returns (address contractAddress, uint96 externalTokenId, uint8 tokenType) {
-    require(tokenId < _tokens.length, "!tok");
+    if (tokenId >= _tokens.length) revert E2();
     TokenMetadata memory meta = _tokens[tokenId];
     return (meta.contractAddress, meta.externalTokenId, meta.tokenType);
   }
@@ -255,7 +201,8 @@ contract Depository is ReentrancyGuardLite {
     address entityProviderAddr,
     bytes calldata hankoData,
     uint256 nonce
-  ) external whenNotPaused nonReentrant onlyApprovedProvider(entityProviderAddr) returns (bool completeSuccess) {
+  ) external whenNotPaused nonReentrant returns (bool completeSuccess) {
+    if (entityProviderAddr != entityProvider) revert E2();
     (bytes32 entityId, bool hankoValid) = EntityProvider(entityProviderAddr).verifyHankoSignature(hankoData, Account.computeBatchHankoHash(DOMAIN_SEPARATOR, block.chainid, address(this), encodedBatch, nonce));
     if (!hankoValid || entityId == bytes32(0)) revert E4();
     address ea = address(uint160(uint256(entityId)));
@@ -297,13 +244,8 @@ contract Depository is ReentrancyGuardLite {
   /// @dev Use processBatch() (Hanko) in production. This is for explicit unsafe/admin flows.
   /// @dev Settlements still require counterparty signatures (cooperative proof)
   function unsafeProcessBatch(bytes32 entity, Batch calldata batch) public whenNotPaused nonReentrant returns (bool completeSuccess) {
-    // Entity itself OR admin can call (admin for J-machine execution)
-    // Executes full batch deterministically via _processBatch.
-    // NOTE: Admin path bypasses Hanko authorization; prefer processBatch in production.
-    require(
-      msg.sender == address(uint160(uint256(entity))) || msg.sender == admin,
-      "E2: caller must be entity or admin"
-    );
+    if (!unsafeBatchEnabled) revert E2();
+    if (msg.sender != admin) revert E2();
     return _processBatch(entity, batch);
   }
 
@@ -317,11 +259,7 @@ contract Depository is ReentrancyGuardLite {
     uint tokenId,
     uint amount
   ) public whenNotPaused nonReentrant returns (bool) {
-    // fromEntity itself OR admin can call
-    require(
-      msg.sender == address(uint160(uint256(fromEntity))) || msg.sender == admin,
-      "E2: caller must be fromEntity or admin"
-    );
+    if (msg.sender != address(uint160(uint256(fromEntity))) && msg.sender != admin) revert E2();
     if (fromEntity == toEntity) revert E2();
     if (amount == 0) revert E1();
     enforceDebts(fromEntity, tokenId);
@@ -347,7 +285,6 @@ contract Depository is ReentrancyGuardLite {
     InsuranceRegistration[] memory insuranceRegs,
     bytes memory sig
   ) public whenNotPaused nonReentrant returns (bool) {
-    emit DebugSettleStart(leftEntity, rightEntity, sig.length, entityProvider);
     // Caller is assumed to be leftEntity for signature verification
     bytes32 caller = leftEntity;
 
@@ -607,15 +544,8 @@ contract Depository is ReentrancyGuardLite {
     }
   }
 
-  function packTokenReference(uint8 tokenType, address contractAddress, uint96 externalTokenId) public pure returns (bytes32) {
+  function packTokenReference(uint8 tokenType, address contractAddress, uint96 externalTokenId) internal pure returns (bytes32) {
     return keccak256(abi.encode(tokenType, contractAddress, externalTokenId));
-  }
-
-  function unpackTokenReference(bytes32 packed) public view returns (address contractAddress, uint96 externalTokenId, uint8 tokenType) {
-    uint256 tokenId = tokenToId[packed];
-    require(tokenId != 0, "!tok");
-    TokenMetadata memory meta = _tokens[tokenId];
-    return (meta.contractAddress, meta.externalTokenId, meta.tokenType);
   }
 
 
@@ -742,18 +672,8 @@ contract Depository is ReentrancyGuardLite {
 
   // FIFO debt enforcement - enforces chronological payment order
   // SECURITY: Fixed iteration limit prevents DoS via debt spam
-  // If entity has >100 debts, call multiple times or use enforceDebtsLarge()
-  function enforceDebts(bytes32 entity, uint tokenId) public returns (uint256) {
+  function enforceDebts(bytes32 entity, uint tokenId) internal returns (uint256) {
     return _enforceDebts(entity, tokenId, 100); // Max 100 iterations per call
-  }
-
-  // For entities with large debt queues (admin or entity itself can call)
-  function enforceDebtsLarge(bytes32 entity, uint tokenId) public returns (uint256) {
-    require(
-      msg.sender == address(uint160(uint256(entity))) || msg.sender == admin,
-      "Only entity or admin can use large batch"
-    );
-    return _enforceDebts(entity, tokenId, 1000); // Max 1000 for authorized callers
   }
 
   function _enforceDebts(bytes32 entity, uint256 tokenId, uint256 maxIterations) internal returns (uint256 totalDebts) {
@@ -842,23 +762,8 @@ contract Depository is ReentrancyGuardLite {
 
 
 
-  function accountKey(bytes32 e1, bytes32 e2) public pure returns (bytes memory) {
+  function accountKey(bytes32 e1, bytes32 e2) internal pure returns (bytes memory) {
     return e1 < e2 ? abi.encodePacked(e1, e2) : abi.encodePacked(e2, e1);
-  }
-
-  // DEBUG: Compute settlement hash for comparison with TypeScript
-  function computeSettlementHash(
-    bytes32 leftEntity,
-    bytes32 rightEntity,
-    SettlementDiff[] memory diffs,
-    uint[] memory forgiveDebtsInTokenIds,
-    InsuranceRegistration[] memory insuranceRegs
-  ) public view returns (bytes32 hash, uint256 nonce, uint256 encodedMsgLength) {
-    bytes memory ch_key = accountKey(leftEntity, rightEntity);
-    nonce = _accounts[ch_key].cooperativeNonce;
-    bytes memory encoded_msg = abi.encode(MessageType.CooperativeUpdate, ch_key, nonce, diffs, forgiveDebtsInTokenIds, insuranceRegs);
-    hash = keccak256(encoded_msg);
-    encodedMsgLength = encoded_msg.length;
   }
 
   function reserveToCollateral(bytes32 entity, ReserveToCollateral memory params) internal returns (bool completeSuccess) {
@@ -1032,7 +937,7 @@ contract Depository is ReentrancyGuardLite {
       // Accounts must have at least one prior settlement (cooperativeNonce > 0)
       if (_accounts[ch_key].cooperativeNonce == 0) revert E5();
 
-      require(params.sig.length > 0, "Signature required for cooperative finalize");
+      if (params.sig.length == 0) revert E2();
       if (!Account.verifyCooperativeProofHanko(entityProvider, address(this), ch_key, _accounts[ch_key].cooperativeNonce, keccak256(abi.encode(params.finalProofbody)), keccak256(params.initialArguments), params.sig, params.counterentity)) revert E4();
     } else {
       bytes32 storedHash = _accounts[ch_key].disputeHash;
@@ -1206,5 +1111,5 @@ contract Depository is ReentrancyGuardLite {
     // _reserves[entity][tid] += value; // REMOVED
     return this.onERC1155Received.selector;
   }
-  function onERC1155BatchReceived(address,address,uint256[] calldata,uint256[] calldata,bytes calldata) external pure returns (bytes4) { revert("!batch"); }
+  function onERC1155BatchReceived(address,address,uint256[] calldata,uint256[] calldata,bytes calldata) external pure returns (bytes4) { revert E2(); }
 }

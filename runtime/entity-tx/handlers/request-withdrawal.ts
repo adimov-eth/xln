@@ -1,6 +1,5 @@
 import type { EntityState, EntityTx, AccountTx } from '../../types';
 import type { AccountKey } from '../../ids';
-import { canonicalAccountKey } from '../../state-helpers';
 
 export function handleRequestWithdrawal(
   state: EntityState,

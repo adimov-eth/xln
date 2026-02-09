@@ -3,7 +3,7 @@
 
 **Instant off-chain settlement with on-chain finality.**
 
-Byzantine consensus meets Bloomberg Terminal meets VR. Run complete economic simulations in your browser—no backend needed.
+Kernel-first protocol runtime for off-chain consensus with on-chain finality.
 
 ---
 
@@ -16,14 +16,12 @@ Core:
     /account-tx/        Account transaction handlers
     /entity-tx/         Entity transaction handlers
     /scenarios/         Economic simulations (ahb.ts, grid.ts, etc.)
-    /evms/              EVM integrations (BrowserVM, remote)
+    /jadapter/          EVM integrations (BrowserVM, RPC)
   /jurisdictions/       Solidity contracts (Ethereum, Polygon, Arbitrum, ...)
-  /frontend/            Main xln.finance app + 3D visualization
-    /src/lib/components/   UI panels (Entity, Network, TimeMachine, etc.)
-  /tests/               E2E tests (Playwright)
+  /tests/               Legacy E2E archive (non-core)
 
 Dev:
-  /scripts/             Utilities (playwright helpers, deployment, debug)
+  /scripts/             Deployment + operational tooling
   /ai/                  AI integrations (STT server, telegram bot, council)
   bootstrap.sh          One-command setup
   CLAUDE.md             AI instructions
@@ -34,11 +32,11 @@ Dev:
 ## 🚀 Quick Start
 
 ```bash
-# Install + start everything
+# Install + start kernel stack
 bun run dev
 
-# Open browser
-open http://localhost:8080
+# Health check
+curl http://localhost:8080/api/health
 ```
 
 **First run:** ~2-3min (installs Foundry)
@@ -51,10 +49,9 @@ open http://localhost:8080
 Cross-Local Network enables entities to:
 - Exchange value **instantly off-chain** (BFT consensus)
 - Anchor final state **on-chain** (Ethereum, Polygon, Arbitrum)
-- Run complete **economic simulations in browser** (BrowserVM - no backend!)
-- Visualize in **VR** (Quest/Vision Pro compatible)
+- Run deterministic **local simulations** (BrowserVM)
 
-**Think:** Lightning Network + Byzantine consensus + Bloomberg Terminal + Blender.
+**Think:** Lightning-style state channels + Byzantine consensus + programmable entities.
 
 ### Finance is physics of trust
 
@@ -88,49 +85,35 @@ Cross-Local Network enables entities to:
 
 ```bash
 # Development
-bun run dev              # Full stack (jurisdictions + runtime + frontend)
-bun run check            # TypeScript + Svelte validation
-bun run build            # Build runtime.js for browser
+bun run dev              # Contracts + runtime API + relay
+bun run check            # Kernel TypeScript gate
+bun run check:noncore    # Informational non-core type check
 
 # Jurisdictions (Contracts)
 bun run env:build        # Compile Solidity
 bun run env:deploy       # Deploy to local network
 bun run dev:reset        # Reset all networks + redeploy
-
-# Frontend
-cd frontend && bun run dev      # Vite dev server
-cd frontend && bun run build    # Production build
+node scripts/check-bytecode-size.mjs  # EIP-170 size gate
+node scripts/generate-jurisdictions-config.mjs # Emit jurisdictions config from deployment
 
 # Testing
-bunx playwright test            # E2E tests
-bunx playwright test tests/ahb-smoke.spec.ts  # AHB smoke test
+bun run test                    # Runtime tests
+cd jurisdictions && bunx hardhat test
 ```
 
 ---
 
-## 🎨 XLNView Panel System
+## Frontend Status
 
-**Bloomberg Terminal-style workspace. Drag, dock, float, tab - full Chrome DevTools UX.**
+Frontend code is intentionally removed from the active protocol repository.
 
-### Core 4 Panels (Open by Default)
-1. **🌐 Graph3D** - Force-directed network viz (WebGL/WebGPU toggle)
-2. **🏢 Entities** - Live entity list (reserves, accounts, activity)
-3. **💰 Depository** - On-chain J-state viewer (BrowserVM queries)
-4. **🎬 Architect** - God-mode controls (5 modes: Explore/Build/Economy/Governance/Resolve)
-
-### Layouts
-- **Default**: 4-panel workspace
-- **Analyst**: Graph3D + Depository + Console (research mode)
-- **Builder**: Architect + Graph3D + Entities (creation mode)
-- **Embed**: Graph3D only (for docs/blog posts)
-
-**Tech:** Dockview (2.8k stars), Svelte reactivity, localStorage persistence
-
-**Source:** `/frontend/src/lib/components/` + `/docs/xlnview.md`
+- Preserved signal: `docs/core/frontend-salvage-report.md`
+- Runtime API compatibility is enforced via `runtime/__tests__/server-api-smoke.test.ts`
+- Kernel gates do not depend on UI build artifacts
 
 ---
 
-## 🧪 Simnet (Offline Blockchain in Browser)
+## 🧪 Simnet (Offline VM)
 
 **No localhost:8545. No cloud RPC. Pure browser.**
 
@@ -142,16 +125,7 @@ bunx playwright test tests/ahb-smoke.spec.ts  # AHB smoke test
 
 **Config:** Genesis configs in `runtime/evms/browser-evm.ts`
 
-**Demo:** Load any scenario (AHB, Grid) - BrowserVM deploys contracts automatically
-
----
-
-## 🎮 VR/Quest Support
-
-- **WebXR:** Enabled by default (WebGL renderer)
-- **Offline:** Simnet works without network (perfect for VR demos)
-- **Performance:** 72fps in Quest 3
-- **Future:** Hand tracking, voice commands, spatial UI
+**Demo:** Run runtime scenarios - BrowserVM deploys contracts automatically
 
 ---
 
@@ -193,7 +167,7 @@ Root:
   │
   └── docs/              Core architecture (existing)
       ├── rjea.md               R→E→A→J flow explanation
-      ├── xlnview.md            Panel architecture
+      ├── kernel-manifest.md    Core/non-core boundary
       ├── flow.md               Transaction flow
       └── ...                   (eternal specs)
 ```
@@ -206,37 +180,34 @@ Root:
 
 ---
 
-## 🔥 Recent Updates (Oct 2025)
+## 🔥 Recent Updates
 
 - ✅ **Repository restructure** - Essence-driven naming (docs, runtime, jurisdictions, worlds)
 - ✅ **BrowserVM integration** - Offline simnet with @ethereumjs/vm
-- ✅ **Panel workspace** - Dockview-based Bloomberg Terminal UX
-- ✅ **WebGPU/WebGL switch** - Runtime renderer toggle (future-proof)
+- ✅ **Kernel boundary** - frontend removed from active runtime/deploy path
 - ✅ **IDepository interface** - Standardizable ERC for reserve management
-- ✅ **Depository** - 69% smaller, self-contained (6.6KB vs 21KB)
+- ✅ **Depository hardening** - unsafe batch policy + EIP-170 size gate
 
 ---
 
 ## 🛠️ Tech Stack
 
 **Runtime:** TypeScript + Bun
-**Frontend:** Svelte + Vite + Three.js
 **Contracts:** Solidity + Hardhat
 **Blockchain:** @ethereumjs/vm (simnet) → Hardhat (local) → Ethereum/L2s (prod)
-**Panels:** Dockview (2.8k⭐)
-**Tests:** Playwright
+**Tests:** Bun runtime tests + Hardhat contract tests
 
 ---
 
 ## 🗺️ Network Roadmap
 
-### Simnet (Now - Oct 2025)
+### Simnet (Now)
 **Browser-only simulation. Zero infrastructure.**
 - **Engine:** @ethereumjs/vm (in-browser blockchain)
 - **Contracts:** Depository.sol (6.6KB, implements IDepository)
 - **State:** 500 prefunded entities, USDC + ETH
 - **Reset:** Refresh page = new universe
-- **Use:** Scenario rehearsals, VR demos, tutorials
+- **Use:** Scenario rehearsals and protocol debugging
 
 ### Testnet (Q1 2026)
 **Base Sepolia. Multi-user coordination.**
@@ -258,9 +229,9 @@ Root:
 
 **Start here:**
 1. [docs/contributing/workflow.md](docs/contributing/workflow.md) - Daily dev commands
-2. [docs/docs/xlnview.md](docs/docs/xlnview.md) - Panel architecture + BrowserVM
+2. [docs/core/kernel-manifest.md](docs/core/kernel-manifest.md) - Kernel/non-core boundary
 3. [docs/docs/rjea.md](docs/docs/rjea.md) - R→E→A→J flow explanation
-4. [simnet/readme.md](simnet/readme.md) - Offline blockchain setup
+4. [docs/audit-protocol-readiness.md](docs/audit-protocol-readiness.md) - Readiness findings
 
 **For deep dives:** [docs/docs/](docs/docs/)
 

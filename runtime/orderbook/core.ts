@@ -240,7 +240,7 @@ export function applyCommand(
   const events: BookEvent[] = [];
   const m = cloneMutableState(state);
   const { params, levels } = state;
-  const { tick, pmin, pmax, stpPolicy } = params;
+  const { tick, pmin, stpPolicy } = params;
 
   // Get or create owner index
   function getOwnerIdx(ownerId: string): number {

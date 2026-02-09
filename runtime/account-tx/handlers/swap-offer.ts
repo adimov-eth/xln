@@ -14,8 +14,6 @@ import type { AccountMachine, AccountTx, SwapOffer } from '../../types';
 import type { TokenId } from '../../ids';
 import { deriveDelta } from '../../account-utils';
 import { createDefaultDelta } from '../../validation-utils';
-import { formatEntityId } from '../../utils';
-import { canonicalAccountKey } from '../../state-helpers';
 import { deriveSide } from '../../orderbook';
 import { FINANCIAL } from '../../constants';
 

@@ -126,7 +126,7 @@ export function deriveSignerKeySync(masterSeed: Uint8Array | string, signerId: s
   return hmac(sha256, toSeedBytes(masterSeed), message);
 }
 
-export function setRuntimeSeed(seed: Uint8Array | string | null): void {
+export function setRuntimeSeed(_seed: Uint8Array | string | null): void {
   if (runtimeSeedLocked) {
     console.warn('⚠️ Runtime seed update ignored (crypto lock enabled)');
     return;

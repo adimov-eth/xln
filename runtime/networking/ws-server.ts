@@ -117,6 +117,15 @@ const verifyHelloAuth = (runtimeId: string, auth: RuntimeWsAuth, maxSkewMs: numb
   return null;
 };
 
+const getRawDataSize = (data: unknown): number => {
+  if (typeof data === 'string') return Buffer.byteLength(data);
+  if (data instanceof Buffer) return data.byteLength;
+  if (data instanceof ArrayBuffer) return data.byteLength;
+  if (ArrayBuffer.isView(data)) return data.byteLength;
+  if (Array.isArray(data)) return data.reduce((total, item) => total + getRawDataSize(item), 0);
+  return 0;
+};
+
 export const startRuntimeWsServer = (options: RuntimeWsServerOptions) => {
   const serverId = options.serverId;
   const maxQueue = options.maxQueuePerRuntime ?? DEFAULT_MAX_QUEUE;
@@ -329,7 +338,8 @@ export const startRuntimeWsServer = (options: RuntimeWsServerOptions) => {
 
     ws.on('message', async (data) => {
       if (closed) return;
-      if (data && data.length > MAX_MESSAGE_BYTES) {
+      const dataSize = getRawDataSize(data);
+      if (dataSize > MAX_MESSAGE_BYTES) {
         send(ws, { type: 'error', error: 'Message too large' });
         ws.close();
         return;
@@ -447,7 +457,7 @@ export const startRuntimeWsServer = (options: RuntimeWsServerOptions) => {
   };
 };
 
-if (import.meta.main) {
+if ((import.meta as any).main) {
   // Parse --port argument or use WS_PORT env var
   const args = process.argv;
   const portArgIdx = args.indexOf('--port');

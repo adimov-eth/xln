@@ -11,14 +11,13 @@
  */
 
 import { ethers } from 'ethers';
-import type { AccountMachine, HtlcLock, SwapOffer, Delta } from './types';
+import type { AccountMachine } from './types';
 import type {
   RuntimeProofBody,
   RuntimeTransformerClause,
   RuntimeBatch,
   RuntimePayment,
   RuntimeSwap,
-  RuntimeAllowance,
   ProofBodyResult,
   DisputeConfig,
 } from './proof-body-types.js';

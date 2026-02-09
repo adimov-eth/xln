@@ -12,7 +12,7 @@ import { Depository__factory, EntityProvider__factory, DeltaTransformer__factory
 
 import type { BrowserVMState, JTx } from '../types';
 import type { JAdapter, JAdapterAddresses, JAdapterConfig, JEvent, JEventCallback, JSubmitResult, SnapshotId, JBatchReceipt, JTxReceipt, SettlementDiff, InsuranceReg, JTokenInfo } from './types';
-import { computeAccountKey, entityIdToAddress, isCanonicalEvent, processEventBatch, type RawJEvent } from './helpers';
+import { computeAccountKey, entityIdToAddress, processEventBatch, type RawJEvent } from './helpers';
 import type { BrowserVMProvider } from './browservm-provider';
 
 // Re-export BrowserVMProvider for external use
@@ -207,7 +207,7 @@ export async function createBrowserVMAdapter(
         collateralDiff: d.collateralDiff,
         ondeltaDiff: d.ondeltaDiff ?? 0n,
       }));
-      const events = await browserVM.settleWithInsurance(
+      await browserVM.settleWithInsurance(
         leftEntity,
         rightEntity,
         normalizedDiffs,

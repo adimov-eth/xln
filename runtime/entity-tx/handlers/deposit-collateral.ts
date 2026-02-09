@@ -14,7 +14,7 @@
 
 import type { EntityState, EntityTx, EntityInput } from '../../types';
 import type { AccountKey } from '../../ids';
-import { cloneEntityState, addMessage, canonicalAccountKey } from '../../state-helpers';
+import { cloneEntityState, addMessage } from '../../state-helpers';
 
 export async function handleDepositCollateral(
   entityState: EntityState,

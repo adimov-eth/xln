@@ -4,7 +4,7 @@
  */
 
 import { encode } from './snapshot-coder';
-import type { EntityInput, RoutedEntityInput, EntityReplica, EntityState, Env, EnvSnapshot, RuntimeInput, AccountMachine, JReplica, LogCategory, BrowserVMState } from './types';
+import type { RoutedEntityInput, EntityReplica, EntityState, Env, EnvSnapshot, RuntimeInput, AccountMachine, JReplica, LogCategory, BrowserVMState } from './types';
 import type { Profile } from './networking/gossip';
 import { DEBUG } from './utils';
 import { validateEntityState } from './validation-utils';
@@ -576,7 +576,7 @@ export const captureSnapshot = async (
     if (runtimeInput.entityInputs.length > 0) {
       console.log(`    📨 EntityInputs: ${runtimeInput.entityInputs.length}`);
       runtimeInput.entityInputs.forEach((input, i) => {
-        const parts = [];
+        const parts: string[] = [];
         if (input.entityTxs?.length) parts.push(`${input.entityTxs.length} txs`);
         if (input.hashPrecommits?.size) parts.push(`${input.hashPrecommits.size} precommits`);
         if (input.proposedFrame) parts.push(`frame: ${input.proposedFrame.hash.slice(0, 10)}...`);

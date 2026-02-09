@@ -17,28 +17,10 @@ async function deployDirect() {
   
   console.log('🔧 Deploying Depository...');
   const Depository = await ethers.getContractFactory("Depository");
-  const depository = await Depository.deploy(); // Constructor will run debugBulkFundEntities!
+  const depository = await Depository.deploy(epAddress);
   await depository.waitForDeployment();
   const depAddress = await depository.getAddress();
   console.log(`✅ Depository: ${depAddress}`);
-  
-  console.log('🔧 Adding EntityProvider to Depository...');
-  const tx = await depository.addEntityProvider(epAddress);
-  await tx.wait();
-  console.log('✅ EntityProvider approved');
-  
-  // TEST: Check if our function works
-  console.log('🔍 Testing our debug function...');
-  try {
-    const testTx = await depository.debugBulkFundEntities();
-    await testTx.wait();
-    console.log('✅ debugBulkFundEntities works!');
-    
-    const balance = await depository._reserves("0x0000000000000000000000000000000000000000000000000000000000000001", 1);
-    console.log(`💰 Entity 1 has: ${ethers.formatEther(balance)} ETH`);
-  } catch (error) {
-    console.log('❌ Function test failed:', error.message);
-  }
   
   // Update jurisdictions.json
   const jurisdictions = JSON.parse(fs.readFileSync('jurisdictions.json', 'utf8'));

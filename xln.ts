@@ -12,28 +12,30 @@
  *   bun run xln.ts --no-demo    → same as above
  */
 
-import * as runtime from './runtime/runtime';
-import { ensureBrowserVM } from './runtime/scenarios/boot';
-import { startRuntimeWsServer } from './runtime/ws-server';
+import { main } from './runtime/runtime';
+import type { Env } from './runtime/types';
+import { BrowserVMProvider } from './runtime/jadapter';
+import { setBrowserVMJurisdiction } from './runtime/evm';
+import { startRuntimeWsServer } from './runtime/networking/ws-server';
 
-const { main, startJEventWatcher } = runtime;
+const initializeBrowserVM = async (env: Env): Promise<void> => {
+  console.log('🔧 Initializing BrowserVM...');
+  const browserVM = new BrowserVMProvider();
+  await browserVM.init();
+  (env as Env & { browserVM?: unknown }).browserVM = browserVM;
+  setBrowserVMJurisdiction(env, browserVM.getDepositoryAddress(), browserVM);
+  console.log(`✅ BrowserVM ready (Depository: ${browserVM.getDepositoryAddress()})`);
+};
 
 // Main execution
 (async () => {
   try {
-    // Initialize BrowserVM first (default mode)
-    console.log('🔧 Initializing BrowserVM...');
-    const browserVM = await ensureBrowserVM();
-    console.log(`✅ BrowserVM ready (Depository: ${browserVM.getDepositoryAddress()})`);
-
-    // Start runtime
+    // Start runtime first, then attach BrowserVM without scenario boot coupling.
     const env = await main();
+    await initializeBrowserVM(env);
 
     if (env) {
       const noDemoFlag = process.env['NO_DEMO'] === '1' || process.argv.includes('--no-demo');
-
-      // Start j-watcher (will detect BrowserVM and skip external RPC)
-      await startJEventWatcher(env);
 
       const wsPort = process.env['WS_PORT'];
       if (wsPort) {

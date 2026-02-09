@@ -1,20 +1,14 @@
-name: build-and-test
+name: kernel-build-and-test
 
-# DISABLED - Tests broken, using BrowserVM now
 on:
-  workflow_dispatch: # Manual trigger only
-  # push:
-  #   branches: [main, develop]
-  # pull_request:
-  #   branches: [main, develop]
+  workflow_dispatch:
 
 concurrency:
-  group: build-and-test-${{ github.ref }}
+  group: kernel-build-and-test-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  contracts-test:
-    name: Contract Build
+  kernel:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -25,223 +19,22 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock', '**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
       - name: Install dependencies
-        run: bun install
-
-      - name: Install contracts dependencies
         run: |
-          cd contracts
           bun install
+          cd jurisdictions && bun install
 
-      - name: Build contracts
+      - name: Compile contracts
         run: bun run env:build
 
-  build-xln:
-    name: Build XLN
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Enforce bytecode size gate
+        run: bun run size:check
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+      - name: Type-check kernel
+        run: bun run check
 
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock', '**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+      - name: Run runtime tests
+        run: bun run test
 
-      - name: Install dependencies
-        run: bun install
-
-      - name: Build TypeScript
-        run: bun run build
-
-  frontend-build:
-    name: Frontend Build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Cache frontend dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            frontend/node_modules
-          key: ${{ runner.os }}-frontend-bun-${{ hashFiles('frontend/bun.lock', 'frontend/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-frontend-bun-
-
-      - name: Install frontend dependencies
-        run: |
-          cd frontend
-          bun install
-
-      - name: Build frontend
-        run: |
-          cd frontend
-          bun run build:static
-
-      # - name: Upload frontend build artifacts
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: frontend-build
-      #     path: frontend/build/
-      #     retention-days: 1
-
-  e2e-tests:
-    name: E2E Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    needs: [build-xln, frontend-build, contracts-test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.bun/install/cache
-            node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lock', '**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install dependencies
-        run: bun install
-
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-chromium-${{ hashFiles('**/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-playwright-chromium-
-
-      - name: Install Playwright browsers
-        run: bunx playwright install chromium --with-deps
-
-      - name: Cache contract artifacts
-        uses: actions/cache@v4
-        with:
-          path: |
-            contracts/artifacts
-            contracts/cache
-          key: ${{ runner.os }}-contracts-${{ hashFiles('contracts/**/*.sol', 'contracts/hardhat.config.*') }}
-          restore-keys: |
-            ${{ runner.os }}-contracts-
-
-      - name: Build contracts for E2E
-        run: |
-          bun run env:build
-          # Clear any existing deployment cache to avoid reconciliation issues in CI
-          rm -rf contracts/ignition/deployments/chain-* || true
-
-      - name: Start dev server and wait for readiness
-        run: |
-          # Start dev-ci.sh and capture output (it will exit after setting up services)
-          echo "Starting dev-ci.sh to set up services..."
-          if ! ./dev-ci.sh > dev_server_output.log 2>&1; then
-            echo "❌ dev-ci.sh failed to complete setup"
-            echo "=== Dev server output ==="
-            cat dev_server_output.log || true
-            exit 1
-          fi
-          
-          echo "✅ dev-ci.sh completed successfully"
-          echo "=== Dev server setup output ==="
-          cat dev_server_output.log || true
-          
-          # Now wait for the frontend server to be responding
-          echo "Waiting for frontend server to be ready..."
-          timeout=60  # Reduced timeout since setup is already complete
-          startup_complete=false
-          
-          while [ $timeout -gt 0 ]; do
-            # Check if frontend server is responding
-            if curl -f http://localhost:8080 > /dev/null 2>&1; then
-              echo "✅ Frontend server is ready on port 8080!"
-              startup_complete=true
-              break
-            fi
-            
-            echo "Waiting for frontend server... ($timeout seconds left)"
-            sleep 2
-            timeout=$((timeout-2))
-          done
-          
-          if [ "$startup_complete" != "true" ]; then
-            echo "❌ Frontend server failed to respond within 60 seconds"
-            echo "=== Process status ==="
-            ps aux | grep -E "(hardhat|bun|vite)" || true
-            exit 1
-          fi
-
-      - name: Run E2E tests
-        run: bun run test:e2e --reporter=list,github,html,json
-        env:
-          CI: true
-
-      - name: Print network logs on failure
-        if: failure()
-        run: |
-          echo "=== ethereum-8545.log (last 200 lines) ===" || true
-          tail -n 200 logs/ethereum-8545.log 2>/dev/null || true
-          echo "\n=== polygon-8546.log (last 200 lines) ===" || true
-          tail -n 200 logs/polygon-8546.log 2>/dev/null || true
-          echo "\n=== arbitrum-8547.log (last 200 lines) ===" || true
-          tail -n 200 logs/arbitrum-8547.log 2>/dev/null || true
-
-      - name: Stop dev server
-        if: always()
-        run: |
-          if [ -f dev_server.pid ]; then
-            kill $(cat dev_server.pid) || true
-            rm dev_server.pid
-          fi
-
-      - name: Upload E2E test results
-        uses: actions/upload-artifact@v4
-        if: failure()
-        with:
-          name: e2e-test-results
-          path: test-results/
-          retention-days: 7
-
-      - name: Upload Playwright report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
+      - name: Run contract tests
+        run: cd jurisdictions && bunx hardhat test

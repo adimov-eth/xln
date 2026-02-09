@@ -1,6 +1,6 @@
 import { parentPort } from 'worker_threads';
 import { hashRaw as argon2Native } from '@node-rs/argon2';
-import { createShardSalt, bytesToHex, BRAINVAULT_V1 } from './core.ts';
+import { createShardSalt, bytesToHex, BRAINVAULT_V1 } from './core';
 
 parentPort?.on('message', async ({ name, passphrase, shardIndex, shardCount }) => {
   const salt = await createShardSalt(name, shardIndex, shardCount);

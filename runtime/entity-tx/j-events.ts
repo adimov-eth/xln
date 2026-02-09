@@ -1,7 +1,6 @@
-import type { EntityState, Delta, JBlockObservation, JBlockFinalized, JurisdictionEvent, Env } from '../types';
+import type { EntityState, JBlockObservation, JBlockFinalized, JurisdictionEvent, Env } from '../types';
 import type { AccountKey, TokenId } from '../ids';
-import { DEBUG } from '../utils';
-import { cloneEntityState, addMessage, canonicalAccountKey } from '../state-helpers';
+import { cloneEntityState, addMessage } from '../state-helpers';
 import { getTokenInfo, getDefaultCreditLimit } from '../account-utils';
 import { isLeftEntity } from '../entity-id-utils';
 import { safeStringify } from '../serialization-utils';
@@ -538,7 +537,7 @@ async function applyFinalizedJEvent(
 
   } else if (event.type === 'AccountSettled') {
     // Universal settlement event (covers R2C, C2R, settle, rebalance)
-    const { counterpartyEntityId, tokenId, ownReserve, collateral, ondelta } = event.data;
+    const { counterpartyEntityId, tokenId, ownReserve, collateral } = event.data;
     const tokenIdNum = Number(tokenId);
     const cpShort = (counterpartyEntityId as string).slice(-4);
     const tokenSymbol = getTokenSymbol(tokenIdNum);
@@ -719,7 +718,6 @@ async function applyFinalizedJEvent(
       const accountInfo = await browserVM.getAccountInfo(newState.entityId, counterpartyId);
 
       const weAreStarter = senderStr === entityIdNorm;
-      const hasCounterpartySig = Boolean(account.counterpartyDisputeProofHanko);
       let initialCooperativeNonce = account.proofHeader.cooperativeNonce;
       let nonceSource = 'proofHeader';
       const mappedNonce = account.disputeProofNoncesByHash?.[String(proofbodyHash)];

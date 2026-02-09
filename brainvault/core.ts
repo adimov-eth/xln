@@ -368,10 +368,6 @@ function bytesToBits(bytes: Uint8Array): string {
   return Array.from(bytes).map(b => b.toString(2).padStart(8, '0')).join('');
 }
 
-function hexToBits(hex: string): string {
-  return hex.split('').map(c => parseInt(c, 16).toString(2).padStart(4, '0')).join('');
-}
-
 // BIP39 English wordlist (lazy loaded)
 let _wordlist: string[] | null = null;
 

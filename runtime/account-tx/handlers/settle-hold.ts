@@ -14,7 +14,6 @@
 
 import type { AccountMachine, AccountTx } from '../../types';
 import type { TokenId } from '../../ids';
-import { isLeftEntity } from '../../entity-id-utils';
 
 type SettleHoldTx = Extract<AccountTx, { type: 'settle_hold' }>;
 type SettleReleaseTx = Extract<AccountTx, { type: 'settle_release' }>;
@@ -125,8 +124,6 @@ export async function handleSettleHold(
   // We only enforce bilateral capacity limits for withdrawals from the account.
   // Reserve-sourced deposits are validated by L1 at settlement execution time.
   // ═══════════════════════════════════════════════════════════════════════════
-  const iAmLeft = isLeftEntity(accountMachine.proofHeader.fromEntity, accountMachine.proofHeader.toEntity);
-
   for (const diff of diffs) {
     const delta = accountMachine.deltas.get(diff.tokenId as TokenId);
     if (!delta) {

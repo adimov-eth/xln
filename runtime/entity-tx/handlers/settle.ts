@@ -15,13 +15,13 @@
  * Conservation Law: leftDiff + rightDiff + collateralDiff = 0 (enforced by Account.sol)
  */
 
-import type { EntityState, EntityTx, EntityInput, SettlementWorkspace, SettlementDiff, AccountInput, AccountInputSettlement } from '../../types';
+import type { EntityState, EntityTx, EntityInput, SettlementWorkspace, SettlementDiff, AccountInputSettlement } from '../../types';
 import { createSettlementDiff } from '../../types';
 import type { AccountKey } from '../../ids';
 import { cloneEntityState, addMessage, getAccountPerspective } from '../../state-helpers';
 import { initJBatch, batchAddSettlement } from '../../j-batch';
 import { isLeftEntity } from '../../entity-id-utils';
-import type { Env, HankoString } from '../../types';
+import type { Env } from '../../types';
 import { createSettlementHashWithNonce } from '../../proof-builder';
 import { signHashesAsSingleEntity } from '../../hanko-signing';
 import { FINANCIAL } from '../../constants';
@@ -102,7 +102,7 @@ function createSettlementHoldOp(
 export async function handleSettlePropose(
   entityState: EntityState,
   entityTx: Extract<EntityTx, { type: 'settle_propose' }>,
-  env: Env
+  _env: Env
 ): Promise<{ newState: EntityState; outputs: EntityInput[]; mempoolOps: MempoolOp[] }> {
   const { counterpartyEntityId, diffs, forgiveTokenIds, memo } = entityTx.data;
   const newState = cloneEntityState(entityState);
@@ -182,7 +182,7 @@ export async function handleSettlePropose(
 export async function handleSettleUpdate(
   entityState: EntityState,
   entityTx: Extract<EntityTx, { type: 'settle_update' }>,
-  env: Env
+  _env: Env
 ): Promise<{ newState: EntityState; outputs: EntityInput[]; mempoolOps: MempoolOp[] }> {
   const { counterpartyEntityId, diffs, forgiveTokenIds, memo } = entityTx.data;
   const newState = cloneEntityState(entityState);
@@ -486,7 +486,7 @@ export async function handleSettleExecute(
 export async function handleSettleReject(
   entityState: EntityState,
   entityTx: Extract<EntityTx, { type: 'settle_reject' }>,
-  env: Env
+  _env: Env
 ): Promise<{ newState: EntityState; outputs: EntityInput[]; mempoolOps: MempoolOp[] }> {
   const { counterpartyEntityId, reason } = entityTx.data;
   const newState = cloneEntityState(entityState);

@@ -10,7 +10,7 @@
 import { argon2id } from 'hash-wasm';
 import { blake3 } from '@noble/hashes/blake3.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
-import { BRAINVAULT_V1 } from './core.ts';
+import { BRAINVAULT_V1 } from './core';
 
 /**
  * Create salt for a specific shard

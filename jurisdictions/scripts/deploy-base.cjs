@@ -27,7 +27,13 @@ async function main() {
   console.log("═══════════════════════════════════════════════════════════════");
 
   // Get deployer
-  const [deployer] = await hre.ethers.getSigners();
+  const signers = await hre.ethers.getSigners();
+  const deployer = signers[0];
+  if (!deployer) {
+    throw new Error(
+      "No deployer signer configured. Set DEPLOYER_PRIVATE_KEY for the selected network (e.g. base-sepolia)."
+    );
+  }
   const balance = await hre.ethers.provider.getBalance(deployer.address);
 
   console.log(`\n📍 Deployer: ${deployer.address}`);
@@ -63,25 +69,31 @@ async function main() {
   console.log(`   ✅ EntityProvider deployed: ${entityProviderAddress}`);
 
   // ═══════════════════════════════════════════════════════════════════
-  // Step 3: Deploy Depository
+  // Step 3: Deploy Account Library + Depository
   // ═══════════════════════════════════════════════════════════════════
-  console.log("\n─── Step 3: Deploying Depository ───");
+  console.log("\n─── Step 3: Deploying Account library ───");
+  const Account = await hre.ethers.getContractFactory("Account");
+  const account = await Account.deploy();
+  await account.waitForDeployment();
+  const accountAddress = await account.getAddress();
+  console.log(`   ✅ Account library deployed: ${accountAddress}`);
 
-  const Depository = await hre.ethers.getContractFactory("Depository");
-  const depository = await Depository.deploy();
+  console.log("\n─── Step 4: Deploying Depository ───");
+  const Depository = await hre.ethers.getContractFactory("Depository", {
+    libraries: {
+      Account: accountAddress,
+    },
+  });
+  const depository = await Depository.deploy(entityProviderAddress);
   await depository.waitForDeployment();
   const depositoryAddress = await depository.getAddress();
   console.log(`   ✅ Depository deployed: ${depositoryAddress}`);
 
   // ═══════════════════════════════════════════════════════════════════
-  // Step 4: Configure Depository
+  // Step 5: Configure Depository
   // ═══════════════════════════════════════════════════════════════════
-  console.log("\n─── Step 4: Configuring Depository ───");
-
-  // Add EntityProvider as approved provider
-  const tx1 = await depository.addEntityProvider(entityProviderAddress);
-  await tx1.wait();
-  console.log(`   ✅ Added EntityProvider to approved list`);
+  console.log("\n─── Step 5: Configuring Depository ───");
+  console.log(`   ✅ Depository locked to immutable EntityProvider`);
 
   // Register USDC token
   // Token ID 0 is reserved for ETH, so USDC gets ID 1
@@ -89,9 +101,9 @@ async function main() {
   console.log(`   ✅ Token ready for registration (ID will be assigned on first use)`);
 
   // ═══════════════════════════════════════════════════════════════════
-  // Step 5: Deploy DeltaTransformer (optional, for advanced features)
+  // Step 6: Deploy DeltaTransformer (optional, for advanced features)
   // ═══════════════════════════════════════════════════════════════════
-  console.log("\n─── Step 5: Deploying DeltaTransformer ───");
+  console.log("\n─── Step 6: Deploying DeltaTransformer ───");
 
   const DeltaTransformer = await hre.ethers.getContractFactory("DeltaTransformer");
   const deltaTransformer = await DeltaTransformer.deploy(depositoryAddress);
@@ -110,6 +122,7 @@ Network: ${network} (chainId: ${chainId})
 
 Contract Addresses:
   Token (USDC):      ${tokenAddress}
+  Account Library:   ${accountAddress}
   EntityProvider:    ${entityProviderAddress}
   Depository:        ${depositoryAddress}
   DeltaTransformer:  ${deltaTransformerAddress}
@@ -121,6 +134,7 @@ Explorer Links:`);
     : "https://basescan.org";
 
   console.log(`  ${explorerBase}/address/${tokenAddress}`);
+  console.log(`  ${explorerBase}/address/${accountAddress}`);
   console.log(`  ${explorerBase}/address/${entityProviderAddress}`);
   console.log(`  ${explorerBase}/address/${depositoryAddress}`);
   console.log(`  ${explorerBase}/address/${deltaTransformerAddress}`);
@@ -135,6 +149,7 @@ Explorer Links:`);
     deployedAt: new Date().toISOString(),
     contracts: {
       token: tokenAddress,
+      account: accountAddress,
       entityProvider: entityProviderAddress,
       depository: depositoryAddress,
       deltaTransformer: deltaTransformerAddress,

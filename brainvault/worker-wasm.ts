@@ -1,5 +1,5 @@
 import { parentPort } from 'worker_threads';
-import { createShardSalt, deriveShard, hexToBytes, bytesToHex } from './core.ts';
+import { createShardSalt, deriveShard, hexToBytes, bytesToHex } from './core';
 
 parentPort?.on('message', async ({ nameHashHex, passphrase, shardIndex, shardCount }) => {
   const salt = await createShardSalt(hexToBytes(nameHashHex), shardIndex, shardCount);

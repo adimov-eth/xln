@@ -1,68 +1,38 @@
-name: Deploy XLN to GitHub Pages
+name: deploy-base-sepolia
 
-# DISABLED - Using nginx deployment on xln.finance server
 on:
-  workflow_dispatch: # Manual trigger only
-  # push:
-  #   branches: [ "main" ]
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  workflow_dispatch:
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
+
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-          
+
       - name: Install dependencies
         run: |
-          cd frontend
           bun install
-          
-      - name: Build Svelte static site
-        run: |
-          cd frontend
-          bun run build:static
-          
-      - name: Deploy Svelte app
-        run: |
-          # Clean dist directory to ensure no conflicts
-          rm -rf dist
-          mkdir -p dist
-          # Copy ONLY Svelte app build - nothing else
-          cp -r frontend/build/* dist/
-          # Verify deployment structure
-          ls -la dist/
-          echo "✅ Deploying Svelte app only - no legacy files"
-          
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-        
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: './dist'
+          cd jurisdictions && bun install
 
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Compile contracts
+        run: bun run env:build
+
+      - name: Enforce bytecode size gate
+        run: bun run size:check
+
+      - name: Deploy to Base Sepolia
+        env:
+          DEPLOYER_PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
+          BASE_SEPOLIA_RPC: ${{ secrets.BASE_SEPOLIA_RPC }}
+        run: bun run deploy:testnet:base
+
+      - name: Generate runtime jurisdiction config
+        env:
+          BASE_SEPOLIA_RPC: ${{ secrets.BASE_SEPOLIA_RPC }}
+        run: bun run generate:jurisdictions

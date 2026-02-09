@@ -3,8 +3,7 @@
  */
 
 import type { Profile } from '../networking/gossip';
-import type { JAdapter } from '../jadapter/types';
-import type { EntityReplica, RoutedEntityInput, EntityInput } from './entity';
+import type { EntityReplica, RoutedEntityInput } from './entity';
 import type { JReplica, JInput } from './jurisdiction';
 
 // ═══════════════════════════════════════════════════════════════

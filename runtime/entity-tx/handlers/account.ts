@@ -1,8 +1,8 @@
-import type { AccountInput, AccountInputProposal, AccountInputAck, AccountInputSettlement, AccountTx, EntityState, Env, EntityInput, EntityTx, HtlcRoute, AccountMachine } from '../../types';
-import { isOk, isErr } from '../../types';
+import type { AccountInput, AccountTx, EntityState, Env, EntityInput, HtlcRoute, AccountMachine } from '../../types';
+import { isOk } from '../../types';
 import type { AccountKey, LockId, EntityId } from '../../ids';
 import { handleAccountInput as processAccountInput } from '../../account-consensus';
-import { cloneEntityState, addMessage, addMessages, canonicalAccountKey, getAccountPerspective, emitScopedEvents } from '../../state-helpers';
+import { addMessage, addMessages, getAccountPerspective, emitScopedEvents } from '../../state-helpers';
 import { applyCommand, createBook, canonicalPair, deriveSide, type BookState, type OrderbookExtState } from '../../orderbook';
 import { HTLC } from '../../constants';
 import { formatEntityId, HEAVY_LOGS } from '../../utils';
@@ -75,10 +75,7 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
   // AccountMachine still uses canonical left/right internally
   const counterpartyId = input.fromEntityId;
   let accountMachine = newState.accounts.get(counterpartyId as AccountKey);
-  let isNewAccount = false;
-
   if (!accountMachine) {
-    isNewAccount = true;
     console.log(`💳 Creating new account machine for ${counterpartyId.slice(-4)} (counterparty: ${counterpartyId.slice(-4)})`);
 
     // CONSENSUS FIX: Start with empty deltas (Channel.ts pattern)
@@ -759,7 +756,7 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
     }
   } else {
     // Exhaustive check: all AccountInput variants handled above
-    const _exhaustive: never = input;
+    const _exhaustiveCheck: never = input; void _exhaustiveCheck;
     console.error(`❌ Received unknown AccountInput type - invalid!`);
   }
 

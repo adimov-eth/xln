@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **On first message: Briefly introduce yourself with "how to talk to me" - explain 80% confidence threshold, when to just execute vs ask, and preferred communication style (terse with metrics). Keep it 3-4 lines max.**
 
 Mission: Fintech-grade, deterministic. J/E/A trilayer correctness before features. Pure functions only.
-ALWAYS: `bun run check` before commit. Test in browser F12 console. Never swallow errors.
+ALWAYS: `bun run check` and `bun run test` before commit. Never swallow errors.
 
 ## 🏗️ ARCHITECTURE: R→J→E→A (4-Layer Hierarchy)
 
@@ -19,23 +19,21 @@ xln is a bilateral consensus network for instant off-chain settlement with on-ch
 
 **Account (A)** — Bilateral 2-of-2 channels (`runtime/account-consensus.ts`). Both entities must sign every frame. Per-token delta table (collateral, ondelta, offdelta, credit limits, HTLC holds). Instant settlement, no on-chain needed.
 
-**Key types:** `runtime/types.ts` — all R/J/E/A type definitions. `runtime/ids.ts` — strict type guards for entityId, signerId, jId.
+**Key types:** `runtime/types/` — R/J/E/A type definitions split by domain (account, entity, env, jurisdiction, settlement, governance, core). `runtime/ids.ts` — strict type guards for entityId, signerId, jId.
 
 **Path aliases:** `@xln/runtime/*` → `./runtime/*`, `@xln/brainvault/*` → `./brainvault/*`
 
 ## 📦 COMMANDS
 
 ```bash
-# Development (full stack: anvil + runtime + relay + vite)
-bun run dev                    # localhost:8080 (runtime), :5173 (vite), :9000 (relay), :8545 (anvil)
+# Development (anvil + runtime server + relay)
+bun run dev                    # localhost:8080 (runtime), :9000 (relay), :8545 (anvil)
 
-# Type checking (MUST pass before commit)
-bun run check                  # Root tsc --noEmit (vestigial) + svelte-check + vite build
-# NOTE: svelte-check is the ONLY real type checker — it checks runtime/ via frontend/../runtime/ imports
-# Core protocol has 0 errors. Remaining errors are in scenarios (noUncheckedIndexedAccess) + frontend
-
-# Build runtime for browser
-bun run build                  # → frontend/static/runtime.js (minified, browser target)
+# Type checking
+bun run check                  # tsc --noEmit on runtime/ + brainvault/
+# 14 pre-existing errors (HTLC handler never-types, Bun types, jurisdiction-factory)
+# Scenarios pull in transitively (~389 noUncheckedIndexedAccess errors)
+# Server/infra: ~104 errors (Bun types, exactOptionalPropertyTypes)
 
 # Run individual scenario
 bun runtime/scenarios/lock-ahb.ts    # HTLC multi-hop (Alice-Hub-Bob)
@@ -47,19 +45,13 @@ bun run env:run                # Local hardhat node on :8545
 bun run env:deploy             # Deploy via Hardhat Ignition
 
 # Testing
-bun run test:e2e               # Playwright E2E suite
-bun run tutorial               # Tutorial working demo test
-bunx playwright test tests/ahb-smoke.spec.ts  # Single E2E test
-
-# Frontend only
-cd frontend && bun run dev     # Vite dev server
-cd frontend && bun run check   # Svelte type check + build
+bun run test                   # Property-based invariant tests (57 tests, 2163 assertions)
 
 # Formatting
 bun run format                 # Prettier on /runtime
 ```
 
-**Ports:** Runtime server :8080, WebSocket relay :9000, Vite dev :5173, Anvil :8545
+**Ports:** Runtime server :8080, WebSocket relay :9000, Anvil :8545
 
 ## 🚫 ZERO TOLERANCE: NO HACKS, NO WORKAROUNDS
 
@@ -100,7 +92,6 @@ if (value !== '0') { updateState(); }  // Hiding root cause!
 - `crypto.randomBytes()` - use seeded generator
 
 **Only allowed in:**
-- UI layer (visualization, not state)
 - Initial setup (before any frames)
 - External I/O (user input timestamps)
 
@@ -110,8 +101,8 @@ if (value !== '0') { updateState(); }  // Hiding root cause!
 
 Do not create mocks/stubs unless asked. Use real integration. When debugging consensus/state-machines, dump entire data/JSON. Use bun everywhere (not npm/node).
 
-ALWAYS run `bun run check` before reporting completion.
-NEVER create .md files in /runtime or /frontend - documentation goes in /docs.
+ALWAYS run `bun run check` and `bun run test` before reporting completion.
+NEVER create .md files in /runtime - documentation goes in /docs.
 
 ## 🎯 AGENTIC MODE (80% Confidence Threshold)
 
@@ -140,21 +131,17 @@ Quick iteration signals (full autonomy):
 - Terse confirmations with metrics: "Fixed. 0.2→45 FPS"
 - Check imports before reading (no imports = delete, don't analyze)
 
-## 🚨 BROWSER BUILD
-`bun build runtime/runtime.ts --target=browser --external http --external https --external zlib --external fs --external path --external crypto --external stream --external buffer --external url --external net --external tls --external os --external util`
-(runtime.ts runs in browser, never --target node)
-
-
 ## ✅ VERIFICATION PROTOCOL
 
 Everywhere in code: fail-fast and loud (full stop + throw popup on error).
 
 Before claiming anything works:
 1. Run `bun run check` and show output
-2. Test the specific functionality (browser + F12 console)
-3. Show command output, not descriptions ("Fixed" → show passing tests)
-4. Reproduce user's error before fixing
-5. Never commit untested code
+2. Run `bun run test` and show passing tests
+3. Test scenarios: `bun runtime/scenarios/lock-ahb.ts`
+4. Show command output, not descriptions ("Fixed" → show passing tests)
+5. Reproduce user's error before fixing
+6. Never commit untested code
 
 ## 🎯 TYPESCRIPT
 Validate at source. Fail fast. Trust at use. No defensive `?.` in UI if validated upstream.
@@ -167,7 +154,7 @@ When I ask "why/how/what do you think" or say "let's discuss" - give full analys
 
 ## 🏗️ CODING PRINCIPLES
 
-Functional/declarative paradigm. Pure functions. Immutability. Small composable modules (<30 lines/func, <300 lines/file). DRY via abstraction. Bun everywhere (never npm/node/pnpm except frontend).
+Functional/declarative paradigm. Pure functions. Immutability. Small composable modules (<30 lines/func, <300 lines/file). DRY via abstraction. Bun everywhere (never npm/node/pnpm).
 
 ## 🔧 Critical Bug Prevention
 
@@ -181,10 +168,9 @@ Functional/declarative paradigm. Pure functions. Immutability. Small composable 
 ## 📁 STRUCTURE
 - `/runtime/` — Core consensus engine, state machines, networking, scenarios
 - `/jurisdictions/` — Solidity contracts (Depository.sol, EntityProvider.sol), Hardhat config
-- `/frontend/` — Svelte 5 + Vite 7 + Dockview (Bloomberg Terminal UX). Pure visualization, zero consensus impact.
-- `/docs/` — All documentation (never create .md in /runtime or /frontend)
-- `/tests/` — Playwright E2E tests
-- `/brainvault/` — HD wallet derivation
+- `/docs/` — All documentation, audit reports, protocol specs (never create .md in /runtime)
+- `/brainvault/` — HD wallet derivation (frozen)
+- `/scripts/` — Operational scripts (deploy, bootstrap, dev workflow)
 - `.archive/2024_src/app/Channel.ts` — Reference implementation for bilateral consensus
 
 ## 🛠️ PATTERNS
@@ -230,12 +216,6 @@ jq '.eReplicas[0][1].state.accounts | to_entries[0].value.deltas' /tmp/lock-ahb-
 diff <(jq '.eReplicas[0][1].state.lockBook' /tmp/frame-65.json) <(jq ... /tmp/frame-70.json)
 ```
 
-**Browser console** (F12):
-```javascript
-xln.debug.dumpRuntime()  // ASCII to console
-xln.formatEntity(xln.getEnv().eReplicas.values().next().value.state)
-```
-
 **When debugging consensus issues:** Dump both sides, diff the JSON to find divergence point.
 
 ## 💾 Conventions
@@ -243,8 +223,7 @@ xln.formatEntity(xln.getEnv().eReplicas.values().next().value.state)
 - "xln" lowercase always, never "XLN"
 - "tx" shortcut acceptable in crypto context
 - lowercase .md filenames (next.md, readme.md)
-- frontend is UI only — runtime logic exposed via runtime.ts helpers
-- localhost:8080 is the only entry point for the full app
+- localhost:8080 is the runtime server entry point
 ## 🔍 EXTERNAL AUDIT RULE
 
 **Never blindly trust subagent or external audit findings.**

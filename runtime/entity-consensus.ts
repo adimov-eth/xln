@@ -13,7 +13,7 @@ import { safeStringify } from './serialization-utils';
 import { logDebug, logInfo, logWarn, logError } from './logger';
 
 const L = 'ENTITY_CONSENSUS' as const;
-import { addMessages, cloneEntityReplica, cloneEntityState, canonicalAccountKey, getAccountPerspective, emitScopedEvents } from './state-helpers';
+import { addMessages, cloneEntityReplica, cloneEntityState, getAccountPerspective, emitScopedEvents } from './state-helpers';
 import { LIMITS } from './constants';
 import { signAccountFrame as signFrame, verifyAccountSignature as verifyFrame } from './account-crypto';
 import { ethers } from 'ethers';
@@ -230,25 +230,6 @@ const validateEntityReplica = (replica: EntityReplica): boolean => {
     return true;
   } catch (error) {
     log.error(`❌ Replica validation error: ${error}`);
-    return false;
-  }
-};
-
-/**
- * Detects Byzantine faults like double-signing
- */
-const detectByzantineFault = (signatures: Map<string, string>, signerId: string, newSignature: string): boolean => {
-  try {
-    const existingSig = signatures.get(signerId);
-    if (existingSig && existingSig !== newSignature) {
-      log.error(`❌ BYZANTINE FAULT: Double-sign detected from ${signerId}`);
-      log.error(`❌ Existing: ${existingSig}`);
-      log.error(`❌ New: ${newSignature}`);
-      return true;
-    }
-    return false;
-  } catch (error) {
-    log.error(`❌ Byzantine detection error: ${error}`);
     return false;
   }
 };
@@ -664,7 +645,7 @@ export const applyEntityInput = async (
             }
             // Attach quorum hanko for settlement approval (find by type in hankoWitness)
             if (accountInput.type === 'settlement' && accountInput.settleAction.type === 'approve' && accountInput.settleAction.hanko) {
-              for (const [witnessHash, entry] of workingReplica.hankoWitness || []) {
+              for (const [_witnessHash, entry] of workingReplica.hankoWitness || []) {
                 if (entry.type === 'settlement' && entry.entityHeight === (workingReplica.state.height + 1)) {
                   accountInput.settleAction.hanko = entry.hanko;
                   attachedCount++;
@@ -823,7 +804,7 @@ export const applyEntityInput = async (
       workingReplica.mempool,
       deterministicForHash
     );
-    const selfSignature = signFrame(env, workingReplica.signerId, frameHash);
+    void signFrame(env, workingReplica.signerId, frameHash);
 
     // Collect all hashes that need signing (entity frame hash FIRST + account/dispute hashes with types)
     // CRITICAL: entityFrame hash must stay at index 0 for legacy compatibility (signatures map uses sigs[0])
@@ -940,7 +921,6 @@ export const applyEntityFrame = async (
   const proposableAccounts = new Set<string>();
 
   // === AGGREGATE PURE EVENTS FROM ALL HANDLERS ===
-  const allMempoolOps: Array<{ accountId: string; tx: any }> = [];
   const allSwapOffersCreated: Array<any> = [];
   const allSwapOffersCancelled: Array<any> = [];
 

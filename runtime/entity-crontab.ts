@@ -11,7 +11,7 @@
  * - Tasks are idempotent (safe to run multiple times)
  */
 
-import type { Env, EntityReplica, EntityInput, RoutedEntityInput, AccountMachine } from './types';
+import type { Env, EntityReplica, RoutedEntityInput } from './types';
 import { isLeftEntity } from './entity-id-utils';
 
 export interface CrontabTask {

@@ -2,11 +2,6 @@
 pragma solidity ^0.8.24;
 pragma experimental ABIEncoderV2;
 
-import "./Token.sol";
-
-import "./ECDSA.sol";
-import "./console.sol";
-import "hardhat/console.sol";
 /* 
 Subcontracts - Programmable Delta Transformers
   function applyBatch(int[] memory deltas, bytes calldata encodedBatch,
@@ -23,7 +18,7 @@ Subcontracts - Programmable Delta Transformers
 
   This is DeFi within bilateral channels. Genuinely new.
   */
-contract DeltaTransformer is Console {
+contract DeltaTransformer {
   mapping(bytes32 => uint) public hashToBlock;
   uint MAX_FILL_RATIO = type(uint16).max;
 
@@ -138,9 +133,7 @@ contract DeltaTransformer is Console {
     }
     if (!revealed) return;
 
-    logDeltas("Before payment", deltas);
     deltas[payment.deltaIndex] += payment.amount;
-    logDeltas("After payment", deltas);
   }
 
   function matchesSecret(bytes32 hashlock, bytes32[] memory secrets) private pure returns (bool) {
@@ -153,10 +146,8 @@ contract DeltaTransformer is Console {
   }
 
   function applySwap(int[] memory deltas, Swap memory swap, uint32 fillRatio) private {
-    logDeltas("Before swap", deltas);
     deltas[swap.addDeltaIndex] += int(swap.addAmount * fillRatio / MAX_FILL_RATIO);
     deltas[swap.subDeltaIndex] -= int(swap.subAmount * fillRatio / MAX_FILL_RATIO);
-    logDeltas("After swap", deltas);
   }
 
 
@@ -164,9 +155,6 @@ contract DeltaTransformer is Console {
 
 
   function revealSecret(bytes32 secret) public {
-    console.log("Revealing HTLC secret:");
-    console.logBytes32(secret);
-    console.logBytes32(keccak256(abi.encode(secret)));
     hashToBlock[keccak256(abi.encode(secret))] = block.number;
   }
   
@@ -176,15 +164,5 @@ contract DeltaTransformer is Console {
       delete hashToBlock[hash];
     }
   }
-
-  function logDeltas(string memory _msg, int[] memory deltas) public pure {
-    console.log(_msg);
-    for (uint i = 0; i < deltas.length; i++) {
-      console.logInt(deltas[i]);
-    }
-    console.log('====================');
-  }
-
-
 
 }

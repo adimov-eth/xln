@@ -23,7 +23,7 @@ export async function handleSwapCancel(
   accountMachine: AccountMachine,
   accountTx: Extract<AccountTx, { type: 'swap_cancel' }>,
   byLeft: boolean,
-  currentHeight: number,
+  _currentHeight: number,
   isValidation: boolean = false
 ): Promise<{ success: boolean; events: string[]; error?: string; swapOfferCancelled?: { offerId: string; accountId: string; makerId: string } }> {
   const { offerId } = accountTx.data;

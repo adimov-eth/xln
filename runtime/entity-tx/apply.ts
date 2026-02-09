@@ -4,9 +4,9 @@ import { formatEntityId } from '../utils';
 import { processProfileUpdate } from '../name-resolution';
 import { createOrderbookExtState } from '../orderbook';
 import { getRuntimeDb, tryOpenDb } from '../runtime';
-import type { EntityState, EntityTx, Env, Proposal, Delta, AccountTx, EntityInput, RoutedEntityInput, JInput } from '../types';
+import type { EntityState, EntityTx, Env, Proposal, Delta, AccountTx, RoutedEntityInput, JInput } from '../types';
 import type { AccountKey, SignerId, TokenId, EntityId } from '../ids';
-import { DEBUG, HEAVY_LOGS, log } from '../utils';
+import { DEBUG, log } from '../utils';
 import { safeStringify } from '../serialization-utils';
 import { buildEntityProfile, mergeProfileWithExisting } from '../networking/gossip-helper';
 // import { addToReserves, subtractFromReserves } from './financial'; // Currently unused
@@ -27,7 +27,7 @@ export interface ApplyEntityTxResult {
 }
 import { executeProposal, generateProposalId } from './proposals';
 import { validateMessage } from './validation';
-import { cloneEntityState, addMessage, canonicalAccountKey } from '../state-helpers';
+import { cloneEntityState, addMessage } from '../state-helpers';
 import { submitSettle } from '../evm';
 import { logError } from '../logger';
 import { FINANCIAL } from '../constants';

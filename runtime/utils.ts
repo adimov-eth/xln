@@ -3,7 +3,6 @@
  * Platform detection, crypto polyfills, logging, time helpers, and helper functions
  */
 
-import { toSvg } from 'jdenticon';
 import { Buffer as BufferPolyfill } from 'buffer';
 
 import { extractNumberFromEntityId } from './entity-factory';
@@ -353,37 +352,56 @@ export const getSignerAddress = (signerId: string): string => {
 // === AVATAR GENERATION ===
 
 /**
- * Generate identicon avatar for entity
- * @param entityId - The entity ID to generate avatar for
- * @returns Base64 encoded SVG avatar
+ * Generate deterministic block-style avatar for entity.
  */
-export const generateEntityAvatar = (entityId: string): string => {
-  try {
-    // Use entity ID as seed for deterministic avatar
-    const svg = toSvg(entityId, 40); // 40px size
-    // Convert SVG to data URL (browser-compatible)
-    return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-  } catch (error) {
-    // Fallback: simple colored circle
-    return generateFallbackAvatar(entityId);
-  }
-};
+export const generateEntityAvatar = (entityId: string): string =>
+  generateBlockAvatar(entityId, 40);
 
 /**
- * Generate identicon avatar for signer
- * @param signerId - The signer ID to generate avatar for
- * @returns Base64 encoded SVG avatar
+ * Generate deterministic block-style avatar for signer.
  */
-export const generateSignerAvatar = (signerId: string): string => {
-  try {
-    // Use signer address for avatar generation
-    const address = getSignerAddress(signerId);
-    const svg = toSvg(address, 32); // 32px size for signers
-    // Convert SVG to data URL (browser-compatible)
-    return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-  } catch (error) {
-    return generateFallbackAvatar(signerId);
+export const generateSignerAvatar = (signerId: string): string =>
+  generateBlockAvatar(getSignerAddress(signerId), 32);
+
+const hashSeed = (seed: string): number => {
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
   }
+  return hash >>> 0;
+};
+
+const generateBlockAvatar = (seed: string, size: number): string => {
+  const hash = hashSeed(seed);
+  const hue = hash % 360;
+  const cell = Math.floor(size / 5);
+  const margin = Math.floor((size - cell * 5) / 2);
+  const bg = 'hsl(210 20% 94%)';
+  const fg = `hsl(${hue} 68% 42%)`;
+  const squares: string[] = [];
+
+  let bitCursor = hash;
+  for (let y = 0; y < 5; y++) {
+    for (let x = 0; x < 3; x++) {
+      const draw = (bitCursor & 1) === 1;
+      bitCursor = (bitCursor >>> 1) ^ (bitCursor << 7);
+      if (!draw) continue;
+      const x1 = margin + x * cell;
+      const mirrorX = margin + (4 - x) * cell;
+      const y1 = margin + y * cell;
+      squares.push(`<rect x="${x1}" y="${y1}" width="${cell}" height="${cell}" rx="2"/>`);
+      if (mirrorX !== x1) {
+        squares.push(`<rect x="${mirrorX}" y="${y1}" width="${cell}" height="${cell}" rx="2"/>`);
+      }
+    }
+  }
+
+  const svg = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="${size}" height="${size}" fill="${bg}"/>
+    <g fill="${fg}">${squares.join('')}</g>
+  </svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 };
 
 /**

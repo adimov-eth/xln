@@ -15,7 +15,6 @@ import type {
   Xlnomy,
   XlnomySnapshot,
   JurisdictionEVM,
-  Env,
 } from './types';
 
 /**
@@ -24,7 +23,7 @@ import type {
  */
 export async function createXlnomy(options: {
   name: string;
-  evmType: 'browservm' | 'rpc';
+  evmType: 'browservm' | 'reth' | 'erigon' | 'monad';
   rpcUrl?: string;
   blockTimeMs?: number;
   autoGrid?: boolean;
@@ -62,7 +61,7 @@ export async function createXlnomy(options: {
   // First xlnomy gets center (slot 4), others fill grid
   const slotOrder = [4, 1, 3, 5, 7, 0, 2, 6, 8]; // Center first, then cross pattern
   const slotIndex = Math.min(xlnomyCount, 8);
-  const gridSlot = slotOrder[slotIndex];
+  const gridSlot = slotOrder[slotIndex] ?? 4;
   const pos = gridPositions[gridSlot] || { x: 0, z: 0 };
 
   const jMachinePosition = {
@@ -108,8 +107,8 @@ export async function createXlnomy(options: {
  * Create EVM instance (BrowserVM or RPC)
  */
 async function createEVM(
-  type: 'browservm' | 'rpc',
-  rpcUrl?: string
+  type: 'browservm' | 'reth' | 'erigon' | 'monad',
+  _rpcUrl?: string
 ): Promise<JurisdictionEVM> {
   if (type === 'browservm') {
     const { BrowserVMProvider } = await import('./jadapter/browservm-provider.js');
@@ -226,7 +225,7 @@ async function createGridEntities(xlnomy: Xlnomy, env: any): Promise<void> {
 export async function exportXlnomy(xlnomy: Xlnomy): Promise<string> {
   const snapshot = await xlnomy.evm.serialize();
 
-  return JSON.stringify(snapshot, (key, value) =>
+  return JSON.stringify(snapshot, (_key, value) =>
     typeof value === 'bigint' ? `BigInt(${value.toString()})` : value
   , 2);
 }
@@ -235,7 +234,7 @@ export async function exportXlnomy(xlnomy: Xlnomy): Promise<string> {
  * Import Xlnomy from JSON snapshot
  */
 export async function importXlnomy(json: string): Promise<Xlnomy> {
-  const snapshot: XlnomySnapshot = JSON.parse(json, (key, value) => {
+  const snapshot: XlnomySnapshot = JSON.parse(json, (_key, value) => {
     if (typeof value === 'string' && value.startsWith('BigInt(')) {
       return BigInt(value.slice(7, -1));
     }
@@ -251,7 +250,10 @@ export async function importXlnomy(json: string): Promise<Xlnomy> {
     name: snapshot.name,
     evmType: snapshot.evmType,
     blockTimeMs: snapshot.blockTimeMs,
-    jMachine: snapshot.jMachine,
+    jMachine: {
+      ...snapshot.jMachine,
+      mempool: [],
+    },
     contracts: snapshot.contracts,
     evm,
     entities: snapshot.entities,
@@ -264,7 +266,7 @@ export async function importXlnomy(json: string): Promise<Xlnomy> {
  * Persist Xlnomy to Level/IndexedDB
  */
 export async function saveXlnomy(xlnomy: Xlnomy): Promise<void> {
-  const snapshot = await xlnomy.evm.serialize();
+  await xlnomy.evm.serialize();
 
   // TODO: Save to Level storage
   // await level.put(`xln-xlnomy-${xlnomy.name}`, snapshot);

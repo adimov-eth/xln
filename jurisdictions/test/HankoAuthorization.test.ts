@@ -97,8 +97,8 @@ describe("Hanko Authorization", function () {
     ).to.be.revertedWithCustomError(depository, "E4");
   });
 
-  it("unsafeProcessBatch allows admin", async function () {
-    const { depository, entity1, entity2 } = await loadFixture(deployFixture);
+  it("unsafeProcessBatch requires admin flag and blocks non-admin", async function () {
+    const { depository, admin, entity1, entity2 } = await loadFixture(deployFixture);
 
     const entity1Id = ethers.zeroPadValue(entity1.address, 32);
     const entity2Id = ethers.zeroPadValue(entity2.address, 32);
@@ -122,9 +122,19 @@ describe("Hanko Authorization", function () {
       hub_id: 0,
     };
 
+    // Disabled by default
+    await expect(depository.unsafeProcessBatch(entity1Id, batch)).to.be.reverted;
+
+    // Enabled by admin
+    await expect(depository.connect(admin).setUnsafeBatchEnabled(true)).to.not.be.reverted;
+
+    // Non-admin rejected even when enabled
     await expect(
-      depository.unsafeProcessBatch(entity1Id, batch)
-    ).to.not.be.reverted;
+      depository.connect(entity1).unsafeProcessBatch(entity1Id, batch)
+    ).to.be.reverted;
+
+    // Admin allowed when enabled
+    await expect(depository.connect(admin).unsafeProcessBatch(entity1Id, batch)).to.not.be.reverted;
 
     const entity1Balance = await depository._reserves(entity1Id, tokenId);
     const entity2Balance = await depository._reserves(entity2Id, tokenId);

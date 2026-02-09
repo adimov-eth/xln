@@ -19,7 +19,7 @@ import type { AccountKey } from '../../ids';
 import { cloneEntityState, addMessage } from '../../state-helpers';
 import { initJBatch, batchAddRevealSecret, assertBatchNotPending } from '../../j-batch';
 import { getDeltaTransformerAddress } from '../../proof-builder';
-import { buildAccountProofBody, createDisputeProofHash, buildInitialDisputeProof } from '../../proof-builder';
+import { buildAccountProofBody } from '../../proof-builder';
 
 // === Delta Transformer Arguments (inlined from transformer-args.ts) ===
 const MAX_FILL_RATIO = 0xffff;
@@ -129,7 +129,7 @@ function collectHtlcSecrets(entityState: EntityState, counterpartyEntityId: stri
 export async function handleDisputeStart(
   entityState: EntityState,
   entityTx: Extract<EntityTx, { type: 'disputeStart' }>,
-  env: Env
+  _env: Env
 ): Promise<{ newState: EntityState; outputs: EntityInput[] }> {
   const { counterpartyEntityId, description } = entityTx.data;
   const newState = cloneEntityState(entityState);
@@ -234,7 +234,7 @@ export async function handleDisputeStart(
 export async function handleDisputeFinalize(
   entityState: EntityState,
   entityTx: Extract<EntityTx, { type: 'disputeFinalize' }>,
-  env: Env
+  _env: Env
 ): Promise<{ newState: EntityState; outputs: EntityInput[] }> {
   const { counterpartyEntityId, cooperative, description } = entityTx.data;
   const newState = cloneEntityState(entityState);

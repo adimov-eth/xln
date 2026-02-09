@@ -2,7 +2,7 @@
 // Returns status of all J-machines, hubs, and system health
 
 import type { Env } from './types';
-import { getP2P } from './runtime.js';
+import { getP2P } from './runtime';
 
 export interface HealthStatus {
   timestamp: number;
@@ -104,14 +104,18 @@ export async function getHealthStatus(env: Env | null): Promise<HealthStatus> {
   if (env?.eReplicas) {
     for (const [entityId, replica] of env.eReplicas.entries()) {
       const state = replica.state;
-      if (state?.reserves && Object.keys(state.reserves).length > 0) {
+      if (state?.reserves instanceof Map && state.reserves.size > 0) {
+        const reserves: Record<string, string> = {};
+        for (const [tokenId, amount] of state.reserves.entries()) {
+          reserves[String(tokenId)] = amount.toString();
+        }
         // Only add if not already in hubs list
         if (!hubs.find(h => h.entityId === entityId)) {
           hubs.push({
             entityId,
             name: entityId.slice(0, 10) + '...',
             status: 'healthy',
-            reserves: state.reserves,
+            reserves,
             accounts: state.accounts?.size || 0,
           });
         }

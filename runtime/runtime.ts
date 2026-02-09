@@ -57,17 +57,7 @@ import {
   extractSignerId,
   formatReplicaKey,
   createReplicaKey,
-  formatEntityDisplay as formatEntityDisplayIds,
-  formatSignerDisplay as formatSignerDisplayIds,
   formatReplicaDisplay,
-  // Types for re-export
-  type EntityId,
-  type SignerId,
-  type JId,
-  type EntityProviderAddress,
-  type ReplicaKey,
-  type FullReplicaAddress,
-  type ReplicaUri,
   // Constants
   XLN_URI_SCHEME,
   DEFAULT_RUNTIME_HOST,
@@ -85,7 +75,6 @@ import {
   toJId,
   toEpAddress,
   // Entity type detection (re-export from ids.ts)
-  detectEntityType as detectEntityTypeIds,
   isNumberedEntity,
   isLazyEntity,
   getEntityDisplayNumber,
@@ -97,7 +86,6 @@ import {
   ReplicaMap,
   EntityMap,
   // Jurisdiction helpers
-  type JurisdictionInfo,
   jIdFromChainId,
   createLazyJId,
   // Migration helpers
@@ -124,8 +112,8 @@ import {
   BigIntMath,
   FINANCIAL_CONSTANTS
 } from './financial-utils';
-import { captureSnapshot, cloneEntityReplica, resolveEntityProposerId } from './state-helpers';
-import { getEntityShortId, getEntityNumber, formatEntityId, HEAVY_LOGS } from './utils';
+import { resolveEntityProposerId } from './state-helpers';
+import { getEntityShortId, getEntityNumber, formatEntityId } from './utils';
 import { safeStringify } from './serialization-utils';
 import { validateDelta, validateAccountDeltas, createDefaultDelta, isDelta, validateEntityInput, validateEntityOutput } from './validation-utils';
 import type { EntityInput, EntityReplica, EntityTx, Env, EnvSnapshot, JInput, JReplica, RoutedEntityInput, RuntimeInput, RuntimeTx } from './types';
@@ -215,15 +203,6 @@ const resolveDbNamespace = (options: { env?: Env | null; runtimeId?: string | nu
 const makeDbKey = (namespace: string, key: string): Buffer =>
   Buffer.from(`${namespace}:${key}`);
 
-// Helper: Race promise with timeout
-async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error('TIMEOUT')), ms)
-    )
-  ]);
-}
 
 const resolveDbPath = (env: Env): string => {
   const namespace = resolveDbNamespace({ env });
@@ -1291,20 +1270,13 @@ const applyRuntimeInput = async (
         env.timestamp = getWallClockMs();
       }
 
-      // Capture snapshot BEFORE clearing (to show what was actually processed)
-      const inputDescription = `Tick ${env.height - 1}: ${mergedRuntimeTxs.length} runtimeTxs, ${mergedInputs.length} merged entityInputs → ${entityOutbox.length} outputs`;
-      const processedInput = {
-        runtimeTxs: [...mergedRuntimeTxs],
-        entityInputs: [...mergedInputs], // Use merged inputs instead of raw inputs
-      };
-
       // CRITICAL: Update JReplica stateRoots from BrowserVM BEFORE snapshot
       // Without this, time-travel shows stale EVM state from xlnomy creation
       const browserVM = getBrowserVMInstance(env);
       if (browserVM?.captureStateRoot && env.jReplicas) {
         try {
           const freshStateRoot = await browserVM.captureStateRoot();
-          for (const [name, jReplica] of env.jReplicas.entries()) {
+          for (const [_name, jReplica] of env.jReplicas.entries()) {
             jReplica.stateRoot = freshStateRoot;
           }
         } catch (e) {
@@ -1333,7 +1305,7 @@ const applyRuntimeInput = async (
           const blockHeight = browserVM.getBlockHeight ? browserVM.getBlockHeight() : 0;
 
           // Update JReplica with synced data
-          for (const [name, jReplica] of env.jReplicas.entries()) {
+          for (const [_name, jReplica] of env.jReplicas.entries()) {
             jReplica.collaterals = collaterals;
             jReplica.blockNumber = BigInt(blockHeight);
           }
@@ -1859,20 +1831,6 @@ const normalizeJReplicaMap = (raw: unknown): Map<string, JReplica> => {
     return map;
   }
   return new Map();
-};
-
-const normalizeSnapshotInPlace = (snapshot: any): void => {
-  if (!snapshot || typeof snapshot !== 'object') return;
-  if (snapshot.eReplicas) {
-    snapshot.eReplicas = normalizeReplicaMap(snapshot.eReplicas);
-  }
-  if (snapshot.jReplicas) {
-    const jMap = normalizeJReplicaMap(snapshot.jReplicas);
-    snapshot.jReplicas = Array.from(jMap.values()).map(jr => ({
-      ...jr,
-      stateRoot: jr.stateRoot ? new Uint8Array(jr.stateRoot as any) : jr.stateRoot,
-    }));
-  }
 };
 
 export const createEmptyEnv = (seed?: Uint8Array | string | null): Env => {
@@ -2419,64 +2377,7 @@ export const clearDB = async (env?: Env): Promise<void> => {
   }
 };
 
-// === PREPOPULATE FUNCTION ===
-// REMOVED: Legacy prepopulate functions replaced by scenarios namespace below
-
-// Scenarios namespace for better organization
-export const scenarios = {
-  ahb: async (env: Env): Promise<Env> => {
-    const { ahb } = await import('./scenarios/ahb');
-    await ahb(env);
-    return env;
-  },
-  lockAhb: async (env: Env): Promise<Env> => {
-    const { lockAhb } = await import('./scenarios/lock-ahb');
-    await lockAhb(env);
-    return env;
-  },
-  swap: async (env: Env): Promise<Env> => {
-    const { swap, swapWithOrderbook, multiPartyTrading } = await import('./scenarios/swap');
-    // Run all 3 phases for complete swap demo (Alice, Hub, Bob, Carol, Dave)
-    await swap(env);             // Phase 1: Alice + Hub basic bilateral swaps
-    await swapWithOrderbook(env); // Phase 2: Add Bob, orderbook matching
-    await multiPartyTrading(env); // Phase 3: Add Carol + Dave, multi-party
-    return env;
-  },
-  swapMarket: async (env: Env): Promise<Env> => {
-    const { swapMarket } = await import('./scenarios/swap-market');
-    await swapMarket(env);
-    return env;
-  },
-  rapidFire: async (env: Env): Promise<Env> => {
-    const { rapidFire } = await import('./scenarios/rapid-fire');
-    await rapidFire(env);
-    return env;
-  },
-  grid: async (env: Env): Promise<Env> => {
-    const { grid } = await import('./scenarios/grid');
-    await grid(env);
-    return env;
-  },
-  settle: async (env: Env): Promise<Env> => {
-    const { runSettleScenario } = await import('./scenarios/settle');
-    await runSettleScenario(env);
-    return env;
-  },
-  fullMechanics: async (env: Env): Promise<Env> => {
-    console.warn('⚠️ fullMechanics scenario not implemented');
-    return env;
-  },
-};
-
-// Deprecated aliases (backwards compatibility - will be removed)
-export const prepopulateAHB = scenarios.ahb;
-export const prepopulateFullMechanics = scenarios.fullMechanics;
-
-// === SCENARIO SYSTEM ===
-export { parseScenario, mergeAndSortEvents } from './scenarios/parser.js';
-export { executeScenario } from './scenarios/executor.js';
-// NOTE: loadScenarioFromFile uses fs/promises - import directly from './scenarios/loader.js' in CLI only
-export { SCENARIOS, getScenario, getScenariosByTag, type ScenarioMetadata } from './scenarios/index.js';
+// Scenario-related APIs moved to runtime/scenarios-api.ts to keep kernel runtime imports clean.
 
 // === CRYPTOGRAPHIC SIGNATURES ===
 export { deriveSignerKey, deriveSignerKeySync, registerSignerKey, registerSignerPublicKey, registerTestKeys, clearSignerKeys, signAccountFrame, verifyAccountSignature, getSignerPublicKey } from './account-crypto.js';

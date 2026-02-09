@@ -28,11 +28,7 @@ export type {
 // Import for internal use
 import type {
   ProofBodyStruct,
-  TransformerClauseStruct,
-  AllowanceStruct,
 } from './typechain/Depository.js';
-
-import type { DeltaTransformer } from './typechain/DeltaTransformer.js';
 
 /**
  * Runtime-friendly ProofBody (uses native types, not BigNumberish)

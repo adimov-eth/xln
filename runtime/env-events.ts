@@ -9,7 +9,7 @@
  *   env.emit('FrameCommitted', { entityId, height, hash });
  */
 
-import type { Env, LogLevel, LogCategory, FrameLogEntry } from './types';
+import type { Env, LogCategory, FrameLogEntry } from './types';
 
 const getLogState = (env: Env) => {
   if (!env.runtimeState) env.runtimeState = {};
