@@ -52,11 +52,26 @@ const uiLog = (message: string, details?: unknown) => {
 };
 
 const uiError = (message: string, details?: unknown) => {
-  logError("BLOCKCHAIN", message, details);
+  logError('BLOCKCHAIN', message, details);
   if (isBrowser && window.xlnErrorLog) {
     window.xlnErrorLog(message, 'EVM-ERROR', details);
   }
 };
+
+/** Extract common error properties from an unknown thrown value */
+function extractErrorInfo(err: unknown): Record<string, unknown> {
+  if (err instanceof Error) {
+    const ethersErr = err as Error & { code?: string; reason?: string };
+    return {
+      errorType: err.constructor.name,
+      errorCode: ethersErr.code,
+      errorReason: ethersErr.reason,
+      errorMessage: err.message,
+      errorStack: err.stack,
+    };
+  }
+  return { errorMessage: String(err) };
+}
 
 // === ETHEREUM INTEGRATION ===
 
@@ -149,7 +164,7 @@ export const connectToEthereum = async (jurisdiction: JurisdictionConfig) => {
       uiLog(`   CORS issue? ${corsIssue ? 'YES - Different origins!' : 'No (using proxy)'}`, { corsIssue });
       uiLog(`   User Agent: ${navigator.userAgent}`);
     }
-    uiLog(`   Contracts: EP=${entityProviderAddress.slice(0,10)}, DEP=${depositoryAddress.slice(0,10)}`);
+    uiLog(`   Contracts: EP=${entityProviderAddress.slice(0, 10)}, DEP=${depositoryAddress.slice(0, 10)}`);
 
     // Resolve relative URLs to full URLs for ethers.js
     let resolvedRpcUrl = rpcUrl;
@@ -187,10 +202,16 @@ export const connectToEthereum = async (jurisdiction: JurisdictionConfig) => {
       if (!BROWSER_VM_INSTANCE) {
         throw new Error('BrowserVM instance not set - failed to initialize BrowserVM');
       }
-      if (BROWSER_VM_INSTANCE?.getEntityProviderAddress && (!entityProviderAddress || entityProviderAddress === '0x0000000000000000000000000000000000000000')) {
+      if (
+        BROWSER_VM_INSTANCE?.getEntityProviderAddress &&
+        (!entityProviderAddress || entityProviderAddress === '0x0000000000000000000000000000000000000000')
+      ) {
         entityProviderAddress = BROWSER_VM_INSTANCE.getEntityProviderAddress();
       }
-      if (BROWSER_VM_INSTANCE?.getDepositoryAddress && (!depositoryAddress || depositoryAddress === '0x0000000000000000000000000000000000000000')) {
+      if (
+        BROWSER_VM_INSTANCE?.getDepositoryAddress &&
+        (!depositoryAddress || depositoryAddress === '0x0000000000000000000000000000000000000000')
+      ) {
         depositoryAddress = BROWSER_VM_INSTANCE.getDepositoryAddress();
       }
       uiLog(`🧪 Using BrowserVM ethers provider`);
@@ -217,9 +238,7 @@ export const connectToEthereum = async (jurisdiction: JurisdictionConfig) => {
       } catch (netError) {
         uiError(`❌ NETWORK-CONNECT-FAILED`, {
           rpcUrl,
-          errorCode: (netError as any)?.code,
-          errorMessage: (netError as any)?.message,
-          errorStack: (netError as any)?.stack
+          ...extractErrorInfo(netError),
         });
         throw netError;
       }
@@ -236,37 +255,38 @@ export const connectToEthereum = async (jurisdiction: JurisdictionConfig) => {
   } catch (error) {
     uiError(`❌ CONNECT-FAILED: ${jurisdiction.name}`, {
       rpcUrl,
-      errorType: (error as any)?.constructor?.name,
-      errorCode: (error as any)?.code,
-      errorReason: (error as any)?.reason,
-      errorMessage: (error as any)?.message,
-      errorStack: (error as any)?.stack
+      ...extractErrorInfo(error),
     });
     throw error;
   }
 };
 
 // Debug function to fund entity reserves for testing
-export const debugFundReserves = async (jurisdiction: JurisdictionConfig, entityId: string, tokenId: number, amount: string) => {
+export const debugFundReserves = async (
+  jurisdiction: JurisdictionConfig,
+  entityId: string,
+  tokenId: number,
+  amount: string,
+) => {
   try {
     console.log(`💰 DEBUG: Funding entity ${entityId.slice(0, 10)} with ${amount} of token ${tokenId}...`);
-    
+
     const { depository } = await connectToEthereum(jurisdiction);
-    
+
     // Fund the entity's reserves for testing
     const tx = await depository['debugFundReserves']!(entityId, tokenId, amount);
     console.log(`📡 Debug funding transaction: ${tx.hash}`);
-    
+
     const receipt = await tx.wait();
     console.log(`✅ Debug funding confirmed in block ${receipt.blockNumber}`);
-    
+
     // Check new balance
     const newBalance = await depository['_reserves']!(entityId, tokenId);
     console.log(`💰 Entity ${entityId.slice(0, 10)} now has ${newBalance.toString()} of token ${tokenId}`);
-    
+
     return { transaction: tx, receipt, newBalance };
   } catch (error) {
-    logError("BLOCKCHAIN", `❌ Failed to fund reserves:`, error);
+    logError('BLOCKCHAIN', `❌ Failed to fund reserves:`, error);
     throw error;
   }
 };
@@ -274,58 +294,68 @@ export const debugFundReserves = async (jurisdiction: JurisdictionConfig, entity
 /**
  * Fund entity with multiple assets and emit ReserveUpdated events
  */
-export const fundEntityReserves = async (entityId: string, assets: Array<{ tokenId: number; amount: string; symbol: string }>) => {
+export const fundEntityReserves = async (
+  entityId: string,
+  assets: Array<{ tokenId: number; amount: string; symbol: string }>,
+) => {
   console.log(`💰 Funding entity ${entityId.slice(0, 10)}... with ${assets.length} assets`);
-  
+
   for (const asset of assets) {
     console.log(`  💳 Adding ${asset.symbol}: ${asset.amount} (token ${asset.tokenId})`);
     // TODO: Implement fundReserves function or use debugFundReserves
     console.log(`  - Funding ${entityId.slice(0, 10)} with ${asset.amount} of token ${asset.tokenId}`);
   }
-  
+
   console.log(`✅ Entity ${entityId.slice(0, 10)}... funded with all assets`);
 };
 
 // Submit real processBatch transaction to jurisdiction
-export const submitPrefundAccount = async (jurisdiction: JurisdictionConfig, entityId: string, counterpartyEntityId: string, tokenId: number, amount: string) => {
+export const submitPrefundAccount = async (
+  jurisdiction: JurisdictionConfig,
+  entityId: string,
+  counterpartyEntityId: string,
+  tokenId: number,
+  amount: string,
+) => {
   try {
-    console.log(`💰 Prefunding account between ${entityId.slice(0, 10)}... and ${counterpartyEntityId.slice(0, 10)}...`);
+    console.log(
+      `💰 Prefunding account between ${entityId.slice(0, 10)}... and ${counterpartyEntityId.slice(0, 10)}...`,
+    );
     console.log(`🔍 TOKEN: ${tokenId}, AMOUNT: ${amount}`);
-    
+
     const { depository, provider } = await connectToEthereum(jurisdiction);
     console.log(`🔍 CONTRACT ADDRESS: ${depository.target}`);
-    
+
     // Check if contract exists
     const code = await provider.getCode(depository.target);
     if (code === '0x') {
       throw new Error('Contract not deployed at this address');
     }
-    
+
     // Check entity has sufficient reserves
     const currentBalance = await depository['_reserves']!(entityId, tokenId);
     console.log(`🔍 Current balance: ${currentBalance.toString()}`);
     console.log(`🔍 Requested amount: ${amount}`);
-    
+
     if (currentBalance < BigInt(amount)) {
       throw new Error(`Insufficient reserves: have ${currentBalance.toString()}, need ${amount}`);
     }
-    
+
     // Call prefundAccount function
     console.log(`📞 Calling prefundAccount(${counterpartyEntityId}, ${tokenId}, ${amount})`);
     const tx = await depository['prefundAccount']!(counterpartyEntityId, tokenId, amount);
     console.log(`⏳ Transaction sent: ${tx.hash}`);
-    
+
     // Wait for confirmation
     const receipt = await tx.wait();
     console.log(`✅ Prefunding confirmed in block ${receipt.blockNumber}`);
-    
+
     return {
       hash: tx.hash,
-      receipt: receipt
+      receipt: receipt,
     };
-    
   } catch (error) {
-    logError("BLOCKCHAIN", `❌ Failed to prefund account:`, error);
+    logError('BLOCKCHAIN', `❌ Failed to prefund account:`, error);
     throw error;
   }
 };
@@ -335,7 +365,7 @@ export const submitProcessBatch = async (
   jurisdiction: JurisdictionConfig,
   entityId: string,
   batch: JBatch | any,
-  signerId?: string
+  signerId?: string,
 ) => {
   try {
     if (!signerId) {
@@ -373,7 +403,7 @@ export const submitProcessBatch = async (
 
     return { transaction: tx, receipt };
   } catch (error) {
-    logError("BLOCKCHAIN", `❌ Failed to submit processBatch to ${jurisdiction.name}:`, error);
+    logError('BLOCKCHAIN', `❌ Failed to submit processBatch to ${jurisdiction.name}:`, error);
     throw error;
   }
 };
@@ -457,7 +487,7 @@ export const registerNumberedEntityOnChain = async (
 
     return { txHash: tx.hash, entityNumber };
   } catch (error) {
-    logError("BLOCKCHAIN", '❌ Blockchain registration failed:', error);
+    logError('BLOCKCHAIN', '❌ Blockchain registration failed:', error);
     throw error;
   }
 };
@@ -515,11 +545,13 @@ export const registerNumberedEntitiesBatchOnChain = async (
       }
     });
 
-    console.log(`✅ Registered ${entityNumbers.length} entities: ${entityNumbers[0]}-${entityNumbers[entityNumbers.length - 1]}`);
+    console.log(
+      `✅ Registered ${entityNumbers.length} entities: ${entityNumbers[0]}-${entityNumbers[entityNumbers.length - 1]}`,
+    );
 
     return { txHash: tx.hash, entityNumbers };
   } catch (error) {
-    logError("BLOCKCHAIN", '❌ Batch registration failed:', error);
+    logError('BLOCKCHAIN', '❌ Batch registration failed:', error);
     throw error;
   }
 };
@@ -552,7 +584,7 @@ export const assignNameOnChain = async (
 
     return { txHash: tx.hash };
   } catch (error) {
-    logError("BLOCKCHAIN", '❌ Name assignment failed:', error);
+    logError('BLOCKCHAIN', '❌ Name assignment failed:', error);
     throw error;
   }
 };
@@ -592,10 +624,10 @@ export const getEntityInfoFromChain = async (
     return {
       exists: true,
       ...(entityNumber !== undefined ? { entityNumber } : {}),
-      ...(name !== undefined ? { name } : {})
+      ...(name !== undefined ? { name } : {}),
     };
   } catch (error) {
-    logError("BLOCKCHAIN", '❌ Failed to get entity info from chain:', error);
+    logError('BLOCKCHAIN', '❌ Failed to get entity info from chain:', error);
     return { exists: false };
   }
 };
@@ -610,7 +642,9 @@ export const getNextEntityNumber = async (jurisdiction: JurisdictionConfig): Pro
     let entityProviderAddress = jurisdiction.entityProviderAddress;
 
     if (!entityProviderAddress && 'contracts' in jurisdiction) {
-      const jurisdictionWithContracts = jurisdiction as Record<string, unknown> & { contracts?: { entityProvider?: string } };
+      const jurisdictionWithContracts = jurisdiction as Record<string, unknown> & {
+        contracts?: { entityProvider?: string };
+      };
       const contractAddress = jurisdictionWithContracts.contracts?.entityProvider;
       if (contractAddress) {
         entityProviderAddress = contractAddress;
@@ -623,8 +657,7 @@ export const getNextEntityNumber = async (jurisdiction: JurisdictionConfig): Pro
 
     const { entityProvider } = await connectToEthereum(jurisdiction);
 
-    if (DEBUG)
-      console.log(`🔍 Fetching next entity number from ${entityProviderAddress} (${jurisdiction.name})`);
+    if (DEBUG) console.log(`🔍 Fetching next entity number from ${entityProviderAddress} (${jurisdiction.name})`);
 
     const nextNumber = await entityProvider['nextNumber']!();
     const result = Number(nextNumber);
@@ -632,7 +665,7 @@ export const getNextEntityNumber = async (jurisdiction: JurisdictionConfig): Pro
     if (DEBUG) console.log(`🔢 Next entity number: ${result}`);
     return result;
   } catch (error) {
-    logError("BLOCKCHAIN", '❌ Failed to get next entity number:', error);
+    logError('BLOCKCHAIN', '❌ Failed to get next entity number:', error);
     throw error;
   }
 };
@@ -653,7 +686,6 @@ export const transferNameBetweenEntities = async (
 
 // Load contract configuration and generate jurisdictions
 export const generateJurisdictions = async (): Promise<Map<string, JurisdictionConfig>> => {
-
   const jurisdictions = new Map<string, JurisdictionConfig>();
 
   try {
@@ -677,7 +709,10 @@ export const generateJurisdictions = async (): Promise<Map<string, JurisdictionC
           throw new Error(`Failed to fetch jurisdictions.json: ${response.status} ${response.statusText}`);
         }
         config = await response.json();
-        console.log('🔍 JURISDICTION DEBUG: Browser loaded config with contracts:', config.jurisdictions?.ethereum?.contracts);
+        console.log(
+          '🔍 JURISDICTION DEBUG: Browser loaded config with contracts:',
+          config.jurisdictions?.ethereum?.contracts,
+        );
         console.log('✅ Loaded jurisdictions from runtime');
       } catch (fetchError: any) {
         clearTimeout(timeoutId);
@@ -713,7 +748,7 @@ export const generateJurisdictions = async (): Promise<Map<string, JurisdictionC
       uiLog(`🔍 RPC-TRANSFORM-START: key=${key}, rpc=${rpcUrl}`, {
         isOculusBrowser,
         override: rpcOverride,
-        userAgent: isBrowser ? navigator.userAgent : 'N/A'
+        userAgent: isBrowser ? navigator.userAgent : 'N/A',
       });
 
       // Oculus Browser fix: Force direct port without +10000 offset
@@ -729,9 +764,12 @@ export const generateJurisdictions = async (): Promise<Map<string, JurisdictionC
           // Path-based proxy (e.g., /rpc or /rpc/ethereum)
           // If single jurisdiction, use path directly. If multiple, append jurisdiction name.
           const jurisdictionCount = Object.keys(config.jurisdictions).length;
-          const path = jurisdictionCount === 1
-            ? rpcOverride  // Single jurisdiction: use /rpc directly
-            : (rpcOverride.endsWith('/') ? rpcOverride + jData['name'].toLowerCase() : `${rpcOverride}/${jData['name'].toLowerCase()}`);
+          const path =
+            jurisdictionCount === 1
+              ? rpcOverride // Single jurisdiction: use /rpc directly
+              : rpcOverride.endsWith('/')
+                ? rpcOverride + jData['name'].toLowerCase()
+                : `${rpcOverride}/${jData['name'].toLowerCase()}`;
           rpcUrl = `${window.location.origin}${path}`;
           uiLog(`🔧 RPC URL (override): ${jData['rpc']} → ${rpcUrl} (path proxy, ${jurisdictionCount} jurisdictions)`);
         } else if (rpcOverride.startsWith(':')) {
@@ -748,7 +786,7 @@ export const generateJurisdictions = async (): Promise<Map<string, JurisdictionC
         rpcUrl = `${window.location.origin}${rpcUrl}`;
         uiLog(`🔧 RPC-TRANSFORM-PROXY: ${jData['rpc']} → ${rpcUrl}`, {
           origin: window.location.origin,
-          proxyPath: jData['rpc']
+          proxyPath: jData['rpc'],
         });
       } else if (isBrowser && rpcUrl.startsWith(':')) {
         // Port-based (legacy): production uses port + 10000 (nginx proxy)
@@ -761,7 +799,7 @@ export const generateJurisdictions = async (): Promise<Map<string, JurisdictionC
           isLocalhost: !!isLocalhost,
           port,
           actualPort,
-          portOffset: isLocalhost ? 0 : 10000
+          portOffset: isLocalhost ? 0 : 10000,
         });
       } else if (!isBrowser && rpcUrl.startsWith(':')) {
         // Node.js: Default to localhost
@@ -770,7 +808,7 @@ export const generateJurisdictions = async (): Promise<Map<string, JurisdictionC
 
       uiLog(`📍 FINAL-RPC-URL: ${key} → ${rpcUrl}`, {
         entityProvider: jData['contracts']['entityProvider'],
-        depository: jData['contracts']['depository']
+        depository: jData['contracts']['depository'],
       });
 
       jurisdictions.set(key, {
@@ -782,7 +820,7 @@ export const generateJurisdictions = async (): Promise<Map<string, JurisdictionC
       });
     }
   } catch (error) {
-    logError("BLOCKCHAIN", '❌ Failed to load jurisdictions:', error);
+    logError('BLOCKCHAIN', '❌ Failed to load jurisdictions:', error);
   }
 
   return jurisdictions;
@@ -817,11 +855,22 @@ let BROWSER_VM_INSTANCE: any = null;
  * @param browserVMInstance - Optional pre-initialized BrowserVM instance
  */
 export const setBrowserVMJurisdiction = (env: any, depositoryAddress: string, browserVMInstance?: any) => {
-  console.log('[BrowserVM] Setting jurisdiction override:', { depositoryAddress, hasBrowserVM: !!browserVMInstance, hasEnv: !!env });
+  console.log('[BrowserVM] Setting jurisdiction override:', {
+    depositoryAddress,
+    hasBrowserVM: !!browserVMInstance,
+    hasEnv: !!env,
+  });
 
   const rawBrowserVM = browserVMInstance?.browserVM ?? browserVMInstance;
   const resolvedBrowserVM = rawBrowserVM?.getProvider ? rawBrowserVM.getProvider() : rawBrowserVM;
-  console.log('[BrowserVM] rawBrowserVM:', !!rawBrowserVM, 'resolvedBrowserVM:', !!resolvedBrowserVM, 'hasGetProvider:', !!rawBrowserVM?.getProvider);
+  console.log(
+    '[BrowserVM] rawBrowserVM:',
+    !!rawBrowserVM,
+    'resolvedBrowserVM:',
+    !!resolvedBrowserVM,
+    'hasGetProvider:',
+    !!rawBrowserVM?.getProvider,
+  );
 
   // Store browserVM instance in env (isolated per-runtime)
   if (resolvedBrowserVM && env) {
@@ -838,7 +887,12 @@ export const setBrowserVMJurisdiction = (env: any, depositoryAddress: string, br
         const eventsByEntity = new Map<string, any[]>();
         for (const event of events) {
           // Only process canonical J-events
-          if (!['ReserveUpdated', 'SecretRevealed', 'AccountSettled', 'DisputeStarted', 'DebtCreated'].includes(event.name)) continue;
+          if (
+            !['ReserveUpdated', 'SecretRevealed', 'AccountSettled', 'DisputeStarted', 'DebtCreated'].includes(
+              event.name,
+            )
+          )
+            continue;
 
           // Extract entityId from event args
           const entityId = event.args?.entity || event.args?.entityId || event.args?.leftEntity;
@@ -859,10 +913,12 @@ export const setBrowserVMJurisdiction = (env: any, depositoryAddress: string, br
           env.runtimeInput.entityInputs.push({
             entityId,
             signerId: 'j-event',
-            entityTxs: [{
-              type: 'j_event',
-              data: { events: entityEvents }
-            }]
+            entityTxs: [
+              {
+                type: 'j_event',
+                data: { events: entityEvents },
+              },
+            ],
           });
         }
 
@@ -934,16 +990,21 @@ export const submitSettle = async (
   diffs: SettlementDiff[],
   forgiveDebtsInTokenIds: number[] = [],
   insuranceRegs: Array<{ insured: string; insurer: string; tokenId: number; limit: bigint; expiresAt: bigint }> = [],
-  sig?: string
+  sig?: string,
 ) => {
   try {
-    console.log(`⚖️ Submitting settle transaction between ${leftEntity.slice(0, 10)}... and ${rightEntity.slice(0, 10)}...`);
-    console.log(`🔍 DIFFS:`, diffs.map(d => ({
-      ...d,
-      leftDiff: d.leftDiff.toString(),
-      rightDiff: d.rightDiff.toString(),
-      collateralDiff: d.collateralDiff.toString()
-    })));
+    console.log(
+      `⚖️ Submitting settle transaction between ${leftEntity.slice(0, 10)}... and ${rightEntity.slice(0, 10)}...`,
+    );
+    console.log(
+      `🔍 DIFFS:`,
+      diffs.map(d => ({
+        ...d,
+        leftDiff: d.leftDiff.toString(),
+        rightDiff: d.rightDiff.toString(),
+        collateralDiff: d.collateralDiff.toString(),
+      })),
+    );
 
     const hasChanges = diffs.length > 0 || forgiveDebtsInTokenIds.length > 0 || insuranceRegs.length > 0;
     if (hasChanges && (!sig || sig === '0x')) {
@@ -968,7 +1029,7 @@ export const submitSettle = async (
       diffs,
       forgiveDebtsInTokenIds,
       insuranceRegs,
-      finalSig
+      finalSig,
     );
     console.log(`💫 Transaction sent: ${tx.hash}`);
 
@@ -982,16 +1043,23 @@ export const submitSettle = async (
 
     console.log(`🎉 Settlement successful! Both entities should receive SettlementProcessed events`);
     return { txHash: tx.hash, blockNumber: receipt.blockNumber };
-
   } catch (error) {
-    logError("BLOCKCHAIN", '❌ Settlement failed:', error);
+    logError('BLOCKCHAIN', '❌ Settlement failed:', error);
     throw error;
   }
 };
 
-export const submitReserveToReserve = async (jurisdiction: JurisdictionConfig, fromEntity: string, toEntity: string, tokenId: number, amount: string) => {
+export const submitReserveToReserve = async (
+  jurisdiction: JurisdictionConfig,
+  fromEntity: string,
+  toEntity: string,
+  tokenId: number,
+  amount: string,
+) => {
   try {
-    console.log(`💸 DIRECT R2R: ${fromEntity.slice(0,10)} → ${toEntity.slice(0,10)}, token ${tokenId}, amount ${amount}`);
+    console.log(
+      `💸 DIRECT R2R: ${fromEntity.slice(0, 10)} → ${toEntity.slice(0, 10)}, token ${tokenId}, amount ${amount}`,
+    );
 
     const { depository, provider } = await connectToEthereum(jurisdiction);
     console.log(`🔍 CONTRACT ADDRESS: ${depository.target}`);
@@ -1017,9 +1085,8 @@ export const submitReserveToReserve = async (jurisdiction: JurisdictionConfig, f
 
     console.log(`🎉 Direct R2R successful!`);
     return { txHash: tx.hash, blockNumber: receipt.blockNumber };
-
   } catch (error) {
-    logError("BLOCKCHAIN", '❌ Direct R2R failed:', error);
+    logError('BLOCKCHAIN', '❌ Direct R2R failed:', error);
     throw error;
   }
 };

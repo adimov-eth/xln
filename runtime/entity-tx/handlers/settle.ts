@@ -15,7 +15,14 @@
  * Conservation Law: leftDiff + rightDiff + collateralDiff = 0 (enforced by Account.sol)
  */
 
-import type { EntityState, EntityTx, EntityInput, SettlementWorkspace, SettlementDiff, AccountInputSettlement } from '../../types';
+import type {
+  EntityState,
+  EntityTx,
+  EntityInput,
+  SettlementWorkspace,
+  SettlementDiff,
+  AccountInputSettlement,
+} from '../../types';
 import { createSettlementDiff } from '../../types';
 import type { AccountKey } from '../../ids';
 import { cloneEntityState, addMessage, getAccountPerspective } from '../../state-helpers';
@@ -77,7 +84,7 @@ function createSettlementHoldOp(
   accountId: string,
   diffs: SettlementDiff[],
   workspaceVersion: number,
-  action: 'set' | 'release'
+  action: 'set' | 'release',
 ): MempoolOp | null {
   const holdDiffs = diffsToHoldFormat(diffs);
 
@@ -88,9 +95,10 @@ function createSettlementHoldOp(
     return null;
   }
 
-  const tx = action === 'set'
-    ? { type: 'settle_hold' as const, data: { workspaceVersion, diffs: holdDiffs } }
-    : { type: 'settle_release' as const, data: { workspaceVersion, diffs: holdDiffs } };
+  const tx =
+    action === 'set'
+      ? { type: 'settle_hold' as const, data: { workspaceVersion, diffs: holdDiffs } }
+      : { type: 'settle_release' as const, data: { workspaceVersion, diffs: holdDiffs } };
 
   console.log(`📥 SETTLE-${action.toUpperCase()} op created for frame consensus (workspace v${workspaceVersion})`);
   return { accountId, tx };
@@ -102,7 +110,7 @@ function createSettlementHoldOp(
 export async function handleSettlePropose(
   entityState: EntityState,
   entityTx: Extract<EntityTx, { type: 'settle_propose' }>,
-  _env: Env
+  _env: Env,
 ): Promise<{ newState: EntityState; outputs: EntityInput[]; mempoolOps: MempoolOp[] }> {
   const { counterpartyEntityId, diffs, forgiveTokenIds, memo } = entityTx.data;
   const newState = cloneEntityState(entityState);
@@ -162,15 +170,17 @@ export async function handleSettlePropose(
 
   outputs.push({
     entityId: counterpartyEntityId,
-    entityTxs: [{
-      type: 'accountInput',
-      data: {
-        type: 'settlement' as const,
-        fromEntityId: entityState.entityId,
-        toEntityId: counterpartyEntityId,
-        settleAction,
-      }
-    }]
+    entityTxs: [
+      {
+        type: 'accountInput',
+        data: {
+          type: 'settlement' as const,
+          fromEntityId: entityState.entityId,
+          toEntityId: counterpartyEntityId,
+          settleAction,
+        },
+      },
+    ],
   });
 
   return { newState, outputs, mempoolOps };
@@ -182,7 +192,7 @@ export async function handleSettlePropose(
 export async function handleSettleUpdate(
   entityState: EntityState,
   entityTx: Extract<EntityTx, { type: 'settle_update' }>,
-  _env: Env
+  _env: Env,
 ): Promise<{ newState: EntityState; outputs: EntityInput[]; mempoolOps: MempoolOp[] }> {
   const { counterpartyEntityId, diffs, forgiveTokenIds, memo } = entityTx.data;
   const newState = cloneEntityState(entityState);
@@ -205,8 +215,10 @@ export async function handleSettleUpdate(
   }
 
   // Cannot update after either party has signed
-  if (account.settlementWorkspace.status === 'awaiting_counterparty' &&
-      (account.settlementWorkspace.leftHanko || account.settlementWorkspace.rightHanko)) {
+  if (
+    account.settlementWorkspace.status === 'awaiting_counterparty' &&
+    (account.settlementWorkspace.leftHanko || account.settlementWorkspace.rightHanko)
+  ) {
     throw new Error(`Cannot update after signing. Use settle_reject to start over.`);
   }
   if (account.settlementWorkspace.status === 'ready_to_submit') {
@@ -251,15 +263,17 @@ export async function handleSettleUpdate(
 
   outputs.push({
     entityId: counterpartyEntityId,
-    entityTxs: [{
-      type: 'accountInput',
-      data: {
-        type: 'settlement' as const,
-        fromEntityId: entityState.entityId,
-        toEntityId: counterpartyEntityId,
-        settleAction,
-      }
-    }]
+    entityTxs: [
+      {
+        type: 'accountInput',
+        data: {
+          type: 'settlement' as const,
+          fromEntityId: entityState.entityId,
+          toEntityId: counterpartyEntityId,
+          settleAction,
+        },
+      },
+    ],
   });
 
   return { newState, outputs, mempoolOps };
@@ -273,14 +287,21 @@ export async function handleSettleUpdate(
 export async function handleSettleApprove(
   entityState: EntityState,
   entityTx: Extract<EntityTx, { type: 'settle_approve' }>,
-  env: Env
-): Promise<{ newState: EntityState; outputs: EntityInput[]; mempoolOps: MempoolOp[]; hashesToSign?: Array<{ hash: string; type: 'settlement'; context: string }> }> {
+  env: Env,
+): Promise<{
+  newState: EntityState;
+  outputs: EntityInput[];
+  mempoolOps: MempoolOp[];
+  hashesToSign?: Array<{ hash: string; type: 'settlement'; context: string }>;
+}> {
   const { counterpartyEntityId } = entityTx.data;
   const newState = cloneEntityState(entityState);
   const outputs: EntityInput[] = [];
   const mempoolOps: MempoolOp[] = [];
 
-  console.log(`⚖️ settle_approve: ${entityState.entityId.slice(-4)} signing settlement with ${counterpartyEntityId.slice(-4)}`);
+  console.log(
+    `⚖️ settle_approve: ${entityState.entityId.slice(-4)} signing settlement with ${counterpartyEntityId.slice(-4)}`,
+  );
 
   // Get account and workspace
   const account = newState.accounts.get(counterpartyEntityId as AccountKey);
@@ -311,7 +332,9 @@ export async function handleSettleApprove(
   // proofHeader.cooperativeNonce is for frame consensus, on-chain nonce is for settlements
   const onChainNonce = account.onChainSettlementNonce ?? 0;
 
-  console.log(`⚖️ Using on-chain settlement nonce: ${onChainNonce} (local frame nonce: ${account.proofHeader.cooperativeNonce})`);
+  console.log(
+    `⚖️ Using on-chain settlement nonce: ${onChainNonce} (local frame nonce: ${account.proofHeader.cooperativeNonce})`,
+  );
 
   // Create settlement hash for signing with the on-chain nonce
   // NOTE: C2R is just a calldata optimization - signature is always over the full diffs
@@ -320,7 +343,12 @@ export async function handleSettleApprove(
     throw new Error('No jurisdiction configured');
   }
 
-  const settlementHash = createSettlementHashWithNonce(account, workspace.diffs, jurisdiction.depositoryAddress, onChainNonce);
+  const settlementHash = createSettlementHashWithNonce(
+    account,
+    workspace.diffs,
+    jurisdiction.depositoryAddress,
+    onChainNonce,
+  );
 
   // Get signer ID for this entity (first validator for single-signer entities)
   const signerId = entityState.config.validators[0];
@@ -329,12 +357,7 @@ export async function handleSettleApprove(
   }
 
   // Sign the settlement
-  const hankos = await signHashesAsSingleEntity(
-    env,
-    entityState.entityId,
-    signerId,
-    [settlementHash]
-  );
+  const hankos = await signHashesAsSingleEntity(env, entityState.entityId, signerId, [settlementHash]);
   const hanko = hankos[0];
   if (!hanko) {
     throw new Error(`Failed to generate settlement hanko for ${signerId.slice(-4)}`);
@@ -376,21 +399,27 @@ export async function handleSettleApprove(
 
   outputs.push({
     entityId: counterpartyEntityId,
-    entityTxs: [{
-      type: 'accountInput',
-      data: {
-        type: 'settlement' as const,
-        fromEntityId: entityState.entityId,
-        toEntityId: counterpartyEntityId,
-        settleAction,
-      }
-    }]
+    entityTxs: [
+      {
+        type: 'accountInput',
+        data: {
+          type: 'settlement' as const,
+          fromEntityId: entityState.entityId,
+          toEntityId: counterpartyEntityId,
+          settleAction,
+        },
+      },
+    ],
   });
 
   // Multi-signer: Return settlement hash for entity-quorum signing
   // At commit time, quorum hanko replaces single-signer hanko in workspace
   const hashesToSign: Array<{ hash: string; type: 'settlement'; context: string }> = [
-    { hash: settlementHash, type: 'settlement', context: `settlement:${counterpartyEntityId.slice(-8)}:nonce:${onChainNonce}` },
+    {
+      hash: settlementHash,
+      type: 'settlement',
+      context: `settlement:${counterpartyEntityId.slice(-8)}:nonce:${onChainNonce}`,
+    },
   ];
 
   return { newState, outputs, mempoolOps, hashesToSign };
@@ -402,14 +431,16 @@ export async function handleSettleApprove(
 export async function handleSettleExecute(
   entityState: EntityState,
   entityTx: Extract<EntityTx, { type: 'settle_execute' }>,
-  _env: Env
+  _env: Env,
 ): Promise<{ newState: EntityState; outputs: EntityInput[]; mempoolOps: MempoolOp[] }> {
   const { counterpartyEntityId } = entityTx.data;
   const newState = cloneEntityState(entityState);
   const outputs: EntityInput[] = [];
   const mempoolOps: MempoolOp[] = [];
 
-  console.log(`⚖️ settle_execute: ${entityState.entityId.slice(-4)} executing settlement with ${counterpartyEntityId.slice(-4)}`);
+  console.log(
+    `⚖️ settle_execute: ${entityState.entityId.slice(-4)} executing settlement with ${counterpartyEntityId.slice(-4)}`,
+  );
 
   // Get account and workspace
   const account = newState.accounts.get(counterpartyEntityId as AccountKey);
@@ -461,7 +492,7 @@ export async function handleSettleExecute(
     jurisdiction.entityProviderAddress,
     '0x', // hankoData - not needed for single-signer entities
     workspace.cooperativeNonceAtSign,
-    entityState.entityId
+    entityState.entityId,
   );
 
   console.log(`✅ settle_execute: Added to jBatch`);
@@ -486,14 +517,16 @@ export async function handleSettleExecute(
 export async function handleSettleReject(
   entityState: EntityState,
   entityTx: Extract<EntityTx, { type: 'settle_reject' }>,
-  _env: Env
+  _env: Env,
 ): Promise<{ newState: EntityState; outputs: EntityInput[]; mempoolOps: MempoolOp[] }> {
   const { counterpartyEntityId, reason } = entityTx.data;
   const newState = cloneEntityState(entityState);
   const outputs: EntityInput[] = [];
   const mempoolOps: MempoolOp[] = [];
 
-  console.log(`⚖️ settle_reject: ${entityState.entityId.slice(-4)} rejecting settlement with ${counterpartyEntityId.slice(-4)}`);
+  console.log(
+    `⚖️ settle_reject: ${entityState.entityId.slice(-4)} rejecting settlement with ${counterpartyEntityId.slice(-4)}`,
+  );
 
   // Get account
   const account = newState.accounts.get(counterpartyEntityId as AccountKey);
@@ -508,7 +541,12 @@ export async function handleSettleReject(
 
   // Ring-fence: Release holds (settlement cancelled)
   const wsVersion = account.settlementWorkspace.version;
-  const releaseOp = createSettlementHoldOp(counterpartyEntityId, account.settlementWorkspace.diffs, wsVersion, 'release');
+  const releaseOp = createSettlementHoldOp(
+    counterpartyEntityId,
+    account.settlementWorkspace.diffs,
+    wsVersion,
+    'release',
+  );
   if (releaseOp) mempoolOps.push(releaseOp);
 
   // Clear workspace
@@ -525,15 +563,17 @@ export async function handleSettleReject(
 
   outputs.push({
     entityId: counterpartyEntityId,
-    entityTxs: [{
-      type: 'accountInput',
-      data: {
-        type: 'settlement' as const,
-        fromEntityId: entityState.entityId,
-        toEntityId: counterpartyEntityId,
-        settleAction,
-      }
-    }]
+    entityTxs: [
+      {
+        type: 'accountInput',
+        data: {
+          type: 'settlement' as const,
+          fromEntityId: entityState.entityId,
+          toEntityId: counterpartyEntityId,
+          settleAction,
+        },
+      },
+    ],
   });
 
   return { newState, outputs, mempoolOps };
@@ -548,7 +588,7 @@ export function processSettleAction(
   settleAction: AccountInputSettlement['settleAction'],
   fromEntityId: string,
   myEntityId: string,
-  entityTimestamp: number // Entity-level timestamp for determinism across validators
+  entityTimestamp: number, // Entity-level timestamp for determinism across validators
 ): { success: boolean; message: string } {
   const { iAmLeft } = getAccountPerspective(account, myEntityId);
   const theyAreLeft = !iAmLeft;
@@ -591,8 +631,10 @@ export function processSettleAction(
       if (account.settlementWorkspace.status === 'ready_to_submit') {
         return { success: false, message: 'Cannot update after signing' };
       }
-      if (account.settlementWorkspace.status === 'awaiting_counterparty' &&
-          (account.settlementWorkspace.leftHanko || account.settlementWorkspace.rightHanko)) {
+      if (
+        account.settlementWorkspace.status === 'awaiting_counterparty' &&
+        (account.settlementWorkspace.leftHanko || account.settlementWorkspace.rightHanko)
+      ) {
         return { success: false, message: 'Cannot update after signing' };
       }
 
@@ -632,8 +674,16 @@ export function processSettleAction(
       const awsWs = account.settlementWorkspace;
 
       // Determine new hankos
-      const newLeftHanko = theyAreLeft ? settleAction.hanko : (awsWs.status === 'awaiting_counterparty' ? awsWs.leftHanko : awsWs.leftHanko);
-      const newRightHanko = theyAreLeft ? (awsWs.status === 'awaiting_counterparty' ? awsWs.rightHanko : awsWs.rightHanko) : settleAction.hanko;
+      const newLeftHanko = theyAreLeft
+        ? settleAction.hanko
+        : awsWs.status === 'awaiting_counterparty'
+          ? awsWs.leftHanko
+          : awsWs.leftHanko;
+      const newRightHanko = theyAreLeft
+        ? awsWs.status === 'awaiting_counterparty'
+          ? awsWs.rightHanko
+          : awsWs.rightHanko
+        : settleAction.hanko;
 
       // Check if both parties have now signed
       const myHanko = iAmLeft ? newLeftHanko : newRightHanko;

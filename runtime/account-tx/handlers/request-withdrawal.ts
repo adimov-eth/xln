@@ -11,7 +11,7 @@ import type { TokenId } from '../../ids';
 export function handleRequestWithdrawal(
   accountMachine: AccountMachine,
   accountTx: Extract<AccountTx, { type: 'request_withdrawal' }>,
-  byLeft: boolean
+  byLeft: boolean,
 ): { success: boolean; events: string[]; error?: string; approvalNeeded?: AccountTx } {
   const tokenId = accountTx.data.tokenId as TokenId;
   const { amount, requestId } = accountTx.data;
@@ -32,13 +32,13 @@ export function handleRequestWithdrawal(
     return {
       success: false,
       error: `Insufficient withdrawable: ${amount} > ${withdrawable} (collateral ${delta.collateral}, uninsured ${uninsuredBalance})`,
-      events
+      events,
     };
   }
 
   // Derive perspective from byLeft (cosmetic: direction labeling)
   const iAmLeft = accountMachine.leftEntity === accountMachine.proofHeader.fromEntity;
-  const isOurFrame = (byLeft === iAmLeft);
+  const isOurFrame = byLeft === iAmLeft;
 
   if (isOurFrame) {
     // We are requesting
@@ -74,8 +74,8 @@ export function handleRequestWithdrawal(
           amount,
           requestId,
           approved: true,
-        }
-      } as AccountTx
+        },
+      } as AccountTx,
     };
   }
 

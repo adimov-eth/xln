@@ -22,15 +22,15 @@ import type { CryptoProvider } from './crypto-provider';
 import { safeStringify } from './serialization-utils';
 
 export interface HtlcEnvelope {
-  nextHop?: string;           // Next entity to forward to (undefined if final)
-  finalRecipient?: boolean;   // Is this the last hop?
-  secret?: string;            // Only in final recipient's envelope
-  innerEnvelope?: string;     // Encoded envelope for next hop (encrypted or JSON)
+  nextHop?: string; // Next entity to forward to (undefined if final)
+  finalRecipient?: boolean; // Is this the last hop?
+  secret?: string; // Only in final recipient's envelope
+  innerEnvelope?: string; // Encoded envelope for next hop (encrypted or JSON)
 }
 
 export interface HtlcRoutingContext {
-  route: string[];            // Full route (used by sender to create envelopes)
-  currentHopIndex: number;    // Which hop we're at (for debugging)
+  route: string[]; // Full route (used by sender to create envelopes)
+  currentHopIndex: number; // Which hop we're at (for debugging)
 }
 
 /**
@@ -61,7 +61,7 @@ export async function createOnionEnvelopes(
   route: string[],
   secret: string,
   entityPubKeys?: Map<string, string>,
-  crypto?: CryptoProvider
+  crypto?: CryptoProvider,
 ): Promise<HtlcEnvelope> {
   if (route.length < 2) {
     throw new Error('Route must have at least sender and recipient');
@@ -107,14 +107,14 @@ export async function createOnionEnvelopes(
   if (crypto && entityPubKeys) {
     const finalRecipientKey = entityPubKeys.get(finalRecipient);
     if (finalRecipientKey) {
-      const finalPayload = safeStringify({finalRecipient: true, secret});
+      const finalPayload = safeStringify({ finalRecipient: true, secret });
       encryptedBlob = await crypto.encrypt(finalPayload, finalRecipientKey);
     }
   }
 
   if (!encryptedBlob) {
     // Fallback: no encryption available, use cleartext
-    encryptedBlob = safeStringify({finalRecipient: true, secret});
+    encryptedBlob = safeStringify({ finalRecipient: true, secret });
   }
 
   // Step 2: Wrap each hop's layer (from final backwards to first)
@@ -132,7 +132,7 @@ export async function createOnionEnvelopes(
 
     const layerPayload = safeStringify({
       nextHop,
-      innerEnvelope: encryptedBlob
+      innerEnvelope: encryptedBlob,
     });
 
     if (crypto && entityPubKeys) {
@@ -152,7 +152,7 @@ export async function createOnionEnvelopes(
   }
   const envelope: HtlcEnvelope = {
     nextHop: firstHop,
-    innerEnvelope: encryptedBlob
+    innerEnvelope: encryptedBlob,
   };
 
   return envelope;

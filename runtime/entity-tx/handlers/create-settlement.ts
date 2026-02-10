@@ -18,7 +18,7 @@ import { isLeftEntity } from '../../entity-id-utils';
 
 export async function handleCreateSettlement(
   entityState: EntityState,
-  entityTx: Extract<EntityTx, { type: 'createSettlement' }>
+  entityTx: Extract<EntityTx, { type: 'createSettlement' }>,
 ): Promise<{ newState: EntityState; outputs: EntityInput[]; jOutputs?: any[] }> {
   const { counterpartyEntityId, diffs, sig } = entityTx.data;
   const newState = cloneEntityState(entityState);
@@ -38,7 +38,9 @@ export async function handleCreateSettlement(
   const rightEntity = isLeft ? counterpartyEntityId : entityState.entityId;
 
   if (!sig || sig === '0x') {
-    throw new Error(`Settlement ${entityState.entityId.slice(-4)}↔${counterpartyEntityId.slice(-4)} missing hanko signature`);
+    throw new Error(
+      `Settlement ${entityState.entityId.slice(-4)}↔${counterpartyEntityId.slice(-4)} missing hanko signature`,
+    );
   }
 
   // Add settlement to jBatch
@@ -53,7 +55,7 @@ export async function handleCreateSettlement(
     undefined,
     '0x',
     0,
-    entityState.entityId
+    entityState.entityId,
   );
 
   console.log(`✅ createSettlement: Added to jBatch for ${entityState.entityId.slice(-4)}`);

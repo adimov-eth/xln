@@ -35,7 +35,7 @@ import type { AccountMachine, AccountTx } from '../../types';
  */
 export function handleReserveToCollateral(
   _accountMachine: AccountMachine,
-  accountTx: Extract<AccountTx, { type: 'reserve_to_collateral' }>
+  accountTx: Extract<AccountTx, { type: 'reserve_to_collateral' }>,
 ): { success: boolean; events: string[]; error?: string } {
   // ═══════════════════════════════════════════════════════════════════════════
   // SECURITY BLOCK: Reject all direct reserve_to_collateral transactions
@@ -60,6 +60,6 @@ export function handleReserveToCollateral(
   return {
     success: false,
     events: [],
-    error: 'SECURITY: reserve_to_collateral blocked - must use j_event_claim bilateral consensus'
+    error: 'SECURITY: reserve_to_collateral blocked - must use j_event_claim bilateral consensus',
   };
 }

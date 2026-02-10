@@ -8,12 +8,25 @@ import { ethers } from 'ethers';
 import type { Depository, EntityProvider } from '../../jurisdictions/typechain-types';
 import type { JEvent, JEventCallback } from './types';
 
+/** Shape of the ethers ContractEventPayload passed as the last callback arg */
+interface EthersEventPayload {
+  args?: { entries(): IterableIterator<[string, unknown]> };
+  blockNumber?: number;
+  blockHash?: string;
+  transactionHash?: string;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // CANONICAL J-EVENTS (Single Source of Truth — must match Depository.sol)
 // ═══════════════════════════════════════════════════════════════════════════
 export const CANONICAL_J_EVENTS = [
-  'ReserveUpdated', 'SecretRevealed', 'AccountSettled',
-  'DisputeStarted', 'DisputeFinalized', 'DebtCreated', 'HankoBatchProcessed',
+  'ReserveUpdated',
+  'SecretRevealed',
+  'AccountSettled',
+  'DisputeStarted',
+  'DisputeFinalized',
+  'DebtCreated',
+  'HankoBatchProcessed',
 ] as const;
 export type CanonicalJEvent = (typeof CANONICAL_J_EVENTS)[number];
 
@@ -21,9 +34,7 @@ export type CanonicalJEvent = (typeof CANONICAL_J_EVENTS)[number];
 export const DEFAULT_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 
 export function computeAccountKey(entity1: string, entity2: string): string {
-  const [left, right] = entity1.toLowerCase() < entity2.toLowerCase()
-    ? [entity1, entity2]
-    : [entity2, entity1];
+  const [left, right] = entity1.toLowerCase() < entity2.toLowerCase() ? [entity1, entity2] : [entity2, entity1];
   return ethers.solidityPacked(['bytes32', 'bytes32'], [left, right]);
 }
 
@@ -36,7 +47,7 @@ export function setupContractEventListeners(
   depository: Depository,
   entityProvider: EntityProvider,
   eventCallbacks: Map<string, Set<JEventCallback>>,
-  anyCallbacks: Set<JEventCallback>
+  anyCallbacks: Set<JEventCallback>,
 ) {
   const depositoryEvents = [
     'ReserveUpdated',
@@ -51,9 +62,9 @@ export function setupContractEventListeners(
   ];
 
   for (const eventName of depositoryEvents) {
-    // Use any cast to bypass strict typechain event typing
-    (depository as any).on(eventName, (...args: any[]) => {
-      const event = args[args.length - 1];
+    // Use BaseContract cast to bypass strict typechain event typing
+    (depository as ethers.BaseContract).on(eventName, (...args: unknown[]) => {
+      const event = args[args.length - 1] as EthersEventPayload;
       const jEvent: JEvent = {
         name: eventName,
         args: event.args ? Object.fromEntries(event.args.entries()) : {},
@@ -67,17 +78,12 @@ export function setupContractEventListeners(
     });
   }
 
-  const entityProviderEvents = [
-    'EntityRegistered',
-    'NameAssigned',
-    'NameTransferred',
-    'GovernanceEnabled',
-  ];
+  const entityProviderEvents = ['EntityRegistered', 'NameAssigned', 'NameTransferred', 'GovernanceEnabled'];
 
   for (const eventName of entityProviderEvents) {
-    // Use any cast to bypass strict typechain event typing
-    (entityProvider as any).on(eventName, (...args: any[]) => {
-      const event = args[args.length - 1];
+    // Use BaseContract cast to bypass strict typechain event typing
+    (entityProvider as ethers.BaseContract).on(eventName, (...args: unknown[]) => {
+      const event = args[args.length - 1] as EthersEventPayload;
       const jEvent: JEvent = {
         name: eventName,
         args: event.args ? Object.fromEntries(event.args.entries()) : {},
@@ -165,19 +171,24 @@ export function isEventRelevantToEntity(event: RawJEvent, entityId: string): boo
  * Returns ARRAY because AccountSettled can contain multiple settlements for same entity.
  * Output format: { type: 'PascalCase', data: { ... } } — matches j-events.ts expectations.
  */
-export function rawEventToJEvents(event: RawJEvent, entityId: string): Array<{ type: string; data: Record<string, any> }> {
+export function rawEventToJEvents(
+  event: RawJEvent,
+  entityId: string,
+): Array<{ type: string; data: Record<string, any> }> {
   const args = event.args;
 
   switch (event.name) {
     case 'ReserveUpdated':
-      return [{
-        type: 'ReserveUpdated',
-        data: {
-          entity: args.entity,
-          tokenId: Number(args.tokenId),
-          newBalance: (args.newBalance ?? 0).toString(),
+      return [
+        {
+          type: 'ReserveUpdated',
+          data: {
+            entity: args.entity,
+            tokenId: Number(args.tokenId),
+            newBalance: (args.newBalance ?? 0).toString(),
+          },
         },
-      }];
+      ];
 
     case 'AccountSettled': {
       const settled = args.settled ?? args[''] ?? args[0] ?? [];
@@ -185,8 +196,10 @@ export function rawEventToJEvents(event: RawJEvent, entityId: string): Array<{ t
       for (const s of settled) {
         const left = s[0] ?? s.left;
         const right = s[1] ?? s.right;
-        if (String(left).toLowerCase() === entityId.toLowerCase() ||
-            String(right).toLowerCase() === entityId.toLowerCase()) {
+        if (
+          String(left).toLowerCase() === entityId.toLowerCase() ||
+          String(right).toLowerCase() === entityId.toLowerCase()
+        ) {
           const tokenId = Number(s[2] ?? s.tokenId ?? 0);
           const leftReserve = (s[3] ?? s.leftReserve ?? 0n).toString();
           const rightReserve = (s[4] ?? s.rightReserve ?? 0n).toString();
@@ -213,61 +226,71 @@ export function rawEventToJEvents(event: RawJEvent, entityId: string): Array<{ t
     }
 
     case 'SecretRevealed':
-      return [{
-        type: 'SecretRevealed',
-        data: {
-          hashlock: args.hashlock,
-          revealer: args.revealer,
-          secret: args.secret,
+      return [
+        {
+          type: 'SecretRevealed',
+          data: {
+            hashlock: args.hashlock,
+            revealer: args.revealer,
+            secret: args.secret,
+          },
         },
-      }];
+      ];
 
     case 'DisputeStarted':
-      return [{
-        type: 'DisputeStarted',
-        data: {
-          sender: args.sender,
-          counterentity: args.counterentity,
-          disputeNonce: args.disputeNonce,
-          proofbodyHash: args.proofbodyHash,
-          initialArguments: args.initialArguments ?? '0x',
+      return [
+        {
+          type: 'DisputeStarted',
+          data: {
+            sender: args.sender,
+            counterentity: args.counterentity,
+            disputeNonce: args.disputeNonce,
+            proofbodyHash: args.proofbodyHash,
+            initialArguments: args.initialArguments ?? '0x',
+          },
         },
-      }];
+      ];
 
     case 'DisputeFinalized':
-      return [{
-        type: 'DisputeFinalized',
-        data: {
-          sender: args.sender,
-          counterentity: args.counterentity,
-          initialDisputeNonce: args.initialDisputeNonce,
-          initialProofbodyHash: args.initialProofbodyHash,
-          finalProofbodyHash: args.finalProofbodyHash,
+      return [
+        {
+          type: 'DisputeFinalized',
+          data: {
+            sender: args.sender,
+            counterentity: args.counterentity,
+            initialDisputeNonce: args.initialDisputeNonce,
+            initialProofbodyHash: args.initialProofbodyHash,
+            finalProofbodyHash: args.finalProofbodyHash,
+          },
         },
-      }];
+      ];
 
     case 'DebtCreated':
-      return [{
-        type: 'DebtCreated',
-        data: {
-          debtor: args.debtor,
-          creditor: args.creditor,
-          tokenId: Number(args.tokenId),
-          amount: (args.amount ?? 0).toString(),
-          debtIndex: Number(args.debtIndex ?? 0),
+      return [
+        {
+          type: 'DebtCreated',
+          data: {
+            debtor: args.debtor,
+            creditor: args.creditor,
+            tokenId: Number(args.tokenId),
+            amount: (args.amount ?? 0).toString(),
+            debtIndex: Number(args.debtIndex ?? 0),
+          },
         },
-      }];
+      ];
 
     case 'HankoBatchProcessed':
-      return [{
-        type: 'HankoBatchProcessed',
-        data: {
-          entityId: args.entityId,
-          hankoHash: args.hankoHash,
-          nonce: Number(args.nonce),
-          success: Boolean(args.success),
+      return [
+        {
+          type: 'HankoBatchProcessed',
+          data: {
+            entityId: args.entityId,
+            hankoHash: args.hankoHash,
+            nonce: Number(args.nonce),
+            success: Boolean(args.success),
+          },
         },
-      }];
+      ];
 
     default:
       return [];

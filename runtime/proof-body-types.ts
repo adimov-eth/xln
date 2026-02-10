@@ -21,22 +21,18 @@ export type {
   FinalDisputeProofStructOutput,
 } from './typechain/Depository.js';
 
-export type {
-  DeltaTransformer,
-} from './typechain/DeltaTransformer.js';
+export type { DeltaTransformer } from './typechain/DeltaTransformer.js';
 
 // Import for internal use
-import type {
-  ProofBodyStruct,
-} from './typechain/Depository.js';
+import type { ProofBodyStruct } from './typechain/Depository.js';
 
 /**
  * Runtime-friendly ProofBody (uses native types, not BigNumberish)
  * Converted to ProofBodyStruct for ABI encoding
  */
 export interface RuntimeProofBody {
-  offdeltas: bigint[];           // int256[] - ondelta + offdelta per token
-  tokenIds: number[];            // uint256[] - sorted ascending
+  offdeltas: bigint[]; // int256[] - ondelta + offdelta per token
+  tokenIds: number[]; // uint256[] - sorted ascending
   transformers: RuntimeTransformerClause[];
 }
 
@@ -44,8 +40,8 @@ export interface RuntimeProofBody {
  * Runtime-friendly TransformerClause
  */
 export interface RuntimeTransformerClause {
-  transformerAddress: string;    // DeltaTransformer contract address
-  batch: RuntimeBatch;           // Decoded batch (not encoded bytes)
+  transformerAddress: string; // DeltaTransformer contract address
+  batch: RuntimeBatch; // Decoded batch (not encoded bytes)
   allowances: RuntimeAllowance[];
 }
 
@@ -62,10 +58,10 @@ export interface RuntimeBatch {
  * Maps to DeltaTransformer.PaymentStruct
  */
 export interface RuntimePayment {
-  deltaIndex: number;            // Index in tokenIds array
-  amount: bigint;                // int256 - positive = right owes left after reveal
-  revealedUntilBlock: number;    // Block deadline for secret reveal
-  hash: string;                  // bytes32 hashlock
+  deltaIndex: number; // Index in tokenIds array
+  amount: bigint; // int256 - positive = right owes left after reveal
+  revealedUntilBlock: number; // Block deadline for secret reveal
+  hash: string; // bytes32 hashlock
 }
 
 /**
@@ -73,11 +69,11 @@ export interface RuntimePayment {
  * Maps to DeltaTransformer.SwapStruct
  */
 export interface RuntimeSwap {
-  ownerIsLeft: boolean;          // Who placed this order
-  addDeltaIndex: number;         // Token to add (give token)
-  addAmount: bigint;             // Amount to add
-  subDeltaIndex: number;         // Token to subtract (want token)
-  subAmount: bigint;             // Amount to subtract
+  ownerIsLeft: boolean; // Who placed this order
+  addDeltaIndex: number; // Token to add (give token)
+  addAmount: bigint; // Amount to add
+  subDeltaIndex: number; // Token to subtract (want token)
+  subAmount: bigint; // Amount to subtract
 }
 
 /**
@@ -98,10 +94,10 @@ export interface ProofBodyResult {
 
   // ABI-encoded representation (for on-chain submission)
   proofBodyStruct: ProofBodyStruct;
-  encodedProofBody: string;      // ABI-encoded bytes
+  encodedProofBody: string; // ABI-encoded bytes
 
   // Hash for signing
-  proofBodyHash: string;         // keccak256(encodedProofBody)
+  proofBodyHash: string; // keccak256(encodedProofBody)
 }
 
 /**
@@ -109,8 +105,8 @@ export interface ProofBodyResult {
  * Value * 10 = blocks. E.g.: 0=instant(unsafe), 1=10 blocks, 2=20 blocks
  */
 export interface DisputeConfig {
-  leftDisputeDelay: number;      // uint16 - left entity's required delay
-  rightDisputeDelay: number;     // uint16 - right entity's required delay
+  leftDisputeDelay: number; // uint16 - left entity's required delay
+  rightDisputeDelay: number; // uint16 - right entity's required delay
 }
 
 /**

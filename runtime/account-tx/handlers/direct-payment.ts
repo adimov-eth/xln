@@ -15,7 +15,7 @@ import { getAccountPerspective } from '../../state-helpers';
 export function handleDirectPayment(
   accountMachine: AccountMachine,
   accountTx: Extract<AccountTx, { type: 'direct_payment' }>,
-  byLeft: boolean
+  byLeft: boolean,
 ): { success: boolean; events: string[]; error?: string } {
   const tokenId = accountTx.data.tokenId as TokenId;
   const { amount, route, description } = accountTx.data;
@@ -38,7 +38,9 @@ export function handleDirectPayment(
   let delta = accountMachine.deltas.get(tokenId);
   console.log(`🔍 DIRECT-PAYMENT: accountMachine.deltas.has(${tokenId})=${accountMachine.deltas.has(tokenId)}`);
   if (delta) {
-    console.log(`🔍 DIRECT-PAYMENT: delta.collateral=${delta.collateral}, ondelta=${delta.ondelta}, offdelta=${delta.offdelta}`);
+    console.log(
+      `🔍 DIRECT-PAYMENT: delta.collateral=${delta.collateral}, ondelta=${delta.ondelta}, offdelta=${delta.offdelta}`,
+    );
   }
   if (!delta) {
     console.log(`🔍 DIRECT-PAYMENT: Creating NEW delta (collateral will be 0!)`);
@@ -60,9 +62,10 @@ export function handleDirectPayment(
   const leftEntity = isLeftEntity(accountMachine.proofHeader.fromEntity, accountMachine.proofHeader.toEntity)
     ? accountMachine.proofHeader.fromEntity
     : accountMachine.proofHeader.toEntity;
-  const rightEntity = leftEntity === accountMachine.proofHeader.fromEntity
-    ? accountMachine.proofHeader.toEntity
-    : accountMachine.proofHeader.fromEntity;
+  const rightEntity =
+    leftEntity === accountMachine.proofHeader.fromEntity
+      ? accountMachine.proofHeader.toEntity
+      : accountMachine.proofHeader.fromEntity;
 
   // CRITICAL: Payment direction MUST be explicit - NO HEURISTICS (Channel.ts pattern)
   const paymentFromEntity = accountTx.data.fromEntityId;
@@ -164,16 +167,22 @@ export function handleDirectPayment(
   const oldOffdelta = delta.offdelta;
   delta.offdelta += canonicalDelta;
   console.log(`🔍 OFFDELTA-UPDATE: ${oldOffdelta} + ${canonicalDelta} = ${delta.offdelta}`);
-  console.log(`🔍 NEW-TOTAL: ondelta=${delta.ondelta} + offdelta=${delta.offdelta} = ${delta.ondelta + delta.offdelta}`);
+  console.log(
+    `🔍 NEW-TOTAL: ondelta=${delta.ondelta} + offdelta=${delta.offdelta} = ${delta.ondelta + delta.offdelta}`,
+  );
 
   // Events differ by perspective but state is identical (derive from byLeft)
   const { counterparty: cpForEvent } = getAccountPerspective(accountMachine, accountMachine.proofHeader.fromEntity);
   const iAmLeft = accountMachine.proofHeader.fromEntity === leftEntity;
-  const isOurFrame = (byLeft === iAmLeft);
+  const isOurFrame = byLeft === iAmLeft;
   if (isOurFrame) {
-    events.push(`💸 Sent ${amount.toString()} token ${tokenId} to Entity ${cpForEvent.slice(-4)} ${description ? '(' + description + ')' : ''}`);
+    events.push(
+      `💸 Sent ${amount.toString()} token ${tokenId} to Entity ${cpForEvent.slice(-4)} ${description ? '(' + description + ')' : ''}`,
+    );
   } else {
-    events.push(`💰 Received ${amount.toString()} token ${tokenId} from Entity ${paymentFromEntity.slice(-4)} ${description ? '(' + description + ')' : ''}`);
+    events.push(
+      `💰 Received ${amount.toString()} token ${tokenId} from Entity ${paymentFromEntity.slice(-4)} ${description ? '(' + description + ')' : ''}`,
+    );
   }
 
   // Update current frame
@@ -190,7 +199,9 @@ export function handleDirectPayment(
   // Check if we need to forward the payment (multi-hop routing)
   const isOutgoing = paymentFromEntity === accountMachine.proofHeader.fromEntity;
   console.log(`🔍 FORWARD-CHECK: route=${route ? `[${route.map(r => r.slice(-4)).join(',')}]` : 'null'}`);
-  console.log(`🔍 FORWARD-CHECK: isOutgoing=${isOutgoing}, paymentFrom=${paymentFromEntity.slice(-4)}, proofHeader.from=${accountMachine.proofHeader.fromEntity.slice(-4)}`);
+  console.log(
+    `🔍 FORWARD-CHECK: isOutgoing=${isOutgoing}, paymentFrom=${paymentFromEntity.slice(-4)}, proofHeader.from=${accountMachine.proofHeader.fromEntity.slice(-4)}`,
+  );
 
   if (route && route.length > 0 && !isOutgoing) {
     console.log(`🔍 FORWARD-CHECK: Passed first check (route.length=${route.length}, isOutgoing=${isOutgoing})`);
@@ -203,8 +214,12 @@ export function handleDirectPayment(
       return { success: false, error: 'Invalid payment route', events };
     }
 
-    console.log(`🔍 FORWARD-CHECK: currentInRoute=${currentEntityInRoute.slice(-4)}, proofHeader.from=${accountMachine.proofHeader.fromEntity.slice(-4)}, final=${finalTarget.slice(-4)}`);
-    console.log(`🔍 FORWARD-CHECK: Check result: ${currentEntityInRoute === accountMachine.proofHeader.fromEntity && currentEntityInRoute !== finalTarget}`);
+    console.log(
+      `🔍 FORWARD-CHECK: currentInRoute=${currentEntityInRoute.slice(-4)}, proofHeader.from=${accountMachine.proofHeader.fromEntity.slice(-4)}, final=${finalTarget.slice(-4)}`,
+    );
+    console.log(
+      `🔍 FORWARD-CHECK: Check result: ${currentEntityInRoute === accountMachine.proofHeader.fromEntity && currentEntityInRoute !== finalTarget}`,
+    );
 
     // If we're in the route but not the final destination, forward
     if (currentEntityInRoute === accountMachine.proofHeader.fromEntity && currentEntityInRoute !== finalTarget) {
@@ -219,9 +234,7 @@ export function handleDirectPayment(
         console.error(`❌ Routing error: received from ${nextHop} but should forward to them`);
       } else {
         // Add forwarding event
-        events.push(
-          `↪️ Forwarding payment to ${finalTarget.slice(-4)} via ${route.length - 1} more hops`
-        );
+        events.push(`↪️ Forwarding payment to ${finalTarget.slice(-4)} via ${route.length - 1} more hops`);
 
         // Store forwarding info for entity-consensus to create next hop transaction
         // NOTE: Route already sliced by entity-tx/apply (sender removed)

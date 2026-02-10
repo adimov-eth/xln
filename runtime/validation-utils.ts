@@ -11,13 +11,7 @@
 import { safeStringify } from './serialization-utils';
 import { isLeftEntity } from './entity-id-utils';
 import type { TokenId } from './ids';
-import type {
-  Delta,
-  RoutedEntityInput,
-  EntityState,
-  AccountMachine,
-  AccountFrame
-} from './types';
+import type { Delta, RoutedEntityInput, EntityState, AccountMachine, AccountFrame } from './types';
 
 /**
  * Strict validation for Delta objects - financial data must be complete
@@ -30,8 +24,7 @@ export function validateDelta(delta: unknown, source: string = 'unknown'): Delta
   }
 
   // Type narrowing: after checking it's an object, we validate fields immediately
-  // Using 'as any' here is safe because we validate every field before returning
-  const obj = delta as any;
+  const obj = delta as Record<string, unknown>;
 
   // Ensure all required properties exist and are proper types
   const errors: string[] = [];
@@ -41,7 +34,15 @@ export function validateDelta(delta: unknown, source: string = 'unknown'): Delta
   }
 
   // Validate all BigInt fields
-  const bigintFields = ['collateral', 'ondelta', 'offdelta', 'leftCreditLimit', 'rightCreditLimit', 'leftAllowance', 'rightAllowance'] as const;
+  const bigintFields = [
+    'collateral',
+    'ondelta',
+    'offdelta',
+    'leftCreditLimit',
+    'rightCreditLimit',
+    'leftAllowance',
+    'rightAllowance',
+  ] as const;
 
   for (const field of bigintFields) {
     const value = obj[field];
@@ -173,8 +174,7 @@ export function validateEntityInput(input: unknown): RoutedEntityInput {
     throw new Error(`FINANCIAL-SAFETY: EntityInput is null/undefined or not an object`);
   }
 
-  // Safe to use 'as any' since we validate all required fields immediately
-  const obj = input as any;
+  const obj = input as Record<string, unknown>;
 
   if (!obj.entityId || typeof obj.entityId !== 'string') {
     throw new Error(`FINANCIAL-SAFETY: entityId is missing or invalid - financial routing corruption detected`);
@@ -193,7 +193,7 @@ export function validateEntityInput(input: unknown): RoutedEntityInput {
     throw new Error(`FINANCIAL-SAFETY: entityTxs must be array`);
   }
 
-  return obj as RoutedEntityInput;
+  return obj as unknown as RoutedEntityInput;
 }
 
 /**
@@ -206,8 +206,7 @@ export function validateEntityOutput(output: unknown): RoutedEntityInput {
     throw new Error(`FINANCIAL-SAFETY: EntityOutput is null/undefined or not an object`);
   }
 
-  // Safe to use 'as any' since we validate all required fields immediately
-  const obj = output as any;
+  const obj = output as Record<string, unknown>;
 
   if (!obj.entityId || typeof obj.entityId !== 'string') {
     throw new Error(`FINANCIAL-SAFETY: EntityOutput entityId is missing - routing corruption`);
@@ -217,7 +216,7 @@ export function validateEntityOutput(output: unknown): RoutedEntityInput {
     throw new Error(`FINANCIAL-SAFETY: EntityOutput signerId must be string when provided`);
   }
 
-  return obj as RoutedEntityInput;
+  return obj as unknown as RoutedEntityInput;
 }
 
 /**
@@ -338,7 +337,9 @@ export function validateAccountFrame(value: unknown, context = 'AccountFrame'): 
     deltas: validateArray<bigint>(obj['deltas'] || [], `${context}.deltas`),
     // Optional fields - preserve if present (deep copy to prevent mutation issues)
     ...(typeof obj['byLeft'] === 'boolean' ? { byLeft: obj['byLeft'] } : {}),
-    ...(Array.isArray(obj['fullDeltaStates']) ? { fullDeltaStates: obj['fullDeltaStates'].map((d: any) => ({ ...d })) } : {}),
+    ...(Array.isArray(obj['fullDeltaStates'])
+      ? { fullDeltaStates: obj['fullDeltaStates'].map((d: any) => ({ ...d })) }
+      : {}),
   };
 
   // Additional integrity checks
@@ -347,7 +348,9 @@ export function validateAccountFrame(value: unknown, context = 'AccountFrame'): 
   }
 
   if (validated.timestamp <= 0) {
-    throw new FinancialDataCorruptionError('AccountFrame.timestamp must be positive', { timestamp: validated.timestamp });
+    throw new FinancialDataCorruptionError('AccountFrame.timestamp must be positive', {
+      timestamp: validated.timestamp,
+    });
   }
 
   return validated;
@@ -437,7 +440,7 @@ export function safeMapGetFinancial<K, V>(
   map: Map<K, V>,
   key: K,
   validator: (value: unknown, context: string) => V,
-  context: string
+  context: string,
 ): V {
   const value = map.get(key);
   if (value === undefined) {
@@ -462,7 +465,9 @@ export function safeArrayGet<T>(array: T[], index: number, context: string): T {
 export function validateEntityId(value: unknown, context: string): string {
   const entityId = validateString(value, context);
   if (entityId.includes('undefined')) {
-    throw new FinancialDataCorruptionError(`${context} contains 'undefined' - routing corruption detected`, { entityId });
+    throw new FinancialDataCorruptionError(`${context} contains 'undefined' - routing corruption detected`, {
+      entityId,
+    });
   }
   return entityId;
 }

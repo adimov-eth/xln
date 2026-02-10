@@ -20,7 +20,7 @@ export class NobleCryptoProvider implements CryptoProvider {
 
     return {
       publicKey: this.bytesToBase64(keyPair.publicKey),
-      privateKey: this.bytesToBase64(keyPair.secretKey)
+      privateKey: this.bytesToBase64(keyPair.secretKey),
     };
   }
 

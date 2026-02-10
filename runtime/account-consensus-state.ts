@@ -9,15 +9,15 @@
 import type { AccountMachine } from './types';
 
 export type BilateralState =
-  | 'committed'    // Both sides synced
-  | 'mempool'      // Local transactions not yet proposed
-  | 'proposed'     // Frame sent to peer, awaiting ACK
-  | 'conflict';    // Simultaneous proposals detected
+  | 'committed' // Both sides synced
+  | 'mempool' // Local transactions not yet proposed
+  | 'proposed' // Frame sent to peer, awaiting ACK
+  | 'conflict'; // Simultaneous proposals detected
 
 export interface BilateralVisualizationState {
   state: BilateralState;
   isLeftEntity: boolean;
-  shouldRollback: boolean;  // True if LEFT in conflict (Right wins)
+  shouldRollback: boolean; // True if LEFT in conflict (Right wins)
   pendingHeight: number | null;
   mempoolCount: number;
 }
@@ -31,7 +31,7 @@ export interface BilateralVisualizationState {
 export function classifyBilateralState(
   myAccount: AccountMachine | undefined,
   peerCurrentHeight: number | undefined,
-  isLeft: boolean
+  isLeft: boolean,
 ): BilateralVisualizationState {
   if (!myAccount) {
     return {
@@ -102,15 +102,14 @@ export interface AccountBarVisual {
   glowColor: 'yellow' | 'blue' | 'red' | null;
   glowSide: 'left' | 'right' | 'both' | null;
   glowIntensity: number; // 0.0 to 1.0
-  isDashed: boolean;     // True for uncommitted state
-  pulseSpeed: number;    // ms per pulse cycle (0 = no pulse)
+  isDashed: boolean; // True for uncommitted state
+  pulseSpeed: number; // ms per pulse cycle (0 = no pulse)
 }
 
 export function getAccountBarVisual(
   leftState: BilateralVisualizationState,
-  rightState: BilateralVisualizationState
+  rightState: BilateralVisualizationState,
 ): AccountBarVisual {
-
   // CONFLICT: Both proposed simultaneously
   if (leftState.state === 'conflict' || rightState.state === 'conflict') {
     return {
@@ -152,7 +151,7 @@ export function getAccountBarVisual(
       glowSide: side,
       glowIntensity: 0.2, // Very subtle
       isDashed: false,
-      pulseSpeed: 2000,   // Slow pulse
+      pulseSpeed: 2000, // Slow pulse
     };
   }
 

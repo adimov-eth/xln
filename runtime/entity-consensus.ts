@@ -5,7 +5,18 @@
 
 import { applyEntityTx } from './entity-tx';
 import { isLeftEntity } from './entity-id-utils';
-import type { ConsensusConfig, EntityInput, EntityReplica, EntityState, EntityTx, Env, HankoString, JInput, RoutedEntityInput } from './types';
+import type {
+  ConsensusConfig,
+  EntityInput,
+  EntityReplica,
+  EntityState,
+  EntityTx,
+  Env,
+  HankoString,
+  JInput,
+  JurisdictionEvent,
+  RoutedEntityInput,
+} from './types';
 import { isOk, isErr } from './types';
 import type { AccountKey } from './ids';
 import { DEBUG, HEAVY_LOGS, formatEntityDisplay, formatSignerDisplay, log } from './utils';
@@ -13,7 +24,13 @@ import { safeStringify } from './serialization-utils';
 import { logDebug, logInfo, logWarn, logError } from './logger';
 
 const L = 'ENTITY_CONSENSUS' as const;
-import { addMessages, cloneEntityReplica, cloneEntityState, getAccountPerspective, emitScopedEvents } from './state-helpers';
+import {
+  addMessages,
+  cloneEntityReplica,
+  cloneEntityState,
+  getAccountPerspective,
+  emitScopedEvents,
+} from './state-helpers';
 import { LIMITS } from './constants';
 import { signAccountFrame as signFrame, verifyAccountSignature as verifyFrame } from './account-crypto';
 import { ethers } from 'ethers';
@@ -64,7 +81,7 @@ export async function createEntityFrameHash(
   height: number,
   timestamp: number,
   txs: EntityTx[],
-  newState: EntityState
+  newState: EntityState,
 ): Promise<string> {
   // Build hashable state object
   const frameData = {
@@ -74,7 +91,7 @@ export async function createEntityFrameHash(
     // Deterministic tx serialization
     txs: txs.map(tx => ({
       type: tx.type,
-      data: tx.data
+      data: tx.data,
     })),
     // ═══════════════════════════════════════════════════════════════════════════
     // KEY STATE FIELDS (catch bugs early by including in hash)
@@ -96,26 +113,32 @@ export async function createEntityFrameHash(
         stateHash: acct.currentFrame?.stateHash || 'genesis',
       })),
     // HTLC routing state hash
-    htlcRoutesHash: newState.htlcRoutes.size > 0
-      ? ethers.keccak256(ethers.toUtf8Bytes(safeStringify(
-          Array.from(newState.htlcRoutes.entries())
-            .sort((a, b) => a[0].localeCompare(b[0]))
-        )))
-      : null,
+    htlcRoutesHash:
+      newState.htlcRoutes.size > 0
+        ? ethers.keccak256(
+            ethers.toUtf8Bytes(
+              safeStringify(Array.from(newState.htlcRoutes.entries()).sort((a, b) => a[0].localeCompare(b[0]))),
+            ),
+          )
+        : null,
     htlcFeesEarned: newState.htlcFeesEarned.toString(),
     // Lock/swap book hashes
-    lockBookHash: newState.lockBook.size > 0
-      ? ethers.keccak256(ethers.toUtf8Bytes(safeStringify(
-          Array.from(newState.lockBook.entries())
-            .sort((a, b) => a[0].localeCompare(b[0]))
-        )))
-      : null,
-    swapBookHash: newState.swapBook.size > 0
-      ? ethers.keccak256(ethers.toUtf8Bytes(safeStringify(
-          Array.from(newState.swapBook.entries())
-            .sort((a, b) => a[0].localeCompare(b[0]))
-        )))
-      : null,
+    lockBookHash:
+      newState.lockBook.size > 0
+        ? ethers.keccak256(
+            ethers.toUtf8Bytes(
+              safeStringify(Array.from(newState.lockBook.entries()).sort((a, b) => a[0].localeCompare(b[0]))),
+            ),
+          )
+        : null,
+    swapBookHash:
+      newState.swapBook.size > 0
+        ? ethers.keccak256(
+            ethers.toUtf8Bytes(
+              safeStringify(Array.from(newState.swapBook.entries()).sort((a, b) => a[0].localeCompare(b[0]))),
+            ),
+          )
+        : null,
     // Orderbook extension hash (if hub)
     orderbookHash: newState.orderbookExt
       ? ethers.keccak256(ethers.toUtf8Bytes(safeStringify(newState.orderbookExt)))
@@ -134,7 +157,7 @@ export async function createEntityFrameHash(
 function getPrevFrameHash(state: EntityState): string {
   if (state.height === 0) return 'genesis';
   // Store prevFrameHash in EntityState on commit (added below)
-  return (state as any).prevFrameHash || 'genesis';
+  return state.prevFrameHash ?? 'genesis';
 }
 
 // === SECURITY VALIDATION ===
@@ -264,12 +287,20 @@ export const applyEntityInput = async (
   env: Env,
   entityReplica: EntityReplica,
   entityInput: EntityInput,
-): Promise<{ newState: EntityState, outputs: RoutedEntityInput[], jOutputs: JInput[], workingReplica: EntityReplica }> => {
+): Promise<{
+  newState: EntityState;
+  outputs: RoutedEntityInput[];
+  jOutputs: JInput[];
+  workingReplica: EntityReplica;
+}> => {
   // IMMUTABILITY: Clone replica at function start (fintech-safe, hacker-proof)
   // Prevents state mutations from escaping function scope
   const workingReplica = cloneEntityReplica(entityReplica);
 
-  logDebug(L, `INPUT: E#${formatEntityDisplay(entityInput.entityId)}:${formatSignerDisplay(workingReplica.signerId)} txs=${entityInput.entityTxs?.length || 0} precommits=${entityInput.hashPrecommits?.size || 0} frame=${entityInput.proposedFrame?.hash?.slice(0, 10) || '-'}`);
+  logDebug(
+    L,
+    `INPUT: E#${formatEntityDisplay(entityInput.entityId)}:${formatSignerDisplay(workingReplica.signerId)} txs=${entityInput.entityTxs?.length || 0} precommits=${entityInput.hashPrecommits?.size || 0} frame=${entityInput.proposedFrame?.hash?.slice(0, 10) || '-'}`,
+  );
 
   // SECURITY: Validate all inputs
   if (!validateEntityInput(entityInput)) {
@@ -309,7 +340,11 @@ export const applyEntityInput = async (
   // Add transactions to mempool
   if (entityInput.entityTxs?.length) {
     workingReplica.mempool.push(...entityInput.entityTxs);
-    if (HEAVY_LOGS) logDebug(L, `Mempool +${entityInput.entityTxs.length} → ${workingReplica.mempool.length} types=[${entityInput.entityTxs.map(tx => tx.type)}]`);
+    if (HEAVY_LOGS)
+      logDebug(
+        L,
+        `Mempool +${entityInput.entityTxs.length} → ${workingReplica.mempool.length} types=[${entityInput.entityTxs.map(tx => tx.type)}]`,
+      );
   }
 
   // CRITICAL: Forward transactions to proposer BEFORE processing commits
@@ -347,18 +382,21 @@ export const applyEntityInput = async (
           logError(L, `   Commit: ${entityInput.proposedFrame.hash}`);
           return { newState: workingReplica.state, outputs: entityOutbox, jOutputs: jOutbox, workingReplica };
         }
-        logDebug(L, `Commit validation: matches locked frame ${workingReplica.lockedFrame.hash.slice(0,10)}`);
+        logDebug(L, `Commit validation: matches locked frame ${workingReplica.lockedFrame.hash.slice(0, 10)}`);
       }
 
       // SECURITY: Verify first signature (entityFrame hash) from each signer
       for (const [signerId, sigs] of frameCollectedSigs) {
         if (!sigs[0] || !verifyFrame(env, signerId, entityInput.proposedFrame.hash, sigs[0])) {
           logError(L, `❌ BYZANTINE: Invalid signature from ${signerId}`);
-          logError(L, `   Frame hash: ${entityInput.proposedFrame.hash.slice(0,30)}...`);
+          logError(L, `   Frame hash: ${entityInput.proposedFrame.hash.slice(0, 30)}...`);
           return { newState: workingReplica.state, outputs: entityOutbox, jOutputs: jOutbox, workingReplica };
         }
       }
-      logDebug(L, `All ${frameCollectedSigs.size} signatures validated for frame ${entityInput.proposedFrame.hash.slice(0,10)}`);
+      logDebug(
+        L,
+        `All ${frameCollectedSigs.size} signatures validated for frame ${entityInput.proposedFrame.hash.slice(0, 10)}`,
+      );
 
       // Emit frame commit event
       env.emit('EntityFrameCommitted', {
@@ -400,7 +438,10 @@ export const applyEntityInput = async (
       delete workingReplica.lockedFrame; // Release lock after commit
       delete workingReplica.validatorComputedState; // Clear computed state after commit
       if (HEAVY_LOGS)
-        logDebug(L, `Applied commit: ${workingReplica.state.messages.length} messages, height: ${workingReplica.state.height}`);
+        logDebug(
+          L,
+          `Applied commit: ${workingReplica.state.messages.length} messages, height: ${workingReplica.state.height}`,
+        );
 
       // Return early - commit notifications don't trigger further processing
       return { newState: workingReplica.state, outputs: entityOutbox, jOutputs: jOutbox, workingReplica };
@@ -423,83 +464,100 @@ export const applyEntityInput = async (
     const expectedPrevHeight = proposedFrame.height - 1;
     const canVerify = workingReplica.state.height >= expectedPrevHeight;
     if (!canVerify) {
-      logWarn(L, `CATCH-UP: Validator ${workingReplica.signerId} behind (h=${workingReplica.state.height}, need h=${expectedPrevHeight}). Will sync on commit.`);
+      logWarn(
+        L,
+        `CATCH-UP: Validator ${workingReplica.signerId} behind (h=${workingReplica.state.height}, need h=${expectedPrevHeight}). Will sync on commit.`,
+      );
     }
 
     if (canVerify) {
-    // ═══════════════════════════════════════════════════════════════════════════
-    // VALIDATOR HASH VERIFICATION (BFT hardening)
-    // ═══════════════════════════════════════════════════════════════════════════
-    // Apply txs locally, compute expected hash, reject if mismatch
-    // DETERMINISM: verifyOnly=true skips account frame proposals (timestamp-dependent side effects)
-    // DETERMINISM: Pass proposedFrame.newState.timestamp so validator uses same timestamp as proposer
-    const { newState: validatorComputedState } = await applyEntityFrame(env, workingReplica.state, proposedFrame.txs, true, proposedFrame.newState.timestamp);
-    const validatorNewState = {
-      ...validatorComputedState,
-      entityId: workingReplica.state.entityId,
-      height: proposedFrame.height,
-      timestamp: proposedFrame.newState.timestamp,
-    };
+      // ═══════════════════════════════════════════════════════════════════════════
+      // VALIDATOR HASH VERIFICATION (BFT hardening)
+      // ═══════════════════════════════════════════════════════════════════════════
+      // Apply txs locally, compute expected hash, reject if mismatch
+      // DETERMINISM: verifyOnly=true skips account frame proposals (timestamp-dependent side effects)
+      // DETERMINISM: Pass proposedFrame.newState.timestamp so validator uses same timestamp as proposer
+      const { newState: validatorComputedState } = await applyEntityFrame(
+        env,
+        workingReplica.state,
+        proposedFrame.txs,
+        true,
+        proposedFrame.newState.timestamp,
+      );
+      const validatorNewState = {
+        ...validatorComputedState,
+        entityId: workingReplica.state.entityId,
+        height: proposedFrame.height,
+        timestamp: proposedFrame.newState.timestamp,
+      };
 
-    const prevFrameHash = getPrevFrameHash(workingReplica.state);
-    const validatorComputedHash = await createEntityFrameHash(
-      prevFrameHash,
-      proposedFrame.height,
-      proposedFrame.newState.timestamp,
-      proposedFrame.txs,
-      validatorNewState
-    );
+      const prevFrameHash = getPrevFrameHash(workingReplica.state);
+      const validatorComputedHash = await createEntityFrameHash(
+        prevFrameHash,
+        proposedFrame.height,
+        proposedFrame.newState.timestamp,
+        proposedFrame.txs,
+        validatorNewState,
+      );
 
-    // SECURITY: Reject if hash mismatch (proposer sent different state than txs produce)
-    if (validatorComputedHash !== proposedFrame.hash) {
-      logError(L, `❌ HASH MISMATCH: Proposer sent invalid frame hash!`);
-      logError(L, `   Expected: ${validatorComputedHash.slice(0, 30)}...`);
-      logError(L, `   Received: ${proposedFrame.hash.slice(0, 30)}...`);
-      logError(L, `   This could indicate equivocation attack or state divergence bug.`);
-      // Don't sign, don't lock - reject the proposal
-      return { newState: workingReplica.state, outputs: entityOutbox, jOutputs: jOutbox, workingReplica };
-    }
-
-    logDebug(L, `Validator hash verified: ${proposedFrame.hash.slice(0, 20)}...`);
-
-    // Sign ALL hashes in proposal (entity frame + account frames + disputes)
-    const hashesToSign = proposedFrame.hashesToSign || [{ hash: proposedFrame.hash, type: 'entityFrame' as const, context: '' }];
-    const allSignatures = await Promise.all(
-      hashesToSign.map(h => signFrame(env, workingReplica.signerId, h.hash))
-    );
-    logDebug(L, `Validator signed ${allSignatures.length} hashes for entity consensus`);
-
-    // Lock to this frame (CometBFT style)
-    workingReplica.lockedFrame = proposedFrame;
-
-    // SECURITY: Store OUR computed state (not proposer's) for use at commit time
-    // This prevents state injection attacks where proposer sends poisoned newState
-    workingReplica.validatorComputedState = validatorNewState;
-
-    if (config.mode === 'gossip-based') {
-      // Send precommit to all validators
-      config.validators.forEach(validatorId => {
-        if (HEAVY_LOGS) logDebug(L, `GOSSIP: ${workingReplica.signerId} sending hashPrecommits to ${validatorId} for entity ${entityInput.entityId.slice(0, 10)}, sigs: ${allSignatures.length}`);
-        entityOutbox.push({
-          entityId: entityInput.entityId,
-          signerId: validatorId,
-          hashPrecommits: new Map([[workingReplica.signerId, allSignatures]]),
-        });
-      });
-    } else {
-      // Send precommit to proposer only
-      const proposerId = config.validators[0];
-      if (!proposerId) {
-        logError(L, `❌ No proposer found in validators: ${config.validators}`);
+      // SECURITY: Reject if hash mismatch (proposer sent different state than txs produce)
+      if (validatorComputedHash !== proposedFrame.hash) {
+        logError(L, `❌ HASH MISMATCH: Proposer sent invalid frame hash!`);
+        logError(L, `   Expected: ${validatorComputedHash.slice(0, 30)}...`);
+        logError(L, `   Received: ${proposedFrame.hash.slice(0, 30)}...`);
+        logError(L, `   This could indicate equivocation attack or state divergence bug.`);
+        // Don't sign, don't lock - reject the proposal
         return { newState: workingReplica.state, outputs: entityOutbox, jOutputs: jOutbox, workingReplica };
       }
-      if (HEAVY_LOGS) logDebug(L, `PROPOSER: ${workingReplica.signerId} sending hashPrecommits to ${proposerId} for entity ${entityInput.entityId.slice(0, 10)}, sigs: ${allSignatures.length}`);
-      entityOutbox.push({
-        entityId: entityInput.entityId,
-        signerId: proposerId,
-        hashPrecommits: new Map([[workingReplica.signerId, allSignatures]]),
-      });
-    }
+
+      logDebug(L, `Validator hash verified: ${proposedFrame.hash.slice(0, 20)}...`);
+
+      // Sign ALL hashes in proposal (entity frame + account frames + disputes)
+      const hashesToSign = proposedFrame.hashesToSign || [
+        { hash: proposedFrame.hash, type: 'entityFrame' as const, context: '' },
+      ];
+      const allSignatures = await Promise.all(hashesToSign.map(h => signFrame(env, workingReplica.signerId, h.hash)));
+      logDebug(L, `Validator signed ${allSignatures.length} hashes for entity consensus`);
+
+      // Lock to this frame (CometBFT style)
+      workingReplica.lockedFrame = proposedFrame;
+
+      // SECURITY: Store OUR computed state (not proposer's) for use at commit time
+      // This prevents state injection attacks where proposer sends poisoned newState
+      workingReplica.validatorComputedState = validatorNewState;
+
+      if (config.mode === 'gossip-based') {
+        // Send precommit to all validators
+        config.validators.forEach(validatorId => {
+          if (HEAVY_LOGS)
+            logDebug(
+              L,
+              `GOSSIP: ${workingReplica.signerId} sending hashPrecommits to ${validatorId} for entity ${entityInput.entityId.slice(0, 10)}, sigs: ${allSignatures.length}`,
+            );
+          entityOutbox.push({
+            entityId: entityInput.entityId,
+            signerId: validatorId,
+            hashPrecommits: new Map([[workingReplica.signerId, allSignatures]]),
+          });
+        });
+      } else {
+        // Send precommit to proposer only
+        const proposerId = config.validators[0];
+        if (!proposerId) {
+          logError(L, `❌ No proposer found in validators: ${config.validators}`);
+          return { newState: workingReplica.state, outputs: entityOutbox, jOutputs: jOutbox, workingReplica };
+        }
+        if (HEAVY_LOGS)
+          logDebug(
+            L,
+            `PROPOSER: ${workingReplica.signerId} sending hashPrecommits to ${proposerId} for entity ${entityInput.entityId.slice(0, 10)}, sigs: ${allSignatures.length}`,
+          );
+        entityOutbox.push({
+          entityId: entityInput.entityId,
+          signerId: proposerId,
+          hashPrecommits: new Map([[workingReplica.signerId, allSignatures]]),
+        });
+      }
     } // end if (canVerify) — behind validators skip verification and wait for commit
   }
 
@@ -511,7 +569,9 @@ export const applyEntityInput = async (
     for (const [signerId, sigs] of entityInput.hashPrecommits!) {
       // Verify signature count matches hashesToSign
       if (proposal.hashesToSign && sigs.length !== proposal.hashesToSign.length) {
-        log.error(`❌ Signature count mismatch from ${signerId}: got ${sigs.length}, expected ${proposal.hashesToSign.length}`);
+        log.error(
+          `❌ Signature count mismatch from ${signerId}: got ${sigs.length}, expected ${proposal.hashesToSign.length}`,
+        );
         continue;
       }
       // SECURITY: Verify frame hash signature (sigs[0]) before accepting precommit
@@ -531,7 +591,10 @@ export const applyEntityInput = async (
       }
       proposal.collectedSigs.set(signerId, sigs);
     }
-    logDebug(L, `Collected hashPrecommits from ${entityInput.hashPrecommits!.size} validators (total: ${proposal.collectedSigs?.size || 0})`);
+    logDebug(
+      L,
+      `Collected hashPrecommits from ${entityInput.hashPrecommits!.size} validators (total: ${proposal.collectedSigs?.size || 0})`,
+    );
 
     // Check threshold using collectedSigs (validators who signed ALL hashes)
     const signers = Array.from(proposal.collectedSigs?.keys() || []);
@@ -581,11 +644,14 @@ export const applyEntityInput = async (
             workingReplica.state.entityId,
             hashInfo.hash,
             sigsForHash,
-            workingReplica.state.config
+            workingReplica.state.config,
           );
           committedHankos.push(hanko);
         }
-        logDebug(L, `ENTITY-COMMIT: Built ${committedHankos.length} quorum hankos from ${proposal.collectedSigs.size} validators`);
+        logDebug(
+          L,
+          `ENTITY-COMMIT: Built ${committedHankos.length} quorum hankos from ${proposal.collectedSigs.size} validators`,
+        );
       }
 
       // Step 2: Store hankos in hankoWitness (NOT part of state hash)
@@ -628,7 +694,7 @@ export const applyEntityInput = async (
               if (accountInput.newAccountFrame?.stateHash) {
                 const frameHankoEntry = workingReplica.hankoWitness?.get(accountInput.newAccountFrame.stateHash);
                 if (frameHankoEntry) {
-                  (accountInput as any).newHanko = frameHankoEntry.hanko;
+                  accountInput.newHanko = frameHankoEntry.hanko;
                   attachedCount++;
                   if (HEAVY_LOGS) logDebug(L, `ATTACH-HANKO: frame for ${accountInput.toEntityId?.slice(-4)}`);
                 }
@@ -637,16 +703,20 @@ export const applyEntityInput = async (
               if (accountInput.newDisputeHash) {
                 const disputeHankoEntry = workingReplica.hankoWitness?.get(accountInput.newDisputeHash);
                 if (disputeHankoEntry) {
-                  (accountInput as any).newDisputeHanko = disputeHankoEntry.hanko;
+                  accountInput.newDisputeHanko = disputeHankoEntry.hanko;
                   attachedCount++;
                   if (HEAVY_LOGS) logDebug(L, `ATTACH-HANKO: dispute for ${accountInput.toEntityId?.slice(-4)}`);
                 }
               }
             }
             // Attach quorum hanko for settlement approval (find by type in hankoWitness)
-            if (accountInput.type === 'settlement' && accountInput.settleAction.type === 'approve' && accountInput.settleAction.hanko) {
+            if (
+              accountInput.type === 'settlement' &&
+              accountInput.settleAction.type === 'approve' &&
+              accountInput.settleAction.hanko
+            ) {
               for (const [_witnessHash, entry] of workingReplica.hankoWitness || []) {
-                if (entry.type === 'settlement' && entry.entityHeight === (workingReplica.state.height + 1)) {
+                if (entry.type === 'settlement' && entry.entityHeight === workingReplica.state.height + 1) {
                   accountInput.settleAction.hanko = entry.hanko;
                   attachedCount++;
                   if (HEAVY_LOGS) logDebug(L, `ATTACH-HANKO: settlement for ${accountInput.toEntityId?.slice(-4)}`);
@@ -689,12 +759,19 @@ export const applyEntityInput = async (
       if (workingReplica.state.config.mode === 'proposer-based') {
         const committedProposalHash = committedFrame.hash.slice(0, 10);
         const signerCount = committedFrame.collectedSigs?.size || 0;
-        logDebug(L, `COMMIT-START: ${workingReplica.signerId} reached threshold for proposal ${committedProposalHash}, sending commit notifications`);
+        logDebug(
+          L,
+          `COMMIT-START: ${workingReplica.signerId} reached threshold for proposal ${committedProposalHash}, sending commit notifications`,
+        );
 
         // Notify all validators (except self)
         workingReplica.state.config.validators.forEach(validatorId => {
           if (validatorId !== workingReplica.signerId) {
-            if (HEAVY_LOGS) logDebug(L, `COMMIT: sending commit notification to ${validatorId} for entity ${entityInput.entityId.slice(0, 10)}, proposal ${committedProposalHash} (${signerCount} precommits)`);
+            if (HEAVY_LOGS)
+              logDebug(
+                L,
+                `COMMIT: sending commit notification to ${validatorId} for entity ${entityInput.entityId.slice(0, 10)}, proposal ${committedProposalHash} (${signerCount} precommits)`,
+              );
             entityOutbox.push({
               entityId: entityInput.entityId,
               signerId: validatorId,
@@ -703,18 +780,29 @@ export const applyEntityInput = async (
           }
         });
       } else {
-        if (HEAVY_LOGS) logDebug(L, `GOSSIP-COMMIT: ${workingReplica.signerId} NOT sending commit notifications (gossip mode) for entity ${entityInput.entityId.slice(0, 10)}`);
+        if (HEAVY_LOGS)
+          logDebug(
+            L,
+            `GOSSIP-COMMIT: ${workingReplica.signerId} NOT sending commit notifications (gossip mode) for entity ${entityInput.entityId.slice(0, 10)}`,
+          );
       }
     }
   }
 
   // Commit notifications are now handled at the top of the function
 
-  if (HEAVY_LOGS) logDebug(L, `CONSENSUS-CHECK: ${workingReplica.entityId}:${workingReplica.signerId} proposer=${workingReplica.isProposer} mempool=${workingReplica.mempool.length} proposal=${!!workingReplica.proposal}`);
+  if (HEAVY_LOGS)
+    logDebug(
+      L,
+      `CONSENSUS-CHECK: ${workingReplica.entityId}:${workingReplica.signerId} proposer=${workingReplica.isProposer} mempool=${workingReplica.mempool.length} proposal=${!!workingReplica.proposal}`,
+    );
 
   // Auto-propose logic: ONLY proposer can propose (BFT requirement)
   if (workingReplica.isProposer && workingReplica.mempool.length > 0 && !workingReplica.proposal) {
-    logDebug(L, `Auto-propose triggered: mempool=${workingReplica.mempool.length} types=[${workingReplica.mempool.map(tx => tx.type)}]`);
+    logDebug(
+      L,
+      `Auto-propose triggered: mempool=${workingReplica.mempool.length} types=[${workingReplica.mempool.map(tx => tx.type)}]`,
+    );
 
     // Check if this is a single signer entity (threshold = 1, only 1 validator)
     const isSingleSigner =
@@ -724,7 +812,11 @@ export const applyEntityInput = async (
       logDebug(L, `SINGLE-SIGNER: Direct execution without consensus`);
       // For single signer entities, directly apply transactions without consensus
       // DETERMINISM: Proposer passes env.timestamp (their local time when creating the frame)
-      const { newState: newEntityState, outputs: frameOutputs, jOutputs: frameJOutputs } = await applyEntityFrame(env, workingReplica.state, workingReplica.mempool, false, env.timestamp);
+      const {
+        newState: newEntityState,
+        outputs: frameOutputs,
+        jOutputs: frameJOutputs,
+      } = await applyEntityFrame(env, workingReplica.state, workingReplica.mempool, false, env.timestamp);
       const newHeight = workingReplica.state.height + 1;
       const newTimestamp = env.timestamp;
 
@@ -741,7 +833,7 @@ export const applyEntityInput = async (
         newHeight,
         newTimestamp,
         workingReplica.mempool,
-        singleSignerNewState
+        singleSignerNewState,
       );
 
       workingReplica.state = {
@@ -756,14 +848,25 @@ export const applyEntityInput = async (
       // Clear mempool after direct application
       workingReplica.mempool.length = 0;
 
-      if (HEAVY_LOGS) logDebug(L, `Single-signer applied: height=${workingReplica.state.height} outbox=${entityOutbox.length} jOutbox=${jOutbox.length}`);
+      if (HEAVY_LOGS)
+        logDebug(
+          L,
+          `Single-signer applied: height=${workingReplica.state.height} outbox=${entityOutbox.length} jOutbox=${jOutbox.length}`,
+        );
       return { newState: workingReplica.state, outputs: entityOutbox, jOutputs: jOutbox, workingReplica }; // Skip the full consensus process
     }
 
-    if (HEAVY_LOGS) logDebug(L, `Auto-propose: mempool=${workingReplica.mempool.length} isProposer=${workingReplica.isProposer}`);
+    if (HEAVY_LOGS)
+      logDebug(L, `Auto-propose: mempool=${workingReplica.mempool.length} isProposer=${workingReplica.isProposer}`);
     // Compute new state once during proposal (outputs stored for commit-time hanko attachment)
     // DETERMINISM: Proposer passes env.timestamp (their local time when creating the frame)
-    const { newState: newEntityState, deterministicState: proposerDeterministicState, outputs: proposalOutputs, jOutputs: proposalJOutputs, collectedHashes } = await applyEntityFrame(env, workingReplica.state, workingReplica.mempool, false, env.timestamp);
+    const {
+      newState: newEntityState,
+      deterministicState: proposerDeterministicState,
+      outputs: proposalOutputs,
+      jOutputs: proposalJOutputs,
+      collectedHashes,
+    } = await applyEntityFrame(env, workingReplica.state, workingReplica.mempool, false, env.timestamp);
 
     // CRITICAL: proposalOutputs are stored in the proposal, NOT pushed to entityOutbox yet.
     // At commit time, we use these stored outputs and attach hankos.
@@ -802,7 +905,7 @@ export const applyEntityInput = async (
       newHeight,
       newTimestamp,
       workingReplica.mempool,
-      deterministicForHash
+      deterministicForHash,
     );
     void signFrame(env, workingReplica.signerId, frameHash);
 
@@ -835,9 +938,7 @@ export const applyEntityInput = async (
     const hashesToSign: import('./types').HashToSign[] = [entityFrameHashToSign, ...additionalHashesToSign];
 
     // Sign ALL hashes (not just frame hash)
-    const selfSigs = await Promise.all(
-      hashesToSign.map(h => signFrame(env, workingReplica.signerId, h.hash))
-    );
+    const selfSigs = await Promise.all(hashesToSign.map(h => signFrame(env, workingReplica.signerId, h.hash)));
 
     workingReplica.proposal = {
       height: newHeight,
@@ -850,7 +951,11 @@ export const applyEntityInput = async (
       collectedSigs: new Map([[workingReplica.signerId, selfSigs]]),
     };
 
-    if (HEAVY_LOGS) logDebug(L, `Auto-proposing frame ${workingReplica.proposal.hash.slice(0, 20)}... with ${workingReplica.proposal.txs.length} txs`);
+    if (HEAVY_LOGS)
+      logDebug(
+        L,
+        `Auto-proposing frame ${workingReplica.proposal.hash.slice(0, 20)}... with ${workingReplica.proposal.txs.length} txs`,
+      );
 
     // Send proposal to all validators (except self)
     workingReplica.state.config.validators.forEach(validatorId => {
@@ -870,11 +975,17 @@ export const applyEntityInput = async (
   }
 
   if (HEAVY_LOGS) {
-    logDebug(L, `OUTPUT: ${entityOutbox.length} outputs, proposal=${workingReplica.proposal?.hash?.slice(0, 10) || 'none'}, mempool=${workingReplica.mempool.length}`);
+    logDebug(
+      L,
+      `OUTPUT: ${entityOutbox.length} outputs, proposal=${workingReplica.proposal?.hash?.slice(0, 10) || 'none'}, mempool=${workingReplica.mempool.length}`,
+    );
     entityOutbox.forEach((output, index) => {
       const outputFrameHash = output.proposedFrame?.hash?.slice(0, 10) || 'none';
       const hashPrecommitCount = output.hashPrecommits?.size || 0;
-      logDebug(L, `OUTPUT-${index + 1}: To ${formatEntityDisplay(output.entityId)}:${formatSignerDisplay(output.signerId || '')} txs=${output.entityTxs?.length || 0} precommits=${hashPrecommitCount} frame=${outputFrameHash}`);
+      logDebug(
+        L,
+        `OUTPUT-${index + 1}: To ${formatEntityDisplay(output.entityId)}:${formatSignerDisplay(output.signerId || '')} txs=${output.entityTxs?.length || 0} precommits=${hashPrecommitCount} frame=${outputFrameHash}`,
+      );
     });
   }
 
@@ -901,7 +1012,11 @@ export const applyEntityFrame = async (
   outputs: EntityInput[];
   jOutputs: JInput[];
   // Hashes emitted during frame processing that need entity-quorum signing
-  collectedHashes?: Array<{ hash: string; type: 'accountFrame' | 'dispute' | 'profile' | 'settlement'; context: string }>;
+  collectedHashes?: Array<{
+    hash: string;
+    type: 'accountFrame' | 'dispute' | 'profile' | 'settlement';
+    context: string;
+  }>;
 }> => {
   if (HEAVY_LOGS) logDebug(L, `APPLY-ENTITY-FRAME: ${entityTxs.length} txs types=[${entityTxs.map(tx => tx.type)}]`);
 
@@ -925,14 +1040,22 @@ export const applyEntityFrame = async (
   const allSwapOffersCancelled: Array<any> = [];
 
   for (const entityTx of entityTxs) {
-    const { newState, outputs, jOutputs, mempoolOps, swapOffersCreated, swapOffersCancelled } = await applyEntityTx(env, currentEntityState, entityTx);
+    const { newState, outputs, jOutputs, mempoolOps, swapOffersCreated, swapOffersCancelled } = await applyEntityTx(
+      env,
+      currentEntityState,
+      entityTx,
+    );
     currentEntityState = newState;
 
     // DEBUG: Check account mempools IMMEDIATELY after entityTx
     if (entityTx.type === 'j_event') {
       for (const [cpId, acct] of currentEntityState.accounts) {
         if (acct.mempool.length > 0) {
-          if (HEAVY_LOGS) logDebug(L, `AFTER-ENTITY-TX(j_event): Account ${cpId.slice(-4)} mempool=[${acct.mempool.map((tx: any) => tx.type)}]`);
+          if (HEAVY_LOGS)
+            logDebug(
+              L,
+              `AFTER-ENTITY-TX(j_event): Account ${cpId.slice(-4)} mempool=[${acct.mempool.map((tx: any) => tx.type)}]`,
+            );
         }
       }
     }
@@ -949,7 +1072,8 @@ export const applyEntityFrame = async (
         if (account) {
           account.mempool.push(tx);
           proposableAccounts.add(accountId);
-          if (HEAVY_LOGS) logDebug(L, `mempoolOp: ${accountId.slice(-8)}: ${tx.type} (mempool=${account.mempool.length})`);
+          if (HEAVY_LOGS)
+            logDebug(L, `mempoolOp: ${accountId.slice(-8)}: ${tx.type} (mempool=${account.mempool.length})`);
         } else {
           logWarn(L, `Account ${accountId.slice(-8)} not found for mempoolOp`);
         }
@@ -961,7 +1085,10 @@ export const applyEntityFrame = async (
 
     if (entityTx.type === 'extendCredit' && HEAVY_LOGS) {
       for (const [cpId, acctMachine] of currentEntityState.accounts) {
-        logDebug(L, `POST-EXTEND-CREDIT: ${cpId.slice(0,10)} mempool=${acctMachine.mempool.length} pending=${!!acctMachine.proposal} height=${acctMachine.currentHeight}`);
+        logDebug(
+          L,
+          `POST-EXTEND-CREDIT: ${cpId.slice(0, 10)} mempool=${acctMachine.mempool.length} pending=${!!acctMachine.proposal} height=${acctMachine.currentHeight}`,
+        );
       }
     }
 
@@ -981,28 +1108,48 @@ export const applyEntityFrame = async (
         // - Have transactions in mempool
         if (hasPendingTxs && !accountMachine.proposal) {
           proposableAccounts.add(fromEntity); // counterparty ID
-          if (HEAVY_LOGS) logDebug(L, `Added ${fromEntity.slice(0,10)} to proposable - Pending:${hasPendingTxs}`);
+          if (HEAVY_LOGS) logDebug(L, `Added ${fromEntity.slice(0, 10)} to proposable - Pending:${hasPendingTxs}`);
         } else if (isAck) {
-          if (HEAVY_LOGS) logDebug(L, `Received ACK from ${fromEntity.slice(0,10)}, no action needed (mempool empty)`);
+          if (HEAVY_LOGS) logDebug(L, `Received ACK from ${fromEntity.slice(0, 10)}, no action needed (mempool empty)`);
         }
       }
     } else if (entityTx.type === 'directPayment' && entityTx.data) {
-      if (HEAVY_LOGS) logDebug(L, `DIRECT-PAYMENT: target=${entityTx.data.targetEntityId} amount=${entityTx.data.amount} accounts=${currentEntityState.accounts.size}`);
+      if (HEAVY_LOGS)
+        logDebug(
+          L,
+          `DIRECT-PAYMENT: target=${entityTx.data.targetEntityId} amount=${entityTx.data.amount} accounts=${currentEntityState.accounts.size}`,
+        );
 
       // Payment was added to mempool in applyEntityTx
       // We need to find which account got the payment and mark it for frame proposal
 
       // Check all accounts to see which one has new mempool items
       // Note: accountKey is counterparty ID (e.g., "alice", "bob")
-      if (HEAVY_LOGS) logDebug(L, `DIRECT-PAYMENT-SCAN: Entity ${currentEntityState.entityId.slice(-4)} has ${currentEntityState.accounts.size} accounts`);
+      if (HEAVY_LOGS)
+        logDebug(
+          L,
+          `DIRECT-PAYMENT-SCAN: Entity ${currentEntityState.entityId.slice(-4)} has ${currentEntityState.accounts.size} accounts`,
+        );
       for (const [counterpartyId, accountMachine] of currentEntityState.accounts) {
         const isLeft = isLeftEntity(accountMachine.proofHeader.fromEntity, accountMachine.proofHeader.toEntity);
-        if (HEAVY_LOGS) logDebug(L, `Checking account ${counterpartyId.slice(-10)}: mempool=${accountMachine.mempool.length} isLeft=${isLeft} pending=${!!accountMachine.proposal}`);
+        if (HEAVY_LOGS)
+          logDebug(
+            L,
+            `Checking account ${counterpartyId.slice(-10)}: mempool=${accountMachine.mempool.length} isLeft=${isLeft} pending=${!!accountMachine.proposal}`,
+          );
         if (accountMachine.mempool.length > 0 && !accountMachine.proposal) {
           proposableAccounts.add(counterpartyId);
-          if (HEAVY_LOGS) logDebug(L, `Added ${counterpartyId.slice(-10)} to proposableAccounts (mempool=${accountMachine.mempool.length})`);
+          if (HEAVY_LOGS)
+            logDebug(
+              L,
+              `Added ${counterpartyId.slice(-10)} to proposableAccounts (mempool=${accountMachine.mempool.length})`,
+            );
         } else if (accountMachine.proposal) {
-          if (HEAVY_LOGS) logDebug(L, `SKIP: ${counterpartyId.slice(-10)} has pendingFrame h${accountMachine.proposal.pendingFrame.height} - will propose after ACK`);
+          if (HEAVY_LOGS)
+            logDebug(
+              L,
+              `SKIP: ${counterpartyId.slice(-10)} has pendingFrame h${accountMachine.proposal.pendingFrame.height} - will propose after ACK`,
+            );
         }
       }
     } else if (entityTx.type === 'openAccount' && entityTx.data) {
@@ -1012,7 +1159,11 @@ export const applyEntityFrame = async (
       if (accountMachine) {
         if (accountMachine.mempool.length > 0 && !accountMachine.proposal) {
           proposableAccounts.add(targetEntity);
-          if (HEAVY_LOGS) logDebug(L, `Added ${targetEntity.slice(0,10)} to proposable (account opened, mempool=${accountMachine.mempool.length})`);
+          if (HEAVY_LOGS)
+            logDebug(
+              L,
+              `Added ${targetEntity.slice(0, 10)} to proposable (account opened, mempool=${accountMachine.mempool.length})`,
+            );
         }
       }
     } else if (entityTx.type === 'extendCredit' && entityTx.data) {
@@ -1020,10 +1171,14 @@ export const applyEntityFrame = async (
       const counterpartyId = entityTx.data.counterpartyEntityId;
       // Account keyed by counterparty ID
       const accountMachine = currentEntityState.accounts.get(counterpartyId as AccountKey);
-      if (HEAVY_LOGS) logDebug(L, `EXTEND-CREDIT: ${counterpartyId.slice(0,10)} exists=${!!accountMachine} mempool=${accountMachine?.mempool?.length || 0}`);
+      if (HEAVY_LOGS)
+        logDebug(
+          L,
+          `EXTEND-CREDIT: ${counterpartyId.slice(0, 10)} exists=${!!accountMachine} mempool=${accountMachine?.mempool?.length || 0}`,
+        );
       if (accountMachine && accountMachine.mempool.length > 0) {
         proposableAccounts.add(counterpartyId);
-        if (HEAVY_LOGS) logDebug(L, `Added ${counterpartyId.slice(0,10)} to proposableAccounts (credit extension)`);
+        if (HEAVY_LOGS) logDebug(L, `Added ${counterpartyId.slice(0, 10)} to proposableAccounts (credit extension)`);
       }
     }
   }
@@ -1082,9 +1237,11 @@ export const applyEntityFrame = async (
     }
 
     // Apply book updates
-    const ext = currentEntityState.orderbookExt as any;
-    for (const { pairId, book } of matchResult.bookUpdates) {
-      ext.books.set(pairId, book);
+    const ext = currentEntityState.orderbookExt;
+    if (ext) {
+      for (const { pairId, book } of matchResult.bookUpdates) {
+        ext.books.set(pairId, book);
+      }
     }
   }
 
@@ -1094,7 +1251,7 @@ export const applyEntityFrame = async (
     const { processOrderbookCancels } = await import('./entity-tx/handlers/account');
     const bookUpdates = processOrderbookCancels(currentEntityState, allSwapOffersCancelled);
 
-    const ext = currentEntityState.orderbookExt as any;
+    const ext = currentEntityState.orderbookExt;
     for (const { pairId, book } of bookUpdates) {
       ext.books.set(pairId, book);
     }
@@ -1109,7 +1266,13 @@ export const applyEntityFrame = async (
   // Account frame proposals use env.timestamp which differs per-tick.
   // Only the proposer generates proposals; validators just verify the entity state.
   if (verifyOnly) {
-    return { newState: currentEntityState, deterministicState, outputs: allOutputs, jOutputs: allJOutputs, collectedHashes: [] };
+    return {
+      newState: currentEntityState,
+      deterministicState,
+      outputs: allOutputs,
+      jOutputs: allJOutputs,
+      collectedHashes: [],
+    };
   }
 
   const { proposeAccountFrame } = await import('./account-consensus');
@@ -1129,30 +1292,50 @@ export const applyEntityFrame = async (
         return false;
       }
       if (accountMachine.proposal) {
-        if (HEAVY_LOGS) logDebug(L, `FILTER: Account ${accountId.slice(-8)} has pendingFrame h${accountMachine.proposal.pendingFrame.height} - SKIP (will batch on ACK)`);
+        if (HEAVY_LOGS)
+          logDebug(
+            L,
+            `FILTER: Account ${accountId.slice(-8)} has pendingFrame h${accountMachine.proposal.pendingFrame.height} - SKIP (will batch on ACK)`,
+          );
         return false;
       }
-      if (HEAVY_LOGS) logDebug(L, `FILTER: Account ${accountId.slice(-8)} READY - proposing (mempool: ${accountMachine.mempool.length})`);
+      if (HEAVY_LOGS)
+        logDebug(
+          L,
+          `FILTER: Account ${accountId.slice(-8)} READY - proposing (mempool: ${accountMachine.mempool.length})`,
+        );
       return true;
     })
     .sort();
 
   // Collect hashes during processing (not scanning afterwards)
-  const collectedHashes: Array<{ hash: string; type: 'accountFrame' | 'dispute' | 'profile' | 'settlement'; context: string }> = [];
+  const collectedHashes: Array<{
+    hash: string;
+    type: 'accountFrame' | 'dispute' | 'profile' | 'settlement';
+    context: string;
+  }> = [];
 
   if (accountsToProposeFrames.length > 0) {
-
     for (const accountKey of accountsToProposeFrames) {
       const accountMachine = currentEntityState.accounts.get(accountKey as AccountKey);
-      const { counterparty: cpId } = accountMachine ? getAccountPerspective(accountMachine, currentEntityState.entityId) : { counterparty: 'unknown' };
+      const { counterparty: cpId } = accountMachine
+        ? getAccountPerspective(accountMachine, currentEntityState.entityId)
+        : { counterparty: 'unknown' };
       if (HEAVY_LOGS) logDebug(L, `BEFORE-PROPOSE: Getting account for ${cpId.slice(-4)}`);
       if (accountMachine) {
-        logDebug(L, `PROPOSE-FRAME for ${cpId.slice(-4)}: mempool=${accountMachine.mempool.length} types=[${accountMachine.mempool.map(tx => tx.type)}]`);
+        logDebug(
+          L,
+          `PROPOSE-FRAME for ${cpId.slice(-4)}: mempool=${accountMachine.mempool.length} types=[${accountMachine.mempool.map(tx => tx.type)}]`,
+        );
         const proposal = await proposeAccountFrame(env, accountMachine, false, currentEntityState.lastFinalizedJHeight);
 
         const proposalOk = isOk(proposal) ? proposal.value : undefined;
         const proposalErr = isErr(proposal) ? proposal.error : undefined;
-        if (HEAVY_LOGS) logDebug(L, `PROPOSE-RESULT for ${cpId.slice(-4)}: success=${isOk(proposal)} error=${proposalErr?.error || 'none'}`);
+        if (HEAVY_LOGS)
+          logDebug(
+            L,
+            `PROPOSE-RESULT for ${cpId.slice(-4)}: success=${isOk(proposal)} error=${proposalErr?.error || 'none'}`,
+          );
 
         // Collect hashes from proposal (multi-signer support)
         if (proposalOk?.hashesToSign) {
@@ -1180,10 +1363,13 @@ export const applyEntityFrame = async (
                       lockId: route.inboundLockId,
                       outcome: 'error' as const,
                       reason: `forward_failed:${reason}`,
-                    }
+                    },
                   });
                   proposableAccounts.add(route.inboundEntity);
-                  logDebug(L, `HTLC-CANCEL-BACKWARD: hashlock=${hashlock.slice(0,12)}... inbound=${route.inboundEntity.slice(-4)} reason=${reason}`);
+                  logDebug(
+                    L,
+                    `HTLC-CANCEL-BACKWARD: hashlock=${hashlock.slice(0, 12)}... inbound=${route.inboundEntity.slice(-4)} reason=${reason}`,
+                  );
                 }
               }
 
@@ -1199,16 +1385,22 @@ export const applyEntityFrame = async (
           // Convert AccountInput to EntityInput for routing
           const outputEntityInput: EntityInput = {
             entityId: proposalOk.accountInput.toEntityId,
-            entityTxs: [{
-              type: 'accountInput' as const,
-              data: proposalOk.accountInput
-            }]
+            entityTxs: [
+              {
+                type: 'accountInput' as const,
+                data: proposalOk.accountInput,
+              },
+            ],
           };
           allOutputs.push(outputEntityInput);
 
           const proposalInput = proposalOk.accountInput;
-          const frameHeight = proposalInput.type === 'proposal' || proposalInput.type === 'ack' ? proposalInput.height : 0;
-          logDebug(L, `ACCOUNT-FRAME-OUTPUT: frame ${frameHeight} to ${proposalInput.toEntityId.slice(-4)} (${accountKey.slice(-8)})`);
+          const frameHeight =
+            proposalInput.type === 'proposal' || proposalInput.type === 'ack' ? proposalInput.height : 0;
+          logDebug(
+            L,
+            `ACCOUNT-FRAME-OUTPUT: frame ${frameHeight} to ${proposalInput.toEntityId.slice(-4)} (${accountKey.slice(-8)})`,
+          );
 
           // Add events to entity messages with size limiting
           addMessages(currentEntityState, proposalOk.events);
@@ -1235,7 +1427,13 @@ export const applyEntityFrame = async (
     if (HEAVY_LOGS) collectedHashes.forEach(h => logDebug(L, `  ${h.type}: ${h.hash.slice(0, 18)}... (${h.context})`));
   }
 
-  return { newState: currentEntityState, deterministicState, outputs: allOutputs, jOutputs: allJOutputs, collectedHashes };
+  return {
+    newState: currentEntityState,
+    deterministicState,
+    outputs: allOutputs,
+    jOutputs: allJOutputs,
+    collectedHashes,
+  };
 };
 
 // === HELPER FUNCTIONS ===
@@ -1266,7 +1464,7 @@ const mergeJEventTxs = (txs: EntityTx[]): EntityTx[] => {
       continue;
     }
 
-    const data = tx.data as any;
+    const data = tx.data;
     const blockNumber = data.blockNumber;
     const blockHash = data.blockHash;
 
@@ -1274,8 +1472,8 @@ const mergeJEventTxs = (txs: EntityTx[]): EntityTx[] => {
       candidate =>
         candidate.type === 'j_event' &&
         candidate.data &&
-        (candidate.data as any).blockNumber === blockNumber &&
-        (candidate.data as any).blockHash === blockHash,
+        candidate.data.blockNumber === blockNumber &&
+        candidate.data.blockHash === blockHash,
     );
 
     if (!existing || !existing.data) {
@@ -1283,12 +1481,13 @@ const mergeJEventTxs = (txs: EntityTx[]): EntityTx[] => {
       continue;
     }
 
-    const existingData = existing.data as any;
-    const existingEvents = existingData.events || (existingData.event ? [existingData.event] : []);
-    const incomingEvents = data.events || (data.event ? [data.event] : []);
+    // Safe: we found `existing` by checking type === 'j_event' above
+    const existingData = existing.data as import('./types').JurisdictionEventData;
+    const existingEvents = existingData.events ?? (existingData.event ? [existingData.event] : []);
+    const incomingEvents = data.events ?? (data.event ? [data.event] : []);
 
     const seen = new Set<string>();
-    const mergedEvents: any[] = [];
+    const mergedEvents: JurisdictionEvent[] = [];
     for (const event of [...existingEvents, ...incomingEvents]) {
       const key = `${event?.type ?? 'unknown'}:${safeStringify(event?.data ?? event)}`;
       if (seen.has(key)) continue;
@@ -1297,7 +1496,7 @@ const mergeJEventTxs = (txs: EntityTx[]): EntityTx[] => {
     }
 
     existingData.events = mergedEvents;
-    existingData.event = mergedEvents[0];
+    existingData.event = mergedEvents[0]!;
 
     if (typeof data.observedAt === 'number') {
       if (typeof existingData.observedAt !== 'number' || data.observedAt < existingData.observedAt) {
@@ -1306,7 +1505,10 @@ const mergeJEventTxs = (txs: EntityTx[]): EntityTx[] => {
     }
 
     if (HEAVY_LOGS) {
-      logDebug(L, `MERGE-J-EVENTS: block ${blockNumber} ${blockHash?.slice(0, 10)}... now ${mergedEvents.length} events`);
+      logDebug(
+        L,
+        `MERGE-J-EVENTS: block ${blockNumber} ${blockHash?.slice(0, 10)}... now ${mergedEvents.length} events`,
+      );
     }
   }
 
@@ -1331,7 +1533,10 @@ export const mergeEntityInputs = (inputs: RoutedEntityInput[]): RoutedEntityInpu
       if (existingFrameHash && incomingFrameHash && existingFrameHash !== incomingFrameHash) {
         const existingHasPrecommits = !!existing.hashPrecommits && existing.hashPrecommits.size > 0;
         const incomingHasPrecommits = !!input.hashPrecommits && input.hashPrecommits.size > 0;
-        logWarn(L, `MERGE-CONFLICT: ${key} has different proposedFrame hashes (${existingFrameHash.slice(0, 10)} vs ${incomingFrameHash.slice(0, 10)}) - keeping both inputs`);
+        logWarn(
+          L,
+          `MERGE-CONFLICT: ${key} has different proposedFrame hashes (${existingFrameHash.slice(0, 10)} vs ${incomingFrameHash.slice(0, 10)}) - keeping both inputs`,
+        );
         if (incomingHasPrecommits && !existingHasPrecommits) {
           merged.set(key, { ...input });
           conflicts.push(existing);
@@ -1341,7 +1546,11 @@ export const mergeEntityInputs = (inputs: RoutedEntityInput[]): RoutedEntityInpu
         continue;
       }
 
-      if (HEAVY_LOGS) logDebug(L, `DUPLICATE-FOUND: Merging duplicate input ${duplicateCount} for ${entityShort}:${input.signerId || ''}`);
+      if (HEAVY_LOGS)
+        logDebug(
+          L,
+          `DUPLICATE-FOUND: Merging duplicate input ${duplicateCount} for ${entityShort}:${input.signerId || ''}`,
+        );
 
       // Merge entity transactions
       if (input.entityTxs) {
@@ -1355,7 +1564,11 @@ export const mergeEntityInputs = (inputs: RoutedEntityInput[]): RoutedEntityInpu
       // Merge hashPrecommits (multi-hash signatures)
       if (input.hashPrecommits) {
         const existingPrecommits = existing.hashPrecommits || new Map<string, string[]>();
-        if (HEAVY_LOGS) logDebug(L, `MERGE-PRECOMMITS: ${input.hashPrecommits.size} into ${existingPrecommits.size} for ${entityShort}:${input.signerId || ''}`);
+        if (HEAVY_LOGS)
+          logDebug(
+            L,
+            `MERGE-PRECOMMITS: ${input.hashPrecommits.size} into ${existingPrecommits.size} for ${entityShort}:${input.signerId || ''}`,
+          );
         input.hashPrecommits.forEach((sigs, signerId) => {
           if (HEAVY_LOGS) logDebug(L, `MERGE-DETAIL: Adding hashPrecommit from ${signerId} (${sigs.length} sigs)`);
           existingPrecommits.set(signerId, sigs);
@@ -1367,7 +1580,11 @@ export const mergeEntityInputs = (inputs: RoutedEntityInput[]): RoutedEntityInpu
       // Keep the latest frame (simplified)
       if (input.proposedFrame) existing.proposedFrame = input.proposedFrame;
 
-      if (HEAVY_LOGS) logDebug(L, `Merging inputs for ${key}: txs=${input.entityTxs?.length || 0} precommits=${input.hashPrecommits?.size || 0} frame=${!!input.proposedFrame}`);
+      if (HEAVY_LOGS)
+        logDebug(
+          L,
+          `Merging inputs for ${key}: txs=${input.entityTxs?.length || 0} precommits=${input.hashPrecommits?.size || 0} frame=${!!input.proposedFrame}`,
+        );
     } else {
       merged.set(key, { ...input });
     }
@@ -1385,4 +1602,3 @@ export const mergeEntityInputs = (inputs: RoutedEntityInput[]): RoutedEntityInpu
     return input;
   });
 };
-

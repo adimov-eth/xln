@@ -28,7 +28,14 @@ export { RuntimeP2P } from './p2p';
 export type { P2PConfig } from './p2p';
 
 // WebSocket protocol
-export { serializeWsMessage, deserializeWsMessage, makeMessageId, makeHelloNonce, buildHelloMessage, hashHelloMessage } from './ws-protocol';
+export {
+  serializeWsMessage,
+  deserializeWsMessage,
+  makeMessageId,
+  makeHelloNonce,
+  buildHelloMessage,
+  hashHelloMessage,
+} from './ws-protocol';
 export type { RuntimeWsMessage, RuntimeWsAuth, RuntimeWsMessageType } from './ws-protocol';
 
 // WebSocket client/server

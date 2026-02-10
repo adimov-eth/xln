@@ -110,10 +110,7 @@ export function createProviderScopedEntityId(provider: string, entityId: string)
   const normalizedEntity = normalizeEntityId(entityId);
 
   // ABI encode packed: address (20 bytes) + bytes32 (32 bytes)
-  const packed = ethers.solidityPacked(
-    ['address', 'bytes32'],
-    [providerAddr, normalizedEntity]
-  );
+  const packed = ethers.solidityPacked(['address', 'bytes32'], [providerAddr, normalizedEntity]);
 
   // Hash to get final 32-byte ID
   return ethers.keccak256(packed);
@@ -137,7 +134,7 @@ export function createProviderScopedEntityId(provider: string, entityId: string)
 export function parseUniversalEntityId(
   input: string,
   defaultProvider?: string,
-  lookupFn?: (query: string) => string | null
+  lookupFn?: (query: string) => string | null,
 ): ParsedEntityId {
   const trimmed = input.trim();
 

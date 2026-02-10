@@ -17,7 +17,7 @@ import { getAccountPerspective } from '../../state-helpers';
 
 export function handleJSync(
   accountMachine: AccountMachine,
-  accountTx: Extract<AccountTx, { type: 'j_sync' }>
+  accountTx: Extract<AccountTx, { type: 'j_sync' }>,
 ): { success: boolean; events: string[]; error?: string } {
   const tokenId = accountTx.data.tokenId as TokenId;
   const { jBlockNumber, collateral, ondelta } = accountTx.data;

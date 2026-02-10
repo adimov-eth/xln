@@ -30,7 +30,9 @@ export type SignerId = string & { readonly [SignerIdBrand]: typeof SignerIdBrand
 export type JId = string & { readonly [JIdBrand]: typeof JIdBrand };
 
 /** EntityProvider contract address - 20-byte hex (0x + 40 chars) */
-export type EntityProviderAddress = string & { readonly [EntityProviderAddressBrand]: typeof EntityProviderAddressBrand };
+export type EntityProviderAddress = string & {
+  readonly [EntityProviderAddressBrand]: typeof EntityProviderAddressBrand;
+};
 
 declare const TokenIdBrand: unique symbol;
 /** Token identifier - non-negative integer */
@@ -151,8 +153,7 @@ export const toEpAddress = (s: string): EntityProviderAddress => {
 };
 
 /** Check if number is valid TokenId (non-negative integer) */
-export const isValidTokenId = (n: number): n is TokenId =>
-  Number.isInteger(n) && n >= 0;
+export const isValidTokenId = (n: number): n is TokenId => Number.isInteger(n) && n >= 0;
 
 /** Create validated TokenId - throws if invalid */
 export const toTokenId = (n: number): TokenId => {
@@ -163,8 +164,7 @@ export const toTokenId = (n: number): TokenId => {
 };
 
 /** Check if string is valid LockId (non-empty string) */
-export const isValidLockId = (s: string): s is LockId =>
-  typeof s === 'string' && s.length > 0;
+export const isValidLockId = (s: string): s is LockId => typeof s === 'string' && s.length > 0;
 
 /** Create validated LockId - throws if invalid */
 export const toLockId = (s: string): LockId => {
@@ -175,8 +175,7 @@ export const toLockId = (s: string): LockId => {
 };
 
 /** Check if string is valid AccountKey (contains colon separator) */
-export const isValidAccountKey = (s: string): s is AccountKey =>
-  typeof s === 'string' && s.includes(':');
+export const isValidAccountKey = (s: string): s is AccountKey => typeof s === 'string' && s.includes(':');
 
 /** Create AccountKey from two entity IDs (canonical sorted order: left < right) */
 export const toAccountKey = (entityA: string, entityB: string): AccountKey => {

@@ -29,9 +29,9 @@ export interface EntityState {
   // Account frame scheduling (accounts blocked by pendingFrame, retried on next ACK)
   deferredAccountProposals?: Map<AccountKey, true>;
   // 🔭 J-machine tracking (JBlock consensus)
-  lastFinalizedJHeight: number;           // Last finalized J-block height
+  lastFinalizedJHeight: number; // Last finalized J-block height
   jBlockObservations: JBlockObservation[]; // Pending observations from signers
-  jBlockChain: JBlockFinalized[];          // Finalized J-blocks (prunable)
+  jBlockChain: JBlockFinalized[]; // Finalized J-blocks (prunable)
 
   // 🔗 Account machine integration
   accountInputQueue?: AccountInput[]; // Queue of settlement events to be processed by a-machine
@@ -51,7 +51,7 @@ export interface EntityState {
   }>;
 
   // 🔐 Cryptography - RSA-OAEP keys for HTLC envelope encryption
-  cryptoPublicKey?: string;  // Base64 RSA-OAEP public key (shareable)
+  cryptoPublicKey?: string; // Base64 RSA-OAEP public key (shareable)
   cryptoPrivateKey?: string; // Base64 RSA-OAEP private key (secret, encrypt at rest in prod)
 
   // 🔒 HTLC Routing - Multi-hop payment tracking (like 2024 hashlockMap)
@@ -67,12 +67,12 @@ export interface EntityState {
   }>;
 
   // 📊 Orderbook Extension - Hub matching engine (typed in orderbook/types.ts)
-  orderbookExt?: any; // OrderbookExtState - avoid circular import
+  orderbookExt?: import('../orderbook/types').OrderbookExtState; // Hub matching engine
 
   // 📖 Aggregated Books - E-Machine view of all A-Machine positions
   // Mirrors A-Machine state for easy UI access, updated on frame commits
-  swapBook: Map<string, SwapBookEntry>;  // offerId → entry
-  lockBook: Map<string, LockBookEntry>;  // lockId → entry
+  swapBook: Map<string, SwapBookEntry>; // offerId → entry
+  lockBook: Map<string, LockBookEntry>; // lockId → entry
 
   // 📈 Pending swap fill ratios (orderbook → dispute arguments)
   pendingSwapFillRatios?: Map<string, number>; // key = "accountId:offerId"
@@ -127,8 +127,8 @@ export type EntityTx =
       type: 'openAccount';
       data: {
         targetEntityId: string;
-        creditAmount?: bigint;  // Optional: extend credit in same frame as add_delta
-        tokenId?: number;       // Token for credit (default: 1 = USDC)
+        creditAmount?: bigint; // Optional: extend credit in same frame as add_delta
+        tokenId?: number; // Token for credit (default: 1 = USDC)
       };
     }
   | {
@@ -159,7 +159,7 @@ export type EntityTx =
         amount: bigint;
         route: string[]; // Full path from source to target
         description?: string;
-        secret?: string;   // Optional - generated if not provided
+        secret?: string; // Optional - generated if not provided
         hashlock?: string; // Optional - generated if not provided
       };
     }
@@ -177,7 +177,7 @@ export type EntityTx =
         counterpartyEntityId: string;
         diffs: Array<{
           tokenId: number;
-          leftDiff: bigint;   // Positive = credit, Negative = debit
+          leftDiff: bigint; // Positive = credit, Negative = debit
           rightDiff: bigint;
           collateralDiff: bigint;
           ondeltaDiff: bigint;
@@ -197,7 +197,7 @@ export type EntityTx =
       type: 'disputeFinalize';
       data: {
         counterpartyEntityId: string;
-        cooperative?: boolean;  // If true, use cooperative finalization
+        cooperative?: boolean; // If true, use cooperative finalization
         useOnchainRegistry?: boolean; // Optional HTLC reveal via on-chain registry
         description?: string;
       };
@@ -467,8 +467,8 @@ export interface RoutedEntityInput extends EntityInput {
 
 /** Entity output - can include both E→E messages AND J-layer outputs */
 export interface EntityOutput {
-  entityInputs: RoutedEntityInput[];  // E→E messages
-  jInputs: JInput[];             // E→J messages (batches to queue)
+  entityInputs: RoutedEntityInput[]; // E→E messages
+  jInputs: JInput[]; // E→J messages (batches to queue)
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -490,7 +490,7 @@ export interface ProposedEntityFrame {
 
   // HANKO SYSTEM:
   // 1. During frame creation: proposer collects hashes that need signing
-  hashesToSign?: HashToSign[];  // Entity frame hash + account-level hashes with types
+  hashesToSign?: HashToSign[]; // Entity frame hash + account-level hashes with types
 
   // 2. During precommit: validators send EOA signatures (one per hash)
   // signerId -> array of EOA signatures (indexes match hashesToSign[])
@@ -514,19 +514,22 @@ export interface EntityReplica {
   // Position is RELATIVE to j-machine (jurisdiction)
   // Frontend calculates: worldPos = jMachine.position + relativePosition
   position?: {
-    x: number;      // Relative X offset from j-machine center
-    y: number;      // Relative Y offset from j-machine center
-    z: number;      // Relative Z offset from j-machine center
+    x: number; // Relative X offset from j-machine center
+    y: number; // Relative Y offset from j-machine center
+    z: number; // Relative Z offset from j-machine center
     jurisdiction?: string; // Which j-machine this entity belongs to (defaults to activeJurisdiction)
     xlnomy?: string; // DEPRECATED: Use jurisdiction instead
   };
 
   // HANKO WITNESS STORAGE (NOT part of state hash - stored alongside, not inside)
   // Persists finalized hankos for on-chain disputes, settlements, batch submissions
-  hankoWitness?: Map<string, {
-    hanko: HankoString;
-    type: 'accountFrame' | 'dispute' | 'profile' | 'settlement' | 'jBatch';
-    entityHeight: number;  // Height when created
-    createdAt: number;     // Timestamp
-  }>;
+  hankoWitness?: Map<
+    string,
+    {
+      hanko: HankoString;
+      type: 'accountFrame' | 'dispute' | 'profile' | 'settlement' | 'jBatch';
+      entityHeight: number; // Height when created
+      createdAt: number; // Timestamp
+    }
+  >;
 }

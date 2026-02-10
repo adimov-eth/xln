@@ -37,15 +37,8 @@ export function calculateHtlcFeeAmount(amount: bigint): bigint {
  * Generate deterministic lock ID
  * Pattern: keccak256(hashlock + height + nonce + timestamp)
  */
-export function generateLockId(
-  hashlock: string,
-  height: number,
-  nonce: number,
-  timestamp: number
-): string {
-  return ethers.keccak256(
-    ethers.toUtf8Bytes(`${hashlock}:${height}:${nonce}:${timestamp}`)
-  );
+export function generateLockId(hashlock: string, height: number, nonce: number, timestamp: number): string {
+  return ethers.keccak256(ethers.toUtf8Bytes(`${hashlock}:${height}:${nonce}:${timestamp}`));
 }
 
 /**
@@ -69,7 +62,7 @@ export function hashHtlcSecret(secret: string): string {
 export function generateHashlock(): { secret: string; hashlock: string } {
   throw new Error(
     'generateHashlock() is non-deterministic and BANNED in consensus code. ' +
-    'Pass secret/hashlock as tx.data parameters (derived from tx hash or provided by user).'
+      'Pass secret/hashlock as tx.data parameters (derived from tx hash or provided by user).',
   );
 }
 
@@ -83,8 +76,8 @@ export function generateHashlock(): { secret: string; hashlock: string } {
  */
 export function calculateHopTimelock(
   baseTimelock: bigint,
-  hopIndex: number,  // 0 = Alice (first), 1 = Hub, 2 = Bob
-  totalHops: number
+  hopIndex: number, // 0 = Alice (first), 1 = Hub, 2 = Bob
+  totalHops: number,
 ): bigint {
   // Each hop gets HTLC_MIN_TIMELOCK_DELTA_MS less than previous
   const reduction = BigInt((totalHops - hopIndex - 1) * HTLC.MIN_TIMELOCK_DELTA_MS);
@@ -101,8 +94,8 @@ export function calculateHopTimelock(
  */
 export function calculateHopRevealHeight(
   baseHeight: number,
-  hopIndex: number,  // 0 = Alice, 1 = Hub, 2 = Bob
-  totalHops: number
+  hopIndex: number, // 0 = Alice, 1 = Hub, 2 = Bob
+  totalHops: number,
 ): number {
   // Alice (first hop) gets most time
   // Each subsequent hop gets 1 block less

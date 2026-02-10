@@ -9,8 +9,14 @@ import { setFailFastErrors } from '../logger';
 import { getCachedSignerPrivateKey, deriveSignerKeySync, registerSignerKey } from '../account-crypto';
 
 // Lazy-loaded process to avoid circular deps
-let _process: ((env: Env, inputs?: RoutedEntityInput[], delay?: number, single?: boolean) => Promise<Env>) | null = null;
-let _applyRuntimeInput: ((env: Env, runtimeInput: RuntimeInput) => Promise<{ entityOutbox: RoutedEntityInput[]; mergedInputs: RoutedEntityInput[] }>) | null = null;
+let _process: ((env: Env, inputs?: RoutedEntityInput[], delay?: number, single?: boolean) => Promise<Env>) | null =
+  null;
+let _applyRuntimeInput:
+  | ((
+      env: Env,
+      runtimeInput: RuntimeInput,
+    ) => Promise<{ entityOutbox: RoutedEntityInput[]; mergedInputs: RoutedEntityInput[] }>)
+  | null = null;
 
 export const getProcess = async () => {
   if (!_process) {
@@ -32,9 +38,10 @@ export { checkSolvency } from './solvency-check';
 
 export function requireRuntimeSeed(env: Env, label: string): string {
   const envSeed = env.runtimeSeed ?? null;
-  const processSeed = (typeof process !== 'undefined' && process.env)
-    ? (process.env['XLN_RUNTIME_SEED'] || process.env['RUNTIME_SEED'] || null)
-    : null;
+  const processSeed =
+    typeof process !== 'undefined' && process.env
+      ? process.env['XLN_RUNTIME_SEED'] || process.env['RUNTIME_SEED'] || null
+      : null;
   const seed = envSeed ?? processSeed;
   if (seed === null || seed === undefined) {
     throw new Error(`${label}: runtimeSeed missing - unlock vault or set XLN_RUNTIME_SEED`);
@@ -222,7 +229,7 @@ function filterOfflineInputs(
   const dropped: RoutedEntityInput[] = [];
 
   for (const input of inputs) {
-    if (offlineSigners.has(input.signerId)) {
+    if (input.signerId && offlineSigners.has(input.signerId)) {
       dropped.push(input);
     } else {
       filtered.push(input);
@@ -317,7 +324,7 @@ export async function processUntil(
   maxRounds: number = 10,
   label: string = 'condition',
   onTick?: (round: number) => void,
-  onFail?: () => void
+  onFail?: () => void,
 ): Promise<void> {
   const process = await getProcess();
   for (let round = 0; round < maxRounds; round++) {
@@ -406,14 +413,10 @@ export function assert(condition: unknown, message: string, env?: Env): asserts 
  * Verify bilateral consensus - both sides have identical delta state
  * CRITICAL for bilateral correctness testing
  */
-export function assertBilateralSync(
-  env: Env,
-  entityA: string,
-  entityB: string,
-  tokenId: number,
-  label: string
-): void {
-  console.log(`\n[BILATERAL-SYNC ${label}] Checking ${entityA.slice(-4)}←→${entityB.slice(-4)} for token ${tokenId}...`);
+export function assertBilateralSync(env: Env, entityA: string, entityB: string, tokenId: number, label: string): void {
+  console.log(
+    `\n[BILATERAL-SYNC ${label}] Checking ${entityA.slice(-4)}←→${entityB.slice(-4)} for token ${tokenId}...`,
+  );
 
   const [, replicaA] = findReplica(env, entityA);
   const [, replicaB] = findReplica(env, entityB);
@@ -459,7 +462,9 @@ export function assertBilateralSync(
     throw new Error(`BILATERAL-SYNC VIOLATION at "${label}":\n${errors.join('\n')}`);
   }
 
-  console.log(`✅ [${label}] Bilateral sync OK: ${entityA.slice(-4)}←→${entityB.slice(-4)} token ${tokenId} - all 7 fields match\n`);
+  console.log(
+    `✅ [${label}] Bilateral sync OK: ${entityA.slice(-4)}←→${entityB.slice(-4)} token ${tokenId} - all 7 fields match\n`,
+  );
 }
 
 // ============================================================================
@@ -476,7 +481,7 @@ export const dai = (amount: number | bigint) => BigInt(amount) * ONE_TOKEN;
 /** Format bigint as USD string (e.g. "$1,234.56") */
 export const formatUSD = (amount: bigint): string => {
   const whole = amount / ONE_TOKEN;
-  const frac = (amount % ONE_TOKEN) * 100n / ONE_TOKEN;
+  const frac = ((amount % ONE_TOKEN) * 100n) / ONE_TOKEN;
   return `$${whole.toLocaleString()}.${frac.toString().padStart(2, '0')}`;
 };
 
@@ -550,7 +555,7 @@ export function snap(
     keyMetrics?: string[];
     expectedSolvency?: bigint;
     description?: string;
-  } = {}
+  } = {},
 ) {
   env.extra = {
     subtitle: {

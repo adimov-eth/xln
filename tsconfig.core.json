@@ -3,18 +3,15 @@
   "compilerOptions": {
     "types": ["node", "bun"],
     "allowImportingTsExtensions": true,
-    "strict": false,
-    "noImplicitAny": false,
-    "noUncheckedIndexedAccess": false,
+    "strict": true,
+    "noImplicitAny": true,
+    "noUncheckedIndexedAccess": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "exactOptionalPropertyTypes": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "include": [
-    "xln.ts",
-    "runtime/**/*.ts"
-  ],
+  "include": ["xln.ts", "runtime/**/*.ts"],
   "exclude": [
     "node_modules",
     "brainvault/**/*",

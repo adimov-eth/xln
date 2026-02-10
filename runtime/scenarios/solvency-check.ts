@@ -18,7 +18,7 @@ export function checkSolvency(env: Env, expected: bigint, label: string, optiona
       replicaReserves += amount;
       reserves += amount;
     }
-    console.log(`  [${replicaKey.slice(0,20)}] reserves=${replicaReserves / 10n**18n}M`);
+    console.log(`  [${replicaKey.slice(0, 20)}] reserves=${replicaReserves / 10n ** 18n}M`);
 
     for (const [counterpartyId, account] of replica.state.accounts) {
       if (isLeftEntity(replica.state.entityId, counterpartyId)) {
@@ -30,7 +30,9 @@ export function checkSolvency(env: Env, expected: bigint, label: string, optiona
   }
 
   const total = reserves + collateral;
-  console.log(`[SOLVENCY ${label}] Total: reserves=${reserves / 10n**18n}M, collateral=${collateral / 10n**18n}M, sum=${total / 10n**18n}M`);
+  console.log(
+    `[SOLVENCY ${label}] Total: reserves=${reserves / 10n ** 18n}M, collateral=${collateral / 10n ** 18n}M, sum=${total / 10n ** 18n}M`,
+  );
 
   if (total !== expected) {
     if (!optional || env.strictScenario) {

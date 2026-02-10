@@ -36,7 +36,7 @@ export async function processAccountTx(
   byLeft: boolean,
   currentTimestamp: number = 0,
   currentHeight: number = 0,
-  isValidation: boolean = false
+  isValidation: boolean = false,
 ): Promise<{
   success: boolean;
   events: string[];
@@ -84,10 +84,17 @@ export async function processAccountTx(
       return { success: true, events: [`⚖️ Settlement processed`] };
 
     case 'reserve_to_collateral':
-      return handleReserveToCollateral(accountMachine, accountTx as Extract<AccountTx, { type: 'reserve_to_collateral' }>);
+      return handleReserveToCollateral(
+        accountMachine,
+        accountTx as Extract<AccountTx, { type: 'reserve_to_collateral' }>,
+      );
 
     case 'request_withdrawal':
-      return handleRequestWithdrawal(accountMachine, accountTx as Extract<AccountTx, { type: 'request_withdrawal' }>, byLeft);
+      return handleRequestWithdrawal(
+        accountMachine,
+        accountTx as Extract<AccountTx, { type: 'request_withdrawal' }>,
+        byLeft,
+      );
 
     case 'approve_withdrawal':
       return handleApproveWithdrawal(accountMachine, accountTx as Extract<AccountTx, { type: 'approve_withdrawal' }>);
@@ -101,7 +108,7 @@ export async function processAccountTx(
     case 'j_event_claim': {
       // Bilateral J-event consensus: Store observation with correct left/right attribution
       const { jHeight, jBlockHash, events, observedAt } = accountTx.data;
-      console.log(`📥 j_event_claim: jHeight=${jHeight}, hash=${jBlockHash.slice(0,10)}, byLeft=${byLeft}`);
+      console.log(`📥 j_event_claim: jHeight=${jHeight}, hash=${jBlockHash.slice(0, 10)}, byLeft=${byLeft}`);
 
       // Initialize consensus fields if missing
       if (!accountMachine.leftJObservations) accountMachine.leftJObservations = [];
@@ -117,12 +124,14 @@ export async function processAccountTx(
         return {
           success: false,
           events: [`❌ j_event_claim: jHeight ${jHeight} too far ahead`],
-          error: `Invalid jHeight: jump too large (max ${MAX_J_HEIGHT_JUMP})`
+          error: `Invalid jHeight: jump too large (max ${MAX_J_HEIGHT_JUMP})`,
         };
       }
       // Skip duplicate claims (already finalized this height)
       if (jHeight <= accountMachine.lastFinalizedJHeight) {
-        console.log(`   ℹ️ j_event_claim: jHeight ${jHeight} already finalized (lastFinalized=${accountMachine.lastFinalizedJHeight}) - skipping`);
+        console.log(
+          `   ℹ️ j_event_claim: jHeight ${jHeight} already finalized (lastFinalized=${accountMachine.lastFinalizedJHeight}) - skipping`,
+        );
         return { success: true, events: [`ℹ️ j_event_claim skipped (already finalized)`] };
       }
 
@@ -152,7 +161,9 @@ export async function processAccountTx(
 
         // DEBUG: Check if bilateral finalization persisted
         const delta = accountMachine.deltas.get(1 as TokenId); // USDC token
-        console.log(`🔍 AFTER-BILATERAL-FINALIZE (isValidation=${isValidation}): collateral=${delta?.collateral || 0n}`);
+        console.log(
+          `🔍 AFTER-BILATERAL-FINALIZE (isValidation=${isValidation}): collateral=${delta?.collateral || 0n}`,
+        );
       } else {
         console.log(`⏭️ SKIP-BILATERAL-FINALIZE: On validation clone, will finalize during commit`);
       }
@@ -168,7 +179,7 @@ export async function processAccountTx(
         byLeft,
         currentTimestamp,
         currentHeight,
-        isValidation
+        isValidation,
       );
 
     case 'htlc_resolve': {
@@ -197,7 +208,7 @@ export async function processAccountTx(
         accountTx as Extract<AccountTx, { type: 'swap_offer' }>,
         byLeft,
         currentHeight,
-        isValidation
+        isValidation,
       );
 
     case 'swap_resolve':
@@ -206,7 +217,7 @@ export async function processAccountTx(
         accountTx as Extract<AccountTx, { type: 'swap_resolve' }>,
         byLeft,
         currentHeight,
-        isValidation
+        isValidation,
       );
 
     case 'swap_cancel':
@@ -215,21 +226,15 @@ export async function processAccountTx(
         accountTx as Extract<AccountTx, { type: 'swap_cancel' }>,
         byLeft,
         currentHeight,
-        isValidation
+        isValidation,
       );
 
     // === SETTLEMENT HOLD HANDLERS ===
     case 'settle_hold':
-      return await handleSettleHold(
-        accountMachine,
-        accountTx as Extract<AccountTx, { type: 'settle_hold' }>
-      );
+      return await handleSettleHold(accountMachine, accountTx as Extract<AccountTx, { type: 'settle_hold' }>);
 
     case 'settle_release':
-      return await handleSettleRelease(
-        accountMachine,
-        accountTx as Extract<AccountTx, { type: 'settle_release' }>
-      );
+      return await handleSettleRelease(accountMachine, accountTx as Extract<AccountTx, { type: 'settle_release' }>);
 
     case 'account_frame':
       // This should never be called - frames are handled by frame-level consensus

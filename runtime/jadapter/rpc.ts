@@ -15,11 +15,35 @@ import type { Provider, Signer } from 'ethers';
 
 import { Account__factory } from '../../jurisdictions/typechain-types/factories/Account__factory';
 import type { Account, Depository, EntityProvider, DeltaTransformer } from '../../jurisdictions/typechain-types';
-import { Depository__factory, EntityProvider__factory, DeltaTransformer__factory } from '../../jurisdictions/typechain-types';
+import {
+  Depository__factory,
+  EntityProvider__factory,
+  DeltaTransformer__factory,
+} from '../../jurisdictions/typechain-types';
 
 import type { BrowserVMState, JTx } from '../types';
-import type { JAdapter, JAdapterAddresses, JAdapterConfig, JEvent, JEventCallback, JSubmitResult, SnapshotId, JBatchReceipt, JTxReceipt, SettlementDiff, InsuranceReg, BrowserVMProvider, JTokenInfo } from './types';
-import { computeAccountKey, entityIdToAddress, setupContractEventListeners, processEventBatch, type RawJEvent } from './helpers';
+import type {
+  JAdapter,
+  JAdapterAddresses,
+  JAdapterConfig,
+  JEvent,
+  JEventCallback,
+  JSubmitResult,
+  SnapshotId,
+  JBatchReceipt,
+  JTxReceipt,
+  SettlementDiff,
+  InsuranceReg,
+  BrowserVMProvider,
+  JTokenInfo,
+} from './types';
+import {
+  computeAccountKey,
+  entityIdToAddress,
+  setupContractEventListeners,
+  processEventBatch,
+  type RawJEvent,
+} from './helpers';
 import { CANONICAL_J_EVENTS } from './helpers';
 
 /**
@@ -29,11 +53,7 @@ import { CANONICAL_J_EVENTS } from './helpers';
  *   - anvil/rpc with no fromReplica: Deploys fresh contracts
  *   - rpc with fromReplica: Connects to existing contracts
  */
-export async function createRpcAdapter(
-  config: JAdapterConfig,
-  provider: Provider,
-  signer: Signer
-): Promise<JAdapter> {
+export async function createRpcAdapter(config: JAdapterConfig, provider: Provider, signer: Signer): Promise<JAdapter> {
   const WATCH_POLL_MS = 15000;
   const addresses: JAdapterAddresses = {
     account: '',
@@ -52,7 +72,8 @@ export async function createRpcAdapter(
   if (config.fromReplica) {
     addresses.account = config.fromReplica.contracts?.account ?? '';
     addresses.depository = config.fromReplica.depositoryAddress ?? config.fromReplica.contracts?.depository ?? '';
-    addresses.entityProvider = config.fromReplica.entityProviderAddress ?? config.fromReplica.contracts?.entityProvider ?? '';
+    addresses.entityProvider =
+      config.fromReplica.entityProviderAddress ?? config.fromReplica.contracts?.entityProvider ?? '';
     addresses.deltaTransformer = config.fromReplica.contracts?.deltaTransformer ?? '';
 
     console.log('[JAdapter:rpc] fromReplica mode - connecting to contracts:');
@@ -106,11 +127,21 @@ export async function createRpcAdapter(
     provider,
     signer,
 
-    get account() { return account; },
-    get depository() { return depository; },
-    get entityProvider() { return entityProvider; },
-    get deltaTransformer() { return deltaTransformer; },
-    get addresses() { return addresses; },
+    get account() {
+      return account;
+    },
+    get depository() {
+      return depository;
+    },
+    get entityProvider() {
+      return entityProvider;
+    },
+    get deltaTransformer() {
+      return deltaTransformer;
+    },
+    get addresses() {
+      return addresses;
+    },
 
     async deployStack() {
       if (deployed) {
@@ -141,7 +172,7 @@ export async function createRpcAdapter(
       // Deploy Depository (needs Account library linked)
       const depositoryFactory = new Depository__factory(
         { 'contracts/Account.sol:Account': addresses.account },
-        signer as any
+        signer as any,
       );
       // Use block gas limit minus margin (anvil default is 30M)
       let deployGasLimit = 30_000_000n;
@@ -286,9 +317,19 @@ export async function createRpcAdapter(
           let symbol = '';
           let name = '';
           let decimals = 18;
-          try { symbol = await symbolFn(); } catch { continue; } // Skip if no symbol (not ERC20)
-          try { name = await nameFn(); } catch { name = symbol; }
-          try { decimals = Number(await decimalsFn()); } catch { }
+          try {
+            symbol = await symbolFn();
+          } catch {
+            continue;
+          } // Skip if no symbol (not ERC20)
+          try {
+            name = await nameFn();
+          } catch {
+            name = symbol;
+          }
+          try {
+            decimals = Number(await decimalsFn());
+          } catch {}
 
           if (!symbol) continue;
           tokens.push({ symbol, name: name || symbol, address: contractAddress, decimals, tokenId });
@@ -302,15 +343,17 @@ export async function createRpcAdapter(
     },
 
     async getErc20Balance(tokenAddress: string, owner: string): Promise<bigint> {
-      const erc20 = new ethers.Contract(tokenAddress, ['function balanceOf(address owner) view returns (uint256)'], provider);
+      const erc20 = new ethers.Contract(
+        tokenAddress,
+        ['function balanceOf(address owner) view returns (uint256)'],
+        provider,
+      );
       const balanceOf = erc20.getFunction('balanceOf') as (owner: string) => Promise<bigint>;
       return balanceOf(owner);
     },
 
     async getErc20Balances(tokenAddresses: string[], owner: string): Promise<bigint[]> {
-      const erc20Interface = new ethers.Interface([
-        'function balanceOf(address owner) view returns (uint256)',
-      ]);
+      const erc20Interface = new ethers.Interface(['function balanceOf(address owner) view returns (uint256)']);
 
       const rpcUrl = config.rpcUrl;
       if (rpcUrl && rpcUrl.startsWith('http')) {
@@ -319,10 +362,13 @@ export async function createRpcAdapter(
             id: idx + 1,
             jsonrpc: '2.0',
             method: 'eth_call',
-            params: [{
-              to: tokenAddress,
-              data: erc20Interface.encodeFunctionData('balanceOf', [owner]),
-            }, 'latest'],
+            params: [
+              {
+                to: tokenAddress,
+                data: erc20Interface.encodeFunctionData('balanceOf', [owner]),
+              },
+              'latest',
+            ],
           }));
 
           const response = await fetch(rpcUrl, {
@@ -377,7 +423,7 @@ export async function createRpcAdapter(
             events.push({
               name: parsed.name,
               args: Object.fromEntries(
-                parsed.fragment.inputs.map((input: { name: string }, i: number) => [input.name, parsed.args[i]])
+                parsed.fragment.inputs.map((input: { name: string }, i: number) => [input.name, parsed.args[i]]),
               ),
               blockNumber: receipt.blockNumber,
               blockHash: receipt.blockHash,
@@ -391,9 +437,7 @@ export async function createRpcAdapter(
             if (parsed) {
               events.push({
                 name: parsed.name,
-                args: Object.fromEntries(
-                  parsed.fragment.inputs.map((input, i) => [input.name, parsed.args[i]])
-                ),
+                args: Object.fromEntries(parsed.fragment.inputs.map((input, i) => [input.name, parsed.args[i]])),
                 blockNumber: receipt.blockNumber,
                 blockHash: receipt.blockHash,
                 transactionHash: receipt.hash,
@@ -418,7 +462,7 @@ export async function createRpcAdapter(
       diffs: SettlementDiff[],
       forgiveDebtsInTokenIds: number[] = [],
       insuranceRegs: InsuranceReg[] = [],
-      sig?: string
+      sig?: string,
     ): Promise<JTxReceipt> {
       const hasChanges = diffs.length > 0 || forgiveDebtsInTokenIds.length > 0 || insuranceRegs.length > 0;
       if (hasChanges && (!sig || sig === '0x')) {
@@ -442,7 +486,7 @@ export async function createRpcAdapter(
         forgiveDebtsInTokenIds,
         insuranceRegs,
         finalSig,
-        { gasLimit: 2_000_000n }
+        { gasLimit: 2_000_000n },
       );
       const receipt = await tx.wait();
       if (!receipt) throw new Error('Settlement transaction failed');
@@ -524,7 +568,7 @@ export async function createRpcAdapter(
                 transactionHash: receipt.hash,
               });
             }
-          } catch { }
+          } catch {}
         }
         return events;
       }
@@ -569,7 +613,7 @@ export async function createRpcAdapter(
             events.push({
               name: parsed.name,
               args: Object.fromEntries(
-                parsed.fragment.inputs.map((input: { name: string }, i: number) => [input.name, parsed.args[i]])
+                parsed.fragment.inputs.map((input: { name: string }, i: number) => [input.name, parsed.args[i]]),
               ),
               blockNumber: receipt.blockNumber,
               blockHash: receipt.blockHash,
@@ -592,13 +636,10 @@ export async function createRpcAdapter(
         tokenType?: number;
         externalTokenId?: bigint;
         internalTokenId?: number;
-      }
+      },
     ): Promise<JEvent[]> {
       // Create wallet from private key (use NonceManager to avoid nonce races)
-      const signerWallet = new ethers.Wallet(
-        '0x' + Buffer.from(signerPrivateKey).toString('hex'),
-        provider
-      );
+      const signerWallet = new ethers.Wallet('0x' + Buffer.from(signerPrivateKey).toString('hex'), provider);
       const managedSigner = new ethers.NonceManager(signerWallet);
 
       const tokenType = options?.tokenType ?? 0;
@@ -610,14 +651,21 @@ export async function createRpcAdapter(
         throw new Error('RPC adapter externalTokenToReserve currently supports ERC20 only');
       }
 
-      const erc20 = new ethers.Contract(tokenAddress, [
-        'function approve(address spender, uint256 amount) returns (bool)',
-        'function allowance(address owner, address spender) view returns (uint256)',
-      ], managedSigner);
+      const erc20 = new ethers.Contract(
+        tokenAddress,
+        [
+          'function approve(address spender, uint256 amount) returns (bool)',
+          'function allowance(address owner, address spender) view returns (uint256)',
+        ],
+        managedSigner,
+      );
 
       // Step 1: Approve Depository to spend tokens (max allowance for smoother UX)
       const allowanceFn = erc20.getFunction('allowance') as (owner: string, spender: string) => Promise<bigint>;
-      const approveFn = erc20.getFunction('approve') as (spender: string, amount: bigint) => Promise<{ wait: () => Promise<unknown> }>;
+      const approveFn = erc20.getFunction('approve') as (
+        spender: string,
+        amount: bigint,
+      ) => Promise<{ wait: () => Promise<unknown> }>;
       const allowance: bigint = await allowanceFn(signerWallet.address, addresses.depository);
       if (allowance < amount) {
         const approveTx = await approveFn(addresses.depository, ethers.MaxUint256);
@@ -653,7 +701,7 @@ export async function createRpcAdapter(
               transactionHash: receipt.hash,
             });
           }
-        } catch { }
+        } catch {}
       }
 
       console.log(`[JAdapter:rpc] Deposited ${amount} tokens to entity ${entityId.slice(0, 16)}...`);
@@ -695,11 +743,13 @@ export async function createRpcAdapter(
         const encodedBatch = encodeJBatch(jTx.data.batch);
         const normalizedId = normalizeEntityId(jTx.entityId);
         const entityAddress = ethers.getAddress(`0x${normalizedId.slice(-40)}`);
-        const currentNonce = await depository['entityNonces']?.(entityAddress) ?? 0n;
+        const currentNonce = (await depository['entityNonces']?.(entityAddress)) ?? 0n;
         const nextNonce = BigInt(currentNonce) + 1n;
         const batchHash = computeBatchHankoHash(resolvedChainId, depositoryAddr, encodedBatch, nextNonce);
 
-        console.log(`🔐 [JAdapter:rpc] Signing hanko: entity=${normalizedId.slice(-4)} nonce=${nextNonce} chainId=${resolvedChainId}`);
+        console.log(
+          `🔐 [JAdapter:rpc] Signing hanko: entity=${normalizedId.slice(-4)} nonce=${nextNonce} chainId=${resolvedChainId}`,
+        );
 
         const { signHashesAsSingleEntity } = await import('../hanko-signing');
         const hankos = await signHashesAsSingleEntity(env, normalizedId, sid, [batchHash]);
@@ -730,7 +780,7 @@ export async function createRpcAdapter(
         return { success: false, error: 'Mint not supported on RPC chains' };
       }
 
-      return { success: false, error: `Unknown JTx type: ${(jTx as any).type}` };
+      return { success: false, error: `Unknown JTx type: ${(jTx as { type: string }).type}` };
     },
 
     // === J-Watcher integration (RPC polling — uses shared event conversion from helpers.ts) ===
@@ -774,7 +824,7 @@ export async function createRpcAdapter(
                 const parsed = depositoryIface.parseLog({ topics: log.topics as string[], data: log.data });
                 if (!parsed) continue;
                 // Only process canonical events
-                if (!CANONICAL_J_EVENTS.includes(parsed.name as any)) continue;
+                if (!(CANONICAL_J_EVENTS as readonly string[]).includes(parsed.name)) continue;
                 // Convert ethers Result to plain object args
                 const args: Record<string, any> = {};
                 for (const key of Object.keys(parsed.args)) {

@@ -16,7 +16,7 @@ import { cloneEntityState, addMessage } from '../../state-helpers';
 export async function handleMintReserves(
   entityState: EntityState,
   entityTx: Extract<EntityTx, { type: 'mintReserves' }>,
-  env: Env
+  env: Env,
 ): Promise<{ newState: EntityState; outputs: EntityInput[]; jOutputs: JInput[] }> {
   const { tokenId, amount } = entityTx.data;
   const newState = cloneEntityState(entityState);
@@ -38,10 +38,12 @@ export async function handleMintReserves(
 
   // Route to J-machine via standard jOutput flow
   const jurisdictionName = env.activeJurisdiction || 'default';
-  const jOutputs: JInput[] = [{
-    jurisdictionName,
-    jTxs: [jTx],
-  }];
+  const jOutputs: JInput[] = [
+    {
+      jurisdictionName,
+      jTxs: [jTx],
+    },
+  ];
 
   addMessage(newState, `💰 Minting ${amount} of token ${tokenId}`);
 

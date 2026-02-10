@@ -34,11 +34,12 @@ async function init(remote: boolean) {
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const signer = new ethers.Wallet(
     '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', // default anvil key
-    provider
+    provider,
   );
 
   // Connect to existing contracts
-  const { Depository__factory, EntityProvider__factory, Account__factory } = await import('../jurisdictions/typechain-types');
+  const { Depository__factory, EntityProvider__factory, Account__factory } =
+    await import('../jurisdictions/typechain-types');
 
   const depository = Depository__factory.connect(CONTRACTS.depository, signer);
   const entityProvider = EntityProvider__factory.connect(CONTRACTS.entityProvider, signer);
@@ -60,14 +61,28 @@ async function init(remote: boolean) {
       const entityAddress = createProviderScopedEntityId(CONTRACTS.entityProvider, normalizeEntityId(entityId));
       return depository.entityNonces(entityAddress);
     },
-    async reserveToReserve(from: string, to: string, tokenId: number, amount: bigint, options?: { entityProvider?: string; hankoData?: string; nonce?: bigint }) {
+    async reserveToReserve(
+      from: string,
+      to: string,
+      tokenId: number,
+      amount: bigint,
+      options?: { entityProvider?: string; hankoData?: string; nonce?: bigint },
+    ) {
       if (!options?.hankoData || options.nonce === undefined) {
         throw new Error('reserveToReserve requires hankoData and nonce');
       }
       const providerAddr = options.entityProvider || CONTRACTS.entityProvider;
       const fromAddr = createProviderScopedEntityId(providerAddr, normalizeEntityId(from));
       const toAddr = createProviderScopedEntityId(providerAddr, normalizeEntityId(to));
-      const tx = await depository.reserveToReserve(fromAddr, toAddr, tokenId, amount, providerAddr, options.hankoData, options.nonce);
+      const tx = await depository.reserveToReserve(
+        fromAddr,
+        toAddr,
+        tokenId,
+        amount,
+        providerAddr,
+        options.hankoData,
+        options.nonce,
+      );
       await tx.wait();
       return [];
     },
@@ -108,39 +123,54 @@ Commands:
       break;
 
     case 'reserves':
-      if (!args[0]) { console.log('Usage: reserves <entityId>'); break; }
+      if (!args[0]) {
+        console.log('Usage: reserves <entityId>');
+        break;
+      }
       const entityId = args[0].startsWith('0x') ? args[0] : '0x' + args[0].padStart(64, '0');
       const reserves = await jAdapter.getReserves(entityId, 1); // tokenId 1 = USDC
       console.log(`Reserves: ${ethers.formatUnits(reserves, 18)} USDC`);
       break;
 
     case 'r2r':
-      if (args.length < 5) { console.log('Usage: r2r <from> <to> <amount> <nonce> <hankoData> [provider]'); break; }
+      if (args.length < 5) {
+        console.log('Usage: r2r <from> <to> <amount> <nonce> <hankoData> [provider]');
+        break;
+      }
       const [from, to, amountStr, nonceStr, hankoData, providerAddr] = args;
       const fromId = from!.startsWith('0x') ? from! : '0x' + from!.padStart(64, '0');
       const toId = to!.startsWith('0x') ? to! : '0x' + to!.padStart(64, '0');
       const amount = ethers.parseUnits(amountStr!, 18);
       const nonce = BigInt(nonceStr!);
       const provider = providerAddr || CONTRACTS.entityProvider;
-      console.log(`R2R: ${fromId.slice(0,10)}... -> ${toId.slice(0,10)}... : ${amountStr} USDC`);
-      const events = await jAdapter.reserveToReserve(fromId, toId, 1, amount, { entityProvider: provider, hankoData: hankoData!, nonce });
+      console.log(`R2R: ${fromId.slice(0, 10)}... -> ${toId.slice(0, 10)}... : ${amountStr} USDC`);
+      const events = await jAdapter.reserveToReserve(fromId, toId, 1, amount, {
+        entityProvider: provider,
+        hankoData: hankoData!,
+        nonce,
+      });
       console.log(`Done. Events: ${events.length}`);
       break;
 
     case 'register':
-      if (!args[0]) { console.log('Usage: register <name>'); break; }
+      if (!args[0]) {
+        console.log('Usage: register <name>');
+        break;
+      }
       const boardHash = ethers.keccak256(ethers.toUtf8Bytes(args[0]));
       const result = await jAdapter.registerNumberedEntity(boardHash);
       console.log(`Registered entity #${result.entityNumber}, tx: ${result.txHash}`);
       break;
 
     case 'nonce':
-      if (!args[0]) { console.log('Usage: nonce <entityId>'); break; }
+      if (!args[0]) {
+        console.log('Usage: nonce <entityId>');
+        break;
+      }
       const eid = args[0].startsWith('0x') ? args[0] : '0x' + args[0].padStart(64, '0');
       const nonce = await jAdapter.getEntityNonce(eid);
       console.log(`Nonce: ${nonce}`);
       break;
-
 
     case 'exit':
     case 'quit':
@@ -162,7 +192,7 @@ async function main() {
   });
 
   rl.prompt();
-  rl.on('line', async (line) => {
+  rl.on('line', async line => {
     try {
       await cmd(line);
     } catch (e: any) {

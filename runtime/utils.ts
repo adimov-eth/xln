@@ -13,7 +13,7 @@ import { extractNumberFromEntityId } from './entity-factory';
  * Wall-clock timestamp without Date.now() (determinism-safe)
  */
 export const getWallClockMs = (): number => {
-  const perf = typeof globalThis !== 'undefined' ? (globalThis as any).performance : undefined;
+  const perf = typeof globalThis !== 'undefined' ? globalThis.performance : undefined;
   if (perf && typeof perf.timeOrigin === 'number' && typeof perf.now === 'function') {
     return Math.round(perf.timeOrigin + perf.now());
   }
@@ -28,7 +28,7 @@ export const getWallClockMs = (): number => {
  * Monotonic clock for durations
  */
 export const getPerfMs = (): number => {
-  const perf = typeof globalThis !== 'undefined' ? (globalThis as any).performance : undefined;
+  const perf = typeof globalThis !== 'undefined' ? globalThis.performance : undefined;
   if (perf && typeof perf.now === 'function') {
     return perf.now();
   }
@@ -109,7 +109,7 @@ export const randomBytes = isBrowser
 
 // Robust Buffer polyfill (bip39 requires Buffer.isBuffer; avoid minimal polyfills here)
 const getBuffer = () => {
-  const globalBuffer = (globalThis as any).Buffer;
+  const globalBuffer = (globalThis as { Buffer?: typeof BufferPolyfill }).Buffer;
   if (globalBuffer && typeof globalBuffer.isBuffer === 'function') {
     return globalBuffer;
   }
@@ -123,8 +123,8 @@ if (isBrowser) {
   Uint8Array.prototype.toString = function (_encoding: string = 'utf8') {
     return new TextDecoder().decode(this);
   };
-  if ((globalThis as any).Buffer !== Buffer) {
-    (globalThis as any).Buffer = Buffer;
+  if ((globalThis as { Buffer?: unknown }).Buffer !== Buffer) {
+    (globalThis as unknown as { Buffer: typeof Buffer }).Buffer = Buffer;
   }
   window.Buffer = Buffer;
 }
@@ -157,7 +157,7 @@ export const log = {
 export const hash = (data: Buffer | string): Buffer => {
   const result = createHash('sha256').update(data.toString()).digest();
   // Ensure we always return a Buffer, regardless of what digest() returns
-  return Buffer.from(result as any);
+  return Buffer.from(result as Uint8Array);
 };
 
 // Global debug flags (disable for production-clean output)
@@ -230,7 +230,7 @@ export const formatEntityDisplay = (entityId: string): string => {
   if (!entityId) {
     return 'undefined';
   }
-  
+
   const number = extractNumberFromEntityId(entityId);
   if (number !== null) {
     // Numbered entity: show just the number with entity icon
@@ -254,7 +254,7 @@ export const getEntityDisplayInfo = (entityId: string): { name: string; avatar: 
       type: 'numbered',
     };
   }
-  
+
   const number = extractNumberFromEntityId(entityId);
   if (number !== null) {
     return {
@@ -354,14 +354,12 @@ export const getSignerAddress = (signerId: string): string => {
 /**
  * Generate deterministic block-style avatar for entity.
  */
-export const generateEntityAvatar = (entityId: string): string =>
-  generateBlockAvatar(entityId, 40);
+export const generateEntityAvatar = (entityId: string): string => generateBlockAvatar(entityId, 40);
 
 /**
  * Generate deterministic block-style avatar for signer.
  */
-export const generateSignerAvatar = (signerId: string): string =>
-  generateBlockAvatar(getSignerAddress(signerId), 32);
+export const generateSignerAvatar = (signerId: string): string => generateBlockAvatar(getSignerAddress(signerId), 32);
 
 const hashSeed = (seed: string): number => {
   let hash = 2166136261;
@@ -441,7 +439,9 @@ export async function cryptoHash(content: string): Promise<string> {
   const data = encoder.encode(content);
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = new Uint8Array(hashBuffer);
-  const hashHex = Array.from(hashArray).map(b => b.toString(16).padStart(2, '0')).join('');
+  const hashHex = Array.from(hashArray)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
   return `0x${hashHex}`;
 }
 

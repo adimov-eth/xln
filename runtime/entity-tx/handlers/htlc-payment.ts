@@ -19,10 +19,16 @@ const logError = (context: string, message: string) => console.error(`[${context
 export async function handleHtlcPayment(
   entityState: EntityState,
   entityTx: Extract<any, { type: 'htlcPayment' }>,
-  env: Env
-): Promise<{ newState: EntityState; outputs: RoutedEntityInput[]; mempoolOps?: Array<{ accountId: string; tx: any }> }> {
+  env: Env,
+): Promise<{
+  newState: EntityState;
+  outputs: RoutedEntityInput[];
+  mempoolOps?: Array<{ accountId: string; tx: any }>;
+}> {
   console.log(`🔒 HTLC-PAYMENT HANDLER: ${entityState.entityId.slice(-4)} → ${entityTx.data.targetEntityId.slice(-4)}`);
-  console.log(`   Amount: ${entityTx.data.amount}, Route: ${entityTx.data.route?.map((r: string) => r.slice(-4)).join('→') || 'none'}`);
+  console.log(
+    `   Amount: ${entityTx.data.amount}, Route: ${entityTx.data.route?.map((r: string) => r.slice(-4)).join('→') || 'none'}`,
+  );
 
   // Emit HTLC initiation event
   env.emit('HtlcPaymentInitiated', {
@@ -43,32 +49,35 @@ export async function handleHtlcPayment(
   // Validate secret/hashlock - MUST be provided in tx (determinism requirement)
   if (!secret && !hashlock) {
     // CRITICAL: Cannot generate in consensus - would cause validator divergence!
-    logError("HTLC_PAYMENT", `❌ secret/hashlock REQUIRED in tx.data (determinism)`);
+    logError('HTLC_PAYMENT', `❌ secret/hashlock REQUIRED in tx.data (determinism)`);
     addMessage(newState, `❌ HTLC payment failed: secret/hashlock must be provided`);
     return { newState, outputs: [], mempoolOps: [] };
   } else if (secret && !hashlock) {
     try {
       hashlock = hashHtlcSecret(secret);
-      console.log(`🔒 Derived hashlock from provided secret: ${hashlock.slice(0,16)}...`);
+      console.log(`🔒 Derived hashlock from provided secret: ${hashlock.slice(0, 16)}...`);
     } catch (error) {
-      logError("HTLC_PAYMENT", `❌ Invalid secret format: ${error instanceof Error ? error.message : String(error)}`);
+      logError('HTLC_PAYMENT', `❌ Invalid secret format: ${error instanceof Error ? error.message : String(error)}`);
       addMessage(newState, `❌ HTLC payment failed: invalid secret`);
       return { newState, outputs: [], mempoolOps: [] };
     }
   } else if (!secret && hashlock) {
-    logError("HTLC_PAYMENT", `❌ Provided hashlock without secret`);
+    logError('HTLC_PAYMENT', `❌ Provided hashlock without secret`);
     addMessage(newState, `❌ HTLC payment failed: missing secret`);
     return { newState, outputs: [], mempoolOps: [] };
   } else if (secret && hashlock) {
     try {
       const computed = hashHtlcSecret(secret);
       if (computed !== hashlock) {
-        logError("HTLC_PAYMENT", `❌ Secret/hashlock mismatch: computed ${computed.slice(0,16)}..., expected ${hashlock.slice(0,16)}...`);
+        logError(
+          'HTLC_PAYMENT',
+          `❌ Secret/hashlock mismatch: computed ${computed.slice(0, 16)}..., expected ${hashlock.slice(0, 16)}...`,
+        );
         addMessage(newState, `❌ HTLC payment failed: secret/hash mismatch`);
         return { newState, outputs: [], mempoolOps: [] };
       }
     } catch (error) {
-      logError("HTLC_PAYMENT", `❌ Invalid secret format: ${error instanceof Error ? error.message : String(error)}`);
+      logError('HTLC_PAYMENT', `❌ Invalid secret format: ${error instanceof Error ? error.message : String(error)}`);
       addMessage(newState, `❌ HTLC payment failed: invalid secret`);
       return { newState, outputs: [], mempoolOps: [] };
     }
@@ -90,12 +99,12 @@ export async function handleHtlcPayment(
           route = paths[0].path;
           console.log(`🔒 Found route: ${route.map((e: string) => formatEntityId(e)).join(' → ')}`);
         } else {
-          logError("HTLC_PAYMENT", `❌ No route found to ${formatEntityId(targetEntityId)}`);
+          logError('HTLC_PAYMENT', `❌ No route found to ${formatEntityId(targetEntityId)}`);
           addMessage(newState, `❌ HTLC payment failed: No route to ${formatEntityId(targetEntityId)}`);
           return { newState, outputs: [], mempoolOps: [] };
         }
       } else {
-        logError("HTLC_PAYMENT", `❌ Cannot find route: Gossip layer not available`);
+        logError('HTLC_PAYMENT', `❌ Cannot find route: Gossip layer not available`);
         addMessage(newState, `❌ HTLC payment failed: Network routing unavailable`);
         return { newState, outputs: [], mempoolOps: [] };
       }
@@ -104,13 +113,13 @@ export async function handleHtlcPayment(
 
   // Validate route starts with current entity
   if (route.length < 1 || route[0] !== entityState.entityId) {
-    logError("HTLC_PAYMENT", `❌ Invalid route: doesn't start with current entity`);
+    logError('HTLC_PAYMENT', `❌ Invalid route: doesn't start with current entity`);
     return { newState: entityState, outputs: [] };
   }
 
   // Validate route ends with targetEntityId
   if (route[route.length - 1] !== targetEntityId) {
-    logError("HTLC_PAYMENT", `❌ Invalid route: end doesn't match targetEntityId`);
+    logError('HTLC_PAYMENT', `❌ Invalid route: end doesn't match targetEntityId`);
     return { newState: entityState, outputs: [] };
   }
 
@@ -123,14 +132,14 @@ export async function handleHtlcPayment(
   // Determine next hop
   const nextHop = route[1];
   if (!nextHop) {
-    logError("HTLC_PAYMENT", `❌ Invalid route: no next hop`);
+    logError('HTLC_PAYMENT', `❌ Invalid route: no next hop`);
     return { newState, outputs: [] };
   }
 
   // Check if we have an account with next hop
   // Accounts keyed by counterparty ID (simpler than canonical)
   if (!newState.accounts.has(nextHop as AccountKey)) {
-    logError("HTLC_PAYMENT", `❌ No account with next hop: ${nextHop.slice(-4)}`);
+    logError('HTLC_PAYMENT', `❌ No account with next hop: ${nextHop.slice(-4)}`);
     addMessage(newState, `❌ HTLC payment failed: No account with ${formatEntityId(nextHop)}`);
     return { newState, outputs: [] };
   }
@@ -156,7 +165,7 @@ export async function handleHtlcPayment(
     hashlock,
     outboundEntity: nextHop,
     outboundLockId: lockId,
-    createdTimestamp: newState.timestamp
+    createdTimestamp: newState.timestamp,
   });
 
   // Create encrypted onion envelope (privacy-preserving routing)
@@ -179,9 +188,7 @@ export async function handleHtlcPayment(
       if (env.gossip) {
         const profiles = typeof env.gossip.getProfiles === 'function' ? env.gossip.getProfiles() : [];
         const profile = profiles.find((p: any) => p.entityId === entityId);
-        const gossipCryptoKey =
-          profile?.metadata?.cryptoPublicKey ||
-          profile?.metadata?.encryptionPubKey; // Compatibility: some peers may still publish only this field
+        const gossipCryptoKey = profile?.metadata?.cryptoPublicKey || profile?.metadata?.encryptionPubKey; // Compatibility: some peers may still publish only this field
         if (gossipCryptoKey) {
           entityPubKeys.set(entityId, gossipCryptoKey);
           continue;
@@ -195,7 +202,7 @@ export async function handleHtlcPayment(
       const missingList = missingKeys.map(e => formatEntityId(e)).join(', ');
       const availableList = [...entityPubKeys.keys()].map(e => formatEntityId(e)).join(', ');
       const msg = `❌ HTLC rejected: missing encryption keys for route hops [${missingList}]`;
-      logError("HTLC_PAYMENT", `${msg} route=${route.map(formatEntityId).join('→')} available=[${availableList}]`);
+      logError('HTLC_PAYMENT', `${msg} route=${route.map(formatEntityId).join('→')} available=[${availableList}]`);
       addMessage(newState, `${msg}. Refresh gossip and retry.`);
       console.warn(`⚠️ HTLC: Available keys: ${availableList}`);
       return { newState, outputs: [], mempoolOps: [] };
@@ -203,9 +210,11 @@ export async function handleHtlcPayment(
     const crypto = new NobleCryptoProvider();
 
     envelope = await createOnionEnvelopes(route, secret, entityPubKeys, crypto);
-    console.log(`🧅 ENVELOPE: ${crypto ? 'ENCRYPTED' : 'CLEARTEXT'} | hops=${hops.length} keys=${entityPubKeys.size} missing=[${missingKeys.map(e => formatEntityId(e))}]`);
+    console.log(
+      `🧅 ENVELOPE: ${crypto ? 'ENCRYPTED' : 'CLEARTEXT'} | hops=${hops.length} keys=${entityPubKeys.size} missing=[${missingKeys.map(e => formatEntityId(e))}]`,
+    );
   } catch (e) {
-    logError("HTLC_PAYMENT", `❌ Envelope creation failed: ${e instanceof Error ? e.message : String(e)}`);
+    logError('HTLC_PAYMENT', `❌ Envelope creation failed: ${e instanceof Error ? e.message : String(e)}`);
     addMessage(newState, `❌ HTLC payment failed: Invalid route`);
     return { newState, outputs: [], mempoolOps: [] };
   }
@@ -220,7 +229,7 @@ export async function handleHtlcPayment(
       revealBeforeHeight,
       amount,
       tokenId,
-      envelope  // Onion envelope (cleartext JSON in Phase 2)
+      envelope, // Onion envelope (cleartext JSON in Phase 2)
     },
   };
 
@@ -229,7 +238,7 @@ export async function handleHtlcPayment(
   if (accountMachine) {
     mempoolOps.push({ accountId: nextHop, tx: accountTx });
     console.log(`🔒 Queued HTLC lock for mempool (account ${formatEntityId(nextHop)})`);
-    console.log(`🔒 Lock ID: ${lockId.slice(0,16)}..., expires block ${revealBeforeHeight}`);
+    console.log(`🔒 Lock ID: ${lockId.slice(0, 16)}..., expires block ${revealBeforeHeight}`);
 
     // Add to lockBook (E-Machine aggregated view)
     newState.lockBook.set(lockId, {
@@ -243,8 +252,9 @@ export async function handleHtlcPayment(
       createdAt: BigInt(newState.timestamp),
     });
 
-    addMessage(newState,
-      `🔒 HTLC: Locking ${amount} (token ${tokenId}) to ${formatEntityId(targetEntityId)} via ${route.length - 1} hops`
+    addMessage(
+      newState,
+      `🔒 HTLC: Locking ${amount} (token ${tokenId}) to ${formatEntityId(targetEntityId)} via ${route.length - 1} hops`,
     );
 
     // Trigger processing
@@ -253,7 +263,7 @@ export async function handleHtlcPayment(
       outputs.push({
         entityId: entityState.entityId,
         signerId: firstValidator,
-        entityTxs: []
+        entityTxs: [],
       });
     }
   }

@@ -18,7 +18,7 @@ import { cloneEntityState, addMessage } from '../../state-helpers';
 
 export async function handleDepositCollateral(
   entityState: EntityState,
-  entityTx: Extract<EntityTx, { type: 'deposit_collateral' }>
+  entityTx: Extract<EntityTx, { type: 'deposit_collateral' }>,
 ): Promise<{ newState: EntityState; outputs: EntityInput[]; jOutputs?: any[] }> {
   const { counterpartyId, tokenId, amount } = entityTx.data;
   const newState = cloneEntityState(entityState);
@@ -27,8 +27,9 @@ export async function handleDepositCollateral(
   // Validate: Do we have enough reserve?
   const currentReserve = entityState.reserves.get(String(tokenId)) || 0n;
   if (currentReserve < amount) {
-    addMessage(newState,
-      `❌ Insufficient reserve for collateral deposit: have ${currentReserve}, need ${amount} token ${tokenId}`
+    addMessage(
+      newState,
+      `❌ Insufficient reserve for collateral deposit: have ${currentReserve}, need ${amount} token ${tokenId}`,
     );
     return { newState, outputs };
   }
@@ -36,9 +37,7 @@ export async function handleDepositCollateral(
   // Validate: Does account exist?
   // Account keyed by counterparty ID
   if (!entityState.accounts.has(counterpartyId as AccountKey)) {
-    addMessage(newState,
-      `❌ Cannot deposit collateral: no account with ${counterpartyId.slice(-4)}`
-    );
+    addMessage(newState, `❌ Cannot deposit collateral: no account with ${counterpartyId.slice(-4)}`);
     return { newState, outputs };
   }
 
@@ -53,16 +52,11 @@ export async function handleDepositCollateral(
 
   // Add to jBatch for on-chain submission
   const { batchAddReserveToCollateral } = await import('../../j-batch');
-  batchAddReserveToCollateral(
-    newState.jBatchState,
-    entityState.entityId,
-    counterpartyId,
-    tokenId,
-    amount
-  );
+  batchAddReserveToCollateral(newState.jBatchState, entityState.entityId, counterpartyId, tokenId, amount);
 
-  addMessage(newState,
-    `📦 Queued R→C: ${amount} token ${tokenId} to account with ${counterpartyId.slice(-4)} (use j_broadcast to commit)`
+  addMessage(
+    newState,
+    `📦 Queued R→C: ${amount} token ${tokenId} to account with ${counterpartyId.slice(-4)} (use j_broadcast to commit)`,
   );
 
   console.log(`✅ deposit_collateral: Added to jBatch for ${entityState.entityId.slice(-4)}`);

@@ -33,7 +33,7 @@ const DEFAULT_OPTIONS: FormatOptions = {
   showHistory: false,
   useColor: false,
   compactMode: false,
-  indentSize: 2
+  indentSize: 2,
 };
 
 // Box drawing characters
@@ -45,7 +45,7 @@ const BOX = {
   horizontal: '─',
   vertical: '│',
   verticalRight: '├',
-  verticalLeft: '┤'
+  verticalLeft: '┤',
 };
 
 const DOUBLE_BOX = {
@@ -56,7 +56,7 @@ const DOUBLE_BOX = {
   horizontal: '═',
   vertical: '║',
   verticalRight: '╠',
-  verticalLeft: '╣'
+  verticalLeft: '╣',
 };
 
 // Helper functions
@@ -87,7 +87,9 @@ function formatMaybeAddress(value: unknown): string {
     return hex.length >= 8 ? hex.slice(-8) : hex;
   }
   if (value instanceof Uint8Array) {
-    const hex = Array.from(value).map((b) => b.toString(16).padStart(2, '0')).join('');
+    const hex = Array.from(value)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
     return hex.length >= 8 ? hex.slice(-8) : hex;
   }
   try {
@@ -126,7 +128,7 @@ function drawBox(title: string, content: string[], indent: number = 0, doubleBox
 
   const lines = [
     `${pad}${box.topLeft}${box.horizontal.repeat(width)}${box.topRight}`,
-    `${pad}${box.vertical} ${title.padEnd(width - 1)}${box.vertical}`
+    `${pad}${box.vertical} ${title.padEnd(width - 1)}${box.vertical}`,
   ];
 
   if (content.length > 0) {
@@ -143,7 +145,7 @@ function drawBox(title: string, content: string[], indent: number = 0, doubleBox
 
 function drawProgressBar(current: bigint, max: bigint, width: number = 10): string {
   if (max === 0n) return '░'.repeat(width);
-  const filled = Math.min(width, Math.floor(Number(current * BigInt(width) / max)));
+  const filled = Math.min(width, Math.floor(Number((current * BigInt(width)) / max)));
   return '█'.repeat(filled) + '░'.repeat(width - filled);
 }
 
@@ -157,7 +159,7 @@ export function formatRuntime(env: Env, options?: FormatOptions): string {
   // Runtime header
   const runtimeInfo = [
     `Height: ${env.height || 0} | Timestamp: ${formatTimestamp(env.timestamp, false)}`,
-    `Entities: ${env.eReplicas.size} | J-Replicas: ${env.jReplicas?.size || 0}`
+    `Entities: ${env.eReplicas.size} | J-Replicas: ${env.jReplicas?.size || 0}`,
   ];
 
   output.push(drawBox('RUNTIME STATE', runtimeInfo, 0, true));
@@ -228,9 +230,9 @@ export function formatRuntime(env: Env, options?: FormatOptions): string {
       const jDepository = jReplica.depositoryAddress || jReplica.contracts?.depository;
       const jInfo = [
         `Name: ${jName}`,
-        `Block: ${jReplica.blockNumber} | State Root: ${(jReplica.stateRoot as any).slice?.(0, 16) || 'N/A'}`,
+        `Block: ${jReplica.blockNumber} | State Root: ${jReplica.stateRoot ? Buffer.from(jReplica.stateRoot).toString('hex').slice(0, 16) : 'N/A'}`,
         `Mempool: ${jReplica.mempool?.length || 0} txs | Delay: ${jReplica.blockDelayMs}ms`,
-        `Contracts: Depository=${formatMaybeAddress(jDepository)}`
+        `Contracts: Depository=${formatMaybeAddress(jDepository)}`,
       ];
       output.push(drawBox(`J-Replica: ${jName}`, jInfo, 2));
     }
@@ -266,9 +268,7 @@ export function formatEntity(entity: EntityState, options?: FormatOptions): stri
   const title = `Entity: ${formatAddress(entityId)}`;
 
   // Sort by importance: amounts first, then counts, then technical
-  const summary = [
-    `Reserves: ${formatReserves(entity.reserves)} | Accounts: ${entity.accounts.size}`,
-  ];
+  const summary = [`Reserves: ${formatReserves(entity.reserves)} | Accounts: ${entity.accounts.size}`];
 
   // HTLC stats (amounts first)
   const lockCount = entity.lockBook?.size || 0;
@@ -286,7 +286,9 @@ export function formatEntity(entity: EntityState, options?: FormatOptions): stri
   }
 
   // Technical details last
-  summary.push(`Height: ${entity.height || 0} | J-Height: ${entity.lastFinalizedJHeight || 0} | Time: ${formatTimestamp(entity.timestamp)}`);
+  summary.push(
+    `Height: ${entity.height || 0} | J-Height: ${entity.lastFinalizedJHeight || 0} | Time: ${formatTimestamp(entity.timestamp)}`,
+  );
 
   output.push(drawBox(title, summary, indent));
 
@@ -307,7 +309,10 @@ export function formatEntity(entity: EntityState, options?: FormatOptions): stri
         const status = getLockStatus(lock, entity);
         const dir = lock.direction === 'outgoing' ? '→' : '←';
         const timeLeft = formatDuration(Number(lock.timelock) - getWallClockMs());
-        output.push(' '.repeat(indent) + `      ${dir} ${formatBigInt(lock.amount)} | hash=${lock.hashlock.slice(0, 12)}... | ${status} | ${timeLeft}`);
+        output.push(
+          ' '.repeat(indent) +
+            `      ${dir} ${formatBigInt(lock.amount)} | hash=${lock.hashlock.slice(0, 12)}... | ${status} | ${timeLeft}`,
+        );
       }
 
       if (entity.lockBook.size > (opts.maxLocks || 10)) {
@@ -324,7 +329,9 @@ export function formatEntity(entity: EntityState, options?: FormatOptions): stri
         const inbound = route.inboundEntity ? formatAddress(route.inboundEntity) : 'origin';
         const outbound = route.outboundEntity ? formatAddress(route.outboundEntity) : 'final';
         const status = route.secret ? '✓revealed' : 'pending';
-        output.push(' '.repeat(indent) + `      ${inbound} → ${outbound} | hash=${hashlock.slice(0, 12)}... | ${status}`);
+        output.push(
+          ' '.repeat(indent) + `      ${inbound} → ${outbound} | hash=${hashlock.slice(0, 12)}... | ${status}`,
+        );
       }
     }
 
@@ -339,13 +346,15 @@ export function formatEntity(entity: EntityState, options?: FormatOptions): stri
     output.push('');
     output.push(' '.repeat(indent) + `  Swap Offers (${swapCount}):`);
 
-    const swaps = Array.from(entity.swapBook.values())
-      .slice(0, opts.maxSwaps);
+    const swaps = Array.from(entity.swapBook.values()).slice(0, opts.maxSwaps);
 
     for (const swap of swaps) {
       const giveSymbol = swap.giveTokenId === 1 ? 'USDC' : 'ETH';
       const wantSymbol = swap.wantTokenId === 1 ? 'USDC' : 'ETH';
-      output.push(' '.repeat(indent) + `    ${formatBigInt(swap.giveAmount)} ${giveSymbol} → ${formatBigInt(swap.wantAmount)} ${wantSymbol} | min=${swap.minFillRatio}/65535`);
+      output.push(
+        ' '.repeat(indent) +
+          `    ${formatBigInt(swap.giveAmount)} ${giveSymbol} → ${formatBigInt(swap.wantAmount)} ${wantSymbol} | min=${swap.minFillRatio}/65535`,
+      );
     }
 
     if (entity.swapBook.size > (opts.maxSwaps || 10)) {
@@ -395,7 +404,7 @@ export function formatAccount(account: AccountMachine, myEntityId: string, optio
   // Sort by importance: state first, then technical
   const summary = [
     `Perspective: ${isLeft ? 'LEFT' : 'RIGHT'} (canonical)`,
-    `Frame: ${account.currentHeight} | Mempool: ${account.mempool.length} | Pending: ${account.proposal ? `h${account.proposal.pendingFrame.height}` : 'none'}`
+    `Frame: ${account.currentHeight} | Mempool: ${account.mempool.length} | Pending: ${account.proposal ? `h${account.proposal.pendingFrame.height}` : 'none'}`,
   ];
 
   output.push(drawBox(title, summary, indent));
@@ -413,10 +422,16 @@ export function formatAccount(account: AccountMachine, myEntityId: string, optio
       output.push(' '.repeat(indent) + `  Token ${tokenId} (${symbol}):`);
 
       // Most important: amounts (offdelta, collateral, holds)
-      output.push(' '.repeat(indent) + `    offdelta: ${formatBigInt(delta.offdelta, 18, symbol)} | collateral: ${formatBigInt(delta.collateral, 18, symbol)}`);
+      output.push(
+        ' '.repeat(indent) +
+          `    offdelta: ${formatBigInt(delta.offdelta, 18, symbol)} | collateral: ${formatBigInt(delta.collateral, 18, symbol)}`,
+      );
 
       if (htlcHold > 0n || swapHold > 0n) {
-        output.push(' '.repeat(indent) + `    Holds: HTLC=${formatBigInt(htlcHold, 18, symbol)} | Swap=${formatBigInt(swapHold, 18, symbol)}`);
+        output.push(
+          ' '.repeat(indent) +
+            `    Holds: HTLC=${formatBigInt(htlcHold, 18, symbol)} | Swap=${formatBigInt(swapHold, 18, symbol)}`,
+        );
       }
 
       // Secondary: ondelta (less important for most debugging)
@@ -436,12 +451,17 @@ export function formatAccount(account: AccountMachine, myEntityId: string, optio
       const timeLeft = formatDuration(Number(lock.timelock) - getWallClockMs());
       const direction = lock.senderIsLeft ? 'L→R' : 'R→L';
       output.push(' '.repeat(indent) + `    Lock: ${lock.lockId.slice(0, 12)}... | ${formatBigInt(lock.amount)}`);
-      output.push(' '.repeat(indent) + `      Hash: ${lock.hashlock.slice(0, 16)}... | ${direction} | Expires: ${timeLeft}`);
+      output.push(
+        ' '.repeat(indent) + `      Hash: ${lock.hashlock.slice(0, 16)}... | ${direction} | Expires: ${timeLeft}`,
+      );
       if (lock.envelope) {
         let envInfo = 'Unknown';
         if (typeof lock.envelope === 'object') {
-          envInfo = lock.envelope.finalRecipient ? 'Final recipient' :
-                   lock.envelope.nextHop ? `→ ${formatAddress(lock.envelope.nextHop)}` : 'Unknown';
+          envInfo = lock.envelope.finalRecipient
+            ? 'Final recipient'
+            : lock.envelope.nextHop
+              ? `→ ${formatAddress(lock.envelope.nextHop)}`
+              : 'Unknown';
         } else {
           envInfo = `Encrypted: ${lock.envelope.slice(0, 20)}...`;
         }
@@ -465,7 +485,10 @@ export function formatAccount(account: AccountMachine, myEntityId: string, optio
       const wantSymbol = swap.wantTokenId === 1 ? 'USDC' : 'ETH';
       const side = swap.makerIsLeft ? '(maker=LEFT)' : '(maker=RIGHT)';
       output.push(' '.repeat(indent) + `    Offer: ${swap.offerId.slice(0, 12)}...`);
-      output.push(' '.repeat(indent) + `      Give: ${formatBigInt(swap.giveAmount)} ${giveSymbol} | Want: ${formatBigInt(swap.wantAmount)} ${wantSymbol}`);
+      output.push(
+        ' '.repeat(indent) +
+          `      Give: ${formatBigInt(swap.giveAmount)} ${giveSymbol} | Want: ${formatBigInt(swap.wantAmount)} ${wantSymbol}`,
+      );
       output.push(' '.repeat(indent) + `      MinFill: ${swap.minFillRatio}/65535 | ${side}`);
     }
 
@@ -513,7 +536,7 @@ export function formatOrderbook(bookState: any, pairId: string, depth: number = 
 
   // Find max volume for bar scaling
   const allVolumes = [...bids, ...asks].map(o => o.amount);
-  const maxVolume = allVolumes.length > 0 ? allVolumes.reduce((a, b) => a > b ? a : b) : 1n;
+  const maxVolume = allVolumes.length > 0 ? allVolumes.reduce((a, b) => (a > b ? a : b)) : 1n;
 
   // Build content
   const content: string[] = [];
@@ -538,7 +561,7 @@ export function formatOrderbook(bookState: any, pairId: string, depth: number = 
     const bestBid = firstBid.price;
     const bestAsk = firstAsk.price;
     const spread = bestAsk - bestBid;
-    const spreadPct = bestBid > 0n ? Number(spread * 10000n / bestBid) / 100 : 0;
+    const spreadPct = bestBid > 0n ? Number((spread * 10000n) / bestBid) / 100 : 0;
     content.push(`${'─'.repeat(width - 2)}`);
     content.push(`Spread: ${formatBigInt(spread, 18)} (${spreadPct.toFixed(2)}%)`);
     content.push(`${'─'.repeat(width - 2)}`);
@@ -561,7 +584,9 @@ export function formatOrderbook(bookState: any, pairId: string, depth: number = 
   const totalBidVol = bids.slice(0, depth).reduce((sum, b) => sum + b.amount, 0n);
   const totalAskVol = asks.slice(0, depth).reduce((sum, a) => sum + a.amount, 0n);
   content.push(`${'─'.repeat(width - 2)}`);
-  content.push(`Depth: ${depth} levels | Bids: ${formatBigInt(totalBidVol, 18)} | Asks: ${formatBigInt(totalAskVol, 18)}`);
+  content.push(
+    `Depth: ${depth} levels | Bids: ${formatBigInt(totalBidVol, 18)} | Asks: ${formatBigInt(totalAskVol, 18)}`,
+  );
 
   output.push(drawBox(title, content, 0));
 

@@ -18,7 +18,7 @@ const bufferFrom = (data: string | Uint8Array | number[], encoding?: BufferEncod
 
   // For other encodings, use Buffer if available
   if (typeof Buffer !== 'undefined' && Buffer.from) {
-    return Buffer.from(data as any, encoding);
+    return Buffer.from(data as string, encoding);
   }
 
   // Browser fallback for non-hex
@@ -76,10 +76,12 @@ export async function signEntityHashes(
   env: Env,
   entityId: string,
   signerId: string,
-  hashes: string[]
+  hashes: string[],
 ): Promise<HankoString[]> {
   if (env?.runtimeSeed === undefined || env?.runtimeSeed === null) {
-    throw new Error(`CRYPTO_DETERMINISM_VIOLATION: signEntityHashes called without env.runtimeSeed for entity ${entityId.slice(-4)}`);
+    throw new Error(
+      `CRYPTO_DETERMINISM_VIOLATION: signEntityHashes called without env.runtimeSeed for entity ${entityId.slice(-4)}`,
+    );
   }
 
   const hankos: HankoString[] = [];
@@ -108,7 +110,11 @@ export async function signEntityHashes(
     });
 
     // Encode to ABI format (browser-safe Buffer operations)
-    const toHex = (buf: Buffer) => '0x' + Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('');
+    const toHex = (buf: Buffer) =>
+      '0x' +
+      Array.from(buf)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
 
     // ABI encode - MATCH EP.sol struct exactly (4 fields, NO expectedQuorumHash)
     const abiEncoded = ethers.AbiCoder.defaultAbiCoder().encode(
@@ -117,12 +123,7 @@ export async function signEntityHashes(
         [
           hanko.placeholders.map(p => toHex(bufferFrom(p))),
           toHex(bufferFrom(hanko.packedSignatures)),
-          hanko.claims.map(c => [
-            toHex(bufferFrom(c.entityId)),
-            c.entityIndexes,
-            c.weights,
-            c.threshold,
-          ]),
+          hanko.claims.map(c => [toHex(bufferFrom(c.entityId)), c.entityIndexes, c.weights, c.threshold]),
         ],
       ],
     );
@@ -154,7 +155,7 @@ export async function buildQuorumHanko(
   entityId: string,
   _hash: string,
   signatures: Array<{ signerId: string; signature: string }>,
-  config: { threshold: bigint; validators: string[]; shares: Record<string, bigint> }
+  config: { threshold: bigint; validators: string[]; shares: Record<string, bigint> },
 ): Promise<HankoString> {
   // Build quorum hanko from signatures
 
@@ -259,7 +260,11 @@ export async function buildQuorumHanko(
   }
 
   // Build claim for this entity
-  const toHex = (buf: Buffer) => '0x' + Array.from(buf).map(b => b.toString(16).padStart(2, '0')).join('');
+  const toHex = (buf: Buffer) =>
+    '0x' +
+    Array.from(buf)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
 
   // ABI encode hanko - MATCH EP.sol struct exactly
   // With M-of-N: placeholders contains non-signing board members
@@ -269,14 +274,7 @@ export async function buildQuorumHanko(
       [
         placeholders, // Non-signing board members (enables M-of-N)
         toHex(packedSignatures as Buffer),
-        [
-          [
-            '0x' + entityId.replace('0x', '').padStart(64, '0'),
-            entityIndexes,
-            weights,
-            Number(config.threshold),
-          ],
-        ],
+        [['0x' + entityId.replace('0x', '').padStart(64, '0'), entityIndexes, weights, Number(config.threshold)]],
       ],
     ],
   );
@@ -298,13 +296,13 @@ export async function verifyHankoForHash(
   hankoBytes: HankoString,
   hash: string,
   expectedEntityId: string,
-  env?: any
+  env?: any,
 ): Promise<{ valid: boolean; entityId: string | null }> {
   try {
     // Decode hanko from ABI - MATCH EP.sol struct (4 fields, NO expectedQuorumHash)
     const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
       ['tuple(bytes32[],bytes,tuple(bytes32,uint256[],uint256[],uint256)[])'],
-      hankoBytes
+      hankoBytes,
     );
 
     const hanko = {
@@ -355,7 +353,9 @@ export async function verifyHankoForHash(
     // CRITICAL: Find claim for expectedEntityId (NOT just last claim!)
     const expectedEntityIdPadded = expectedEntityId.replace('0x', '').padStart(64, '0');
     const matchingClaim = hanko.claims.find((c: { entityId: Uint8Array }) => {
-      const claimEntityHex = Array.from(c.entityId).map((b: number) => b.toString(16).padStart(2, '0')).join('');
+      const claimEntityHex = Array.from(c.entityId)
+        .map((b: number) => b.toString(16).padStart(2, '0'))
+        .join('');
       return claimEntityHex === expectedEntityIdPadded;
     });
 
@@ -364,7 +364,11 @@ export async function verifyHankoForHash(
       return { valid: false, entityId: null };
     }
 
-    const targetEntity = '0x' + Array.from(matchingClaim.entityId).map((b) => (b as number).toString(16).padStart(2, '0')).join('');
+    const targetEntity =
+      '0x' +
+      Array.from(matchingClaim.entityId)
+        .map(b => (b as number).toString(16).padStart(2, '0'))
+        .join('');
 
     // CRITICAL: Verify recovered addresses match entity's board validators
     let expectedAddresses: string[] = [];
@@ -376,21 +380,23 @@ export async function verifyHankoForHash(
 
         // Convert validators to addresses (local entity: signerId derivation is allowed)
         const { getSignerAddress } = await import('./account-crypto');
-        expectedAddresses = validators.map((validator) => {
-          if (typeof validator !== 'string' || !validator) return null;
-          const v: string = validator.trim();
-          if (!v) return null;
-          // Validator may already be an EOA address (0x + 40 hex chars)
-          if (ethers.isAddress(v) as boolean) {
-            return v.toLowerCase();
-          }
-          // Or it may be a secp256k1 public key (33/65 bytes hex)
-          if (v.startsWith('0x')) {
-            return publicKeyToAddress(v);
-          }
-          // Legacy signerId path (numeric/string ids)
-          return getSignerAddress(env, v)?.toLowerCase();
-        }).filter(Boolean) as string[];
+        expectedAddresses = validators
+          .map(validator => {
+            if (typeof validator !== 'string' || !validator) return null;
+            const v: string = validator.trim();
+            if (!v) return null;
+            // Validator may already be an EOA address (0x + 40 hex chars)
+            if (ethers.isAddress(v) as boolean) {
+              return v.toLowerCase();
+            }
+            // Or it may be a secp256k1 public key (33/65 bytes hex)
+            if (v.startsWith('0x')) {
+              return publicKeyToAddress(v);
+            }
+            // Legacy signerId path (numeric/string ids)
+            return getSignerAddress(env, v)?.toLowerCase();
+          })
+          .filter(Boolean) as string[];
       }
     }
 
@@ -408,7 +414,7 @@ export async function verifyHankoForHash(
 
         const boardEntries = Array.isArray(boardMeta)
           ? boardMeta.map(entry => ({ signer: entry }))
-          : (boardMeta?.validators || []);
+          : boardMeta?.validators || [];
 
         for (const entry of boardEntries) {
           if (!entry) continue;
@@ -444,7 +450,10 @@ export async function verifyHankoForHash(
       for (const addr of recoveredAddresses) {
         if (!expectedAddresses.includes(addr)) {
           console.warn(`❌ Hanko rejected: Signer ${addr.slice(0, 10)} not in entity board validators`);
-          console.warn(`   Expected validators:`, expectedAddresses.map(a => a.slice(0, 10)));
+          console.warn(
+            `   Expected validators:`,
+            expectedAddresses.map(a => a.slice(0, 10)),
+          );
           return { valid: false, entityId: null };
         }
       }

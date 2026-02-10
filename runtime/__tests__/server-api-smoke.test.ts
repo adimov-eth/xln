@@ -24,18 +24,15 @@ const expectNot404 = (status: number, endpoint: string): void => {
 
 describe('Server API smoke', () => {
   beforeAll(async () => {
-    serverProc = Bun.spawn(
-      ['bun', 'runtime/server.ts', '--port', String(port), '--host', '127.0.0.1'],
-      {
-        cwd: process.cwd(),
-        env: {
-          ...process.env,
-          USE_ANVIL: 'false',
-        },
-        stdout: 'ignore',
-        stderr: 'ignore',
-      }
-    );
+    serverProc = Bun.spawn(['bun', 'runtime/server.ts', '--port', String(port), '--host', '127.0.0.1'], {
+      cwd: process.cwd(),
+      env: {
+        ...process.env,
+        USE_ANVIL: 'false',
+      },
+      stdout: 'ignore',
+      stderr: 'ignore',
+    });
     await waitForHealth();
   }, 120_000);
 
@@ -51,13 +48,7 @@ describe('Server API smoke', () => {
     const healthJson = await health.json();
     expect(healthJson).toBeObject();
 
-    for (const endpoint of [
-      '/api/state',
-      '/api/clients',
-      '/api/debug/events',
-      '/api/debug/entities',
-      '/api/tokens',
-    ]) {
+    for (const endpoint of ['/api/state', '/api/clients', '/api/debug/events', '/api/debug/entities', '/api/tokens']) {
       const res = await fetch(`${baseUrl}${endpoint}`);
       expectNot404(res.status, endpoint);
     }

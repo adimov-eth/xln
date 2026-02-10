@@ -30,149 +30,161 @@ export async function htlc4hop(env: Env): Promise<void> {
   const restoreStrict = enableStrictScenario(env, 'HTLC 4-Hop');
   const prevScenarioMode = env.scenarioMode;
   try {
-  env.scenarioMode = true; // Deterministic time control
-  requireRuntimeSeed(env, 'HTLC 4-Hop');
-  ensureSignerKeysFromSeed(env, ['1', '2', '3', '4', '5', '6'], 'HTLC 4-Hop');
-  const rng = createRngFromEnv(env); // Deterministic RNG for HTLC secrets
-  console.log('═══════════════════════════════════════════════════════════');
-  console.log('          HTLC 4-HOP ONION ROUTING TEST                    ');
-  console.log('═══════════════════════════════════════════════════════════\n');
+    env.scenarioMode = true; // Deterministic time control
+    requireRuntimeSeed(env, 'HTLC 4-Hop');
+    ensureSignerKeysFromSeed(env, ['1', '2', '3', '4', '5', '6'], 'HTLC 4-Hop');
+    const rng = createRngFromEnv(env); // Deterministic RNG for HTLC secrets
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('          HTLC 4-HOP ONION ROUTING TEST                    ');
+    console.log('═══════════════════════════════════════════════════════════\n');
 
-  // Setup BrowserVM
-  const browserVM = await ensureBrowserVM(env);
-  const depositoryAddress = browserVM.getDepositoryAddress();
-  createJReplica(env, '4-Hop Demo', depositoryAddress);
+    // Setup BrowserVM
+    const browserVM = await ensureBrowserVM(env);
+    const depositoryAddress = browserVM.getDepositoryAddress();
+    createJReplica(env, '4-Hop Demo', depositoryAddress);
 
-  // Create economy: 3 hubs + 2 users
-  const { hubs, users, all } = await createEconomy(env, {
-    numHubs: 3,
-    usersPerHub: 1,
-    initialCollateral: usd(500_000),
-    creditLimit: usd(200_000),
-    tokenId: USDC_TOKEN_ID,
-    jurisdictionName: '4-Hop Demo'
-  });
+    // Create economy: 3 hubs + 2 users
+    const { hubs, users, all } = await createEconomy(env, {
+      numHubs: 3,
+      usersPerHub: 1,
+      initialCollateral: usd(500_000),
+      creditLimit: usd(200_000),
+      tokenId: USDC_TOKEN_ID,
+      jurisdictionName: '4-Hop Demo',
+    });
 
-  const [hub1, hub2, hub3] = hubs;
-  const alice = users[0][0]; // User under Hub1
-  const bob = users[2][0];   // User under Hub3
+    const [hub1, hub2, hub3] = hubs;
+    const alice = users[0][0]; // User under Hub1
+    const bob = users[2][0]; // User under Hub3
 
-  console.log(`📋 Entities created:`);
-  console.log(`   Alice: ${alice.id.slice(-4)} (user, connected to ${hub1.name})`);
-  console.log(`   ${hub1.name}: ${hub1.id.slice(-4)}`);
-  console.log(`   ${hub2.name}: ${hub2.id.slice(-4)}`);
-  console.log(`   ${hub3.name}: ${hub3.id.slice(-4)}`);
-  console.log(`   Bob: ${bob.id.slice(-4)} (user, connected to ${hub3.name})\n`);
+    console.log(`📋 Entities created:`);
+    console.log(`   Alice: ${alice.id.slice(-4)} (user, connected to ${hub1.name})`);
+    console.log(`   ${hub1.name}: ${hub1.id.slice(-4)}`);
+    console.log(`   ${hub2.name}: ${hub2.id.slice(-4)}`);
+    console.log(`   ${hub3.name}: ${hub3.id.slice(-4)}`);
+    console.log(`   Bob: ${bob.id.slice(-4)} (user, connected to ${hub3.name})\n`);
 
-  // Connect channels
-  await connectEconomy(env, hubs, users, usd(200_000), USDC_TOKEN_ID);
+    // Connect channels
+    await connectEconomy(env, hubs, users, usd(200_000), USDC_TOKEN_ID);
 
-  // Test 4-hop route with CONCURRENT PAYMENTS: Alice → Hub1 → Hub2 → Hub3 → Bob
-  console.log('\n═══════════════════════════════════════');
-  console.log('🚀 TESTING 4-HOP HTLC WITH CONCURRENT PAYMENTS');
-  console.log('═══════════════════════════════════════\n');
+    // Test 4-hop route with CONCURRENT PAYMENTS: Alice → Hub1 → Hub2 → Hub3 → Bob
+    console.log('\n═══════════════════════════════════════');
+    console.log('🚀 TESTING 4-HOP HTLC WITH CONCURRENT PAYMENTS');
+    console.log('═══════════════════════════════════════\n');
 
-  const route = [hub1, hub2, hub3];
-  // H9 AUDIT FIX: Test multiple concurrent HTLCs to stress the routing
-  // Sequential (same hashlock) due to capacity hold conflicts
-  const paymentAmounts = [
-    usd(10_000),  // Payment 1
-    usd(15_000),  // Payment 2
-    usd(20_000),  // Payment 3
-    usd(5_000),   // Payment 4 (small)
-  ];
+    const route = [hub1, hub2, hub3];
+    // H9 AUDIT FIX: Test multiple concurrent HTLCs to stress the routing
+    // Sequential (same hashlock) due to capacity hold conflicts
+    const paymentAmounts = [
+      usd(10_000), // Payment 1
+      usd(15_000), // Payment 2
+      usd(20_000), // Payment 3
+      usd(5_000), // Payment 4 (small)
+    ];
 
-  console.log(`🔥 Sending ${paymentAmounts.length} payment(s) through 4-hop route...\n`);
+    console.log(`🔥 Sending ${paymentAmounts.length} payment(s) through 4-hop route...\n`);
 
-  // Send payments sequentially (concurrent HTLCs have capacity hold conflicts)
-  for (let i = 0; i < paymentAmounts.length; i++) {
-    const htlc = rng.nextHashlock(); // Deterministic secret for each payment
-    await testHtlcRoute(env, alice, bob, route, paymentAmounts[i]!, USDC_TOKEN_ID, `Payment ${i + 1}/${paymentAmounts.length}`, htlc);
-  }
+    // Send payments sequentially (concurrent HTLCs have capacity hold conflicts)
+    for (let i = 0; i < paymentAmounts.length; i++) {
+      const htlc = rng.nextHashlock(); // Deterministic secret for each payment
+      await testHtlcRoute(
+        env,
+        alice,
+        bob,
+        route,
+        paymentAmounts[i]!,
+        USDC_TOKEN_ID,
+        `Payment ${i + 1}/${paymentAmounts.length}`,
+        htlc,
+      );
+    }
 
-  console.log(`\n✅ All ${paymentAmounts.length} concurrent payments processed!\n`);
+    console.log(`\n✅ All ${paymentAmounts.length} concurrent payments processed!\n`);
 
-  // Verify settlement
-  console.log('🔍 Verifying 4-hop settlement...\n');
+    // Verify settlement
+    console.log('🔍 Verifying 4-hop settlement...\n');
 
-  const [, aliceRep] = findReplica(env, alice.id);
-  const [, hub1Rep] = findReplica(env, hub1.id);
-  const [, hub2Rep] = findReplica(env, hub2.id);
-  const [, hub3Rep] = findReplica(env, hub3.id);
-  const [, bobRep] = findReplica(env, bob.id);
+    const [, aliceRep] = findReplica(env, alice.id);
+    const [, hub1Rep] = findReplica(env, hub1.id);
+    const [, hub2Rep] = findReplica(env, hub2.id);
+    const [, hub3Rep] = findReplica(env, hub3.id);
+    const [, bobRep] = findReplica(env, bob.id);
 
-  // All locks should be cleared (auto-revealed)
-  const aliceHub1Account = aliceRep.state.accounts.get(hub1.id as AccountKey);
-  const hub1Hub2Account = hub1Rep.state.accounts.get(hub2.id as AccountKey);
-  const hub2Hub3Account = hub2Rep.state.accounts.get(hub3.id as AccountKey);
-  const hub3BobAccount = hub3Rep.state.accounts.get(bob.id as AccountKey);
+    // All locks should be cleared (auto-revealed)
+    const aliceHub1Account = aliceRep.state.accounts.get(hub1.id as AccountKey);
+    const hub1Hub2Account = hub1Rep.state.accounts.get(hub2.id as AccountKey);
+    const hub2Hub3Account = hub2Rep.state.accounts.get(hub3.id as AccountKey);
+    const hub3BobAccount = hub3Rep.state.accounts.get(bob.id as AccountKey);
 
-  console.log(`   Locks after settlement:`);
-  console.log(`   Alice-Hub1: ${aliceHub1Account?.locks.size || 0}`);
-  console.log(`   Hub1-Hub2: ${hub1Hub2Account?.locks.size || 0}`);
-  console.log(`   Hub2-Hub3: ${hub2Hub3Account?.locks.size || 0}`);
-  console.log(`   Hub3-Bob: ${hub3BobAccount?.locks.size || 0}\n`);
+    console.log(`   Locks after settlement:`);
+    console.log(`   Alice-Hub1: ${aliceHub1Account?.locks.size || 0}`);
+    console.log(`   Hub1-Hub2: ${hub1Hub2Account?.locks.size || 0}`);
+    console.log(`   Hub2-Hub3: ${hub2Hub3Account?.locks.size || 0}`);
+    console.log(`   Hub3-Bob: ${hub3BobAccount?.locks.size || 0}\n`);
 
-  assert((aliceHub1Account?.locks.size || 0) === 0, 'All locks cleared after concurrent payments');
+    assert((aliceHub1Account?.locks.size || 0) === 0, 'All locks cleared after concurrent payments');
 
-  // Check fees earned at each hop (across ALL payments)
-  const { calculateHtlcFeeAmount } = await import('../htlc-utils');
+    // Check fees earned at each hop (across ALL payments)
+    const { calculateHtlcFeeAmount } = await import('../htlc-utils');
 
-  // Calculate expected fees for all payments
-  let expectedTotalFees = 0n;
-  for (const amount of paymentAmounts) {
-    const hop1Fee = calculateHtlcFeeAmount(amount);
-    const hop2Fee = calculateHtlcFeeAmount(amount - hop1Fee);
-    const hop3Fee = calculateHtlcFeeAmount(amount - hop1Fee - hop2Fee);
-    expectedTotalFees += hop1Fee + hop2Fee + hop3Fee;
-  }
+    // Calculate expected fees for all payments
+    let expectedTotalFees = 0n;
+    for (const amount of paymentAmounts) {
+      const hop1Fee = calculateHtlcFeeAmount(amount);
+      const hop2Fee = calculateHtlcFeeAmount(amount - hop1Fee);
+      const hop3Fee = calculateHtlcFeeAmount(amount - hop1Fee - hop2Fee);
+      expectedTotalFees += hop1Fee + hop2Fee + hop3Fee;
+    }
 
-  const totalFeesEarned = (hub1Rep.state.htlcFeesEarned || 0n) +
-                          (hub2Rep.state.htlcFeesEarned || 0n) +
-                          (hub3Rep.state.htlcFeesEarned || 0n);
+    const totalFeesEarned =
+      (hub1Rep.state.htlcFeesEarned || 0n) +
+      (hub2Rep.state.htlcFeesEarned || 0n) +
+      (hub3Rep.state.htlcFeesEarned || 0n);
 
-  console.log(`   Fees collected (across ${paymentAmounts.length} payments):`);
-  console.log(`   Hub1: ${hub1Rep.state.htlcFeesEarned || 0n}`);
-  console.log(`   Hub2: ${hub2Rep.state.htlcFeesEarned || 0n}`);
-  console.log(`   Hub3: ${hub3Rep.state.htlcFeesEarned || 0n}`);
-  console.log(`   Total earned: ${totalFeesEarned}`);
-  console.log(`   Expected: ${expectedTotalFees}\n`);
+    console.log(`   Fees collected (across ${paymentAmounts.length} payments):`);
+    console.log(`   Hub1: ${hub1Rep.state.htlcFeesEarned || 0n}`);
+    console.log(`   Hub2: ${hub2Rep.state.htlcFeesEarned || 0n}`);
+    console.log(`   Hub3: ${hub3Rep.state.htlcFeesEarned || 0n}`);
+    console.log(`   Total earned: ${totalFeesEarned}`);
+    console.log(`   Expected: ${expectedTotalFees}\n`);
 
-  if (totalFeesEarned === 0n) {
-    console.log(`   ⚠️  No fees collected - likely direct route was used`);
-    console.log(`      Or forwarding didn't trigger (check envelope processing)\n`);
-  }
+    if (totalFeesEarned === 0n) {
+      console.log(`   ⚠️  No fees collected - likely direct route was used`);
+      console.log(`      Or forwarding didn't trigger (check envelope processing)\n`);
+    }
 
-  // Verify deltas (total across all payments)
-  const aliceHub1Delta = aliceHub1Account?.deltas.get(USDC_TOKEN_ID as TokenId);
-  const hub3BobDelta = hub3BobAccount?.deltas.get(USDC_TOKEN_ID as TokenId);
+    // Verify deltas (total across all payments)
+    const aliceHub1Delta = aliceHub1Account?.deltas.get(USDC_TOKEN_ID as TokenId);
+    const hub3BobDelta = hub3BobAccount?.deltas.get(USDC_TOKEN_ID as TokenId);
 
-  const totalPaymentAmount = paymentAmounts.reduce((sum, amt) => sum + amt, 0n);
+    const totalPaymentAmount = paymentAmounts.reduce((sum, amt) => sum + amt, 0n);
 
-  console.log(`   Delta changes (total):`);
-  console.log(`   Alice-Hub1 offdelta: ${aliceHub1Delta?.offdelta || 0n} (Alice paid)`);
-  console.log(`   Hub3-Bob offdelta: ${hub3BobDelta?.offdelta || 0n} (Bob received)`);
-  console.log(`   Total sent: ${totalPaymentAmount}\n`);
+    console.log(`   Delta changes (total):`);
+    console.log(`   Alice-Hub1 offdelta: ${aliceHub1Delta?.offdelta || 0n} (Alice paid)`);
+    console.log(`   Hub3-Bob offdelta: ${hub3BobDelta?.offdelta || 0n} (Bob received)`);
+    console.log(`   Total sent: ${totalPaymentAmount}\n`);
 
-  // Alice's view: positive offdelta = Alice owes Hub1 (Alice paid)
-  const alicePaid = aliceHub1Delta?.offdelta || 0n;
-  // Hub3's view: negative offdelta = Bob owes Hub3 (Hub3 sent to Bob)
-  // Bob received = -offdelta from Hub3's perspective
-  const bobReceived = -(hub3BobDelta?.offdelta || 0n);
+    // Alice's view: positive offdelta = Alice owes Hub1 (Alice paid)
+    const alicePaid = aliceHub1Delta?.offdelta || 0n;
+    // Hub3's view: negative offdelta = Bob owes Hub3 (Hub3 sent to Bob)
+    // Bob received = -offdelta from Hub3's perspective
+    const bobReceived = -(hub3BobDelta?.offdelta || 0n);
 
-  assert(alicePaid === totalPaymentAmount, `Alice paid total amount: ${alicePaid} === ${totalPaymentAmount}`);
-  assert(bobReceived === totalPaymentAmount - expectedTotalFees || bobReceived === totalPaymentAmount,
-         `Bob received amount (${bobReceived}) ≈ total minus fees (${totalPaymentAmount - expectedTotalFees})`);
+    assert(alicePaid === totalPaymentAmount, `Alice paid total amount: ${alicePaid} === ${totalPaymentAmount}`);
+    assert(
+      bobReceived === totalPaymentAmount - expectedTotalFees || bobReceived === totalPaymentAmount,
+      `Bob received amount (${bobReceived}) ≈ total minus fees (${totalPaymentAmount - expectedTotalFees})`,
+    );
 
-  console.log('═══════════════════════════════════════');
-  console.log('✅ 4-HOP CONCURRENT HTLC TEST PASSED!');
-  console.log(`   Payments: ${paymentAmounts.length} concurrent (stress test)`);
-  console.log(`   Route: ${route.length + 2} entities (${route.length} intermediate hops)`);
-  console.log(`   Privacy: RSA-OAEP encrypted envelopes (each hop only sees nextHop)`);
-  console.log(`   Fees: $${Number(expectedTotalFees) / 1e18} total (${paymentAmounts.length} payments × 3 hops)`);
-  console.log(`   Settlement: All ${paymentAmounts.length} payments atomic via secret revelation`);
-  console.log(`   Total volume: $${Number(totalPaymentAmount) / 1e18}`);
-  console.log('═══════════════════════════════════════\n');
+    console.log('═══════════════════════════════════════');
+    console.log('✅ 4-HOP CONCURRENT HTLC TEST PASSED!');
+    console.log(`   Payments: ${paymentAmounts.length} concurrent (stress test)`);
+    console.log(`   Route: ${route.length + 2} entities (${route.length} intermediate hops)`);
+    console.log(`   Privacy: RSA-OAEP encrypted envelopes (each hop only sees nextHop)`);
+    console.log(`   Fees: $${Number(expectedTotalFees) / 1e18} total (${paymentAmounts.length} payments × 3 hops)`);
+    console.log(`   Settlement: All ${paymentAmounts.length} payments atomic via secret revelation`);
+    console.log(`   Total volume: $${Number(totalPaymentAmount) / 1e18}`);
+    console.log('═══════════════════════════════════════\n');
   } finally {
     env.scenarioMode = prevScenarioMode ?? false;
     restoreStrict();

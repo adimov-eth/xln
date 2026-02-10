@@ -14,7 +14,17 @@ import type { Env, EntityReplica, SettlementDiff } from '../types';
 import type { AccountKey, TokenId } from '../ids';
 import { getAvailableJurisdictions, setBrowserVMJurisdiction } from '../evm';
 import { BrowserVMProvider } from '../jadapter';
-import { snap, checkSolvency, assertRuntimeIdle, enableStrictScenario, advanceScenarioTime, ensureSignerKeysFromSeed, requireRuntimeSeed, getProcess, getApplyRuntimeInput } from './helpers';
+import {
+  snap,
+  checkSolvency,
+  assertRuntimeIdle,
+  enableStrictScenario,
+  advanceScenarioTime,
+  ensureSignerKeysFromSeed,
+  requireRuntimeSeed,
+  getProcess,
+  getApplyRuntimeInput,
+} from './helpers';
 import { formatRuntime } from '../runtime-ascii';
 import { createGossipLayer } from '../networking/gossip';
 import { userAutoApprove, canAutoApproveWorkspace } from '../entity-tx/handlers/settle';
@@ -52,7 +62,6 @@ function assert(condition: unknown, message: string, env?: Env): asserts conditi
   }
 }
 
-
 async function processJEvents(env: Env): Promise<void> {
   const process = await getProcess();
   const pendingInputs = env.runtimeInput?.entityInputs || [];
@@ -67,7 +76,7 @@ async function processUntil(
   env: Env,
   predicate: () => boolean,
   maxRounds: number = 10,
-  label: string = 'condition'
+  label: string = 'condition',
 ): Promise<void> {
   const process = await getProcess();
   for (let round = 0; round < maxRounds; round++) {
@@ -123,10 +132,19 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   const quietLog = (...args: any[]) => {
     const msg = args[0]?.toString() || '';
     // Only show key events
-    if (msg.includes('ASSERT') || msg.includes('✅') || msg.includes('❌') ||
-        msg.includes('PHASE') || msg.includes('TEST') || msg.includes('settle_') ||
-        msg.includes('═══') || msg.includes('HOLD CHECK') ||
-        msg.includes('JAdapter') || msg.includes('📡') || msg.includes('📮')) {
+    if (
+      msg.includes('ASSERT') ||
+      msg.includes('✅') ||
+      msg.includes('❌') ||
+      msg.includes('PHASE') ||
+      msg.includes('TEST') ||
+      msg.includes('settle_') ||
+      msg.includes('═══') ||
+      msg.includes('HOLD CHECK') ||
+      msg.includes('JAdapter') ||
+      msg.includes('📡') ||
+      msg.includes('📮')
+    ) {
       originalLog(...args);
     }
   };
@@ -158,7 +176,10 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   const { ethers } = await import('ethers');
   const { BrowserVMEthersProvider } = await import('../jadapter/browservm-ethers-provider');
   const bvmProvider = new BrowserVMEthersProvider(browserVM);
-  const bvmSigner = new ethers.Wallet('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80', bvmProvider as any);
+  const bvmSigner = new ethers.Wallet(
+    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+    bvmProvider as any,
+  );
   const jadapter = await createBrowserVMAdapter(
     { mode: 'browservm', chainId: 31337 },
     bvmProvider as any,
@@ -206,66 +227,74 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
 
   // Create Alice (left of jurisdiction) - entity #2, signer '2'
   await applyRuntimeInput(env, {
-    runtimeTxs: [{
-      type: 'importReplica' as const,
-      entityId: ALICE_ID,
-      signerId: '2',
-      data: {
-        isProposer: true,
-        position: { x: -30, y: -30, z: 0 },
-        config: {
-          mode: 'proposer-based' as const,
-          threshold: 1n,
-          validators: ['2'],
-          shares: { '2': 1n },
-          jurisdiction
-        }
-      }
-    }],
-    entityInputs: []
+    runtimeTxs: [
+      {
+        type: 'importReplica' as const,
+        entityId: ALICE_ID,
+        signerId: '2',
+        data: {
+          isProposer: true,
+          position: { x: -30, y: -30, z: 0 },
+          config: {
+            mode: 'proposer-based' as const,
+            threshold: 1n,
+            validators: ['2'],
+            shares: { '2': 1n },
+            jurisdiction,
+          },
+        },
+      },
+    ],
+    entityInputs: [],
   });
 
   // Create Hub (right of jurisdiction) - entity #3, signer '3'
   await applyRuntimeInput(env, {
-    runtimeTxs: [{
-      type: 'importReplica' as const,
-      entityId: HUB_ID,
-      signerId: '3',
-      data: {
-        isProposer: true,
-        position: { x: 30, y: -30, z: 0 },
-        config: {
-          mode: 'proposer-based' as const,
-          threshold: 1n,
-          validators: ['3'],
-          shares: { '3': 1n },
-          jurisdiction
-        }
-      }
-    }],
-    entityInputs: []
+    runtimeTxs: [
+      {
+        type: 'importReplica' as const,
+        entityId: HUB_ID,
+        signerId: '3',
+        data: {
+          isProposer: true,
+          position: { x: 30, y: -30, z: 0 },
+          config: {
+            mode: 'proposer-based' as const,
+            threshold: 1n,
+            validators: ['3'],
+            shares: { '3': 1n },
+            jurisdiction,
+          },
+        },
+      },
+    ],
+    entityInputs: [],
   });
 
   console.log(`✅ Created Alice (${ALICE_ID.slice(-4)}) and Hub (${HUB_ID.slice(-4)})`);
 
   snap(env, 'Entities Created', {
-    description: 'Alice and Hub entities initialized'
+    description: 'Alice and Hub entities initialized',
   });
 
   // JAdapter.startWatching() handles J-events (setup at line 185)
 
   // Mint reserves
-  await process(env, [{
-    entityId: ALICE_ID,
-    signerId: '2',
-    entityTxs: [{ type: 'mintReserves', data: { tokenId: USDC_TOKEN_ID, amount: usd(1000) } }]
-  }]);
+  await process(env, [
+    {
+      entityId: ALICE_ID,
+      signerId: '2',
+      entityTxs: [{ type: 'mintReserves', data: { tokenId: USDC_TOKEN_ID, amount: usd(1000) } }],
+    },
+  ]);
 
-  await process(env, [{
-    entityId: HUB_ID,
-    signerId: '3',
-    entityTxs: [{ type: 'mintReserves', data: { tokenId: USDC_TOKEN_ID, amount: usd(1000) } }]
-  }]);
+  await process(env, [
+    {
+      entityId: HUB_ID,
+      signerId: '3',
+      entityTxs: [{ type: 'mintReserves', data: { tokenId: USDC_TOKEN_ID, amount: usd(1000) } }],
+    },
+  ]);
 
   // Process J-events from minting
   for (let i = 0; i < 5; i++) {
@@ -274,11 +303,13 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   }
 
   // Open account between Alice and Hub
-  await process(env, [{
-    entityId: ALICE_ID,
-    signerId: '2',
-    entityTxs: [{ type: 'openAccount', data: { targetEntityId: HUB_ID, creditAmount: 0n } }]
-  }]);
+  await process(env, [
+    {
+      entityId: ALICE_ID,
+      signerId: '2',
+      entityTxs: [{ type: 'openAccount', data: { targetEntityId: HUB_ID, creditAmount: 0n } }],
+    },
+  ]);
 
   // Let account setup complete
   for (let i = 0; i < 10; i++) {
@@ -289,7 +320,7 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   console.log(`✅ Account opened between Alice and Hub`);
 
   snap(env, 'Account Opened', {
-    description: 'Bilateral account between Alice and Hub'
+    description: 'Bilateral account between Alice and Hub',
   });
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -303,11 +334,11 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
     leftDiff: -100n,
     rightDiff: 50n,
     collateralDiff: 50n,
-    ondeltaDiff: 0n
+    ondeltaDiff: 0n,
   };
   assert(
     validDiff.leftDiff + validDiff.rightDiff + validDiff.collateralDiff === 0n,
-    'Valid diff should satisfy conservation law'
+    'Valid diff should satisfy conservation law',
   );
   console.log(`✅ Valid diff: ${validDiff.leftDiff} + ${validDiff.rightDiff} + ${validDiff.collateralDiff} = 0`);
 
@@ -317,13 +348,15 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
     leftDiff: -100n,
     rightDiff: 50n,
     collateralDiff: 40n, // Sum = -10
-    ondeltaDiff: 0n
+    ondeltaDiff: 0n,
   };
   assert(
     invalidDiff.leftDiff + invalidDiff.rightDiff + invalidDiff.collateralDiff !== 0n,
-    'Invalid diff should violate conservation law'
+    'Invalid diff should violate conservation law',
   );
-  console.log(`✅ Invalid diff: ${invalidDiff.leftDiff} + ${invalidDiff.rightDiff} + ${invalidDiff.collateralDiff} = ${invalidDiff.leftDiff + invalidDiff.rightDiff + invalidDiff.collateralDiff}`);
+  console.log(
+    `✅ Invalid diff: ${invalidDiff.leftDiff} + ${invalidDiff.rightDiff} + ${invalidDiff.collateralDiff} = ${invalidDiff.leftDiff + invalidDiff.rightDiff + invalidDiff.collateralDiff}`,
+  );
 
   // ══════════════════════════════════════════════════════════════════════════════
   // TEST 2: AUTO-APPROVE LOGIC
@@ -335,10 +368,10 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   // If Hub (Right) withdraws from collateral, ondelta stays unchanged
   const hubWithdrawsDiff: SettlementDiff = {
     tokenId: USDC_TOKEN_ID,
-    leftDiff: 0n,           // Alice's reserve unchanged
-    rightDiff: 100n,        // Hub gets 100 to reserve
-    collateralDiff: -100n,  // From collateral
-    ondeltaDiff: 0n         // ondelta UNCHANGED because Right is operating
+    leftDiff: 0n, // Alice's reserve unchanged
+    rightDiff: 100n, // Hub gets 100 to reserve
+    collateralDiff: -100n, // From collateral
+    ondeltaDiff: 0n, // ondelta UNCHANGED because Right is operating
   };
 
   // Alice is LEFT in Alice-Hub account
@@ -349,10 +382,10 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   // Scenario: Hub tries to take from Alice's reserve (should NOT auto-approve)
   const hubTakesFromAlice: SettlementDiff = {
     tokenId: USDC_TOKEN_ID,
-    leftDiff: -100n,        // Alice loses 100
-    rightDiff: 100n,        // Hub gains 100
+    leftDiff: -100n, // Alice loses 100
+    rightDiff: 100n, // Hub gains 100
     collateralDiff: 0n,
-    ondeltaDiff: 0n
+    ondeltaDiff: 0n,
   };
   const aliceRejects = userAutoApprove(hubTakesFromAlice, true);
   console.log(`   Hub takes from Alice: aliceAutoApproves=${aliceRejects}`);
@@ -361,10 +394,10 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   // Scenario: Hub sends to Alice (should auto-approve)
   const hubSendsToAlice: SettlementDiff = {
     tokenId: USDC_TOKEN_ID,
-    leftDiff: 100n,         // Alice gains 100
-    rightDiff: -100n,       // Hub loses 100
+    leftDiff: 100n, // Alice gains 100
+    rightDiff: -100n, // Hub loses 100
     collateralDiff: 0n,
-    ondeltaDiff: 0n
+    ondeltaDiff: 0n,
   };
   const aliceAccepts = userAutoApprove(hubSendsToAlice, true);
   console.log(`   Hub sends to Alice: aliceAutoApproves=${aliceAccepts}`);
@@ -380,24 +413,28 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   // Alice proposes settlement: deposit 100 USDC into collateral
   const depositDiff: SettlementDiff = {
     tokenId: USDC_TOKEN_ID,
-    leftDiff: -usd(100),       // Alice sends from reserve
+    leftDiff: -usd(100), // Alice sends from reserve
     rightDiff: 0n,
-    collateralDiff: usd(100),  // Into collateral
-    ondeltaDiff: usd(100)      // ondelta tracks Alice's attribution
+    collateralDiff: usd(100), // Into collateral
+    ondeltaDiff: usd(100), // ondelta tracks Alice's attribution
   };
 
-  await process(env, [{
-    entityId: ALICE_ID,
-    signerId: '2',
-    entityTxs: [{
-      type: 'settle_propose',
-      data: {
-        counterpartyEntityId: HUB_ID,
-        diffs: [depositDiff],
-        memo: 'Alice deposits collateral'
-      }
-    }]
-  }]);
+  await process(env, [
+    {
+      entityId: ALICE_ID,
+      signerId: '2',
+      entityTxs: [
+        {
+          type: 'settle_propose',
+          data: {
+            counterpartyEntityId: HUB_ID,
+            diffs: [depositDiff],
+            memo: 'Alice deposits collateral',
+          },
+        },
+      ],
+    },
+  ]);
 
   // Process message delivery
   for (let i = 0; i < 5; i++) {
@@ -423,14 +460,18 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   assert(usdcDelta, 'USDC delta should exist', env);
   const expectedHold = usd(100);
   console.log(`   HOLD CHECK: leftSettleHold=${usdcDelta.leftSettleHold || 0n}, expected=${expectedHold}`);
-  assert(usdcDelta.leftSettleHold === expectedHold, `Settlement hold not set: expected ${expectedHold}, got ${usdcDelta.leftSettleHold || 0n}`, env);
+  assert(
+    usdcDelta.leftSettleHold === expectedHold,
+    `Settlement hold not set: expected ${expectedHold}, got ${usdcDelta.leftSettleHold || 0n}`,
+    env,
+  );
 
   console.log(`✅ Settlement proposed: Alice → Hub`);
   console.log(`   Workspace version: ${aliceAccount.settlementWorkspace.version}`);
   console.log(`   Status: ${aliceAccount.settlementWorkspace.status}`);
 
   snap(env, 'Settlement Proposed', {
-    description: 'Alice proposes $100 deposit to collateral'
+    description: 'Alice proposes $100 deposit to collateral',
   });
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -441,24 +482,28 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   // Hub counter-proposes: different amount
   const counterDiff: SettlementDiff = {
     tokenId: USDC_TOKEN_ID,
-    leftDiff: -usd(50),        // Less from Alice
+    leftDiff: -usd(50), // Less from Alice
     rightDiff: 0n,
-    collateralDiff: usd(50),   // Less to collateral
-    ondeltaDiff: usd(50)
+    collateralDiff: usd(50), // Less to collateral
+    ondeltaDiff: usd(50),
   };
 
-  await process(env, [{
-    entityId: HUB_ID,
-    signerId: '3',
-    entityTxs: [{
-      type: 'settle_update',
-      data: {
-        counterpartyEntityId: ALICE_ID,
-        diffs: [counterDiff],
-        memo: 'Hub counter: 50 instead of 100'
-      }
-    }]
-  }]);
+  await process(env, [
+    {
+      entityId: HUB_ID,
+      signerId: '3',
+      entityTxs: [
+        {
+          type: 'settle_update',
+          data: {
+            counterpartyEntityId: ALICE_ID,
+            diffs: [counterDiff],
+            memo: 'Hub counter: 50 instead of 100',
+          },
+        },
+      ],
+    },
+  ]);
 
   // Process message delivery
   for (let i = 0; i < 5; i++) {
@@ -475,7 +520,7 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   console.log(`   New version: ${aliceAccount2.settlementWorkspace.version}`);
 
   snap(env, 'Settlement Updated', {
-    description: 'Hub counter-proposes $50 instead of $100'
+    description: 'Hub counter-proposes $50 instead of $100',
   });
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -484,14 +529,18 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   console.log('\n📋 TEST 5: Settlement Approve');
 
   // Alice approves first
-  await process(env, [{
-    entityId: ALICE_ID,
-    signerId: '2',
-    entityTxs: [{
-      type: 'settle_approve',
-      data: { counterpartyEntityId: HUB_ID }
-    }]
-  }]);
+  await process(env, [
+    {
+      entityId: ALICE_ID,
+      signerId: '2',
+      entityTxs: [
+        {
+          type: 'settle_approve',
+          data: { counterpartyEntityId: HUB_ID },
+        },
+      ],
+    },
+  ]);
 
   for (let i = 0; i < 5; i++) {
     advanceScenarioTime(env);
@@ -508,14 +557,18 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   console.log(`   leftHanko: ${aliceAccount3.settlementWorkspace.leftHanko?.slice(0, 20)}...`);
 
   // Hub approves
-  await process(env, [{
-    entityId: HUB_ID,
-    signerId: '3',
-    entityTxs: [{
-      type: 'settle_approve',
-      data: { counterpartyEntityId: ALICE_ID }
-    }]
-  }]);
+  await process(env, [
+    {
+      entityId: HUB_ID,
+      signerId: '3',
+      entityTxs: [
+        {
+          type: 'settle_approve',
+          data: { counterpartyEntityId: ALICE_ID },
+        },
+      ],
+    },
+  ]);
 
   for (let i = 0; i < 5; i++) {
     advanceScenarioTime(env);
@@ -533,7 +586,7 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   console.log(`   Status: ${aliceAccount4.settlementWorkspace.status}`);
 
   snap(env, 'Settlement Approved', {
-    description: 'Both parties signed - ready to submit'
+    description: 'Both parties signed - ready to submit',
   });
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -542,14 +595,18 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   console.log('\n📋 TEST 6: Settlement Execute');
 
   // Alice executes (adds to jBatch)
-  await process(env, [{
-    entityId: ALICE_ID,
-    signerId: '2',
-    entityTxs: [{
-      type: 'settle_execute',
-      data: { counterpartyEntityId: HUB_ID }
-    }]
-  }]);
+  await process(env, [
+    {
+      entityId: ALICE_ID,
+      signerId: '2',
+      entityTxs: [
+        {
+          type: 'settle_execute',
+          data: { counterpartyEntityId: HUB_ID },
+        },
+      ],
+    },
+  ]);
 
   for (let i = 0; i < 3; i++) {
     advanceScenarioTime(env);
@@ -557,7 +614,11 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   }
 
   const aliceState = findReplica(env, ALICE_ID)[1].state;
-  assert(!aliceState.accounts.get(HUB_ID as AccountKey)?.settlementWorkspace, 'Workspace should be cleared after execute', env);
+  assert(
+    !aliceState.accounts.get(HUB_ID as AccountKey)?.settlementWorkspace,
+    'Workspace should be cleared after execute',
+    env,
+  );
   // With JAdapter.submitTx(), jBatch is broadcast immediately post-save.
   // By the time we check here, the batch was already processed on-chain and cleared.
   // Verify it was executed (batch cleared = success) rather than still pending.
@@ -568,7 +629,7 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   console.log(`✅ Settlement executed via JAdapter (batch cleared: ${batchSettlements === 0})`);
 
   snap(env, 'Settlement Executed', {
-    description: 'Settlement added to jBatch for on-chain commit'
+    description: 'Settlement added to jBatch for on-chain commit',
   });
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -577,18 +638,22 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   console.log('\n📋 TEST 7: Settlement Reject');
 
   // Create another proposal
-  await process(env, [{
-    entityId: ALICE_ID,
-    signerId: '2',
-    entityTxs: [{
-      type: 'settle_propose',
-      data: {
-        counterpartyEntityId: HUB_ID,
-        diffs: [depositDiff],
-        memo: 'Another proposal'
-      }
-    }]
-  }]);
+  await process(env, [
+    {
+      entityId: ALICE_ID,
+      signerId: '2',
+      entityTxs: [
+        {
+          type: 'settle_propose',
+          data: {
+            counterpartyEntityId: HUB_ID,
+            diffs: [depositDiff],
+            memo: 'Another proposal',
+          },
+        },
+      ],
+    },
+  ]);
 
   for (let i = 0; i < 5; i++) {
     advanceScenarioTime(env);
@@ -596,17 +661,21 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   }
 
   // Hub rejects
-  await process(env, [{
-    entityId: HUB_ID,
-    signerId: '3',
-    entityTxs: [{
-      type: 'settle_reject',
-      data: {
-        counterpartyEntityId: ALICE_ID,
-        reason: 'Not interested'
-      }
-    }]
-  }]);
+  await process(env, [
+    {
+      entityId: HUB_ID,
+      signerId: '3',
+      entityTxs: [
+        {
+          type: 'settle_reject',
+          data: {
+            counterpartyEntityId: ALICE_ID,
+            reason: 'Not interested',
+          },
+        },
+      ],
+    },
+  ]);
 
   for (let i = 0; i < 5; i++) {
     advanceScenarioTime(env);
@@ -619,11 +688,11 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   console.log(`✅ Settlement rejected - workspace cleared`);
 
   snap(env, 'Settlement Rejected', {
-    description: 'Hub rejected - workspace cleared, holds released'
+    description: 'Hub rejected - workspace cleared, holds released',
   });
 
   snap(env, 'Scenario Complete', {
-    description: 'All settlement tests passed'
+    description: 'All settlement tests passed',
   });
 
   // ══════════════════════════════════════════════════════════════════════════════
@@ -632,7 +701,6 @@ export async function runSettleScenario(existingEnv?: Env): Promise<Env> {
   // Restore console.log
   console.log = originalLog;
   console.log('\n📋 CLEANUP');
-
 
   cleanupStrictMode();
 
@@ -650,7 +718,7 @@ if (import.meta.main) {
       console.log('Scenario completed successfully');
       process.exit(0);
     })
-    .catch((err) => {
+    .catch(err => {
       console.error('Scenario failed:', err);
       process.exit(1);
     });

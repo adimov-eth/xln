@@ -11,11 +11,7 @@
  * Copyright (C) 2025 XLN Finance
  */
 
-import type {
-  Xlnomy,
-  XlnomySnapshot,
-  JurisdictionEVM,
-} from './types';
+import type { Xlnomy, XlnomySnapshot, JurisdictionEVM } from './types';
 
 /**
  * Create new Xlnomy (jurisdiction + J-Machine + entities)
@@ -47,15 +43,15 @@ export async function createXlnomy(options: {
   // [3,4,5]  middle row (4 = center)
   // [6,7,8]  bottom row
   const gridPositions = [
-    { x: -400, z: 400 },   // 0: top-left
-    { x: 0, z: 400 },      // 1: top-center
-    { x: 400, z: 400 },    // 2: top-right
-    { x: -400, z: 0 },     // 3: middle-left
-    { x: 0, z: 0 },        // 4: CENTER
-    { x: 400, z: 0 },      // 5: middle-right
-    { x: -400, z: -400 },  // 6: bottom-left
-    { x: 0, z: -400 },     // 7: bottom-center
-    { x: 400, z: -400 },   // 8: bottom-right
+    { x: -400, z: 400 }, // 0: top-left
+    { x: 0, z: 400 }, // 1: top-center
+    { x: 400, z: 400 }, // 2: top-right
+    { x: -400, z: 0 }, // 3: middle-left
+    { x: 0, z: 0 }, // 4: CENTER
+    { x: 400, z: 0 }, // 5: middle-right
+    { x: -400, z: -400 }, // 6: bottom-left
+    { x: 0, z: -400 }, // 7: bottom-center
+    { x: 400, z: -400 }, // 8: bottom-right
   ];
 
   // First xlnomy gets center (slot 4), others fill grid
@@ -106,10 +102,7 @@ export async function createXlnomy(options: {
 /**
  * Create EVM instance (BrowserVM or RPC)
  */
-async function createEVM(
-  type: 'browservm' | 'reth' | 'erigon' | 'monad',
-  _rpcUrl?: string
-): Promise<JurisdictionEVM> {
+async function createEVM(type: 'browservm' | 'reth' | 'erigon' | 'monad', _rpcUrl?: string): Promise<JurisdictionEVM> {
   if (type === 'browservm') {
     const { BrowserVMProvider } = await import('./jadapter/browservm-provider.js');
     const evm = new BrowserVMProvider();
@@ -118,7 +111,9 @@ async function createEVM(
     return evm as unknown as JurisdictionEVM;
   } else {
     // RPC mode not implemented - use JAdapter for real chains
-    throw new Error('RPC EVM not implemented in jurisdiction-factory. Use createJAdapter() from jadapter for real chains.');
+    throw new Error(
+      'RPC EVM not implemented in jurisdiction-factory. Use createJAdapter() from jadapter for real chains.',
+    );
   }
 }
 
@@ -164,7 +159,9 @@ async function createGridEntities(xlnomy: Xlnomy, env: any): Promise<void> {
   const xlnomyIndex = env?.jReplicas ? env.jReplicas.size : 0;
   const baseEntityNum = xlnomyIndex * 9 + 1; // Index 0→1-9, Index 1→10-18, Index 2→19-27
 
-  console.log(`[Xlnomy] "${xlnomy.name}" hub (index ${xlnomyIndex}) → Entity IDs ${baseEntityNum}-${baseEntityNum + 8}`);
+  console.log(
+    `[Xlnomy] "${xlnomy.name}" hub (index ${xlnomyIndex}) → Entity IDs ${baseEntityNum}-${baseEntityNum + 8}`,
+  );
 
   // 3×3 flat grid pattern (i=0-8)
   // [0,1,2]  row 0 (top)
@@ -201,8 +198,8 @@ async function createGridEntities(xlnomy: Xlnomy, env: any): Promise<void> {
           shares: { [signerId]: 1n },
         },
         isProposer: true,
-        position: { x, y, z }
-      }
+        position: { x, y, z },
+      },
     };
 
     entityInputs.push(runtimeTx);
@@ -225,9 +222,11 @@ async function createGridEntities(xlnomy: Xlnomy, env: any): Promise<void> {
 export async function exportXlnomy(xlnomy: Xlnomy): Promise<string> {
   const snapshot = await xlnomy.evm.serialize();
 
-  return JSON.stringify(snapshot, (_key, value) =>
-    typeof value === 'bigint' ? `BigInt(${value.toString()})` : value
-  , 2);
+  return JSON.stringify(
+    snapshot,
+    (_key, value) => (typeof value === 'bigint' ? `BigInt(${value.toString()})` : value),
+    2,
+  );
 }
 
 /**

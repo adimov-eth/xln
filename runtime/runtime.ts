@@ -48,7 +48,14 @@ import {
 } from './evm';
 import { createGossipLayer } from './networking/gossip';
 import { attachEventEmitters } from './env-events';
-import { deriveSignerAddressSync, deriveSignerKeySync, getSignerPrivateKey, getSignerPublicKey, registerSignerKey, setRuntimeSeed as setCryptoRuntimeSeed } from './account-crypto';
+import {
+  deriveSignerAddressSync,
+  deriveSignerKeySync,
+  getSignerPrivateKey,
+  getSignerPublicKey,
+  registerSignerKey,
+  setRuntimeSeed as setCryptoRuntimeSeed,
+} from './account-crypto';
 import { buildEntityProfile, mergeProfileWithExisting } from './networking/gossip-helper';
 import { RuntimeP2P, type P2PConfig } from './networking/p2p';
 import {
@@ -101,7 +108,14 @@ import {
 } from './name-resolution';
 // import { runDemo } from './rundemo'; // REMOVED: Legacy demo replaced by scenarios/ahb
 import { decode, encode } from './snapshot-coder'; // encode used in exports
-import { deriveDelta, isLeft, getTokenInfo, formatTokenAmount, createDemoDelta, getDefaultCreditLimit } from './account-utils';
+import {
+  deriveDelta,
+  isLeft,
+  getTokenInfo,
+  formatTokenAmount,
+  createDemoDelta,
+  getDefaultCreditLimit,
+} from './account-utils';
 import { classifyBilateralState, getAccountBarVisual } from './account-consensus-state';
 import {
   formatTokenAmount as formatTokenAmountEthers,
@@ -110,13 +124,31 @@ import {
   calculatePercentage as calculatePercentageEthers,
   formatAssetAmount as formatAssetAmountEthers,
   BigIntMath,
-  FINANCIAL_CONSTANTS
+  FINANCIAL_CONSTANTS,
 } from './financial-utils';
 import { resolveEntityProposerId } from './state-helpers';
 import { getEntityShortId, getEntityNumber, formatEntityId } from './utils';
 import { safeStringify } from './serialization-utils';
-import { validateDelta, validateAccountDeltas, createDefaultDelta, isDelta, validateEntityInput, validateEntityOutput } from './validation-utils';
-import type { EntityInput, EntityReplica, EntityTx, Env, EnvSnapshot, JInput, JReplica, RoutedEntityInput, RuntimeInput, RuntimeTx } from './types';
+import {
+  validateDelta,
+  validateAccountDeltas,
+  createDefaultDelta,
+  isDelta,
+  validateEntityInput,
+  validateEntityOutput,
+} from './validation-utils';
+import type {
+  EntityInput,
+  EntityReplica,
+  EntityTx,
+  Env,
+  EnvSnapshot,
+  JInput,
+  JReplica,
+  RoutedEntityInput,
+  RuntimeInput,
+  RuntimeTx,
+} from './types';
 import {
   clearDatabase,
   DEBUG,
@@ -168,10 +200,7 @@ if (isBrowser && typeof globalThis.process === 'undefined') {
 
 // --- Database Setup ---
 // Level polyfill: Node.js uses filesystem, Browser uses IndexedDB
-const nodeProcess =
-  !isBrowser && typeof globalThis.process !== 'undefined'
-    ? globalThis.process
-    : undefined;
+const nodeProcess = !isBrowser && typeof globalThis.process !== 'undefined' ? globalThis.process : undefined;
 const defaultDbPath = nodeProcess ? 'db-tmp/runtime' : 'db';
 const dbRootPath = nodeProcess?.env?.['XLN_DB_PATH'] || defaultDbPath;
 
@@ -189,7 +218,9 @@ const deriveRuntimeIdFromSeed = (seed?: string | null): string | null => {
   }
 };
 
-const resolveDbNamespace = (options: { env?: Env | null; runtimeId?: string | null; runtimeSeed?: string | null } = {}): string => {
+const resolveDbNamespace = (
+  options: { env?: Env | null; runtimeId?: string | null; runtimeSeed?: string | null } = {},
+): string => {
   const explicit = options.env?.dbNamespace;
   if (explicit) return normalizeDbNamespace(explicit);
   const runtimeId = options.runtimeId ?? options.env?.runtimeId;
@@ -200,9 +231,7 @@ const resolveDbNamespace = (options: { env?: Env | null; runtimeId?: string | nu
   return DEFAULT_DB_NAMESPACE;
 };
 
-const makeDbKey = (namespace: string, key: string): Buffer =>
-  Buffer.from(`${namespace}:${key}`);
-
+const makeDbKey = (namespace: string, key: string): Buffer => Buffer.from(`${namespace}:${key}`);
 
 const resolveDbPath = (env: Env): string => {
   const namespace = resolveDbNamespace({ env });
@@ -231,10 +260,9 @@ export async function tryOpenDb(env: Env): Promise<boolean> {
         console.log('✅ Database opened');
         return true;
       } catch (error) {
-        const isBlocked = error instanceof Error &&
-          (error.message?.includes('blocked') ||
-           error.name === 'SecurityError' ||
-           error.name === 'InvalidStateError');
+        const isBlocked =
+          error instanceof Error &&
+          (error.message?.includes('blocked') || error.name === 'SecurityError' || error.name === 'InvalidStateError');
         if (isBlocked) {
           console.log('⚠️ IndexedDB blocked (incognito/private mode) - running in-memory');
           return false;
@@ -415,7 +443,9 @@ export function startRuntimeLoop(env: Env, config?: { tickDelayMs?: number }): (
   };
 
   loop(); // fire-and-forget — single async chain, never overlaps
-  state.stopLoop = () => { running = false; };
+  state.stopLoop = () => {
+    running = false;
+  };
   return state.stopLoop;
 }
 
@@ -493,9 +523,7 @@ const normalizeEntityKey = (value: string): string => value.toLowerCase();
 
 const resolveRuntimeIdFromProfile = (profile: Profile | undefined): string | null => {
   if (!profile) return null;
-  const direct = typeof profile.runtimeId === 'string' && profile.runtimeId.length > 0
-    ? profile.runtimeId
-    : null;
+  const direct = typeof profile.runtimeId === 'string' && profile.runtimeId.length > 0 ? profile.runtimeId : null;
   if (direct) return direct;
 
   const metaRuntimeId = (profile.metadata as Record<string, unknown> | undefined)?.['runtimeId'];
@@ -564,7 +592,10 @@ const collectSenderEntityHints = (input: RoutedEntityInput): string[] => {
   return [...hints];
 };
 
-const planEntityOutputs = (env: Env, outputs: RoutedEntityInput[]): {
+const planEntityOutputs = (
+  env: Env,
+  outputs: RoutedEntityInput[],
+): {
   localOutputs: RoutedEntityInput[];
   remoteOutputs: RoutedEntityInput[];
   deferredOutputs: RoutedEntityInput[];
@@ -592,7 +623,9 @@ const planEntityOutputs = (env: Env, outputs: RoutedEntityInput[]): {
       continue;
     }
     const targetRuntimeId = resolveRuntimeIdForEntity(env, output.entityId);
-    console.log(`🔀 ROUTE: Output for entity ${output.entityId.slice(-4)} → runtimeId=${targetRuntimeId?.slice(0,10) || 'UNKNOWN'}`);
+    console.log(
+      `🔀 ROUTE: Output for entity ${output.entityId.slice(-4)} → runtimeId=${targetRuntimeId?.slice(0, 10) || 'UNKNOWN'}`,
+    );
     if (!targetRuntimeId) {
       const key = normalizeEntityKey(output.entityId);
       const defer = routeDeferState.get(key) || {
@@ -606,7 +639,9 @@ const planEntityOutputs = (env: Env, outputs: RoutedEntityInput[]): {
       const shouldRefreshGossip = nowMs - defer.gossipAt >= ROUTE_DEFER_GOSSIP_COOLDOWN_MS;
       if (shouldWarn) {
         defer.warnAt = nowMs;
-        console.warn(`⚠️ ROUTE-DEFER: No runtimeId for entity ${output.entityId.slice(-4)} (deferred=${defer.deferredCount})`);
+        console.warn(
+          `⚠️ ROUTE-DEFER: No runtimeId for entity ${output.entityId.slice(-4)} (deferred=${defer.deferredCount})`,
+        );
         env.warn('network', 'Missing runtimeId for entity output (queued)', {
           entityId: output.entityId,
           deferredCount: defer.deferredCount,
@@ -685,13 +720,18 @@ const dispatchEntityOutputs = (env: Env, outputs: RoutedEntityInput[]): RoutedEn
       deferredOutputs.push(output);
       continue;
     }
-    console.log(`📤 P2P-SEND: Enqueueing to runtimeId ${targetRuntimeId.slice(0, 10)} for entity ${output.entityId.slice(-4)} (${output.entityTxs?.length || 0} txs)`);
+    console.log(
+      `📤 P2P-SEND: Enqueueing to runtimeId ${targetRuntimeId.slice(0, 10)} for entity ${output.entityId.slice(-4)} (${output.entityTxs?.length || 0} txs)`,
+    );
     p2p.enqueueEntityInput(targetRuntimeId, output);
   }
   return deferredOutputs;
 };
 
-export const sendEntityInput = (env: Env, input: RoutedEntityInput): { sent: boolean; deferred: boolean; queuedLocal: boolean } => {
+export const sendEntityInput = (
+  env: Env,
+  input: RoutedEntityInput,
+): { sent: boolean; deferred: boolean; queuedLocal: boolean } => {
   const { localOutputs, remoteOutputs, deferredOutputs } = planEntityOutputs(env, [input]);
   if (localOutputs.length > 0) {
     enqueueRuntimeInputs(env, localOutputs);
@@ -712,7 +752,9 @@ export const sendEntityInput = (env: Env, input: RoutedEntityInput): { sent: boo
 };
 
 export const startP2P = (env: Env, config: P2PConfig = {}): RuntimeP2P | null => {
-  console.log(`[P2P] startP2P called, relayUrls=${config.relayUrls?.join(',')}, env.runtimeId=${env.runtimeId?.slice(0,10) || 'NONE'}`);
+  console.log(
+    `[P2P] startP2P called, relayUrls=${config.relayUrls?.join(',')}, env.runtimeId=${env.runtimeId?.slice(0, 10) || 'NONE'}`,
+  );
   const state = ensureRuntimeState(env);
   state.lastP2PConfig = config;
   const resolvedRuntimeId = config.runtimeId || env.runtimeId;
@@ -722,13 +764,17 @@ export const startP2P = (env: Env, config: P2PConfig = {}): RuntimeP2P | null =>
     return null;
   }
 
-  const existingGlobalP2P = (env as unknown as Record<PropertyKey, unknown>)[ENV_P2P_SINGLETON_KEY] as P2Pish | undefined;
+  const existingGlobalP2P = (env as unknown as Record<PropertyKey, unknown>)[ENV_P2P_SINGLETON_KEY] as
+    | P2Pish
+    | undefined;
   if (existingGlobalP2P && existingGlobalP2P !== state.p2p) {
     const canReuse =
       typeof existingGlobalP2P.matchesIdentity === 'function' &&
       existingGlobalP2P.matchesIdentity(resolvedRuntimeId, config.signerId);
     if (!canReuse) {
-      throw new Error(`P2P_SINGLETON_VIOLATION: attempted second p2p attachment for env runtimeId=${resolvedRuntimeId}`);
+      throw new Error(
+        `P2P_SINGLETON_VIOLATION: attempted second p2p attachment for env runtimeId=${resolvedRuntimeId}`,
+      );
     }
     if (typeof existingGlobalP2P.updateConfig === 'function') {
       existingGlobalP2P.updateConfig(config);
@@ -757,14 +803,13 @@ export const startP2P = (env: Env, config: P2PConfig = {}): RuntimeP2P | null =>
     ...(config.gossipPollMs !== undefined ? { gossipPollMs: config.gossipPollMs } : {}),
     onEntityInput: (from, input) => {
       const txTypes = input.entityTxs?.map(tx => tx.type).join(',') || 'none';
-      console.log(`📨 P2P-RECEIVE: from=${from.slice(0,10)} entity=${input.entityId.slice(-4)} txTypes=[${txTypes}]`);
+      console.log(`📨 P2P-RECEIVE: from=${from.slice(0, 10)} entity=${input.entityId.slice(-4)} txTypes=[${txTypes}]`);
       for (const hintedEntityId of collectSenderEntityHints(input)) {
         registerEntityRuntimeHint(env, hintedEntityId, from);
       }
       enqueueRuntimeInputs(env, [input]);
       console.log(`📥 RUNTIME-MEMPOOL: Added inbound, size=${ensureRuntimeMempool(env).entityInputs.length}`);
       env.info('network', 'INBOUND_ENTITY_INPUT', { fromRuntimeId: from, entityId: input.entityId }, input.entityId);
-    
     },
     onGossipProfiles: (_from, profiles) => {
       if (!env.gossip?.announce) return;
@@ -861,7 +906,6 @@ export const processJBlockEvents = async (env: Env): Promise<void> => {
   console.log(`   ✓ ${toProcess.length} j-events processed`);
 };
 
-
 // Note: History is now stored in env.history (no global variable needed)
 
 // === SNAPSHOT UTILITIES ===
@@ -905,10 +949,14 @@ const applyRuntimeInput = async (
       for (const jInput of runtimeInput.jInputs) {
         const jReplica = env.jReplicas?.get(jInput.jurisdictionName);
         if (!jReplica) {
-          console.error(`❌ [J-OUTBOX] Jurisdiction "${jInput.jurisdictionName}" not found — dropping ${jInput.jTxs.length} jTxs`);
+          console.error(
+            `❌ [J-OUTBOX] Jurisdiction "${jInput.jurisdictionName}" not found — dropping ${jInput.jTxs.length} jTxs`,
+          );
           continue;
         }
-        console.log(`📥 [J-OUTBOX] Collecting ${jInput.jTxs.length} jTxs for ${jInput.jurisdictionName} (types: ${jInput.jTxs.map(t => t.type).join(',')})`);
+        console.log(
+          `📥 [J-OUTBOX] Collecting ${jInput.jTxs.length} jTxs for ${jInput.jurisdictionName} (types: ${jInput.jTxs.map(t => t.type).join(',')})`,
+        );
         earlyJOutbox.push(jInput);
       }
     }
@@ -927,15 +975,15 @@ const applyRuntimeInput = async (
     // Clone inputs to avoid mutating caller's data
     const validatedRuntimeTxs = [...runtimeInput.runtimeTxs];
     const validatedEntityInputs = [...runtimeInput.entityInputs];
-    
+
     // Validate entity inputs before merging
     validatedEntityInputs.forEach((input, i) => {
       try {
         validateEntityInput(input);
       } catch (error) {
-        logError("RUNTIME_TICK", `🚨 CRITICAL FINANCIAL ERROR: Invalid EntityInput[${i}] before merge!`, {
+        logError('RUNTIME_TICK', `🚨 CRITICAL FINANCIAL ERROR: Invalid EntityInput[${i}] before merge!`, {
           error: (error as Error).message,
-          input
+          input,
         });
         throw error; // Fail fast
       }
@@ -961,12 +1009,14 @@ const applyRuntimeInput = async (
 
           // Create jurisdiction via unified JAdapter interface
           // If contracts provided, use fromReplica (connect-only mode, no deploy)
-          const fromReplica = runtimeTx.data.contracts ? {
-            depositoryAddress: runtimeTx.data.contracts.depository,
-            entityProviderAddress: runtimeTx.data.contracts.entityProvider,
-            contracts: runtimeTx.data.contracts, // Pass all contract addresses
-            chainId: runtimeTx.data.chainId,
-          } as JReplica : undefined;
+          const fromReplica = runtimeTx.data.contracts
+            ? ({
+                depositoryAddress: runtimeTx.data.contracts.depository,
+                entityProviderAddress: runtimeTx.data.contracts.entityProvider,
+                contracts: runtimeTx.data.contracts, // Pass all contract addresses
+                chainId: runtimeTx.data.chainId,
+              } as JReplica)
+            : undefined;
 
           const jadapter = await createJAdapter({
             mode: isBrowserVM ? 'browservm' : 'rpc',
@@ -983,7 +1033,7 @@ const applyRuntimeInput = async (
 
           // For BrowserVM, set as default jurisdiction in env
           if (isBrowserVM) {
-            const browserVM = (jadapter as any).browserVM;
+            const browserVM = jadapter.getBrowserVM();
             if (browserVM) {
               setBrowserVMJurisdiction(env, jadapter.addresses.depository, browserVM);
             }
@@ -1074,7 +1124,11 @@ const applyRuntimeInput = async (
         if (runtimeTx.data.position) {
           replica.position = {
             ...runtimeTx.data.position,
-            jurisdiction: runtimeTx.data.position.jurisdiction || runtimeTx.data.position.xlnomy || env.activeJurisdiction || 'default',
+            jurisdiction:
+              runtimeTx.data.position.jurisdiction ||
+              runtimeTx.data.position.xlnomy ||
+              env.activeJurisdiction ||
+              'default',
           };
         }
 
@@ -1089,14 +1143,20 @@ const applyRuntimeInput = async (
             if (!signerId) throw new Error('Missing signerId in validators array');
             try {
               const privateKey = getSignerPrivateKey(env, signerId);
-              const privateKeyHex = `0x${Array.from(privateKey).map(b => b.toString(16).padStart(2, '0')).join('')}`;
+              const privateKeyHex = `0x${Array.from(privateKey)
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('')}`;
               if (typeof browserVM.registerEntityWallet === 'function') {
                 browserVM.registerEntityWallet(runtimeTx.entityId, privateKeyHex);
               } else {
-                console.warn(`⚠️ BrowserVM missing registerEntityWallet - skipping wallet registration for ${runtimeTx.entityId.slice(0, 10)}...`);
+                console.warn(
+                  `⚠️ BrowserVM missing registerEntityWallet - skipping wallet registration for ${runtimeTx.entityId.slice(0, 10)}...`,
+                );
               }
             } catch (error) {
-              console.warn(`⚠️ Cannot derive private key for signer ${signerId} (no env.runtimeSeed), skipping BrowserVM wallet registration`);
+              console.warn(
+                `⚠️ Cannot derive private key for signer ${signerId} (no env.runtimeSeed), skipping BrowserVM wallet registration`,
+              );
             }
           }
         }
@@ -1133,8 +1193,8 @@ const applyRuntimeInput = async (
         }
 
         if (typeof actualJBlock !== 'number') {
-          logError("RUNTIME_TICK", `💥 ENTITY-CREATION-BUG: Just created entity with invalid jBlock!`);
-          logError("RUNTIME_TICK", `💥   Expected: 0 (number), Got: ${typeof actualJBlock}, Value: ${actualJBlock}`);
+          logError('RUNTIME_TICK', `💥 ENTITY-CREATION-BUG: Just created entity with invalid jBlock!`);
+          logError('RUNTIME_TICK', `💥   Expected: 0 (number), Got: ${typeof actualJBlock}, Value: ${actualJBlock}`);
           // Force fix immediately
           if (createdReplica) {
             createdReplica.state.lastFinalizedJHeight = 0;
@@ -1152,11 +1212,13 @@ const applyRuntimeInput = async (
       // This keeps proposer lookup out of REA handlers and consensus logic.
       let actualSignerId = entityInput.signerId;
       if (!actualSignerId || actualSignerId === '') {
-        const entityReplicaKeys = Array.from(env.eReplicas.keys()).filter(key => key.startsWith(entityInput.entityId + ':'));
+        const entityReplicaKeys = Array.from(env.eReplicas.keys()).filter(key =>
+          key.startsWith(entityInput.entityId + ':'),
+        );
         if (entityReplicaKeys.length > 0) {
           const firstReplicaKey = entityReplicaKeys[0];
           if (!firstReplicaKey) {
-            logError("RUNTIME_TICK", `❌ Invalid replica key for entity ${entityInput.entityId}`);
+            logError('RUNTIME_TICK', `❌ Invalid replica key for entity ${entityInput.entityId}`);
             continue;
           }
           const firstReplica = env.eReplicas.get(firstReplicaKey);
@@ -1167,7 +1229,9 @@ const applyRuntimeInput = async (
 
         // Fallback if still no signerId
         if (!actualSignerId || actualSignerId === '') {
-          console.warn(`⚠️ No signerId and unable to determine proposer for entity ${entityInput.entityId.slice(0,10)}...`);
+          console.warn(
+            `⚠️ No signerId and unable to determine proposer for entity ${entityInput.entityId.slice(0, 10)}...`,
+          );
           continue; // Skip this input
         }
       }
@@ -1191,7 +1255,11 @@ const applyRuntimeInput = async (
           ...(entityInput.proposedFrame ? { proposedFrame: entityInput.proposedFrame } : {}),
           ...(entityInput.hashPrecommits ? { hashPrecommits: entityInput.hashPrecommits } : {}),
         };
-        const { newState, outputs, jOutputs, workingReplica } = await applyEntityInput(env, entityReplica, normalizedInput);
+        const { newState, outputs, jOutputs, workingReplica } = await applyEntityInput(
+          env,
+          entityReplica,
+          normalizedInput,
+        );
         // APPLY-ENTITY-INPUT-RESULT removed - too noisy
 
         // IMMUTABILITY: Update replica with new state from applyEntityInput
@@ -1205,7 +1273,9 @@ const applyRuntimeInput = async (
           ...(workingReplica.lockedFrame ? { lockedFrame: workingReplica.lockedFrame } : {}), // CRITICAL: Preserve validator locks
           // Preserve multi-signer consensus artifacts across ticks.
           ...(workingReplica.hankoWitness ? { hankoWitness: workingReplica.hankoWitness } : {}),
-          ...(workingReplica.validatorComputedState ? { validatorComputedState: workingReplica.validatorComputedState } : {}),
+          ...(workingReplica.validatorComputedState
+            ? { validatorComputedState: workingReplica.validatorComputedState }
+            : {}),
         });
 
         // FINTECH-LEVEL TYPE SAFETY: Validate all entity outputs before routing
@@ -1213,10 +1283,14 @@ const applyRuntimeInput = async (
           try {
             validateEntityOutput(output);
           } catch (error) {
-            logError("RUNTIME_TICK", `🚨 CRITICAL FINANCIAL ERROR: Invalid EntityOutput[${index}] from ${replicaKey}!`, {
-              error: (error as Error).message,
-              output
-            });
+            logError(
+              'RUNTIME_TICK',
+              `🚨 CRITICAL FINANCIAL ERROR: Invalid EntityOutput[${index}] from ${replicaKey}!`,
+              {
+                error: (error as Error).message,
+                output,
+              },
+            );
             throw error; // Fail fast to prevent financial routing corruption
           }
         });
@@ -1235,10 +1309,14 @@ const applyRuntimeInput = async (
     // Log J-outputs — they stay in jOutbox and are returned to process() for post-save execution
     if (jOutbox.length > 0) {
       const totalJTxs = jOutbox.reduce((n, ji) => n + ji.jTxs.length, 0);
-      console.log(`📤 [J-OUTBOX] ${jOutbox.length} JInputs (${totalJTxs} JTxs) collected — will broadcast to JAdapter post-save`);
+      console.log(
+        `📤 [J-OUTBOX] ${jOutbox.length} JInputs (${totalJTxs} JTxs) collected — will broadcast to JAdapter post-save`,
+      );
       for (const jInput of jOutbox) {
         for (const jTx of jInput.jTxs) {
-          console.log(`  📋 [J-OUTBOX] ${jTx.type} from ${jTx.entityId.slice(-4)} → ${jInput.jurisdictionName} (batchSize=${'batchSize' in jTx.data ? jTx.data.batchSize : '?'})`);
+          console.log(
+            `  📋 [J-OUTBOX] ${jTx.type} from ${jTx.entityId.slice(-4)} → ${jInput.jurisdictionName} (batchSize=${'batchSize' in jTx.data ? jTx.data.batchSize : '?'})`,
+          );
           env.emit('JBatchQueued', {
             entityId: jTx.entityId,
             batchSize: 'batchSize' in jTx.data ? jTx.data.batchSize : undefined,
@@ -1347,7 +1425,7 @@ const applyRuntimeInput = async (
 
     // Notify Svelte about environment changes
     // REPLICA-DEBUG and GOSSIP-DEBUG removed
-    
+
     // CRITICAL FIX: Initialize gossip layer if missing
     if (!env.gossip) {
       console.log(`🚨 CRITICAL: gossip layer missing from environment, creating new one`);
@@ -1374,10 +1452,10 @@ const applyRuntimeInput = async (
       const oldReplicaKey = oldEntityKeys[0];
       const newReplicaKey = newEntityKeys[0];
       if (!oldReplicaKey || !newReplicaKey) {
-        logError("RUNTIME_TICK", `❌ Invalid replica keys: old=${oldReplicaKey}, new=${newReplicaKey}`);
+        logError('RUNTIME_TICK', `❌ Invalid replica keys: old=${oldReplicaKey}, new=${newReplicaKey}`);
         // Continue with empty outbox instead of crashing
       } else {
-      // REPLICA-STRUCTURE logs removed - not consensus-critical
+        // REPLICA-STRUCTURE logs removed - not consensus-critical
       }
     }
 
@@ -1561,7 +1639,6 @@ const clearDatabaseAndHistory = async (env: Env): Promise<Env> => {
   return freshEnv;
 };
 
-
 /**
  * Queue an entity transaction for processing (helper for UI components)
  * Wraps applyRuntimeInput with a single entity tx
@@ -1570,14 +1647,15 @@ export const queueEntityInput = async (
   env: Env,
   entityId: string,
   signerId: string,
-  txData: { type: string; [key: string]: any }
+  txData: { type: string; [key: string]: any },
 ): Promise<void> => {
-  enqueueRuntimeInputs(env, [{
-    entityId,
-    signerId,
-    entityTxs: [{ type: txData.type, data: txData } as EntityTx]
-  }]);
-
+  enqueueRuntimeInputs(env, [
+    {
+      entityId,
+      signerId,
+      entityTxs: [{ type: txData.type, data: txData } as EntityTx],
+    },
+  ]);
 };
 
 export {
@@ -1753,7 +1831,7 @@ const demoCompleteHanko = async (): Promise<void> => {
     // await runCompleteHankoTests();
     console.log('✅ Complete Hanko tests skipped!');
   } catch (error) {
-    logError("RUNTIME_TICK", '❌ Complete Hanko tests failed:', error);
+    logError('RUNTIME_TICK', '❌ Complete Hanko tests failed:', error);
     throw error;
   }
 };
@@ -1792,10 +1870,10 @@ const normalizeContractAddress = (value: unknown): string | undefined => {
 const normalizeJReplica = (jr: JReplica): JReplica => {
   if (!jr?.contracts) return jr;
   const depository = normalizeContractAddress(
-    jr.contracts.depository || (jr.contracts as { depositoryAddress?: unknown }).depositoryAddress
+    jr.contracts.depository || (jr.contracts as { depositoryAddress?: unknown }).depositoryAddress,
   );
   const entityProvider = normalizeContractAddress(
-    jr.contracts.entityProvider || (jr.contracts as { entityProviderAddress?: unknown }).entityProviderAddress
+    jr.contracts.entityProvider || (jr.contracts as { entityProviderAddress?: unknown }).entityProviderAddress,
   );
   return {
     ...jr,
@@ -1818,8 +1896,13 @@ const normalizeJReplicaMap = (raw: unknown): Map<string, JReplica> => {
       }
       return map;
     }
-    const first = raw[0] as any;
-    if (first && typeof first === 'object' && typeof first.name === 'string') {
+    const first = (raw as unknown[])[0];
+    if (
+      first &&
+      typeof first === 'object' &&
+      'name' in first &&
+      typeof (first as { name: unknown }).name === 'string'
+    ) {
       return new Map((raw as JReplica[]).map(jr => [jr.name, normalizeJReplica(jr)]));
     }
   }
@@ -1835,9 +1918,12 @@ const normalizeJReplicaMap = (raw: unknown): Map<string, JReplica> => {
 
 export const createEmptyEnv = (seed?: Uint8Array | string | null): Env => {
   const normalizedSeed = Array.isArray(seed) ? new Uint8Array(seed) : seed;
-  const seedText = normalizedSeed !== undefined && normalizedSeed !== null
-    ? (typeof normalizedSeed === 'string' ? normalizedSeed : new TextDecoder().decode(normalizedSeed))
-    : '';
+  const seedText =
+    normalizedSeed !== undefined && normalizedSeed !== null
+      ? typeof normalizedSeed === 'string'
+        ? normalizedSeed
+        : new TextDecoder().decode(normalizedSeed)
+      : '';
   const derivedRuntimeId = seedText ? deriveRuntimeIdFromSeed(seedText) : null;
   const resolvedRuntimeId = derivedRuntimeId ? derivedRuntimeId.toLowerCase() : null;
   const resolvedDbNamespace = resolvedRuntimeId ? normalizeDbNamespace(resolvedRuntimeId) : undefined;
@@ -1882,11 +1968,7 @@ export const createEmptyEnv = (seed?: Uint8Array | string | null): Env => {
 // === CONSENSUS PROCESSING ===
 // ONE TICK = ONE ITERATION. No cascade. E→E communication always requires new tick.
 
-export const process = async (
-  env: Env,
-  inputs?: RoutedEntityInput[],
-  runtimeDelay = 0
-) => {
+export const process = async (env: Env, inputs?: RoutedEntityInput[], runtimeDelay = 0) => {
   if (!env.emit) {
     attachEventEmitters(env);
   }
@@ -1917,7 +1999,6 @@ export const process = async (
 
   const now = env.scenarioMode ? (env.timestamp ?? 0) : getWallClockMs();
   if (!isRuntimeFrameReady(env, now, runtimeDelay)) {
-  
     return env;
   }
 
@@ -1949,7 +2030,7 @@ export const process = async (
       try {
         validateEntityInput(o);
       } catch (error) {
-        logError("RUNTIME_TICK", `🚨 CRITICAL: Invalid EntityInput!`, {
+        logError('RUNTIME_TICK', `🚨 CRITICAL: Invalid EntityInput!`, {
           error: (error as Error).message,
           entityId: o.entityId.slice(0, 10),
           signerId: o.signerId,
@@ -1968,14 +2049,18 @@ export const process = async (
     const changedEntityIds = new Set<string>();
     if (hasRuntimeInput) {
       if (!quietRuntimeLogs) {
-        console.log(`📥 TICK: Processing ${runtimeInput.entityInputs.length} inputs for [${runtimeInput.entityInputs.map(o => o.entityId.slice(-4)).join(',')}]`);
+        console.log(
+          `📥 TICK: Processing ${runtimeInput.entityInputs.length} inputs for [${runtimeInput.entityInputs.map(o => o.entityId.slice(-4)).join(',')}]`,
+        );
         if (runtimeInput.runtimeTxs.length > 0) {
           console.log(`📥 TICK: Processing ${runtimeInput.runtimeTxs.length} queued runtimeTxs`);
         }
       }
       try {
         const result = await applyRuntimeInput(env, runtimeInput);
-        console.log(`🔍 PROCESS: applyRuntimeInput returned entityOutbox=${result.entityOutbox.length}, jOutbox=${result.jOutbox.length}`);
+        console.log(
+          `🔍 PROCESS: applyRuntimeInput returned entityOutbox=${result.entityOutbox.length}, jOutbox=${result.jOutbox.length}`,
+        );
         entityOutbox = result.entityOutbox;
         jOutbox = result.jOutbox;
         for (const runtimeTx of runtimeInput.runtimeTxs) {
@@ -2010,7 +2095,9 @@ export const process = async (
     if (localOutputs.length > 0) {
       enqueueRuntimeInputs(env, localOutputs);
       if (!quietRuntimeLogs) {
-        console.log(`📤 TICK: ${localOutputs.length} local outputs queued for next tick → [${localOutputs.map(o => o.entityId.slice(-4)).join(',')}]`);
+        console.log(
+          `📤 TICK: ${localOutputs.length} local outputs queued for next tick → [${localOutputs.map(o => o.entityId.slice(-4)).join(',')}]`,
+        );
       }
     }
     // BrowserVM trie is NOT serialized per-frame — it's J-layer state.
@@ -2022,11 +2109,13 @@ export const process = async (
       ...(env.runtimeSeed !== undefined && env.runtimeSeed !== null ? { runtimeSeed: env.runtimeSeed } : {}),
       ...(env.runtimeId ? { runtimeId: env.runtimeId } : {}),
       eReplicas: new Map(env.eReplicas),
-      jReplicas: env.jReplicas ? Array.from(env.jReplicas.values()).map(jr => ({
-        ...jr,
-        mempool: [...jr.mempool],
-        stateRoot: new Uint8Array(jr.stateRoot),
-      })) : [],
+      jReplicas: env.jReplicas
+        ? Array.from(env.jReplicas.values()).map(jr => ({
+            ...jr,
+            mempool: [...jr.mempool],
+            stateRoot: new Uint8Array(jr.stateRoot),
+          }))
+        : [],
       runtimeInput: env.runtimeInput,
       runtimeOutputs: env.pendingOutputs || [],
       frameLogs: env.frameLogs || [],
@@ -2120,7 +2209,9 @@ export const process = async (
             });
 
             if (result.success) {
-              console.log(`✅ [J-SUBMIT] ${jTx.type} from ${jTx.entityId.slice(-4)}: ok (events=${result.events?.length ?? 0}, txHash=${result.txHash ?? 'n/a'})`);
+              console.log(
+                `✅ [J-SUBMIT] ${jTx.type} from ${jTx.entityId.slice(-4)}: ok (events=${result.events?.length ?? 0}, txHash=${result.txHash ?? 'n/a'})`,
+              );
             } else {
               console.error(`❌ [J-SUBMIT] ${jTx.type} from ${jTx.entityId.slice(-4)} FAILED: ${result.error}`);
               if (env.scenarioMode) {
@@ -2212,7 +2303,11 @@ export const loadEnvFromDB = async (runtimeId?: string | null, runtimeSeed?: str
     const dbReady = await tryOpenDb(tempEnv);
     if (!dbReady) return null;
 
-    const dbNamespace = resolveDbNamespace({ runtimeId: runtimeId ?? null, runtimeSeed: runtimeSeed ?? null, env: tempEnv });
+    const dbNamespace = resolveDbNamespace({
+      runtimeId: runtimeId ?? null,
+      runtimeSeed: runtimeSeed ?? null,
+      env: tempEnv,
+    });
     const db = getRuntimeDb(tempEnv);
     const latestHeightBuffer = await db.get(makeDbKey(dbNamespace, 'latest_height'));
     const latestHeight = parseInt(latestHeightBuffer.toString());
@@ -2251,10 +2346,10 @@ export const loadEnvFromDB = async (runtimeId?: string | null, runtimeSeed?: str
       env.jReplicas = normalizeJReplicaMap(data.jReplicas || []);
       if (env.jReplicas.size > 0) {
         for (const [name, jr] of env.jReplicas.entries()) {
-          if ((jr as any).stateRoot) {
+          if (jr.stateRoot) {
             env.jReplicas.set(name, {
               ...jr,
-              stateRoot: new Uint8Array((jr as any).stateRoot),
+              stateRoot: new Uint8Array(jr.stateRoot),
             });
           }
         }
@@ -2285,7 +2380,7 @@ export const loadEnvFromDB = async (runtimeId?: string | null, runtimeSeed?: str
           restoredBrowserVM = browserVM;
           setBrowserVMJurisdiction(latestEnv, browserVM.getDepositoryAddress(), browserVM);
           if (typeof window !== 'undefined') {
-            (window as any).__xlnBrowserVM = browserVM;
+            (window as unknown as { __xlnBrowserVM: unknown }).__xlnBrowserVM = browserVM;
           }
           console.log('✅ BrowserVM restored from loadEnvFromDB');
         } catch (error) {
@@ -2338,7 +2433,7 @@ export const loadEnvFromDB = async (runtimeId?: string | null, runtimeSeed?: str
                 mode: 'rpc',
                 chainId,
                 rpcUrl,
-                fromReplica: jReplica as any, // Pass addresses for connect-only mode
+                fromReplica: jReplica,
               });
               jReplica.jadapter = jadapter;
             }
@@ -2380,7 +2475,17 @@ export const clearDB = async (env?: Env): Promise<void> => {
 // Scenario-related APIs moved to runtime/scenarios-api.ts to keep kernel runtime imports clean.
 
 // === CRYPTOGRAPHIC SIGNATURES ===
-export { deriveSignerKey, deriveSignerKeySync, registerSignerKey, registerSignerPublicKey, registerTestKeys, clearSignerKeys, signAccountFrame, verifyAccountSignature, getSignerPublicKey } from './account-crypto.js';
+export {
+  deriveSignerKey,
+  deriveSignerKeySync,
+  registerSignerKey,
+  registerSignerPublicKey,
+  registerTestKeys,
+  clearSignerKeys,
+  signAccountFrame,
+  verifyAccountSignature,
+  getSignerPublicKey,
+} from './account-crypto.js';
 
 // Avatar functions are already imported and exported above
 

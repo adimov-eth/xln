@@ -16,7 +16,9 @@ const toUint16 = (value: bigint | number | undefined, fallback = 0): number => {
 };
 
 const bytesToHex = (bytes: Uint8Array): string =>
-  `0x${Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')}`;
+  `0x${Array.from(bytes)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')}`;
 
 const buildBoardMetadata = (entityState: EntityState): BoardMetadata => {
   const validators = entityState.config.validators.map(validatorId => {
@@ -50,10 +52,13 @@ export function buildEntityProfile(entityState: EntityState, name?: string, time
 
   // Build account capacities from all accounts
   for (const [counterpartyId, accountMachine] of entityState.accounts.entries()) {
-    const tokenCapacities = new Map<number, {
-      inCapacity: bigint;
-      outCapacity: bigint;
-    }>();
+    const tokenCapacities = new Map<
+      number,
+      {
+        inCapacity: bigint;
+        outCapacity: bigint;
+      }
+    >();
     let hasInboundCapacity = false;
 
     // Calculate capacities for each token
@@ -80,7 +85,7 @@ export function buildEntityProfile(entityState: EntityState, name?: string, time
 
     accounts.push({
       counterpartyId,
-      tokenCapacities: tokenCapacitiesObj as any,  // Plain object for JSON
+      tokenCapacities: tokenCapacitiesObj as unknown as Map<number, { inCapacity: bigint; outCapacity: bigint }>, // Plain object for JSON wire format
     });
 
     if (hasInboundCapacity) {

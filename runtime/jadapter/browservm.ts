@@ -8,21 +8,49 @@ import { ethers } from 'ethers';
 import type { Provider, Signer } from 'ethers';
 
 import type { Account, Depository, EntityProvider, DeltaTransformer } from '../../jurisdictions/typechain-types';
-import { Depository__factory, EntityProvider__factory, DeltaTransformer__factory } from '../../jurisdictions/typechain-types';
+import {
+  Depository__factory,
+  EntityProvider__factory,
+  DeltaTransformer__factory,
+} from '../../jurisdictions/typechain-types';
 
 import type { BrowserVMState, JTx } from '../types';
-import type { JAdapter, JAdapterAddresses, JAdapterConfig, JEvent, JEventCallback, JSubmitResult, SnapshotId, JBatchReceipt, JTxReceipt, SettlementDiff, InsuranceReg, JTokenInfo } from './types';
+import type {
+  JAdapter,
+  JAdapterAddresses,
+  JAdapterConfig,
+  JEvent,
+  JEventCallback,
+  JSubmitResult,
+  SnapshotId,
+  JBatchReceipt,
+  JTxReceipt,
+  SettlementDiff,
+  InsuranceReg,
+  JTokenInfo,
+} from './types';
 import { computeAccountKey, entityIdToAddress, processEventBatch, type RawJEvent } from './helpers';
-import type { BrowserVMProvider } from './browservm-provider';
+import type { BrowserVMProvider, EVMEvent } from './browservm-provider';
 
 // Re-export BrowserVMProvider for external use
 export { BrowserVMProvider } from './browservm-provider';
+
+/** Convert BrowserVM EVMEvent to JAdapter JEvent format */
+function evmToJEvent(e: EVMEvent): JEvent {
+  return {
+    name: e.name,
+    args: (e.args ?? {}) as Record<string, unknown>,
+    blockNumber: e.blockNumber ?? 0,
+    blockHash: e.blockHash ?? '0x',
+    transactionHash: '0x', // EVMEvent does not carry transactionHash
+  };
+}
 
 export async function createBrowserVMAdapter(
   config: JAdapterConfig,
   provider: Provider,
   signer: Signer,
-  browserVM: BrowserVMProvider
+  browserVM: BrowserVMProvider,
 ): Promise<JAdapter> {
   const addresses: JAdapterAddresses = {
     account: browserVM.getAccountAddress?.() ?? '',
@@ -36,7 +64,7 @@ export async function createBrowserVMAdapter(
   const depository = Depository__factory.connect(addresses.depository, signer as any) as Depository;
   const entityProvider = EntityProvider__factory.connect(addresses.entityProvider, signer as any) as EntityProvider;
   const deltaTransformer = addresses.deltaTransformer
-    ? DeltaTransformer__factory.connect(addresses.deltaTransformer, signer as any) as DeltaTransformer
+    ? (DeltaTransformer__factory.connect(addresses.deltaTransformer, signer as any) as DeltaTransformer)
     : null;
 
   const eventCallbacks = new Map<string, Set<JEventCallback>>();
@@ -65,11 +93,21 @@ export async function createBrowserVMAdapter(
     provider,
     signer,
 
-    get account() { return null as unknown as Account; }, // BrowserVM doesn't expose Account library directly
-    get depository() { return depository; },
-    get entityProvider() { return entityProvider; },
-    get deltaTransformer() { return deltaTransformer!; },
-    get addresses() { return addresses; },
+    get account() {
+      return null as unknown as Account;
+    }, // BrowserVM doesn't expose Account library directly
+    get depository() {
+      return depository;
+    },
+    get entityProvider() {
+      return entityProvider;
+    },
+    get deltaTransformer() {
+      return deltaTransformer!;
+    },
+    get addresses() {
+      return addresses;
+    },
 
     async deployStack() {
       // BrowserVM already deploys during init(), just log addresses
@@ -145,21 +183,25 @@ export async function createBrowserVMAdapter(
     },
 
     async getTokenRegistry(): Promise<JTokenInfo[]> {
-      const registry = (browserVM as any).getTokenRegistry?.() || [];
-      return registry.map((t: any) => ({
+      const registry = browserVM.getTokenRegistry?.() || [];
+      return registry.map(t => ({
         symbol: t.symbol,
         name: t.name,
         address: t.address,
         decimals: typeof t.decimals === 'number' ? t.decimals : 18,
-        tokenId: typeof t.tokenId === 'number' ? t.tokenId : undefined,
+        ...(typeof t.tokenId === 'number' ? { tokenId: t.tokenId } : {}),
       }));
     },
 
     async getErc20Balance(tokenAddress: string, owner: string): Promise<bigint> {
-      if ((browserVM as any).getErc20Balance) {
+      if (browserVM.getErc20Balance) {
         return browserVM.getErc20Balance(tokenAddress, owner);
       }
-      const erc20 = new ethers.Contract(tokenAddress, ['function balanceOf(address owner) view returns (uint256)'], provider);
+      const erc20 = new ethers.Contract(
+        tokenAddress,
+        ['function balanceOf(address owner) view returns (uint256)'],
+        provider,
+      );
       const balanceOf = erc20.getFunction('balanceOf') as (owner: string) => Promise<bigint>;
       return balanceOf(owner);
     },
@@ -180,13 +222,7 @@ export async function createBrowserVMAdapter(
       return {
         txHash: '0x' + 'browservm'.padStart(64, '0'), // BrowserVM doesn't have real tx hashes
         blockNumber: Number(browserVM.getBlockNumber?.() ?? 0),
-        events: events.map((e: any) => ({
-          name: e.name,
-          args: e.args ?? {},
-          blockNumber: e.blockNumber ?? 0,
-          blockHash: e.blockHash ?? '0x',
-          transactionHash: e.transactionHash ?? '0x',
-        })),
+        events: events.map(evmToJEvent),
       };
     },
 
@@ -196,7 +232,7 @@ export async function createBrowserVMAdapter(
       diffs: SettlementDiff[],
       forgiveDebtsInTokenIds: number[] = [],
       insuranceRegs: InsuranceReg[] = [],
-      sig?: string
+      sig?: string,
     ): Promise<JTxReceipt> {
       // BrowserVM has settleWithInsurance which handles both cases
       // Ensure ondeltaDiff is set (default to 0n if not provided)
@@ -213,7 +249,7 @@ export async function createBrowserVMAdapter(
         normalizedDiffs,
         forgiveDebtsInTokenIds,
         insuranceRegs,
-        sig
+        sig,
       );
       return {
         txHash: '0x' + 'browservm-settle'.padStart(64, '0'),
@@ -239,24 +275,12 @@ export async function createBrowserVMAdapter(
 
     async debugFundReserves(entityId: string, tokenId: number, amount: bigint): Promise<JEvent[]> {
       const events = await browserVM.debugFundReserves(entityId, tokenId, amount);
-      return events.map((e: any) => ({
-        name: e.name,
-        args: e.args ?? {},
-        blockNumber: e.blockNumber ?? 0,
-        blockHash: e.blockHash ?? '0x',
-        transactionHash: e.transactionHash ?? '0x',
-      }));
+      return events.map(evmToJEvent);
     },
 
     async reserveToReserve(from: string, to: string, tokenId: number, amount: bigint): Promise<JEvent[]> {
       const events = await browserVM.reserveToReserve(from, to, tokenId, amount);
-      return events.map((e: any) => ({
-        name: e.name,
-        args: e.args ?? {},
-        blockNumber: e.blockNumber ?? 0,
-        blockHash: e.blockHash ?? '0x',
-        transactionHash: e.transactionHash ?? '0x',
-      }));
+      return events.map(evmToJEvent);
     },
 
     async externalTokenToReserve(
@@ -268,7 +292,7 @@ export async function createBrowserVMAdapter(
         tokenType?: number;
         externalTokenId?: bigint;
         internalTokenId?: number;
-      }
+      },
     ): Promise<JEvent[]> {
       const depositoryAddress = browserVM.getDepositoryAddress();
       const ownerAddress = new ethers.Wallet(ethers.hexlify(signerPrivateKey)).address;
@@ -276,7 +300,7 @@ export async function createBrowserVMAdapter(
       if (tokenType === 0 && browserVM.getErc20Allowance && browserVM.approveErc20) {
         const allowance = await browserVM.getErc20Allowance(tokenAddress, ownerAddress, depositoryAddress);
         if (allowance < amount) {
-          await browserVM.approveErc20(signerPrivateKey, tokenAddress, depositoryAddress, (2n ** 256n) - 1n);
+          await browserVM.approveErc20(signerPrivateKey, tokenAddress, depositoryAddress, 2n ** 256n - 1n);
         }
       }
 
@@ -284,13 +308,7 @@ export async function createBrowserVMAdapter(
         throw new Error('BrowserVM externalTokenToReserve not available');
       }
       const events = await browserVM.externalTokenToReserve(signerPrivateKey, entityId, tokenAddress, amount, options);
-      return events.map((e: any) => ({
-        name: e.name,
-        args: e.args ?? {},
-        blockNumber: e.blockNumber ?? 0,
-        blockHash: e.blockHash ?? '0x',
-        transactionHash: e.transactionHash ?? '0x',
-      }));
+      return events.map(evmToJEvent);
     },
 
     // === High-level J-tx submission ===
@@ -301,7 +319,8 @@ export async function createBrowserVMAdapter(
       console.log(`📤 [JAdapter:browservm] submitTx type=${jTx.type} entity=${jTx.entityId.slice(-4)}`);
 
       if (jTx.type === 'batch' && jTx.data?.batch) {
-        const { encodeJBatch, computeBatchHankoHash, isBatchEmpty, getBatchSize, preflightBatchForE2 } = await import('../j-batch');
+        const { encodeJBatch, computeBatchHankoHash, isBatchEmpty, getBatchSize, preflightBatchForE2 } =
+          await import('../j-batch');
         const { normalizeEntityId } = await import('../entity-id-utils');
 
         if (isBatchEmpty(jTx.data.batch)) {
@@ -311,7 +330,7 @@ export async function createBrowserVMAdapter(
 
         const entityProviderAddr = browserVM.getEntityProviderAddress();
         const depositoryAddr = browserVM.getDepositoryAddress();
-        const chainId = (browserVM as any).getChainId?.() ?? BigInt(config.chainId);
+        const chainId = browserVM.getChainId?.() ?? BigInt(config.chainId);
         const sid = signerId ?? jTx.data.signerId;
 
         if (!sid) {
@@ -322,7 +341,10 @@ export async function createBrowserVMAdapter(
         for (const settlement of jTx.data.batch.settlements ?? []) {
           settlement.entityProvider = entityProviderAddr;
           if (settlement.diffs?.length > 0 && (!settlement.sig || settlement.sig === '0x')) {
-            return { success: false, error: `Settlement missing hanko sig: ${settlement.leftEntity?.slice(-4)}↔${settlement.rightEntity?.slice(-4)}` };
+            return {
+              success: false,
+              error: `Settlement missing hanko sig: ${settlement.leftEntity?.slice(-4)}↔${settlement.rightEntity?.slice(-4)}`,
+            };
           }
         }
 
@@ -332,7 +354,9 @@ export async function createBrowserVMAdapter(
         const nextNonce = currentNonce + 1n;
         const batchHash = computeBatchHankoHash(chainId, depositoryAddr, encodedBatch, nextNonce);
 
-        console.log(`🔐 [JAdapter:browservm] Signing hanko: entity=${normalizedId.slice(-4)} nonce=${nextNonce} chainId=${chainId}`);
+        console.log(
+          `🔐 [JAdapter:browservm] Signing hanko: entity=${normalizedId.slice(-4)} nonce=${nextNonce} chainId=${chainId}`,
+        );
 
         const { signHashesAsSingleEntity } = await import('../hanko-signing');
         const hankos = await signHashesAsSingleEntity(env, normalizedId, sid, [batchHash]);
@@ -348,8 +372,8 @@ export async function createBrowserVMAdapter(
         }
 
         browserVM.setBlockTimestamp(ts);
-        if ((browserVM as any).beginJurisdictionBlock) {
-          (browserVM as any).beginJurisdictionBlock(ts);
+        if (browserVM.beginJurisdictionBlock) {
+          browserVM.beginJurisdictionBlock(ts);
           console.log(`🔨 [JAdapter:browservm] beginJurisdictionBlock(ts=${ts})`);
         }
 
@@ -357,26 +381,20 @@ export async function createBrowserVMAdapter(
           console.log(`📦 [JAdapter:browservm] processBatch (${getBatchSize(jTx.data.batch)} ops) nonce=${nextNonce}`);
           const events = await browserVM.processBatch(encodedBatch, entityProviderAddr, hankoData, nextNonce);
 
-          if ((browserVM as any).endJurisdictionBlock) {
-            (browserVM as any).endJurisdictionBlock();
+          if (browserVM.endJurisdictionBlock) {
+            browserVM.endJurisdictionBlock();
           }
 
           console.log(`✅ [JAdapter:browservm] Batch executed: ${events.length} events`);
           return {
             success: true,
             txHash: `0x${'browservm-batch'.padStart(64, '0')}`,
-            blockNumber: Number((browserVM as any).getBlockNumber?.() ?? 0),
-            events: events.map((e: any) => ({
-              name: e.name,
-              args: e.args ?? {},
-              blockNumber: e.blockNumber ?? 0,
-              blockHash: e.blockHash ?? '0x',
-              transactionHash: e.transactionHash ?? '0x',
-            })),
+            blockNumber: Number(browserVM.getBlockNumber?.() ?? 0),
+            events: events.map(evmToJEvent),
           };
         } catch (error) {
-          if ((browserVM as any).endJurisdictionBlock) {
-            (browserVM as any).endJurisdictionBlock();
+          if (browserVM.endJurisdictionBlock) {
+            browserVM.endJurisdictionBlock();
           }
           const msg = error instanceof Error ? error.message : String(error);
           console.error(`❌ [JAdapter:browservm] processBatch failed: ${msg}`);
@@ -385,12 +403,15 @@ export async function createBrowserVMAdapter(
       }
 
       if (jTx.type === 'mint' && jTx.data && browserVM.debugFundReserves) {
-        const { entityId, tokenId, amount } = jTx.data as any;
+        const { entityId, tokenId, amount } = jTx.data;
         console.log(`💰 [JAdapter:browservm] Minting ${amount} token ${tokenId} to ${entityId.slice(-4)}`);
         try {
           const events = await browserVM.debugFundReserves(entityId, tokenId, amount);
           console.log(`✅ [JAdapter:browservm] Mint ok (${events.length} events)`);
-          return { success: true, events: events.map((e: any) => ({ name: e.name, args: e.args ?? {}, blockNumber: 0, blockHash: '0x', transactionHash: '0x' })) };
+          return {
+            success: true,
+            events: events.map(evmToJEvent),
+          };
         } catch (error) {
           const msg = error instanceof Error ? error.message : String(error);
           console.error(`❌ [JAdapter:browservm] Mint failed: ${msg}`);
@@ -398,7 +419,7 @@ export async function createBrowserVMAdapter(
         }
       }
 
-      return { success: false, error: `Unknown JTx type: ${(jTx as any).type}` };
+      return { success: false, error: `Unknown JTx type: ${(jTx as JTx).type}` };
     },
 
     // === J-Watcher integration (uses shared event conversion from helpers.ts) ===
@@ -422,8 +443,8 @@ export async function createBrowserVMAdapter(
           transactionHash: e.transactionHash,
         }));
 
-        const blockNumber = normalized[0]?.blockNumber ?? Number((browserVM as any).getBlockNumber?.() ?? 0n);
-        const blockHash = normalized[0]?.blockHash ?? (browserVM as any).getBlockHash?.() ?? '0x0';
+        const blockNumber = normalized[0]?.blockNumber ?? Number(browserVM.getBlockNumber?.() ?? 0n);
+        const blockHash = normalized[0]?.blockHash ?? browserVM.getBlockHash?.() ?? '0x0';
 
         // Shared: filter canonical, group by entity, convert, enqueue
         processEventBatch(normalized, watcherEnv, blockNumber, blockHash, txCounter, 'browservm');

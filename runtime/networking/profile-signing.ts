@@ -24,7 +24,9 @@ import { getCachedSignerPublicKey } from '../account-crypto';
 
 const PROFILE_SIGN_DOMAIN = 'xln-profile-v1';
 const bytesToHex = (bytes: Uint8Array): string =>
-  `0x${Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('')}`;
+  `0x${Array.from(bytes)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('')}`;
 
 /**
  * Canonical profile hash for signing
@@ -78,11 +80,7 @@ function sortObjectKeys(obj: unknown): unknown {
  * Sign a profile using Hanko mechanism (same as accountFrames)
  * Returns profile with hanko in metadata
  */
-export async function signProfile(
-  env: Env,
-  profile: Profile,
-  signerId: string
-): Promise<Profile> {
+export async function signProfile(env: Env, profile: Profile, signerId: string): Promise<Profile> {
   const existingPubKey = profile.metadata?.entityPublicKey;
   let entityPublicKey = existingPubKey;
   if (!entityPublicKey) {
@@ -92,19 +90,12 @@ export async function signProfile(
     }
   }
 
-  const profileWithKey = entityPublicKey
-    ? { ...profile, metadata: { ...profile.metadata, entityPublicKey } }
-    : profile;
+  const profileWithKey = entityPublicKey ? { ...profile, metadata: { ...profile.metadata, entityPublicKey } } : profile;
 
   const hash = computeProfileHash(profileWithKey);
 
   // Use same signing mechanism as accountFrames
-  const hankos = await signHashesAsSingleEntity(
-    env,
-    profile.entityId,
-    signerId,
-    [hash]
-  );
+  const hankos = await signHashesAsSingleEntity(env, profile.entityId, signerId, [hash]);
 
   const profileHanko = hankos[0];
   if (!profileHanko) {
@@ -131,10 +122,7 @@ export type ProfileVerifyResult = {
   signerId?: string;
 };
 
-export async function verifyProfileSignature(
-  profile: Profile,
-  env?: Env
-): Promise<ProfileVerifyResult> {
+export async function verifyProfileSignature(profile: Profile, env?: Env): Promise<ProfileVerifyResult> {
   // Prefer Hanko verification
   const hanko = profile.metadata?.['profileHanko'] as HankoString | undefined;
   if (hanko) {

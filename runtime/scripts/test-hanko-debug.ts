@@ -54,13 +54,15 @@ async function main() {
   // Create test settlement diffs
   // Conservation: leftDiff + rightDiff + collateralDiff = 0
   // Move from left reserves to collateral
-  const diffs = [{
-    tokenId: 1,
-    leftDiff: -1000n,           // Left gives up 1000 from reserves
-    rightDiff: 0n,              // Right doesn't change
-    collateralDiff: 1000n,      // Goes to collateral
-    ondeltaDiff: 0n
-  }];
+  const diffs = [
+    {
+      tokenId: 1,
+      leftDiff: -1000n, // Left gives up 1000 from reserves
+      rightDiff: 0n, // Right doesn't change
+      collateralDiff: 1000n, // Goes to collateral
+      ondeltaDiff: 0n,
+    },
+  ];
 
   // Sign settlement (this creates Hanko for numbered entities)
   console.log('🔐 Signing settlement...');
@@ -74,10 +76,7 @@ async function main() {
     console.log('🔍 Debugging Hanko structure...');
     const abiCoder = ethers.AbiCoder.defaultAbiCoder();
     // Decode WITH outer tuple wrapper (matches Solidity abi.decode(data, (HankoBytes)))
-    const decoded = abiCoder.decode(
-      ['tuple(bytes32[],bytes,tuple(bytes32,uint256[],uint256[],uint256)[])'],
-      sig
-    );
+    const decoded = abiCoder.decode(['tuple(bytes32[],bytes,tuple(bytes32,uint256[],uint256[],uint256)[])'], sig);
     const [placeholders, packedSigs, claims] = decoded[0];
     console.log(`   Placeholders: ${placeholders.length}`);
     // packedSigs is a hex string, so length/2-1 = byte count
@@ -97,15 +96,13 @@ async function main() {
     console.log('\n🔍 Channel key verification...');
     {
       // Get channelKey from contract
-      const depInterface = new ethers.Interface([
-        'function accountKey(bytes32 e1, bytes32 e2) pure returns (bytes)'
-      ]);
+      const depInterface = new ethers.Interface(['function accountKey(bytes32 e1, bytes32 e2) pure returns (bytes)']);
       const callData = depInterface.encodeFunctionData('accountKey', [leftEntity, rightEntity]);
       const result = await browserVM.executeTx({
         to: browserVM.getDepositoryAddress(),
         data: callData,
         gasLimit: 100000n,
-        value: 0n
+        value: 0n,
       });
       // Note: executeTx might not return the result properly for view calls
       // Let's use my getChannelKey and compare
@@ -132,10 +129,12 @@ async function main() {
       const validatorEntityId = ethers.zeroPadValue(validatorAddress, 32);
 
       // Compute board hash the way registration does it
-      const registrationBoardHash = ethers.keccak256(abiCoder.encode(
-        ['tuple(uint16,bytes32[],uint16[],uint32,uint32,uint32)'],
-        [[1n, [validatorEntityId], [1n], 0n, 0n, 0n]]
-      ));
+      const registrationBoardHash = ethers.keccak256(
+        abiCoder.encode(
+          ['tuple(uint16,bytes32[],uint16[],uint32,uint32,uint32)'],
+          [[1n, [validatorEntityId], [1n], 0n, 0n, 0n]],
+        ),
+      );
       console.log(`   Registration board hash: ${registrationBoardHash}`);
       console.log(`   Validator address: ${validatorAddress}`);
       console.log(`   Validator entityId in board: ${validatorEntityId}`);
@@ -143,10 +142,12 @@ async function main() {
       // What verification computes (from _buildBoardHash)
       // It builds: Board { threshold, [recoveredAddress padded to bytes32], [weight], 0, 0, 0 }
       // recoveredAddress is from signature recovery
-      const verificationBoardHash = ethers.keccak256(abiCoder.encode(
-        ['tuple(uint16,bytes32[],uint16[],uint32,uint32,uint32)'],
-        [[1n, [validatorEntityId], [1n], 0n, 0n, 0n]]
-      ));
+      const verificationBoardHash = ethers.keccak256(
+        abiCoder.encode(
+          ['tuple(uint16,bytes32[],uint16[],uint32,uint32,uint32)'],
+          [[1n, [validatorEntityId], [1n], 0n, 0n, 0n]],
+        ),
+      );
       console.log(`   Verification board hash: ${verificationBoardHash}`);
       console.log(`   Match: ${registrationBoardHash === verificationBoardHash}`);
 
@@ -176,38 +177,48 @@ async function main() {
         [
           [], // placeholders
           packedTestSig, // 65 bytes
-          [[
-            rightEntity, // entityId (Entity 3)
-            [0], // index 0 = the signature
-            [1], // weight 1
-            1, // threshold 1
-          ]]
-        ]
+          [
+            [
+              rightEntity, // entityId (Entity 3)
+              [0], // index 0 = the signature
+              [1], // weight 1
+              1, // threshold 1
+            ],
+          ],
+        ],
       );
 
       // Version B: With outer tuple wrapper
       const testHankoWithWrapper = abiCoder.encode(
         ['tuple(bytes32[],bytes,tuple(bytes32,uint256[],uint256[],uint256)[])'],
-        [[
-          [], // placeholders
-          packedTestSig, // 65 bytes
-          [[
-            rightEntity, // entityId (Entity 3)
-            [0], // index 0 = the signature
-            [1], // weight 1
-            1, // threshold 1
-          ]]
-        ]]
+        [
+          [
+            [], // placeholders
+            packedTestSig, // 65 bytes
+            [
+              [
+                rightEntity, // entityId (Entity 3)
+                [0], // index 0 = the signature
+                [1], // weight 1
+                1, // threshold 1
+              ],
+            ],
+          ],
+        ],
       );
 
-      console.log(`   Encoding A (no wrapper): ${(testHankoNoWrapper.length - 2) / 2} bytes, starts with ${testHankoNoWrapper.slice(0, 10)}`);
-      console.log(`   Encoding B (with wrapper): ${(testHankoWithWrapper.length - 2) / 2} bytes, starts with ${testHankoWithWrapper.slice(0, 10)}`);
+      console.log(
+        `   Encoding A (no wrapper): ${(testHankoNoWrapper.length - 2) / 2} bytes, starts with ${testHankoNoWrapper.slice(0, 10)}`,
+      );
+      console.log(
+        `   Encoding B (with wrapper): ${(testHankoWithWrapper.length - 2) / 2} bytes, starts with ${testHankoWithWrapper.slice(0, 10)}`,
+      );
 
       const testHanko = testHankoNoWrapper; // Use version A for structure printout
       console.log(`   Test hanko length: ${(testHanko.length - 2) / 2} bytes`);
       console.log(`   Test hanko structure (576 bytes):`);
       // Helper to get word at byte offset
-      const getWord = (offset: number) => testHanko.slice(2 + offset*2, 2 + offset*2 + 64);
+      const getWord = (offset: number) => testHanko.slice(2 + offset * 2, 2 + offset * 2 + 64);
       console.log(`     [0x00] offset to placeholders: ${getWord(0)}`);
       console.log(`     [0x20] offset to packedSigs:   ${getWord(32)}`);
       console.log(`     [0x40] offset to claims:       ${getWord(64)}`);
@@ -220,14 +231,17 @@ async function main() {
       console.log(`     [0x140] claim[0].entityId:     ${getWord(320)}`);
       console.log(`     [0x160] claim[0] entityIdxOff: ${getWord(352)}`);
       console.log(`     [0x180] claim[0] weightsOff:   ${getWord(384)}`);
-      console.log(`     [0x1a0] claim[0].threshold:    ${getWord(416)}`)
+      console.log(`     [0x1a0] claim[0].threshold:    ${getWord(416)}`);
 
       // Test BOTH versions via runCall
       const epInterface = new ethers.Interface([
-        'function verifyHankoSignature(bytes hankoData, bytes32 hash) external returns (bytes32 entityId, bool success)'
+        'function verifyHankoSignature(bytes hankoData, bytes32 hash) external returns (bytes32 entityId, bool success)',
       ]);
 
-      for (const [name, hankoData] of [['A (no wrapper)', testHankoNoWrapper], ['B (with wrapper)', testHankoWithWrapper]] as const) {
+      for (const [name, hankoData] of [
+        ['A (no wrapper)', testHankoNoWrapper],
+        ['B (with wrapper)', testHankoWithWrapper],
+      ] as const) {
         console.log(`\n   Testing ${name}...`);
         const callData = epInterface.encodeFunctionData('verifyHankoSignature', [hankoData, testHash]);
 
@@ -276,8 +290,22 @@ async function main() {
       const channelKey2 = ethers.solidityPacked(['bytes32', 'bytes32'], [leftEntity, rightEntity]);
       const accountInfo2 = await browserVM.getAccountInfo(leftEntity, rightEntity);
       const encodedMsg2 = abiCoder2.encode(
-        ['uint256', 'bytes', 'uint256', 'tuple(uint256,int256,int256,int256,int256)[]', 'uint256[]', 'tuple(bytes32,bytes32,uint256,uint256,uint256)[]'],
-        [0, channelKey2, accountInfo2.cooperativeNonce, diffs.map(d => [d.tokenId, d.leftDiff, d.rightDiff, d.collateralDiff, d.ondeltaDiff]), [], []]
+        [
+          'uint256',
+          'bytes',
+          'uint256',
+          'tuple(uint256,int256,int256,int256,int256)[]',
+          'uint256[]',
+          'tuple(bytes32,bytes32,uint256,uint256,uint256)[]',
+        ],
+        [
+          0,
+          channelKey2,
+          accountInfo2.cooperativeNonce,
+          diffs.map(d => [d.tokenId, d.leftDiff, d.rightDiff, d.collateralDiff, d.ondeltaDiff]),
+          [],
+          [],
+        ],
       );
       const settlementHash = ethers.keccak256(encodedMsg2);
       console.log(`   Settlement hash: ${settlementHash}`);
@@ -286,7 +314,7 @@ async function main() {
 
       // Direct call to EntityProvider via runCall to see full result
       const epInterface2 = new ethers.Interface([
-        'function verifyHankoSignature(bytes hankoData, bytes32 hash) external returns (bytes32 entityId, bool success)'
+        'function verifyHankoSignature(bytes hankoData, bytes32 hash) external returns (bytes32 entityId, bool success)',
       ]);
       const callData2 = epInterface2.encodeFunctionData('verifyHankoSignature', [sig, settlementHash]);
 
@@ -325,7 +353,7 @@ async function main() {
     // Compare hash computation between TypeScript and Solidity
     console.log('\n🔍 Comparing hash computation...');
     const depInterface = new ethers.Interface([
-      'function computeSettlementHash(bytes32 leftEntity, bytes32 rightEntity, tuple(uint256,int256,int256,int256,int256)[] diffs, uint256[] forgiveDebtsInTokenIds, tuple(bytes32,bytes32,uint256,uint256,uint256)[] insuranceRegs) view returns (bytes32 hash, uint256 nonce, uint256 encodedMsgLength)'
+      'function computeSettlementHash(bytes32 leftEntity, bytes32 rightEntity, tuple(uint256,int256,int256,int256,int256)[] diffs, uint256[] forgiveDebtsInTokenIds, tuple(bytes32,bytes32,uint256,uint256,uint256)[] insuranceRegs) view returns (bytes32 hash, uint256 nonce, uint256 encodedMsgLength)',
     ]);
     const hashCallData = depInterface.encodeFunctionData('computeSettlementHash', [
       leftEntity,
@@ -338,7 +366,7 @@ async function main() {
       to: browserVM.getDepositoryAddress(),
       data: hashCallData,
       gasLimit: 500000n,
-      value: 0n
+      value: 0n,
     });
     // Since executeTx returns txHash not returnValue, we need vm.evm.runCall
     // Let's use a raw call instead
@@ -372,16 +400,12 @@ async function main() {
     console.log(`   Using original sig length: ${sig.length} chars`);
     console.log(`   Using sig prefix: ${sig.slice(0, 50)}...`);
 
-    const hankoResult = await browserVM.settleWithInsurance(
-      leftEntity,
-      rightEntity,
-      diffs,
-      [],
-      [],
-      sig
-    );
+    const hankoResult = await browserVM.settleWithInsurance(leftEntity, rightEntity, diffs, [], [], sig);
 
-    console.log(`   Hanko Result:`, JSON.stringify(hankoResult, (k, v) => typeof v === 'bigint' ? v.toString() : v, 2));
+    console.log(
+      `   Hanko Result:`,
+      JSON.stringify(hankoResult, (k, v) => (typeof v === 'bigint' ? v.toString() : v), 2),
+    );
 
     if (hankoResult.success === false) {
       console.log(`   ❌ Hanko Settlement failed!`);
@@ -408,17 +432,9 @@ async function main() {
     {
       const dummySig100 = ethers.hexlify(new Uint8Array(100).fill(0xab));
       console.log(`   Dummy sig length: ${(dummySig100.length - 2) / 2} bytes`);
-      const result100 = await browserVM.settleWithInsurance(
-        leftEntity,
-        rightEntity,
-        diffs,
-        [],
-        [],
-        dummySig100
-      );
+      const result100 = await browserVM.settleWithInsurance(leftEntity, rightEntity, diffs, [], [], dummySig100);
       console.log(`   100-byte sig result: success=${result100.success}`);
     }
-
   } catch (err: any) {
     console.log(`   ❌ Error: ${err.message}`);
   }

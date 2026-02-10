@@ -28,19 +28,19 @@ import { CANONICAL_J_EVENTS } from '../jadapter/helpers';
  * These events come from blockchain watchers observing on-chain activity
  */
 export interface JEventEntityTxData {
-  from: string;  // Signer ID that observed the event
+  from: string; // Signer ID that observed the event
   event: {
-    type: string;  // Event name (e.g., "ReserveUpdated", "AccountSettled")
-    data: Record<string, unknown>;  // Event-specific data from blockchain
+    type: string; // Event name (e.g., "ReserveUpdated", "AccountSettled")
+    data: Record<string, unknown>; // Event-specific data from blockchain
   };
   events?: Array<{
-    type: string;  // Event name (e.g., "ReserveUpdated", "AccountSettled")
+    type: string; // Event name (e.g., "ReserveUpdated", "AccountSettled")
     data: Record<string, unknown>;
   }>;
-  observedAt: number;  // Timestamp when event was observed (ms)
-  blockNumber: number;  // Blockchain block number where event occurred
-  blockHash: string;    // Block hash for JBlock consensus
-  transactionHash: string;  // Blockchain transaction hash
+  observedAt: number; // Timestamp when event was observed (ms)
+  blockNumber: number; // Blockchain block number where event occurred
+  blockHash: string; // Block hash for JBlock consensus
+  transactionHash: string; // Blockchain transaction hash
 }
 
 const getTokenSymbol = (tokenId: number): string => {
@@ -78,10 +78,14 @@ const getTokenDecimals = (tokenId: number): number => {
  * @param env - Runtime environment
  * @returns Updated state (may include finalized events if threshold met)
  */
-export const handleJEvent = async (entityState: EntityState, entityTxData: JEventEntityTxData, env: Env): Promise<{ newState: EntityState; mempoolOps: Array<{ accountId: string; tx: any }> }> => {
+export const handleJEvent = async (
+  entityState: EntityState,
+  entityTxData: JEventEntityTxData,
+  env: Env,
+): Promise<{ newState: EntityState; mempoolOps: Array<{ accountId: string; tx: any }> }> => {
   const { from: signerId, observedAt, blockNumber, blockHash } = entityTxData;
   // j-watcher now sends batched events - use 'events' array, fallback to single 'event'
-  const rawEvents = (entityTxData as any).events || [entityTxData.event];
+  const rawEvents = entityTxData.events ?? [entityTxData.event];
 
   const entityShort = entityState.entityId.slice(-4);
   console.log(`🏛️ [2/3] E-MACHINE: ${entityShort} ← ${rawEvents.length} events (block ${blockNumber})`);
@@ -107,12 +111,17 @@ export const handleJEvent = async (entityState: EntityState, entityTxData: JEven
   }
 
   // Convert raw events to JurisdictionEvent format
-  const jEvents: JurisdictionEvent[] = rawEvents.map((e: any) => ({
-    type: e.type as any,
-    data: e.data as any,
-    blockNumber,
-    blockHash,
-  }));
+  // Raw events have {type: string, data: Record<string, unknown>} from blockchain;
+  // cast to JurisdictionEvent discriminated union (validated by downstream handlers)
+  const jEvents: JurisdictionEvent[] = rawEvents.map(
+    e =>
+      ({
+        type: e.type,
+        data: e.data,
+        blockNumber,
+        blockHash,
+      }) as JurisdictionEvent,
+  );
 
   // Clone state and create observation with ALL events from this batch
   let newEntityState = cloneEntityState(entityState);
@@ -136,8 +145,13 @@ export const handleJEvent = async (entityState: EntityState, entityTxData: JEven
   // DEBUG: Dump account mempools after j-event processing
   for (const [cpId, account] of newEntityState.accounts) {
     if (account.mempool.length > 0 || account.leftJObservations.length > 0 || account.rightJObservations.length > 0) {
-      console.log(`🔍 AFTER-J-EVENT: Account ${cpId.slice(-4)} mempool=${account.mempool.length} txs:`, account.mempool.map((tx: any) => tx.type));
-      console.log(`🔍 AFTER-J-EVENT: leftJObs=${account.leftJObservations?.length || 0}, rightJObs=${account.rightJObservations?.length || 0}`);
+      console.log(
+        `🔍 AFTER-J-EVENT: Account ${cpId.slice(-4)} mempool=${account.mempool.length} txs:`,
+        account.mempool.map((tx: any) => tx.type),
+      );
+      console.log(
+        `🔍 AFTER-J-EVENT: leftJObs=${account.leftJObservations?.length || 0}, rightJObs=${account.rightJObservations?.length || 0}`,
+      );
     }
   }
 
@@ -171,7 +185,9 @@ export function tryFinalizeAccountJEvents(account: any, counterpartyId: string, 
   const matches = Array.from(leftMap.keys()).filter(k => rightMap.has(k));
 
   if (matches.length === 0) {
-    console.log(`   🔍 BILATERAL: left=${account.leftJObservations.length}, right=${account.rightJObservations.length}, matches=0`);
+    console.log(
+      `   🔍 BILATERAL: left=${account.leftJObservations.length}, right=${account.rightJObservations.length}, matches=0`,
+    );
     return;
   }
 
@@ -216,12 +232,19 @@ export function tryFinalizeAccountJEvents(account: any, counterpartyId: string, 
         // NOTE: Do NOT increment nonce here!
         // R2C also emits AccountSettled but doesn't increment on-chain nonce.
         // Nonce is incremented in tryFinalizeAccountJEvents when workspace status is 'ready_to_submit'.
-        console.log(`   💰 BILATERAL-APPLIED for ${counterpartyId.slice(-4)}: coll ${oldColl}→${delta.collateral}, ondelta=${delta.ondelta}`);
+        console.log(
+          `   💰 BILATERAL-APPLIED for ${counterpartyId.slice(-4)}: coll ${oldColl}→${delta.collateral}, ondelta=${delta.ondelta}`,
+        );
       }
     }
 
     // Add to jEventChain (replay prevention) - DETERMINISTIC timestamp
-    account.jEventChain.push({ jHeight, jBlockHash: leftObs.jBlockHash, events: leftObs.events, finalizedAt: opts.timestamp });
+    account.jEventChain.push({
+      jHeight,
+      jBlockHash: leftObs.jBlockHash,
+      events: leftObs.events,
+      finalizedAt: opts.timestamp,
+    });
     account.lastFinalizedJHeight = Math.max(account.lastFinalizedJHeight, jHeight);
 
     // SYMMETRIC NONCE TRACKING: Both sides increment when workspace was 'ready_to_submit'
@@ -240,7 +263,9 @@ export function tryFinalizeAccountJEvents(account: any, counterpartyId: string, 
   const finalizedHeights = new Set(matches.map(k => leftMap.get(k)!.jHeight));
   account.leftJObservations = account.leftJObservations.filter((o: any) => !finalizedHeights.has(o.jHeight));
   account.rightJObservations = account.rightJObservations.filter((o: any) => !finalizedHeights.has(o.jHeight));
-  console.log(`   🧹 Pruned ${finalizedHeights.size} finalized (left=${account.leftJObservations.length}, right=${account.rightJObservations.length} pending)`);
+  console.log(
+    `   🧹 Pruned ${finalizedHeights.size} finalized (left=${account.leftJObservations.length}, right=${account.rightJObservations.length} pending)`,
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -283,7 +308,7 @@ export function tryFinalizeAccountJEvents(account: any, counterpartyId: string, 
 async function tryFinalizeJBlocks(
   state: EntityState,
   threshold: bigint,
-  env: Env
+  env: Env,
 ): Promise<{ newState: EntityState; mempoolOps: Array<{ accountId: string; tx: any }> }> {
   const allMempoolOps: Array<{ accountId: string; tx: any }> = [];
 
@@ -306,7 +331,9 @@ async function tryFinalizeJBlocks(
   // Step 2: Check each group for threshold agreement
   // ─────────────────────────────────────────────────────────────────────────────
   const finalizedHeights: number[] = [];
-  console.log(`   📊 OBSERVATION-GROUPS: ${observationGroups.size} groups, keys=[${Array.from(observationGroups.keys()).join(', ')}]`);
+  console.log(
+    `   📊 OBSERVATION-GROUPS: ${observationGroups.size} groups, keys=[${Array.from(observationGroups.keys()).join(', ')}]`,
+  );
 
   for (const [_key, observations] of observationGroups) {
     // Count UNIQUE signers (ignore duplicate submissions from same signer)
@@ -325,7 +352,9 @@ async function tryFinalizeJBlocks(
       // 1. Multiple observation groups exist for same height (different hashes)
       // 2. A previous iteration of this loop already finalized this height
       // 3. Block was finalized in a previous call (caught at handleJEvent entry)
-      console.log(`   🔍 CHECK-FINALIZE: jHeight=${jHeight}, jBlockChain.length=${state.jBlockChain.length}, heights=[${state.jBlockChain.map(b => b.jHeight).join(',')}]`);
+      console.log(
+        `   🔍 CHECK-FINALIZE: jHeight=${jHeight}, jBlockChain.length=${state.jBlockChain.length}, heights=[${state.jBlockChain.map(b => b.jHeight).join(',')}]`,
+      );
       const alreadyInChain = state.jBlockChain.some(b => b.jHeight === jHeight);
       if (alreadyInChain) {
         console.log(`   ⏭️ SKIP-FINALIZE: block ${jHeight} already in jBlockChain`);
@@ -362,7 +391,10 @@ async function tryFinalizeJBlocks(
       // Step 5: Apply all events from this finalized block
       // ─────────────────────────────────────────────────────────────────────────
       console.log(`   📦 Applying ${events.length} events from block ${jHeight}`);
-      console.log(`      Event types:`, events.map(e => e.type));
+      console.log(
+        `      Event types:`,
+        events.map(e => e.type),
+      );
       for (const event of events) {
         console.log(`      🔧 Applying event: ${event.type}`);
         const { newState, mempoolOps } = await applyFinalizedJEvent(state, event, env);
@@ -388,10 +420,10 @@ async function tryFinalizeJBlocks(
   // to allow out-of-order finalization and detect conflicts.
   if (finalizedHeights.length > 0) {
     const finalizedSet = new Set(finalizedHeights);
-    state.jBlockObservations = state.jBlockObservations.filter(
-      obs => !finalizedSet.has(obs.jHeight)
+    state.jBlockObservations = state.jBlockObservations.filter(obs => !finalizedSet.has(obs.jHeight));
+    console.log(
+      `   🧹 Pruned finalized heights [${finalizedHeights.join(',')}] (${state.jBlockObservations.length} pending)`,
     );
-    console.log(`   🧹 Pruned finalized heights [${finalizedHeights.join(',')}] (${state.jBlockObservations.length} pending)`);
   }
 
   return { newState: state, mempoolOps: allMempoolOps };
@@ -415,7 +447,7 @@ function mergeSignerObservations(observations: JBlockObservation[]): Jurisdictio
   for (const obs of observations) {
     for (const event of obs.events) {
       // Create unique key from event type and data
-    const key = `${event.type}:${safeStringify(event.data)}`;
+      const key = `${event.type}:${safeStringify(event.data)}`;
       if (!eventMap.has(key)) {
         eventMap.set(key, event);
       }
@@ -452,7 +484,7 @@ function mergeSignerObservations(observations: JBlockObservation[]): Jurisdictio
 async function applyFinalizedJEvent(
   entityState: EntityState,
   event: JurisdictionEvent,
-  env: Env
+  env: Env,
 ): Promise<{ newState: EntityState; mempoolOps: Array<{ accountId: string; tx: any }> }> {
   console.log(`🔧🔧 applyFinalizedJEvent: entityId=${entityState.entityId.slice(-4)}, event.type=${event.type}`);
 
@@ -473,7 +505,7 @@ async function applyFinalizedJEvent(
     const { entity, tokenId, newBalance } = event.data;
     const tokenSymbol = getTokenSymbol(tokenId as number);
     const decimals = getTokenDecimals(tokenId as number);
-    const balanceDisplay = (Number(newBalance) / (10 ** decimals)).toFixed(4);
+    const balanceDisplay = (Number(newBalance) / 10 ** decimals).toFixed(4);
 
     if (entity === entityState.entityId) {
       const before = entityState.reserves.get(String(tokenId)) ?? 0n;
@@ -484,7 +516,6 @@ async function applyFinalizedJEvent(
     }
 
     addMessage(newState, `📊 RESERVE: ${tokenSymbol} = ${balanceDisplay} | Block ${blockNumber} | Tx ${txHashShort}`);
-
   } else if (event.type === 'SecretRevealed') {
     const { hashlock, secret } = event.data;
     const hashlockKey = String(hashlock).toLowerCase();
@@ -525,8 +556,8 @@ async function applyFinalizedJEvent(
             lockId: route.inboundLockId,
             outcome: 'secret' as const,
             secret: String(secret),
-          }
-        }
+          },
+        },
       });
       console.log(`⬅️ HTLC: On-chain secret propagated to ${route.inboundEntity.slice(-4)}`);
     } else {
@@ -534,7 +565,6 @@ async function applyFinalizedJEvent(
     }
 
     addMessage(newState, `🔓 HTLC reveal observed: ${hashlockKey.slice(0, 10)}... | Block ${blockNumber}`);
-
   } else if (event.type === 'AccountSettled') {
     // Universal settlement event (covers R2C, C2R, settle, rebalance)
     const { counterpartyEntityId, tokenId, ownReserve, collateral } = event.data;
@@ -593,18 +623,20 @@ async function applyFinalizedJEvent(
     });
     console.log(`   📮 j_event_claim → mempoolOps[${mempoolOps.length}] (will auto-propose frame)`);
 
-    const collDisplay = (Number(collateral) / (10 ** decimals)).toFixed(4);
-    addMessage(newState, `⚖️ OBSERVED: ${tokenSymbol} ${cpShort} | coll=${collDisplay} | j-block ${blockNumber} (awaiting 2-of-2)`);
+    const collDisplay = (Number(collateral) / 10 ** decimals).toFixed(4);
+    addMessage(
+      newState,
+      `⚖️ OBSERVED: ${tokenSymbol} ${cpShort} | coll=${collDisplay} | j-block ${blockNumber} (awaiting 2-of-2)`,
+    );
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // FUTURE J-EVENTS (when added to Solidity - handlers ready)
-  // ═══════════════════════════════════════════════════════════════════════════
-
+    // ═══════════════════════════════════════════════════════════════════════════
+    // FUTURE J-EVENTS (when added to Solidity - handlers ready)
+    // ═══════════════════════════════════════════════════════════════════════════
   } else if (event.type === 'InsuranceRegistered') {
     const { insured, insurer, tokenId, limit, expiresAt } = event.data;
     const tokenSymbol = getTokenSymbol(tokenId as number);
     const decimals = getTokenDecimals(tokenId as number);
-    const limitDisplay = (Number(limit) / (10 ** decimals)).toFixed(2);
+    const limitDisplay = (Number(limit) / 10 ** decimals).toFixed(2);
 
     if (!newState.insuranceLines) {
       newState.insuranceLines = [];
@@ -619,36 +651,40 @@ async function applyFinalizedJEvent(
       });
     }
 
-    addMessage(newState, `🛡️ INSURANCE: ${(insurer as string).slice(-8)} covers ${limitDisplay} ${tokenSymbol} | Block ${blockNumber}`);
-
+    addMessage(
+      newState,
+      `🛡️ INSURANCE: ${(insurer as string).slice(-8)} covers ${limitDisplay} ${tokenSymbol} | Block ${blockNumber}`,
+    );
   } else if (event.type === 'InsuranceClaimed') {
     const { insured, insurer, creditor, tokenId, amount } = event.data;
     const tokenSymbol = getTokenSymbol(tokenId as number);
     const decimals = getTokenDecimals(tokenId as number);
-    const amountDisplay = (Number(amount) / (10 ** decimals)).toFixed(4);
+    const amountDisplay = (Number(amount) / 10 ** decimals).toFixed(4);
 
     if (insured === entityState.entityId && newState.insuranceLines) {
-      const line = newState.insuranceLines.find(
-        l => l.insurer === insurer && l.tokenId === tokenId
-      );
+      const line = newState.insuranceLines.find(l => l.insurer === insurer && l.tokenId === tokenId);
       if (line) {
         line.remaining -= BigInt(amount as string | number | bigint);
       }
     }
 
-    addMessage(newState, `💸 INSURANCE CLAIMED: ${amountDisplay} ${tokenSymbol} paid to ${(creditor as string).slice(-8)} | Block ${blockNumber}`);
-
+    addMessage(
+      newState,
+      `💸 INSURANCE CLAIMED: ${amountDisplay} ${tokenSymbol} paid to ${(creditor as string).slice(-8)} | Block ${blockNumber}`,
+    );
   } else if (event.type === 'InsuranceExpired') {
     const { insured, insurer, tokenId } = event.data;
     const tokenSymbol = getTokenSymbol(tokenId as number);
 
-    addMessage(newState, `⏰ INSURANCE EXPIRED: ${(insurer as string).slice(-8)} → ${(insured as string).slice(-8)} ${tokenSymbol} | Block ${blockNumber}`);
-
+    addMessage(
+      newState,
+      `⏰ INSURANCE EXPIRED: ${(insurer as string).slice(-8)} → ${(insured as string).slice(-8)} ${tokenSymbol} | Block ${blockNumber}`,
+    );
   } else if (event.type === 'DebtCreated') {
     const { debtor, creditor, tokenId, amount, debtIndex } = event.data;
     const tokenSymbol = getTokenSymbol(tokenId as number);
     const decimals = getTokenDecimals(tokenId as number);
-    const amountDisplay = (Number(amount) / (10 ** decimals)).toFixed(4);
+    const amountDisplay = (Number(amount) / 10 ** decimals).toFixed(4);
 
     if (!newState.debts) {
       newState.debts = [];
@@ -663,26 +699,28 @@ async function applyFinalizedJEvent(
       });
     }
 
-    addMessage(newState, `🔴 DEBT: ${(debtor as string).slice(-8)} owes ${amountDisplay} ${tokenSymbol} to ${(creditor as string).slice(-8)} | Block ${blockNumber}`);
-
+    addMessage(
+      newState,
+      `🔴 DEBT: ${(debtor as string).slice(-8)} owes ${amountDisplay} ${tokenSymbol} to ${(creditor as string).slice(-8)} | Block ${blockNumber}`,
+    );
   } else if (event.type === 'DebtEnforced') {
     const { debtor, creditor, tokenId, amountPaid, remainingAmount, newDebtIndex } = event.data;
     const tokenSymbol = getTokenSymbol(tokenId as number);
     const decimals = getTokenDecimals(tokenId as number);
-    const paidDisplay = (Number(amountPaid) / (10 ** decimals)).toFixed(4);
+    const paidDisplay = (Number(amountPaid) / 10 ** decimals).toFixed(4);
 
     if (debtor === entityState.entityId && newState.debts) {
-      const debt = newState.debts.find(
-        d => d.creditor === creditor && d.tokenId === tokenId
-      );
+      const debt = newState.debts.find(d => d.creditor === creditor && d.tokenId === tokenId);
       if (debt) {
         debt.amount = BigInt(remainingAmount as string | number | bigint);
         debt.index = newDebtIndex as number;
       }
     }
 
-    addMessage(newState, `✅ DEBT PAID: ${paidDisplay} ${tokenSymbol} to ${(creditor as string).slice(-8)} | Block ${blockNumber}`);
-
+    addMessage(
+      newState,
+      `✅ DEBT PAID: ${paidDisplay} ${tokenSymbol} to ${(creditor as string).slice(-8)} | Block ${blockNumber}`,
+    );
   } else if (event.type === 'DisputeStarted') {
     console.log(`🔍 DISPUTE-EVENT HANDLER: entityId=${newState.entityId.slice(-4)}`);
 
@@ -735,16 +773,18 @@ async function applyFinalizedJEvent(
           nonceSource = 'currentSig';
         }
       }
-      console.log(`   DEBUG DisputeStarted: starter=${weAreStarter}, source=${nonceSource}, proofHeader.cooperativeNonce=${account.proofHeader.cooperativeNonce}, initialCooperativeNonce=${initialCooperativeNonce}`);
+      console.log(
+        `   DEBUG DisputeStarted: starter=${weAreStarter}, source=${nonceSource}, proofHeader.cooperativeNonce=${account.proofHeader.cooperativeNonce}, initialCooperativeNonce=${initialCooperativeNonce}`,
+      );
 
       // Store dispute state from event + on-chain (source of truth)
       account.activeDispute = {
         startedByLeft: senderStr < counterentityStr,
-        initialProofbodyHash: String(proofbodyHash),  // From event (committed on-chain)
+        initialProofbodyHash: String(proofbodyHash), // From event (committed on-chain)
         initialDisputeNonce: Number(disputeNonce),
-        disputeTimeout: Number(accountInfo.disputeTimeout),  // From on-chain
-        initialCooperativeNonce,  // Nonce PASSED to disputeStart (for hash match)
-        onChainCooperativeNonce: Number(accountInfo.cooperativeNonce),  // May differ
+        disputeTimeout: Number(accountInfo.disputeTimeout), // From on-chain
+        initialCooperativeNonce, // Nonce PASSED to disputeStart (for hash match)
+        onChainCooperativeNonce: Number(accountInfo.cooperativeNonce), // May differ
         initialArguments: event.data.initialArguments || '0x',
       };
 
@@ -761,12 +801,18 @@ async function applyFinalizedJEvent(
         console.log(`✅ Proof hash verified: local matches on-chain`);
       }
 
-      addMessage(newState, `⚔️ DISPUTE ${weAreStarter ? 'STARTED' : 'vs us'} with ${counterpartyId.slice(-4)}, timeout: block ${account.activeDispute.disputeTimeout}`);
-      console.log(`⚔️ activeDispute stored: hash=${account.activeDispute.initialProofbodyHash.slice(0,10)}..., timeout=${account.activeDispute.disputeTimeout}`);
+      addMessage(
+        newState,
+        `⚔️ DISPUTE ${weAreStarter ? 'STARTED' : 'vs us'} with ${counterpartyId.slice(-4)}, timeout: block ${account.activeDispute.disputeTimeout}`,
+      );
+      console.log(
+        `⚔️ activeDispute stored: hash=${account.activeDispute.initialProofbodyHash.slice(0, 10)}..., timeout=${account.activeDispute.disputeTimeout}`,
+      );
     } else {
-      console.warn(`⚠️ DisputeStarted: account ${candidateCounterpartyId.slice(-4)} not found for entity ${entityIdNorm.slice(-4)}`);
+      console.warn(
+        `⚠️ DisputeStarted: account ${candidateCounterpartyId.slice(-4)} not found for entity ${entityIdNorm.slice(-4)}`,
+      );
     }
-
   } else if (event.type === 'DisputeFinalized') {
     console.log(`🔍 DISPUTE-FINALIZED HANDLER: entityId=${newState.entityId.slice(-4)}`);
 
@@ -792,15 +838,21 @@ async function applyFinalizedJEvent(
     if (account) {
       if (account.activeDispute) {
         delete account.activeDispute;
-        addMessage(newState, `✅ DISPUTE FINALIZED with ${counterpartyId.slice(-4)} (nonce ${Number(initialDisputeNonce)})`);
-        console.log(`✅ activeDispute cleared for ${counterpartyId.slice(-4)} (proof=${String(initialProofbodyHash).slice(0, 10)}...)`);
+        addMessage(
+          newState,
+          `✅ DISPUTE FINALIZED with ${counterpartyId.slice(-4)} (nonce ${Number(initialDisputeNonce)})`,
+        );
+        console.log(
+          `✅ activeDispute cleared for ${counterpartyId.slice(-4)} (proof=${String(initialProofbodyHash).slice(0, 10)}...)`,
+        );
       } else {
         console.warn(`⚠️ DisputeFinalized: No activeDispute for ${counterpartyId.slice(-4)}`);
       }
     } else {
-      console.warn(`⚠️ DisputeFinalized: account ${candidateCounterpartyId.slice(-4)} not found for entity ${entityIdNorm.slice(-4)}`);
+      console.warn(
+        `⚠️ DisputeFinalized: account ${candidateCounterpartyId.slice(-4)} not found for entity ${entityIdNorm.slice(-4)}`,
+      );
     }
-
   } else if (event.type === 'HankoBatchProcessed') {
     // jBatch finalization event - confirms our batch was processed on-chain
     const { entityId: batchEntityId, hankoHash, nonce, success } = event.data;
@@ -811,7 +863,9 @@ async function applyFinalizedJEvent(
       return { newState, mempoolOps };
     }
 
-    console.log(`📦 HankoBatchProcessed: nonce=${nonce}, success=${success}, hanko=${String(hankoHash).slice(0, 10)}...`);
+    console.log(
+      `📦 HankoBatchProcessed: nonce=${nonce}, success=${success}, hanko=${String(hankoHash).slice(0, 10)}...`,
+    );
 
     if (success) {
       // Clear jBatch now that it's finalized on-chain
@@ -828,7 +882,6 @@ async function applyFinalizedJEvent(
       console.warn(`   ⚠️ jBatch FAILED on-chain (nonce ${nonce}) - not clearing`);
       addMessage(newState, `⚠️ jBatch failed (nonce ${nonce}) - use j_clear_batch to abort | Block ${blockNumber}`);
     }
-
   } else {
     // Unknown event - log but don't fail
     addMessage(newState, `⚠️ Unknown j-event: ${event.type} | Block ${blockNumber}`);

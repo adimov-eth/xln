@@ -30,10 +30,8 @@ xln is a bilateral consensus network for instant off-chain settlement with on-ch
 bun run dev                    # localhost:8080 (runtime), :9000 (relay), :8545 (anvil)
 
 # Type checking
-bun run check                  # tsc --noEmit on runtime/ + brainvault/
-# 14 pre-existing errors (HTLC handler never-types, Bun types, jurisdiction-factory)
-# Scenarios pull in transitively (~389 noUncheckedIndexedAccess errors)
-# Server/infra: ~104 errors (Bun types, exactOptionalPropertyTypes)
+bun run check                  # tsc --noEmit via tsconfig.core.json — ZERO errors
+# Test files (*.test.ts) excluded from type-checking (intentional)
 
 # Run individual scenario
 bun runtime/scenarios/lock-ahb.ts    # HTLC multi-hop (Alice-Hub-Bob)
@@ -45,13 +43,45 @@ bun run env:run                # Local hardhat node on :8545
 bun run env:deploy             # Deploy via Hardhat Ignition
 
 # Testing
-bun run test                   # Property-based invariant tests (57 tests, 2163 assertions)
+bun run test                   # All tests (171 tests, 2434 assertions)
+bun test runtime/__tests__/ids.test.ts           # Single test file
+bun test runtime/__tests__/invariants.test.ts    # Property-based invariant tests
 
 # Formatting
 bun run format                 # Prettier on /runtime
 ```
 
 **Ports:** Runtime server :8080, WebSocket relay :9000, Anvil :8545
+
+## 🧪 TEST SUITE
+
+7 test files, 171 tests total. All use real BrowserVM — no mocks.
+
+| File                 | Tests | What it covers                                                                                                             |
+| -------------------- | ----- | -------------------------------------------------------------------------------------------------------------------------- |
+| `ids.test.ts`        | 16    | Branded type constructors, entity/signer/token/lock ID validation                                                          |
+| `invariants.test.ts` | 43    | Property-based: conservation law, tiebreaker, capacity, hash determinism, monotonic heights                                |
+| `htlc.test.ts`       | 48    | Pure unit tests for HTLC lock/resolve/payment handlers, fee calc, hashlock generation                                      |
+| `account.test.ts`    | 14    | Bilateral account consensus: open, pay, sync, bidirectional, frame chain integrity                                         |
+| `entity.test.ts`     | 34    | Entity BFT: single-signer fast path, multi-signer 2-of-3, frame hash, mempool, crontab, quorum power, input merging        |
+| `consensus.test.ts`  | 16    | E2E multi-entity: conservation law, 3-entity routing, bilateral tiebreaker, HTLC multi-hop Alice→Hub→Bob, entity isolation |
+
+**Test helpers** (`runtime/__tests__/helpers.ts`):
+
+- `createTestEnv()` — real Env with BrowserVM, JAdapter, gossip
+- `createEntity(t, name, opts?)` — single-signer entity via importReplica
+- `createMultiSignerEntity(t, name, count, threshold)` — N-validator entity with separate replicas
+- `openAccount(t, A, B, opts?)` — bilateral account with credit (uses `extendCredit` for second entity)
+- `pay(t, from, to, amount, opts?)` — directPayment + bilateral convergence
+- `converge(maxCycles?)` — process until all work queues drain
+- State accessors: `findReplica`, `findAllReplicas`, `getOffdelta`, `getAccountHeight`, `getEntityHeight`, `getAccount`, `getDelta`, `getLocks`
+
+**Known test quirks:**
+
+- BrowserVM init ~200ms — amortize via `beforeAll` per describe block
+- `accountKey` ABI error in `syncAllCollaterals` is pre-existing (caught, logged as warning)
+- `structuredClone failed` warnings for AccountMachines — pre-existing, handled by fallback
+- Multi-signer consensus needs 20-40 converge cycles (propose→precommit→commit→notify)
 
 ## 🚫 ZERO TOLERANCE: NO HACKS, NO WORKAROUNDS
 
@@ -63,6 +93,7 @@ bun run format                 # Prettier on /runtime
 4. **NO hiding uncertainty** - if confidence <80% on implementation approach, STOP and discuss
 
 **Examples of BANNED patterns:**
+
 ```typescript
 // ❌ NEVER: Stub that "returns fake data but works for testMode"
 async registerEntities() { return [2,3,4]; }  // Not actually registering!
@@ -75,6 +106,7 @@ if (value !== '0') { updateState(); }  // Hiding root cause!
 ```
 
 **What TO do instead:**
+
 - Stop coding
 - Explain the blocker clearly: "EntityProvider registration fails because @ethereumjs/vm state doesn't persist after runTx"
 - Present options: "A) Debug VM state, B) Workaround in contract, C) Different approach"
@@ -86,12 +118,14 @@ if (value !== '0') { updateState(); }  // Hiding root cause!
 ## 🎲 DETERMINISM: NO RANDOMNESS IN RJEA FLOW
 
 **PROHIBITED in Runtime/Entity/Account/Jurisdiction cascade:**
+
 - `Date.now()` - use env.timestamp (controlled)
 - `Math.random()` - use deterministic PRNG with seed
 - `setInterval/setTimeout` - use tick-based delays (env.timestamp checks)
 - `crypto.randomBytes()` - use seeded generator
 
 **Only allowed in:**
+
 - Initial setup (before any frames)
 - External I/O (user input timestamps)
 
@@ -107,12 +141,14 @@ NEVER create .md files in /runtime - documentation goes in /docs.
 ## 🎯 AGENTIC MODE (80% Confidence Threshold)
 
 Before starting ANY task, rate confidence (0-100%):
+
 - **≥80%**: Proceed autonomously (clear spec, obvious approach)
 - **<80%**: Stop and ask (multiple valid paths, UX unclear, architectural choice)
 
 Break rules: Always ask even if >80% for consensus/crypto/smart-contract changes.
 
 Quick iteration signals (full autonomy):
+
 - "slow/sluggish" → profile + fix, report metrics
 - "ugly/meh" → polish matching past aesthetic
 - "go/just try" → full send, zero questions
@@ -125,6 +161,7 @@ Quick iteration signals (full autonomy):
 - Always end with clear next steps: **NEXT:** A) B) C)
 
 ## 🎯 TOKEN EFFICIENCY
+
 - Grep/offset before reading files >300 lines
 - Filter command output: `grep -E "error|FAIL"`, never dump full output
 - Agents for architecture, not verification
@@ -136,14 +173,16 @@ Quick iteration signals (full autonomy):
 Everywhere in code: fail-fast and loud (full stop + throw popup on error).
 
 Before claiming anything works:
-1. Run `bun run check` and show output
-2. Run `bun run test` and show passing tests
-3. Test scenarios: `bun runtime/scenarios/lock-ahb.ts`
+
+1. `bun run check` — must be 0 errors
+2. `bun run test` — must be 171+ pass, 0 fail
+3. `bun run format` — must run clean
 4. Show command output, not descriptions ("Fixed" → show passing tests)
 5. Reproduce user's error before fixing
 6. Never commit untested code
 
 ## 🎯 TYPESCRIPT
+
 Validate at source. Fail fast. Trust at use. No defensive `?.` in UI if validated upstream.
 
 ## 📝 COMMUNICATION MODE
@@ -166,7 +205,11 @@ Functional/declarative paradigm. Pure functions. Immutability. Small composable 
 **exactOptionalPropertyTypes:** Use `delete obj.prop` not `obj.prop = undefined`. Use `...(val ? {prop: val} : {})` not `prop: val ?? undefined`.
 
 ## 📁 STRUCTURE
+
 - `/runtime/` — Core consensus engine, state machines, networking, scenarios
+- `/runtime/__tests__/` — Test files (7 files, 171 tests) + `helpers.ts` test harness
+- `/runtime/types/` — All type definitions, split by R/J/E/A domain
+- `/runtime/scenarios/` — Runnable integration scenarios (lock-ahb, grid, settle, multi-sig)
 - `/jurisdictions/` — Solidity contracts (Depository.sol, EntityProvider.sol), Hardhat config
 - `/docs/` — All documentation, audit reports, protocol specs (never create .md in /runtime)
 - `/brainvault/` — HD wallet derivation (frozen)
@@ -174,6 +217,7 @@ Functional/declarative paradigm. Pure functions. Immutability. Small composable 
 - `.archive/2024_src/app/Channel.ts` — Reference implementation for bilateral consensus
 
 ## 🛠️ PATTERNS
+
 Auto-rebuild: `bun run dev`. Time-travel: read from `env` not live stores. Bilateral: left=lower entityId (lexicographic).
 
 ## 🔍 DEBUGGING RUNTIME STATE
@@ -181,6 +225,7 @@ Auto-rebuild: `bun run dev`. Time-travel: read from `env` not live stores. Bilat
 **Two-mode debugging system (ASCII + JSON):**
 
 ### ASCII Mode (Quick Scan)
+
 ```bash
 # Run scenario with full output
 bun runtime/scenarios/lock-ahb.ts > /tmp/debug.log
@@ -192,12 +237,14 @@ grep "Frame 65" /tmp/debug.log             # Find specific frame
 ```
 
 **ASCII functions** (runtime/runtime-ascii.ts):
+
 - `formatRuntime(env)` - Full env with hierarchical boxes
 - `formatEntity(state)` - Single entity with accounts
 - `formatAccount(account, myId)` - Bilateral account detail
 - On assert fail: auto-dumps full runtime state
 
 ### JSON Mode (Deep Analysis)
+
 ```bash
 # Scenarios auto-dump JSON to /tmp/ on completion:
 # - /tmp/{scenario}-frames.json (all history frames)
@@ -224,17 +271,20 @@ diff <(jq '.eReplicas[0][1].state.lockBook' /tmp/frame-65.json) <(jq ... /tmp/fr
 - "tx" shortcut acceptable in crypto context
 - lowercase .md filenames (next.md, readme.md)
 - localhost:8080 is the runtime server entry point
+
 ## 🔍 EXTERNAL AUDIT RULE
 
 **Never blindly trust subagent or external audit findings.**
 
 Before accepting any finding:
+
 1. Verify the claim against actual code paths
 2. Check if "vulnerability" is actually intentional design
 3. Verify exploit is possible given XLN's specific nonce/state model
 4. Ask: does this finding understand XLN's bilateral consensus model?
 
 Example bullshit patterns:
+
 - "Signature malleability → double spend" (ignores nonces)
 - "State transfer without verification" (ignores hash = state binding)
 - "Single-signer bypasses X" (that's the design for threshold=1)

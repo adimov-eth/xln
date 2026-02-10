@@ -48,21 +48,21 @@ export class BrowserVMEthersProvider extends ethers.AbstractProvider {
 
       case 'getTransactionCount': {
         const txCountAccount = await this.browserVM.vm.stateManager.getAccount(
-          createAddressFromString(ethers.getAddress(req.address))
+          createAddressFromString(ethers.getAddress(req.address)),
         );
         return Number(txCountAccount?.nonce || 0n);
       }
 
       case 'getBalance': {
         const account = await this.browserVM.vm.stateManager.getAccount(
-          createAddressFromString(ethers.getAddress(req.address))
+          createAddressFromString(ethers.getAddress(req.address)),
         );
         return account?.balance || 0n;
       }
 
       case 'getCode': {
         const code = await this.browserVM.vm.stateManager.getCode(
-          createAddressFromString(ethers.getAddress(req.address))
+          createAddressFromString(ethers.getAddress(req.address)),
         );
         return ethers.hexlify(code);
       }

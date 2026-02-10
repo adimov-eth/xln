@@ -18,21 +18,41 @@
 // Types
 // ============================================================================
 
-export type Side = 0 | 1;        // 0 = BUY (bids), 1 = SELL (asks)
-export type TIF = 0 | 1 | 2;     // 0 = GTC, 1 = IOC, 2 = FOK
+export type Side = 0 | 1; // 0 = BUY (bids), 1 = SELL (asks)
+export type TIF = 0 | 1 | 2; // 0 = GTC, 1 = IOC, 2 = FOK
 
 // minFillRatio uses uint16 scale (0-65535) matching swap protocol
 export const MAX_FILL_RATIO = 65535;
 
 export type OrderCmd =
-  | { kind: 0; ownerId: string; orderId: string; side: Side; tif: TIF; postOnly: boolean; priceTicks: number; qtyLots: number; minFillRatio?: number }
-  | { kind: 1; ownerId: string; orderId: string }  // CANCEL
-  | { kind: 2; ownerId: string; orderId: string; newPriceTicks: number | null; qtyDeltaLots: number };  // REPLACE
+  | {
+      kind: 0;
+      ownerId: string;
+      orderId: string;
+      side: Side;
+      tif: TIF;
+      postOnly: boolean;
+      priceTicks: number;
+      qtyLots: number;
+      minFillRatio?: number;
+    }
+  | { kind: 1; ownerId: string; orderId: string } // CANCEL
+  | { kind: 2; ownerId: string; orderId: string; newPriceTicks: number | null; qtyDeltaLots: number }; // REPLACE
 
 export type BookEvent =
   | { type: 'ACK'; orderId: string; ownerId: string }
   | { type: 'REJECT'; orderId: string; ownerId: string; reason: string }
-  | { type: 'TRADE'; price: number; qty: number; makerOwnerId: string; takerOwnerId: string; makerOrderId: string; takerOrderId: string; makerQtyBefore: number; takerQtyTotal: number }
+  | {
+      type: 'TRADE';
+      price: number;
+      qty: number;
+      makerOwnerId: string;
+      takerOwnerId: string;
+      makerOrderId: string;
+      takerOrderId: string;
+      makerQtyBefore: number;
+      takerQtyTotal: number;
+    }
   | { type: 'REDUCED'; orderId: string; ownerId: string; delta: number; remain: number }
   | { type: 'CANCELED'; orderId: string; ownerId: string };
 
@@ -41,7 +61,7 @@ export interface BookParams {
   pmin: number;
   pmax: number;
   maxOrders: number;
-  stpPolicy: 0 | 1 | 2;  // 0=off, 1=cancel taker, 2=reduce maker
+  stpPolicy: 0 | 1 | 2; // 0=off, 1=cancel taker, 2=reduce maker
 }
 
 /** Orderbook state - immutable, create new on each mutation */
@@ -52,15 +72,15 @@ export interface BookState {
   // Order storage (SoA for cache efficiency)
   readonly orderPriceIdx: Int32Array;
   readonly orderQtyLots: Uint32Array;
-  readonly orderOwnerIdx: Uint32Array;  // index into owners array
+  readonly orderOwnerIdx: Uint32Array; // index into owners array
   readonly orderSide: Uint8Array;
   readonly orderPrev: Int32Array;
   readonly orderNext: Int32Array;
   readonly orderActive: Uint8Array;
 
   // Owner/OrderId mapping (strings stored separately)
-  readonly owners: string[];           // ownerId strings
-  readonly orderIds: string[];         // orderId strings
+  readonly owners: string[]; // ownerId strings
+  readonly orderIds: string[]; // orderId strings
   readonly orderIdToIdx: Map<string, number>;
 
   // Level queues
@@ -90,7 +110,7 @@ const EMPTY = -1;
 const BITWORD = 32;
 // Uint32 max = 4,294,967,295 (~4.3 billion)
 // With LOT_SCALE = 10^12, this allows ~4294 ETH per order
-const MAX_QTY = 0xFFFFFFFF;  // Uint32 max - matches storage type
+const MAX_QTY = 0xffffffff; // Uint32 max - matches storage type
 const PRIME = 0x1_0000_01n;
 
 // ============================================================================
@@ -199,7 +219,7 @@ const ctz32 = (x: number) => Math.clz32((x & -x) >>> 0) ^ 31;
 
 function findNextNonEmpty(bitmap: Uint32Array, levels: number, start: number): number {
   if (start < 0) start = 0;
-  for (let i = start; i < levels;) {
+  for (let i = start; i < levels; ) {
     const w = (i / BITWORD) | 0;
     const base = w * BITWORD;
     let word = bitmap[w];
@@ -214,7 +234,7 @@ function findNextNonEmpty(bitmap: Uint32Array, levels: number, start: number): n
 }
 
 function findPrevNonEmpty(bitmap: Uint32Array, start: number): number {
-  for (let i = start; i >= 0;) {
+  for (let i = start; i >= 0; ) {
     const w = (i / BITWORD) | 0;
     const base = w * BITWORD;
     let word = bitmap[w];
@@ -233,10 +253,7 @@ function findPrevNonEmpty(bitmap: Uint32Array, start: number): number {
 // Core Operations
 // ============================================================================
 
-export function applyCommand(
-  state: BookState,
-  cmd: OrderCmd
-): { state: BookState; events: BookEvent[] } {
+export function applyCommand(state: BookState, cmd: OrderCmd): { state: BookState; events: BookEvent[] } {
   const events: BookEvent[] = [];
   const m = cloneMutableState(state);
   const { params, levels } = state;
@@ -339,7 +356,7 @@ export function applyCommand(
 
   // Hash update
   function bumpHash(tag: number, a: number, b: number): void {
-    m.eventHash = (m.eventHash * PRIME + BigInt((tag * 2654435761 >>> 0) ^ a ^ (b << 7))) & 0x1fffffffffffffn;
+    m.eventHash = (m.eventHash * PRIME + BigInt(((tag * 2654435761) >>> 0) ^ a ^ (b << 7))) & 0x1fffffffffffffn;
   }
 
   // Fill against resting orders
@@ -349,7 +366,7 @@ export function applyCommand(
     remaining: number,
     takerOwnerIdx: number,
     takerOrderId: string,
-    takerQtyTotal: number  // Taker's original order qty for fill ratio calculation
+    takerQtyTotal: number, // Taker's original order qty for fill ratio calculation
   ): number {
     const head = side === 0 ? m.levelHeadAsk : m.levelHeadBid;
     const oppSide: Side = side === 0 ? 1 : 0;
@@ -382,7 +399,13 @@ export function applyCommand(
           const dec = Math.min(m.orderQtyLots[headIdx]!, remaining);
           m.orderQtyLots[headIdx] = m.orderQtyLots[headIdx]! - dec;
           remaining -= dec; // Also skip the qty that would have self-traded
-          events.push({ type: 'REDUCED', orderId: makerOrderId, ownerId: makerOwnerId, delta: -dec, remain: m.orderQtyLots[headIdx]! });
+          events.push({
+            type: 'REDUCED',
+            orderId: makerOrderId,
+            ownerId: makerOwnerId,
+            delta: -dec,
+            remain: m.orderQtyLots[headIdx]!,
+          });
           if (m.orderQtyLots[headIdx]! === 0) {
             removeFromLevel(oppSide, levelIdx, headIdx);
             freeOrder(headIdx);
@@ -410,8 +433,8 @@ export function applyCommand(
         takerOwnerId,
         makerOrderId,
         takerOrderId,
-        makerQtyBefore: makerQty,     // Maker's qty before this trade
-        takerQtyTotal,                 // Taker's total order qty
+        makerQtyBefore: makerQty, // Maker's qty before this trade
+        takerQtyTotal, // Taker's total order qty
       });
 
       if (m.orderQtyLots[headIdx] === 0) {
@@ -419,7 +442,13 @@ export function applyCommand(
         freeOrder(headIdx);
         m.orderIdToIdx.delete(makerOrderId);
       } else {
-        events.push({ type: 'REDUCED', orderId: makerOrderId, ownerId: makerOwnerId, delta: -tradeQty, remain: m.orderQtyLots[headIdx]! });
+        events.push({
+          type: 'REDUCED',
+          orderId: makerOrderId,
+          ownerId: makerOwnerId,
+          delta: -tradeQty,
+          remain: m.orderQtyLots[headIdx]!,
+        });
       }
     }
     return remaining;
@@ -521,7 +550,12 @@ export function applyCommand(
       const simFilledQty = qtyLots - simRemaining;
       const simFillRatio = Math.floor((simFilledQty / qtyLots) * MAX_FILL_RATIO);
       if (simFillRatio < minFillRatio) {
-        events.push({ type: 'REJECT', orderId, ownerId, reason: `minFillRatio not met: ${simFillRatio} < ${minFillRatio} (pre-check)` });
+        events.push({
+          type: 'REJECT',
+          orderId,
+          ownerId,
+          reason: `minFillRatio not met: ${simFillRatio} < ${minFillRatio} (pre-check)`,
+        });
         return { state, events };
       }
     }
@@ -573,7 +607,6 @@ export function applyCommand(
         bumpHash(1, ownerIdx, remaining);
       }
     }
-
   } else if (cmd.kind === 1) {
     // CANCEL
     const { ownerId, orderId } = cmd;
@@ -597,7 +630,6 @@ export function applyCommand(
     m.orderIdToIdx.delete(orderId);
     events.push({ type: 'CANCELED', orderId, ownerId });
     bumpHash(5, m.orderOwnerIdx[idx]!, 0);
-
   } else if (cmd.kind === 2) {
     // REPLACE (cancel + new)
     const { ownerId, orderId, newPriceTicks, qtyDeltaLots } = cmd;
@@ -754,10 +786,24 @@ export function computeBookHash(state: BookState): string {
  * with per-level individual orders listed as "qty@owner,qty@owner,...".
  */
 export function renderAscii(state: BookState, depth = 10, perLevelOrders = 10, lineWidth = 40): string {
-  const { params: { pmin, tick }, levelHeadBid, levelHeadAsk, orderQtyLots, orderOwnerIdx, orderNext, orderActive, owners, bestBidIdx, bestAskIdx } = state;
+  const {
+    params: { pmin, tick },
+    levelHeadBid,
+    levelHeadAsk,
+    orderQtyLots,
+    orderOwnerIdx,
+    orderNext,
+    orderActive,
+    owners,
+    bestBidIdx,
+    bestAskIdx,
+  } = state;
   const rows: string[] = [];
-  const BOLD = '\x1b[1m', DIM = '\x1b[2m', RESET = '\x1b[0m';
-  const GREEN = '\x1b[32m', RED = '\x1b[31m';
+  const BOLD = '\x1b[1m',
+    DIM = '\x1b[2m',
+    RESET = '\x1b[0m';
+  const GREEN = '\x1b[32m',
+    RED = '\x1b[31m';
 
   const pad = (s: string, n: number) => (s.length >= n ? s : ' '.repeat(n - s.length) + s);
 

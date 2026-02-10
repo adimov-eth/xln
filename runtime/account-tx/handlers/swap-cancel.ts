@@ -24,8 +24,13 @@ export async function handleSwapCancel(
   accountTx: Extract<AccountTx, { type: 'swap_cancel' }>,
   byLeft: boolean,
   _currentHeight: number,
-  isValidation: boolean = false
-): Promise<{ success: boolean; events: string[]; error?: string; swapOfferCancelled?: { offerId: string; accountId: string; makerId: string } }> {
+  isValidation: boolean = false,
+): Promise<{
+  success: boolean;
+  events: string[];
+  error?: string;
+  swapOfferCancelled?: { offerId: string; accountId: string; makerId: string };
+}> {
   const { offerId } = accountTx.data;
   const events: string[] = [];
 
@@ -70,15 +75,17 @@ export async function handleSwapCancel(
         giveDelta.rightSwapHold = currentHold - offer.giveAmount;
       }
     }
-    console.log(`📊 ${isValidation ? 'VALIDATION' : 'COMMIT'}: Released hold ${offer.giveAmount} for token${offer.giveTokenId}`);
+    console.log(
+      `📊 ${isValidation ? 'VALIDATION' : 'COMMIT'}: Released hold ${offer.giveAmount} for token${offer.giveTokenId}`,
+    );
   }
 
   // 4. Remove offer (proofBody includes swapOffers, so keep validation+commit aligned)
   accountMachine.swapOffers.delete(offerId);
   if (isValidation) {
-    console.log(`📊 VALIDATION: Swap offer removed, offerId=${offerId.slice(0,8)}`);
+    console.log(`📊 VALIDATION: Swap offer removed, offerId=${offerId.slice(0, 8)}`);
   } else {
-    console.log(`📊 COMMIT: Swap offer removed, offerId=${offerId.slice(0,8)}`);
+    console.log(`📊 COMMIT: Swap offer removed, offerId=${offerId.slice(0, 8)}`);
   }
 
   // AUDIT FIX (CRITICAL-3): Use counterparty ID format, not canonical pair format
@@ -87,7 +94,9 @@ export async function handleSwapCancel(
   // accountId for orderbook lookup = counterparty ID (Hub's Map key)
   const accountId = makerId;
 
-  events.push(`📊 Swap offer cancelled: ${offerId.slice(0,8)}... (released ${offer.giveAmount} token${offer.giveTokenId})`);
+  events.push(
+    `📊 Swap offer cancelled: ${offerId.slice(0, 8)}... (released ${offer.giveAmount} token${offer.giveTokenId})`,
+  );
 
   return { success: true, events, swapOfferCancelled: { offerId, accountId, makerId } };
 }

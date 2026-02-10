@@ -2,7 +2,7 @@
  * Env types - Runtime environment, snapshots, logging
  */
 
-import type { Profile } from '../networking/gossip';
+import type { GossipLayer, Profile } from '../networking/gossip';
 import type { EntityReplica, RoutedEntityInput } from './entity';
 import type { JReplica, JInput } from './jurisdiction';
 
@@ -15,13 +15,13 @@ export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error';
 
 /** Log categories for filtering */
 export type LogCategory =
-  | 'consensus'     // BFT entity consensus
-  | 'account'       // Bilateral account consensus
-  | 'jurisdiction'  // J-machine events
-  | 'evm'           // Blockchain interactions
-  | 'network'       // Routing/messaging
-  | 'ui'            // UI events
-  | 'system';       // System-level
+  | 'consensus' // BFT entity consensus
+  | 'account' // Bilateral account consensus
+  | 'jurisdiction' // J-machine events
+  | 'evm' // Blockchain interactions
+  | 'network' // Routing/messaging
+  | 'ui' // UI events
+  | 'system'; // System-level
 
 /** Single log entry attached to a frame */
 export interface FrameLogEntry {
@@ -30,7 +30,7 @@ export interface FrameLogEntry {
   level: LogLevel;
   category: LogCategory;
   message: string;
-  entityId?: string;              // Associated entity (if applicable)
+  entityId?: string; // Associated entity (if applicable)
   data?: Record<string, unknown>; // Structured data
 }
 
@@ -70,16 +70,17 @@ export type RuntimeTx =
   | {
       type: 'importJ';
       data: {
-        name: string;           // Unique J-machine name (key in jReplicas Map)
-        chainId: number;        // 1=ETH, 8453=Base, 1001+=BrowserVM
-        ticker: string;         // "ETH", "MATIC", "SIM"
-        rpcs: string[];         // [] = BrowserVM, [...urls] = RPC
+        name: string; // Unique J-machine name (key in jReplicas Map)
+        chainId: number; // 1=ETH, 8453=Base, 1001+=BrowserVM
+        ticker: string; // "ETH", "MATIC", "SIM"
+        rpcs: string[]; // [] = BrowserVM, [...urls] = RPC
         rpcPolicy?: 'single' | 'failover' | { mode: 'quorum'; min: number };
         contracts?: {
           depository?: string;
           entityProvider?: string;
         };
-        tokens?: Array<{      // Auto-deploy for BrowserVM only
+        tokens?: Array<{
+          // Auto-deploy for BrowserVM only
           symbol: string;
           decimals: number;
           initialSupply?: bigint;
@@ -92,8 +93,8 @@ export type RuntimeTx =
 // ═══════════════════════════════════════════════════════════════
 
 export interface Env {
-  eReplicas: Map<string, EntityReplica>;  // Entity replicas (E-layer state machines)
-  jReplicas: Map<string, JReplica>;       // Jurisdiction replicas (J-layer EVM state)
+  eReplicas: Map<string, EntityReplica>; // Entity replicas (E-layer state machines)
+  jReplicas: Map<string, JReplica>; // Jurisdiction replicas (J-layer EVM state)
   height: number;
   timestamp: number;
   runtimeSeed?: string; // BrainVault seed backing this runtime (plaintext, dev mode)
@@ -105,7 +106,7 @@ export interface Env {
   runtimeInput: RuntimeInput; // Deprecated alias of runtimeMempool
   runtimeConfig?: {
     minFrameDelayMs?: number; // Minimum delay between runtime frames
-    loopIntervalMs?: number;  // Loop interval for runtime processing
+    loopIntervalMs?: number; // Loop interval for runtime processing
   };
   runtimeState?: {
     loopActive?: boolean;
@@ -122,19 +123,25 @@ export interface Env {
       mirrorToConsole?: boolean;
     };
     cleanLogs?: string[];
-    routeDeferState?: Map<string, {
-      warnAt: number;
-      gossipAt: number;
-      deferredCount: number;
-      escalated: boolean;
-    }>;
-    entityRuntimeHints?: Map<string, {
-      runtimeId: string;
-      seenAt: number;
-    }>;
+    routeDeferState?: Map<
+      string,
+      {
+        warnAt: number;
+        gossipAt: number;
+        deferredCount: number;
+        escalated: boolean;
+      }
+    >;
+    entityRuntimeHints?: Map<
+      string,
+      {
+        runtimeId: string;
+        seenAt: number;
+      }
+    >;
   };
   history: EnvSnapshot[]; // Time machine snapshots - single source of truth
-  gossip: any; // Gossip layer for network profiles
+  gossip: GossipLayer; // Gossip layer for network profiles
 
   // Isolated BrowserVM instance per runtime (prevents cross-runtime state leakage)
   browserVM?: any; // BrowserVMProvider instance for this runtime (DEPRECATED: use jAdapter)
@@ -178,10 +185,10 @@ export interface Env {
 
   // E→E message queue (always spans ticks - no same-tick cascade)
   pendingOutputs?: RoutedEntityInput[]; // Outputs queued for next tick
-  skipPendingForward?: boolean;   // Temp flag to defer forwarding to next frame
-  networkInbox?: RoutedEntityInput[];   // Inbound network messages queued for next tick
+  skipPendingForward?: boolean; // Temp flag to defer forwarding to next frame
+  networkInbox?: RoutedEntityInput[]; // Inbound network messages queued for next tick
   pendingNetworkOutputs?: RoutedEntityInput[]; // Outputs waiting for runtimeId gossip before routing
-  lockRuntimeSeed?: boolean;      // Prevent runtime seed updates during scenarios
+  lockRuntimeSeed?: boolean; // Prevent runtime seed updates during scenarios
 
   // Frame-scoped structured logs (captured into snapshot, then reset)
   frameLogs: FrameLogEntry[];
@@ -204,8 +211,8 @@ export interface EnvSnapshot {
   runtimeSeed?: string;
   runtimeId?: string;
   dbNamespace?: string;
-  eReplicas: Map<string, EntityReplica>;  // E-layer state
-  jReplicas: JReplica[];                   // J-layer state (with stateRoot for time travel)
+  eReplicas: Map<string, EntityReplica>; // E-layer state
+  jReplicas: JReplica[]; // J-layer state (with stateRoot for time travel)
   browserVMState?: BrowserVMState;
   runtimeInput: RuntimeInput;
   runtimeOutputs: RoutedEntityInput[];
@@ -218,11 +225,11 @@ export interface EnvSnapshot {
   narrative?: string; // Detailed explanation of what's happening in this frame
   // Fed Chair educational subtitles (AHB demo)
   subtitle?: {
-    title: string;           // Technical summary (e.g., "Reserve-to-Reserve Transfer")
-    what?: string;           // What's happening (optional)
-    why?: string;            // Why it matters (optional)
+    title: string; // Technical summary (e.g., "Reserve-to-Reserve Transfer")
+    what?: string; // What's happening (optional)
+    why?: string; // Why it matters (optional)
     tradfiParallel?: string; // Traditional finance equivalent (optional)
-    keyMetrics?: string[];   // Bullet points of key numbers
+    keyMetrics?: string[]; // Bullet points of key numbers
   };
   // Cinematic view state for scenario playback
   viewState?: {

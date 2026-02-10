@@ -1,5 +1,12 @@
 import type { RuntimeInput, RoutedEntityInput } from '../types';
-import { deserializeWsMessage, makeHelloNonce, hashHelloMessage, makeMessageId, serializeWsMessage, type RuntimeWsMessage } from './ws-protocol';
+import {
+  deserializeWsMessage,
+  makeHelloNonce,
+  hashHelloMessage,
+  makeMessageId,
+  serializeWsMessage,
+  type RuntimeWsMessage,
+} from './ws-protocol';
 import { signDigest } from '../account-crypto';
 import { encryptJSON, decryptJSON } from './p2p-crypto';
 import { asFailFastPayload, failfastAssert } from './failfast';
@@ -111,7 +118,9 @@ export class RuntimeWsClient {
     // Close any stale WS before creating new one
     if (this.ws) {
       this.suppressNextClose = true;
-      try { this.ws.close(); } catch {}
+      try {
+        this.ws.close();
+      } catch {}
       this.ws = null;
     }
 
@@ -133,7 +142,9 @@ export class RuntimeWsClient {
           return;
         }
         if (!this.closed) {
-          console.error(`[WS] Connection lost to ${this.options.url} — reconnect in ${RuntimeWsClient.RECONNECT_DELAY_MS}ms`);
+          console.error(
+            `[WS] Connection lost to ${this.options.url} — reconnect in ${RuntimeWsClient.RECONNECT_DELAY_MS}ms`,
+          );
           this.options.onError?.(new Error(`WS_DISCONNECTED: Connection lost to ${this.options.url}`));
           this.scheduleReconnect();
         }
@@ -159,7 +170,9 @@ export class RuntimeWsClient {
           return;
         }
         if (!this.closed) {
-          console.error(`[WS] Connection lost to ${this.options.url} — reconnect in ${RuntimeWsClient.RECONNECT_DELAY_MS}ms`);
+          console.error(
+            `[WS] Connection lost to ${this.options.url} — reconnect in ${RuntimeWsClient.RECONNECT_DELAY_MS}ms`,
+          );
           this.options.onError?.(new Error(`WS_DISCONNECTED: Connection lost to ${this.options.url}`));
           this.scheduleReconnect();
         }
@@ -386,10 +399,22 @@ export class RuntimeWsClient {
     if (!this.ws) return false;
     if ('readyState' in this.ws && this.ws.readyState !== 1) return false;
     try {
-      failfastAssert(typeof msg.type === 'string', 'WS_SEND_TYPE_INVALID', 'Outgoing WS message type must be string', { msg });
-      failfastAssert(typeof msg.from === 'string' && msg.from.length > 0, 'WS_SEND_FROM_INVALID', 'Outgoing WS message missing from', { msgType: msg.type });
+      failfastAssert(typeof msg.type === 'string', 'WS_SEND_TYPE_INVALID', 'Outgoing WS message type must be string', {
+        msg,
+      });
+      failfastAssert(
+        typeof msg.from === 'string' && msg.from.length > 0,
+        'WS_SEND_FROM_INVALID',
+        'Outgoing WS message missing from',
+        { msgType: msg.type },
+      );
       if (msg.type !== 'hello') {
-        failfastAssert(typeof msg.id === 'string' && msg.id.length > 0, 'WS_SEND_ID_INVALID', 'Outgoing WS message missing id', { msgType: msg.type });
+        failfastAssert(
+          typeof msg.id === 'string' && msg.id.length > 0,
+          'WS_SEND_ID_INVALID',
+          'Outgoing WS message missing id',
+          { msgType: msg.type },
+        );
       }
     } catch (error) {
       this.options.onError?.(error as Error);

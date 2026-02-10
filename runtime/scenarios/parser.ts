@@ -16,11 +16,7 @@ import type {
   ScenarioWarning,
   ViewState,
 } from './types.js';
-import {
-  parseRange,
-  expandRange,
-  parseNamedParam,
-} from './types.js';
+import { parseRange, expandRange, parseNamedParam } from './types.js';
 
 /**
  * Parse scenario text into structured Scenario object
@@ -202,10 +198,7 @@ export function parseScenario(text: string): ParsedScenario {
 /**
  * Flush current accumulated event to events array
  */
-function flushCurrentEvent(
-  context: ParserContext,
-  events: ScenarioEvent[]
-): void {
+function flushCurrentEvent(context: ParserContext, events: ScenarioEvent[]): void {
   if (context.currentActions.length > 0) {
     const descText = context.currentDescription.join('\n').trim();
 
@@ -238,7 +231,7 @@ function flushCurrentEvent(
  */
 function parseActionLine(
   line: string,
-  lineNumber: number
+  lineNumber: number,
 ): { isAction: boolean; action?: ScenarioAction; actions?: ScenarioAction[]; error?: ScenarioError } {
   const tokens = line.split(/\s+/);
 
@@ -569,10 +562,7 @@ function cartesianProduct<T>(arrays: T[][]): T[][] {
  * Expand repeat blocks into explicit events
  * Called during scenario execution to generate events at specific timestamps
  */
-export function expandRepeatBlocks(
-  scenario: Scenario,
-  maxTimestamp: number
-): ScenarioEvent[] {
+export function expandRepeatBlocks(scenario: Scenario, maxTimestamp: number): ScenarioEvent[] {
   const expandedEvents: ScenarioEvent[] = [];
 
   for (const repeatBlock of scenario.repeatBlocks) {

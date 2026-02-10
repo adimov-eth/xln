@@ -70,7 +70,9 @@ type GossipResponsePayload = {
 };
 
 const toHex = (bytes: Uint8Array): string =>
-  Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  Array.from(bytes)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 
 const unique = (items: string[]): string[] => Array.from(new Set(items.filter(Boolean)));
 
@@ -179,7 +181,9 @@ export class RuntimeP2P {
   }
 
   connect() {
-    console.log(`[P2P] RuntimeP2P.connect() called, connecting to ${this.relayUrls.length} relays: ${this.relayUrls.join(', ')}`);
+    console.log(
+      `[P2P] RuntimeP2P.connect() called, connecting to ${this.relayUrls.length} relays: ${this.relayUrls.join(', ')}`,
+    );
     this.closeClients();
     this.startPolling();
     for (const url of this.relayUrls) {
@@ -188,16 +192,16 @@ export class RuntimeP2P {
         url,
         runtimeId: this.runtimeId,
         signerId: this.signerId,
-        ...(runtimeSeed ? { seed: runtimeSeed } : {}),  // Pass seed for hello auth signing if available
+        ...(runtimeSeed ? { seed: runtimeSeed } : {}), // Pass seed for hello auth signing if available
         encryptionKeyPair: this.encryptionKeyPair, // Pass our keypair for encryption/decryption
         getTargetEncryptionKey: (targetRuntimeId: string) => {
           // Lookup target's public key from gossip
           const profiles = this.env.gossip?.getProfiles?.() || [];
           const targetRuntimeIdNorm = normalizeRuntimeId(targetRuntimeId);
-          const targetProfile = profiles.find((p: any) => normalizeRuntimeId(String(p.runtimeId || '')) === targetRuntimeIdNorm);
-          const pubKeyHex =
-            targetProfile?.metadata?.encryptionPubKey ||
-            targetProfile?.metadata?.cryptoPublicKey;
+          const targetProfile = profiles.find(
+            (p: any) => normalizeRuntimeId(String(p.runtimeId || '')) === targetRuntimeIdNorm,
+          );
+          const pubKeyHex = targetProfile?.metadata?.encryptionPubKey || targetProfile?.metadata?.cryptoPublicKey;
           if (!pubKeyHex) return null;
           try {
             return hexToPubKey(pubKeyHex);
@@ -246,7 +250,7 @@ export class RuntimeP2P {
         onGossipRequest: (from, payload) => this.handleGossipRequest(from, payload),
         onGossipResponse: (from, payload) => this.handleGossipResponse(from, payload),
         onGossipAnnounce: (from, payload) => this.handleGossipAnnounce(from, payload),
-        onError: (error) => {
+        onError: error => {
           this.env.warn('network', 'WS_CLIENT_ERROR', { relay: url, error: error.message });
         },
       });
@@ -300,8 +304,17 @@ export class RuntimeP2P {
 
   enqueueEntityInput(targetRuntimeId: string, input: RoutedEntityInput) {
     try {
-      failfastAssert(typeof targetRuntimeId === 'string' && targetRuntimeId.length > 0, 'P2P_TARGET_RUNTIME_INVALID', 'targetRuntimeId is required');
-      failfastAssert(typeof input?.entityId === 'string' && input.entityId.length > 0, 'P2P_ENTITY_INPUT_INVALID', 'entity_input missing entityId', { targetRuntimeId });
+      failfastAssert(
+        typeof targetRuntimeId === 'string' && targetRuntimeId.length > 0,
+        'P2P_TARGET_RUNTIME_INVALID',
+        'targetRuntimeId is required',
+      );
+      failfastAssert(
+        typeof input?.entityId === 'string' && input.entityId.length > 0,
+        'P2P_ENTITY_INPUT_INVALID',
+        'entity_input missing entityId',
+        { targetRuntimeId },
+      );
     } catch (error) {
       this.env.warn('network', 'P2P_FAILFAST_REJECT', {
         failfast: asFailFastPayload(error),
@@ -320,9 +333,9 @@ export class RuntimeP2P {
     if (client && client.isOpen()) {
       const sent = client.sendEntityInput(targetRuntimeId, input);
       if (sent) return;
-      console.warn(`P2P-SEND-FAILED: Client.send returned false for ${targetRuntimeId.slice(0,10)}`);
+      console.warn(`P2P-SEND-FAILED: Client.send returned false for ${targetRuntimeId.slice(0, 10)}`);
     } else {
-      console.warn(`P2P-NO-CLIENT: No active relay connection, queueing for ${targetRuntimeId.slice(0,10)}`);
+      console.warn(`P2P-NO-CLIENT: No active relay connection, queueing for ${targetRuntimeId.slice(0, 10)}`);
     }
 
     const queue = this.pendingByRuntime.get(targetRuntimeId) || [];
@@ -339,7 +352,7 @@ export class RuntimeP2P {
       });
     }
     this.pendingByRuntime.set(targetRuntimeId, queue);
-    console.log(`P2P-QUEUED: ${targetRuntimeId.slice(0,10)}, queue size: ${queue.length}`);
+    console.log(`P2P-QUEUED: ${targetRuntimeId.slice(0, 10)}, queue size: ${queue.length}`);
   }
 
   requestGossip(runtimeId: string) {
@@ -399,11 +412,8 @@ export class RuntimeP2P {
     const profile = profiles.find((p: Profile) => normalizeId(String(p.entityId || '')) === targetEntityId);
     if (!profile) return;
 
-    const hintedRelays = unique([
-      ...(profile.relays || []),
-      ...(profile.endpoints || []),
-    ]);
-    const missingRelayUrls = hintedRelays.filter((relayUrl) => !this.relayUrls.includes(relayUrl));
+    const hintedRelays = unique([...(profile.relays || []), ...(profile.endpoints || [])]);
+    const missingRelayUrls = hintedRelays.filter(relayUrl => !this.relayUrls.includes(relayUrl));
     if (missingRelayUrls.length === 0) return;
 
     this.relayUrls = unique([...this.relayUrls, ...missingRelayUrls]);
@@ -432,7 +442,8 @@ export class RuntimeP2P {
       this.requestSeedGossip();
       await new Promise(resolve => setTimeout(resolve, 300));
       const profiles = this.env.gossip?.getProfiles?.() || [];
-      const hasAllMissing = missingEntityIds.length === 0 || missingEntityIds.every((entityId) => this.hasProfileForEntity(entityId));
+      const hasAllMissing =
+        missingEntityIds.length === 0 || missingEntityIds.every(entityId => this.hasProfileForEntity(entityId));
       if (profiles.length > startCount || hasAllMissing) {
         console.log(`P2P_FETCH: Got ${profiles.length - startCount} new profiles (total: ${profiles.length})`);
         return;
@@ -508,9 +519,10 @@ export class RuntimeP2P {
   private async getLocalProfilesForEntities(entityIds?: string[]): Promise<Profile[]> {
     if (!this.env.eReplicas || this.env.eReplicas.size === 0) return [];
     const targetSet = entityIds && entityIds.length > 0 ? new Set(entityIds.map(normalizeId)) : null;
-    const advertisedSet = this.advertiseEntityIds && this.advertiseEntityIds.length > 0
-      ? new Set(this.advertiseEntityIds.map(normalizeId))
-      : null;
+    const advertisedSet =
+      this.advertiseEntityIds && this.advertiseEntityIds.length > 0
+        ? new Set(this.advertiseEntityIds.map(normalizeId))
+        : null;
     const profiles: Profile[] = [];
     const seen = new Set<string>();
     for (const [replicaKey, replica] of this.env.eReplicas.entries()) {
@@ -537,7 +549,9 @@ export class RuntimeP2P {
       const profile = buildEntityProfile(replica.state, this.profileName ?? existingName, monotonicTimestamp);
       profile.runtimeId = this.runtimeId;
       if (this.isHub) {
-        profile.capabilities = Array.from(new Set([...(profile.capabilities || []), 'hub', 'relay', 'routing', 'faucet']));
+        profile.capabilities = Array.from(
+          new Set([...(profile.capabilities || []), 'hub', 'relay', 'routing', 'faucet']),
+        );
         profile.metadata = { ...(profile.metadata || {}), isHub: true };
         if (this.relayUrls.length > 0) {
           profile.endpoints = this.relayUrls;
@@ -623,7 +637,7 @@ export class RuntimeP2P {
       // Skip profiles we already have at the same or newer timestamp (avoids re-verification)
       const existingProfiles = this.env.gossip?.getProfiles?.() || [];
       const existing = existingProfiles.find((p: any) => p.entityId === profile.entityId);
-      if (existing && existing.metadata?.lastUpdated >= (profile.metadata?.lastUpdated || 0)) {
+      if (existing && (existing.metadata?.lastUpdated ?? 0) >= (profile.metadata?.lastUpdated ?? 0)) {
         skipped++;
         continue;
       }
@@ -635,23 +649,22 @@ export class RuntimeP2P {
         const result = await verifyProfileSignature(profile, this.env);
         if (!result.valid) {
           const board = profile.metadata?.board;
-          const boardValidators = board && typeof board === 'object' && 'validators' in board ? board.validators : undefined;
-          const hasBoardKey = Array.isArray(boardValidators) && boardValidators.some(v => typeof v?.publicKey === 'string');
+          const boardValidators =
+            board && typeof board === 'object' && 'validators' in board ? board.validators : undefined;
+          const hasBoardKey =
+            Array.isArray(boardValidators) && boardValidators.some(v => typeof v?.publicKey === 'string');
           const hasEntityKey = typeof profile.metadata?.entityPublicKey === 'string';
-          console.error(
-            `P2P_PROFILE_INVALID_SIGNATURE: ${profile.entityId.slice(-4)} from=${from.slice(-6)}`,
-            {
-              reason: result.reason,
-              hash: result.hash?.slice(0, 18),
-              signerId: result.signerId,
-              hanko: typeof hasHanko === 'string' ? hasHanko.slice(0, 30) + '...' : !!hasHanko,
-              entityPublicKey: hasEntityKey ? (profile.metadata?.entityPublicKey as string).slice(0, 20) + '...' : 'none',
-              boardPublicKey: hasBoardKey ? 'yes' : 'no',
-              validators: Array.isArray(boardValidators) ? boardValidators.length : 0,
-              runtimeId: profile.runtimeId?.slice(-8),
-              name: profile.metadata?.name,
-            }
-          );
+          console.error(`P2P_PROFILE_INVALID_SIGNATURE: ${profile.entityId.slice(-4)} from=${from.slice(-6)}`, {
+            reason: result.reason,
+            hash: result.hash?.slice(0, 18),
+            signerId: result.signerId,
+            hanko: typeof hasHanko === 'string' ? hasHanko.slice(0, 30) + '...' : !!hasHanko,
+            entityPublicKey: hasEntityKey ? (profile.metadata?.entityPublicKey as string).slice(0, 20) + '...' : 'none',
+            boardPublicKey: hasBoardKey ? 'yes' : 'no',
+            validators: Array.isArray(boardValidators) ? boardValidators.length : 0,
+            runtimeId: profile.runtimeId?.slice(-8),
+            name: profile.metadata?.name,
+          });
           continue; // Skip invalid profiles
         }
         verified++;
@@ -665,7 +678,8 @@ export class RuntimeP2P {
 
       // Register validator public keys from profile board (for account signature verification)
       const board2 = profile.metadata?.board;
-      const boardValidators = board2 && typeof board2 === 'object' && 'validators' in board2 ? board2.validators : undefined;
+      const boardValidators =
+        board2 && typeof board2 === 'object' && 'validators' in board2 ? board2.validators : undefined;
       if (Array.isArray(boardValidators)) {
         for (const validator of boardValidators) {
           const signerId = validator?.signerId;
@@ -682,7 +696,10 @@ export class RuntimeP2P {
         registerSignerPublicKey(profile.entityId, publicKey);
       }
     }
-    if (verified > 0 || unsigned > 0) console.log(`P2P_PROFILE_NEW from=${from.slice(0, 10)} verified=${verified} unsigned=${unsigned} skipped=${skipped}`);
+    if (verified > 0 || unsigned > 0)
+      console.log(
+        `P2P_PROFILE_NEW from=${from.slice(0, 10)} verified=${verified} unsigned=${unsigned} skipped=${skipped}`,
+      );
     this.onGossipProfiles(from, profiles);
   }
 

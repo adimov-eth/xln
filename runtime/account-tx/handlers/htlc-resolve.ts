@@ -66,7 +66,11 @@ export async function handleHtlcResolve(
       return { success: false, error: `Invalid secret: ${e instanceof Error ? e.message : String(e)}`, events };
     }
     if (computedHash !== lock.hashlock) {
-      return { success: false, error: `Hash mismatch: expected ${lock.hashlock.slice(0,8)}..., got ${computedHash.slice(0,8)}...`, events };
+      return {
+        success: false,
+        error: `Hash mismatch: expected ${lock.hashlock.slice(0, 8)}..., got ${computedHash.slice(0, 8)}...`,
+        events,
+      };
     }
 
     // Apply delta (left sends → decrease, right sends → increase)
@@ -86,7 +90,7 @@ export async function handleHtlcResolve(
       }
     }
 
-    console.log(`❌ HTLC-RESOLVE error: lockId=${lockId.slice(0,16)}..., reason=${reason || 'unknown'}`);
+    console.log(`❌ HTLC-RESOLVE error: lockId=${lockId.slice(0, 16)}..., reason=${reason || 'unknown'}`);
     events.push(`❌ HTLC resolved (error): ${lock.amount} token ${lock.tokenId} returned — ${reason || 'unknown'}`);
   }
 
@@ -103,8 +107,13 @@ export async function handleHtlcResolve(
   accountMachine.locks.delete(lockId);
 
   const result: {
-    success: boolean; events: string[]; error?: string;
-    outcome?: 'secret' | 'error'; secret?: string; hashlock?: string; reason?: string;
+    success: boolean;
+    events: string[];
+    error?: string;
+    outcome?: 'secret' | 'error';
+    secret?: string;
+    hashlock?: string;
+    reason?: string;
   } = { success: true, events, outcome, hashlock: lock.hashlock };
   if (outcome === 'secret' && secret) result.secret = secret;
   if (outcome === 'error') result.reason = reason || 'unknown';

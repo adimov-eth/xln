@@ -69,10 +69,7 @@ const removeCycles = (obj: any, seen = new WeakSet()): any => {
 
   // Handle Map
   if (obj instanceof Map) {
-    const entries = Array.from(obj.entries()).map(([k, v]) => [
-      removeCycles(k, seen),
-      removeCycles(v, seen)
-    ]);
+    const entries = Array.from(obj.entries()).map(([k, v]) => [removeCycles(k, seen), removeCycles(v, seen)]);
     return { _dataType: 'Map', value: entries };
   }
 
@@ -193,7 +190,7 @@ export const encode = (data: any): Buffer => {
   if (replicasMap) {
     for (const [replicaKey, replica] of replicasMap.entries()) {
       if (replica && replica.state && typeof replica.state.lastFinalizedJHeight !== 'number') {
-        console.error(`💥 CRITICAL: Invalid jBlock for ${replicaKey.slice(0,20)}... - auto-fixing to 0`);
+        console.error(`💥 CRITICAL: Invalid jBlock for ${replicaKey.slice(0, 20)}... - auto-fixing to 0`);
         replica.state.lastFinalizedJHeight = 0;
       }
     }

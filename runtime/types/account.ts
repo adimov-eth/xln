@@ -23,18 +23,18 @@ export interface Delta {
   rightAllowance: bigint;
 
   // HTLC holds (capacity locked in pending HTLCs)
-  leftHtlcHold?: bigint;  // Left's outgoing HTLC holds
+  leftHtlcHold?: bigint; // Left's outgoing HTLC holds
   rightHtlcHold?: bigint; // Right's outgoing HTLC holds
 
   // Swap holds (capacity locked in pending swap offers)
-  leftSwapHold?: bigint;  // Left's locked swap offer amounts
+  leftSwapHold?: bigint; // Left's locked swap offer amounts
   rightSwapHold?: bigint; // Right's locked swap offer amounts
 
   // Settlement holds (ring-fenced during settlement negotiation)
   // Set on workspace propose, cleared on finalize or reject
   // Prevents double-spend: entity can't withdraw what's promised in settlement
-  leftSettleHold?: bigint;   // Left's pending settlement withdrawal
-  rightSettleHold?: bigint;  // Right's pending settlement withdrawal
+  leftSettleHold?: bigint; // Left's pending settlement withdrawal
+  rightSettleHold?: bigint; // Right's pending settlement withdrawal
 }
 
 // Derived account balance information per token
@@ -54,8 +54,8 @@ export interface DerivedDelta {
   outCapacity: bigint;
   outOwnCredit: bigint;
   inPeerCredit: bigint;
-  peerCreditUsed: bigint;  // Credit peer lent that we're using
-  ownCreditUsed: bigint;   // Credit we lent that peer is using
+  peerCreditUsed: bigint; // Credit peer lent that we're using
+  ownCreditUsed: bigint; // Credit we lent that peer is using
   ascii: string; // ASCII visualization from deriveDelta (like old_src)
 }
 
@@ -73,8 +73,8 @@ export interface ProposalState {
 
 export interface AccountMachine {
   // CANONICAL REPRESENTATION (like Channel.ts - both entities store IDENTICAL structure)
-  leftEntity: EntityId;   // Lower entity ID (canonical left)
-  rightEntity: EntityId;  // Higher entity ID (canonical right)
+  leftEntity: EntityId; // Lower entity ID (canonical left)
+  rightEntity: EntityId; // Higher entity ID (canonical right)
 
   mempool: AccountTx[]; // Unprocessed account transactions
   currentFrame: AccountFrame; // Current agreed state (includes full transaction history for replay/audit)
@@ -123,36 +123,36 @@ export interface AccountMachine {
     deltas: bigint[];
     // HTLC transformers (like 2024 subcontracts - sorted by deltaIndex)
     htlcLocks?: Array<{
-      deltaIndex: number;       // Index in tokenIds array
+      deltaIndex: number; // Index in tokenIds array
       amount: bigint;
       revealedUntilBlock: number; // revealBeforeHeight
-      hash: string;             // hashlock
+      hash: string; // hashlock
     }>;
   };
   // ABI-encoded proofBody for on-chain disputes (built by proof-builder.ts)
   abiProofBody?: {
-    encodedProofBody: string;   // ABI-encoded bytes for contract call
-    proofBodyHash: string;      // keccak256(encodedProofBody) - signed for disputes
-    lastUpdatedHeight: number;  // Frame height when last computed
+    encodedProofBody: string; // ABI-encoded bytes for contract call
+    proofBodyHash: string; // keccak256(encodedProofBody) - signed for disputes
+    lastUpdatedHeight: number; // Frame height when last computed
   };
   // Dispute configuration (per-side delay settings)
   disputeConfig: {
-    leftDisputeDelay: number;   // uint16 - value * 10 = blocks
-    rightDisputeDelay: number;  // uint16 - value * 10 = blocks
+    leftDisputeDelay: number; // uint16 - value * 10 = blocks
+    rightDisputeDelay: number; // uint16 - value * 10 = blocks
   };
   // HANKO SYSTEM: Frame consensus + Dispute proofs
-  currentFrameHanko?: HankoString;           // My hanko on current frame (bilateral consensus)
-  counterpartyFrameHanko?: HankoString;      // Their hanko on current frame (bilateral consensus)
+  currentFrameHanko?: HankoString; // My hanko on current frame (bilateral consensus)
+  counterpartyFrameHanko?: HankoString; // Their hanko on current frame (bilateral consensus)
 
-  currentDisputeProofHanko?: HankoString;              // My hanko on dispute proof (for J-machine enforcement)
-  currentDisputeProofCooperativeNonce?: number;        // Cooperative nonce used in currentDisputeProofHanko
-  currentDisputeProofBodyHash?: string;                // ProofBodyHash used in currentDisputeProofHanko
-  counterpartyDisputeProofHanko?: HankoString;         // Their hanko on dispute proof (ready for disputes)
-  counterpartyDisputeProofCooperativeNonce?: number;   // Cooperative nonce used in counterpartyDisputeProofHanko
-  counterpartyDisputeProofBodyHash?: string;           // ProofBodyHash that counterparty signed (MUST match dispute)
-  counterpartySettlementHanko?: HankoString;           // Their hanko on settlement operations
-  disputeProofNoncesByHash?: Record<string, number>;   // ProofBodyHash → cooperative nonce (local + counterparty)
-  disputeProofBodiesByHash?: Record<string, any>;      // ProofBodyHash → ProofBodyStruct (for dispute finalize)
+  currentDisputeProofHanko?: HankoString; // My hanko on dispute proof (for J-machine enforcement)
+  currentDisputeProofCooperativeNonce?: number; // Cooperative nonce used in currentDisputeProofHanko
+  currentDisputeProofBodyHash?: string; // ProofBodyHash used in currentDisputeProofHanko
+  counterpartyDisputeProofHanko?: HankoString; // Their hanko on dispute proof (ready for disputes)
+  counterpartyDisputeProofCooperativeNonce?: number; // Cooperative nonce used in counterpartyDisputeProofHanko
+  counterpartyDisputeProofBodyHash?: string; // ProofBodyHash that counterparty signed (MUST match dispute)
+  counterpartySettlementHanko?: HankoString; // Their hanko on settlement operations
+  disputeProofNoncesByHash?: Record<string, number>; // ProofBodyHash → cooperative nonce (local + counterparty)
+  disputeProofBodiesByHash?: Record<string, any>; // ProofBodyHash → ProofBodyStruct (for dispute finalize)
 
   // ON-CHAIN SETTLEMENT NONCE: Tracks the cooperativeNonce stored on-chain
   // Starts at 0, incremented when settlement succeeds (NOT on R2C)
@@ -165,13 +165,13 @@ export interface AccountMachine {
 
   // Active dispute state (set after disputeStart, needed for disputeFinalize)
   activeDispute?: {
-    startedByLeft: boolean;           // Who initiated dispute (from on-chain)
-    initialProofbodyHash: string;     // Hash committed in disputeStart
-    initialDisputeNonce: number;      // Dispute nonce from disputeStart
-    disputeTimeout: number;           // Block number when timeout expires
-    initialCooperativeNonce: number;  // Cooperative nonce PASSED to disputeStart (for hash match)
-    onChainCooperativeNonce: number;  // On-chain nonce (may differ from initial)
-    initialArguments?: string;        // On-chain initialArguments from disputeStart
+    startedByLeft: boolean; // Who initiated dispute (from on-chain)
+    initialProofbodyHash: string; // Hash committed in disputeStart
+    initialDisputeNonce: number; // Dispute nonce from disputeStart
+    disputeTimeout: number; // Block number when timeout expires
+    initialCooperativeNonce: number; // Cooperative nonce PASSED to disputeStart (for hash match)
+    onChainCooperativeNonce: number; // On-chain nonce (may differ from initial)
+    initialArguments?: string; // On-chain initialArguments from disputeStart
   };
 
   // Historical frame log - grows until manually pruned by entity
@@ -186,15 +186,18 @@ export interface AccountMachine {
   };
 
   // Withdrawal tracking (Phase 2: C→R)
-  pendingWithdrawals: Map<string, {
-    requestId: string;
-    tokenId: number;
-    amount: bigint;
-    requestedAt: number; // Timestamp
-    direction: 'outgoing' | 'incoming'; // Did we request, or did they?
-    status: 'pending' | 'approved' | 'rejected' | 'timed_out';
-    signature?: string; // If approved
-  }>;
+  pendingWithdrawals: Map<
+    string,
+    {
+      requestId: string;
+      tokenId: number;
+      amount: bigint;
+      requestedAt: number; // Timestamp
+      direction: 'outgoing' | 'incoming'; // Did we request, or did they?
+      status: 'pending' | 'approved' | 'rejected' | 'timed_out';
+      signature?: string; // If approved
+    }
+  >;
 
   // Rebalancing hints (Phase 3: Hub coordination)
   requestedRebalance: Map<TokenId, bigint>; // tokenId → amount entity wants rebalanced (credit→collateral)
@@ -279,7 +282,17 @@ export type AccountInput = AccountInputProposal | AccountInputAck | AccountInput
 // Account transaction types
 export type AccountTx =
   | { type: 'account_payment'; data: { tokenId: number; amount: bigint } }
-  | { type: 'direct_payment'; data: { tokenId: number; amount: bigint; route?: string[]; description?: string; fromEntityId?: string; toEntityId?: string } }
+  | {
+      type: 'direct_payment';
+      data: {
+        tokenId: number;
+        amount: bigint;
+        route?: string[];
+        description?: string;
+        fromEntityId?: string;
+        toEntityId?: string;
+      };
+    }
   | { type: 'add_delta'; data: { tokenId: number } }
   | { type: 'set_credit_limit'; data: { tokenId: number; amount: bigint } }
   | { type: 'account_frame'; data: { frame: AccountFrame; processedTransactions: number; fromEntity: string } }
@@ -301,7 +314,7 @@ export type AccountTx =
       data: {
         tokenId: number;
         collateral: string; // Absolute collateral value from contract
-        ondelta: string;    // Absolute ondelta value from contract
+        ondelta: string; // Absolute ondelta value from contract
         side: 'receiving' | 'counterparty';
         blockNumber: number;
         transactionHash: string;
@@ -350,20 +363,20 @@ export type AccountTx =
       data: {
         lockId: string;
         outcome: 'secret' | 'error';
-        secret?: string;  // required when outcome='secret'
-        reason?: string;  // when outcome='error': no_account, no_capacity, timeout, amount_too_small, etc.
+        secret?: string; // required when outcome='secret'
+        reason?: string; // when outcome='error': no_account, no_capacity, timeout, amount_too_small, etc.
       };
     }
   // === SWAP TRANSACTION TYPES ===
   | {
       type: 'swap_offer';
       data: {
-        offerId: string;          // UUID, not array index
+        offerId: string; // UUID, not array index
         giveTokenId: number;
         giveAmount: bigint;
         wantTokenId: number;
-        wantAmount: bigint;       // at this ratio
-        minFillRatio: number;     // 0-65535 (uint16), minimum partial fill
+        wantAmount: bigint; // at this ratio
+        minFillRatio: number; // 0-65535 (uint16), minimum partial fill
       };
     }
   | {
@@ -376,7 +389,7 @@ export type AccountTx =
       type: 'swap_resolve';
       data: {
         offerId: string;
-        fillRatio: number;        // 0-65535 (uint16)
+        fillRatio: number; // 0-65535 (uint16)
         cancelRemainder: boolean; // true = fill + cancel, false = fill + keep open
       };
     }
@@ -384,18 +397,18 @@ export type AccountTx =
   | {
       type: 'settle_hold';
       data: {
-        workspaceVersion: number;  // Which workspace version this hold is for
+        workspaceVersion: number; // Which workspace version this hold is for
         diffs: Array<{
           tokenId: number;
-          leftWithdrawing: bigint;   // Amount left is withdrawing (from leftDiff < 0)
-          rightWithdrawing: bigint;  // Amount right is withdrawing (from rightDiff < 0)
+          leftWithdrawing: bigint; // Amount left is withdrawing (from leftDiff < 0)
+          rightWithdrawing: bigint; // Amount right is withdrawing (from rightDiff < 0)
         }>;
       };
     }
   | {
       type: 'settle_release';
       data: {
-        workspaceVersion: number;  // Which workspace version to release holds for
+        workspaceVersion: number; // Which workspace version to release holds for
         diffs: Array<{
           tokenId: number;
           leftWithdrawing: bigint;
@@ -406,10 +419,10 @@ export type AccountTx =
   | {
       type: 'j_sync';
       data: {
-        jBlockNumber: number;  // Block number from j-machine (both sides must match)
+        jBlockNumber: number; // Block number from j-machine (both sides must match)
         tokenId: number;
-        collateral: bigint;    // Absolute collateral from j-event
-        ondelta: bigint;       // Absolute ondelta from j-event
+        collateral: bigint; // Absolute collateral from j-event
+        ondelta: bigint; // Absolute ondelta from j-event
       };
     }
   | {
@@ -432,5 +445,15 @@ export type AccountTx =
  */
 export type AccountEvent =
   | { type: 'htlc_revealed'; hashlock: string; secret: string }
-  | { type: 'swap_offer_created'; offerId: string; makerId: string; accountId: string; giveTokenId: number; giveAmount: bigint; wantTokenId: number; wantAmount: bigint; minFillRatio: number }
+  | {
+      type: 'swap_offer_created';
+      offerId: string;
+      makerId: string;
+      accountId: string;
+      giveTokenId: number;
+      giveAmount: bigint;
+      wantTokenId: number;
+      wantAmount: bigint;
+      minFillRatio: number;
+    }
   | { type: 'swap_offer_cancelled'; offerId: string; accountId: string };

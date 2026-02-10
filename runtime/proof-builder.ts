@@ -58,8 +58,7 @@ export function buildAccountProofBody(accountMachine: AccountMachine): ProofBody
   // Step 1: Extract and sort deltas (DETERMINISTIC ordering by tokenId)
   // ═══════════════════════════════════════════════════════════════════════════
 
-  const sortedDeltas = Array.from(accountMachine.deltas.entries())
-    .sort((a, b) => a[0] - b[0]); // Sort by tokenId ascending
+  const sortedDeltas = Array.from(accountMachine.deltas.entries()).sort((a, b) => a[0] - b[0]); // Sort by tokenId ascending
 
   const tokenIds: number[] = [];
   const offdeltas: bigint[] = [];
@@ -80,8 +79,7 @@ export function buildAccountProofBody(accountMachine: AccountMachine): ProofBody
 
   // Convert HTLC locks to Payment structs
   // DETERMINISTIC: Sort by lockId for consistent ordering
-  const sortedLocks = Array.from(accountMachine.locks.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]));
+  const sortedLocks = Array.from(accountMachine.locks.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
   for (const [lockId, lock] of sortedLocks) {
     const deltaIndex = tokenIds.indexOf(lock.tokenId);
@@ -105,8 +103,7 @@ export function buildAccountProofBody(accountMachine: AccountMachine): ProofBody
 
   // Convert SwapOffers to Swap structs
   // DETERMINISTIC: Sort by offerId for consistent ordering
-  const sortedSwaps = Array.from(accountMachine.swapOffers.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]));
+  const sortedSwaps = Array.from(accountMachine.swapOffers.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
   for (const [offerId, offer] of sortedSwaps) {
     const addDeltaIndex = tokenIds.indexOf(offer.giveTokenId);
@@ -164,10 +161,7 @@ export function buildAccountProofBody(accountMachine: AccountMachine): ProofBody
   const abiCoder = ethers.AbiCoder.defaultAbiCoder();
 
   // Encode ProofBody struct
-  const encodedProofBody = abiCoder.encode(
-    [PROOF_BODY_ABI as any],
-    [proofBodyStruct]
-  );
+  const encodedProofBody = abiCoder.encode([ethers.ParamType.from(PROOF_BODY_ABI)], [proofBodyStruct]);
 
   // Hash for signing
   const proofBodyHash = ethers.keccak256(encodedProofBody);
@@ -204,7 +198,7 @@ function runtimeToProofBodyStruct(runtime: RuntimeProofBody): ProofBodyStruct {
       })),
     };
 
-    const encodedBatch = abiCoder.encode([BATCH_ABI as any], [batchStruct]);
+    const encodedBatch = abiCoder.encode([ethers.ParamType.from(BATCH_ABI)], [batchStruct]);
 
     return {
       transformerAddress: t.transformerAddress,
@@ -234,7 +228,7 @@ function runtimeToProofBodyStruct(runtime: RuntimeProofBody): ProofBodyStruct {
 export function buildInitialDisputeProof(
   accountMachine: AccountMachine,
   counterpartySignature: string,
-  initialArguments: string = '0x'
+  initialArguments: string = '0x',
 ): {
   counterentity: string;
   cooperativeNonce: number;
@@ -266,17 +260,14 @@ export function buildInitialDisputeProof(
 export function encodeDisputeMessage(
   accountMachine: AccountMachine,
   proofBodyHash: string,
-  depositoryAddress: string
+  depositoryAddress: string,
 ): string {
   const abiCoder = ethers.AbiCoder.defaultAbiCoder();
 
   // Channel key is canonical (left:right)
   const leftEntity = accountMachine.leftEntity;
   const rightEntity = accountMachine.rightEntity;
-  const chKey = ethers.solidityPacked(
-    ['bytes32', 'bytes32'],
-    [leftEntity, rightEntity]
-  );
+  const chKey = ethers.solidityPacked(['bytes32', 'bytes32'], [leftEntity, rightEntity]);
 
   // MessageType.DisputeProof = 1
   const MESSAGE_TYPE_DISPUTE_PROOF = 1;
@@ -290,7 +281,7 @@ export function encodeDisputeMessage(
       accountMachine.proofHeader.cooperativeNonce,
       accountMachine.proofHeader.disputeNonce,
       proofBodyHash,
-    ]
+    ],
   );
 }
 
@@ -301,7 +292,7 @@ export function encodeDisputeMessage(
 export function createDisputeProofHash(
   accountMachine: AccountMachine,
   proofBodyHash: string,
-  depositoryAddress: string
+  depositoryAddress: string,
 ): string {
   const encodedMessage = encodeDisputeMessage(accountMachine, proofBodyHash, depositoryAddress);
   return ethers.keccak256(encodedMessage);
@@ -312,7 +303,7 @@ export function createDisputeProofHash(
  * 2 * 10 = 20 blocks delay for both sides
  */
 export const DEFAULT_DISPUTE_CONFIG: DisputeConfig = {
-  leftDisputeDelay: 2,  // 20 blocks
+  leftDisputeDelay: 2, // 20 blocks
   rightDisputeDelay: 2, // 20 blocks
 };
 
@@ -341,19 +332,27 @@ export function createSettlementHashWithNonce(
     ondeltaDiff: bigint;
   }>,
   depositoryAddress: string,
-  nonce: number
+  nonce: number,
 ): string {
   // Channel key is canonical (left:right)
   const channelKey = ethers.solidityPacked(
     ['bytes32', 'bytes32'],
-    [accountMachine.leftEntity, accountMachine.rightEntity]
+    [accountMachine.leftEntity, accountMachine.rightEntity],
   );
 
   // Match Account.sol CooperativeUpdate encoding
   const MESSAGE_TYPE_COOPERATIVE_UPDATE = 0;
   const abiCoder = ethers.AbiCoder.defaultAbiCoder();
   const encodedMsg = abiCoder.encode(
-    ['uint256', 'address', 'bytes', 'uint256', 'tuple(uint256,int256,int256,int256,int256)[]', 'uint256[]', 'tuple(bytes32,bytes32,uint256,uint256,uint256)[]'],
+    [
+      'uint256',
+      'address',
+      'bytes',
+      'uint256',
+      'tuple(uint256,int256,int256,int256,int256)[]',
+      'uint256[]',
+      'tuple(bytes32,bytes32,uint256,uint256,uint256)[]',
+    ],
     [
       MESSAGE_TYPE_COOPERATIVE_UPDATE,
       depositoryAddress,
@@ -361,8 +360,8 @@ export function createSettlementHashWithNonce(
       nonce,
       diffs.map(d => [d.tokenId, d.leftDiff, d.rightDiff, d.collateralDiff, d.ondeltaDiff]),
       [], // forgiveDebtsInTokenIds (empty for now)
-      []  // insuranceRegs (empty for now)
-    ]
+      [], // insuranceRegs (empty for now)
+    ],
   );
 
   return ethers.keccak256(encodedMsg);

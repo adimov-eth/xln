@@ -16,7 +16,7 @@ import { createEmptyBatch, getBatchSize } from '../../j-batch';
 export async function handleJClearBatch(
   entityState: EntityState,
   entityTx: Extract<EntityTx, { type: 'j_clear_batch' }>,
-  _env: Env
+  _env: Env,
 ): Promise<{ newState: EntityState; outputs: EntityInput[]; jOutputs: JInput[] }> {
   const { reason } = entityTx.data;
   const newState = cloneEntityState(entityState);

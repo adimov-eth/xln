@@ -29,7 +29,7 @@ export const COUNTRY_PRESETS: CountryPreset[] = [
     topology: 'star',
     centralBank: 'Federal Reserve',
     currency: 'USD',
-    color: '#FFD700' // Gold
+    color: '#FFD700', // Gold
   },
   {
     name: 'China',
@@ -37,7 +37,7 @@ export const COUNTRY_PRESETS: CountryPreset[] = [
     topology: 'tiered',
     centralBank: 'PBOC',
     currency: 'CNY',
-    color: '#FF0000' // Red
+    color: '#FF0000', // Red
   },
   {
     name: 'Germany',
@@ -45,7 +45,7 @@ export const COUNTRY_PRESETS: CountryPreset[] = [
     topology: 'mesh',
     centralBank: 'Bundesbank',
     currency: 'EUR',
-    color: '#000000' // Black
+    color: '#000000', // Black
   },
   {
     name: 'Japan',
@@ -53,7 +53,7 @@ export const COUNTRY_PRESETS: CountryPreset[] = [
     topology: 'star',
     centralBank: 'Bank of Japan',
     currency: 'JPY',
-    color: '#BC002D' // Red circle
+    color: '#BC002D', // Red circle
   },
   {
     name: 'India',
@@ -61,7 +61,7 @@ export const COUNTRY_PRESETS: CountryPreset[] = [
     topology: 'tiered',
     centralBank: 'Reserve Bank of India',
     currency: 'INR',
-    color: '#FF9933' // Saffron
+    color: '#FF9933', // Saffron
   },
   {
     name: 'United Kingdom',
@@ -69,7 +69,7 @@ export const COUNTRY_PRESETS: CountryPreset[] = [
     topology: 'star',
     centralBank: 'Bank of England',
     currency: 'GBP',
-    color: '#C8102E' // UK Red
+    color: '#C8102E', // UK Red
   },
   {
     name: 'France',
@@ -77,15 +77,15 @@ export const COUNTRY_PRESETS: CountryPreset[] = [
     topology: 'mesh',
     centralBank: 'Banque de France',
     currency: 'EUR',
-    color: '#0055A4' // French Blue
+    color: '#0055A4', // French Blue
   },
   {
     name: 'Italy',
     flag: '🇮🇹',
     topology: 'mesh',
-    centralBank: 'Banca d\'Italia',
+    centralBank: "Banca d'Italia",
     currency: 'EUR',
-    color: '#009246' // Italian Green
+    color: '#009246', // Italian Green
   },
   {
     name: 'Russia',
@@ -93,8 +93,8 @@ export const COUNTRY_PRESETS: CountryPreset[] = [
     topology: 'star',
     centralBank: 'Central Bank of Russia',
     currency: 'RUB',
-    color: '#FFFFFF' // White
-  }
+    color: '#FFFFFF', // White
+  },
 ];
 
 /**
@@ -112,7 +112,7 @@ export function createStarTopology(): XlnomyTopology {
       size: 10.0,
       emissiveIntensity: 2.0,
       initialReserves: 100_000_000n, // $100M
-      canMintMoney: true
+      canMintMoney: true,
     },
     {
       name: 'Commercial Banks',
@@ -123,32 +123,32 @@ export function createStarTopology(): XlnomyTopology {
       size: 1.0,
       emissiveIntensity: 0.3,
       initialReserves: 1_000_000n, // $1M
-      canMintMoney: false
-    }
+      canMintMoney: false,
+    },
     // MINIMAL: Removed customers layer for performance testing (was 12 entities)
   ];
 
   const rules: ConnectionRules = {
     allowedPairs: [
       { from: 'Federal Reserve', to: 'Commercial Banks' },
-      { from: 'Commercial Banks', to: 'Federal Reserve' }
+      { from: 'Commercial Banks', to: 'Federal Reserve' },
       // MINIMAL: Removed customer connections
     ],
     allowDirectInterbank: false, // Star topology: no bank-to-bank
     requireHubRouting: true, // All interbank through Fed
     maxHops: 2, // MINIMAL: Reduced from 3
     defaultCreditLimits: new Map([
-      ['Federal Reserve→Commercial Banks', 10_000_000n] // Fed can lend $10M
+      ['Federal Reserve→Commercial Banks', 10_000_000n], // Fed can lend $10M
       // MINIMAL: Removed bank→customer limits
-    ])
+    ]),
   };
 
   return {
     type: 'star',
     layers,
     rules,
-    crisisThreshold: 0.20,
-    crisisMode: 'star' // Stays star even in crisis
+    crisisThreshold: 0.2,
+    crisisMode: 'star', // Stays star even in crisis
   };
 }
 
@@ -167,7 +167,7 @@ export function createMeshTopology(): XlnomyTopology {
       size: 8.0,
       emissiveIntensity: 1.5,
       initialReserves: 100_000_000n,
-      canMintMoney: true
+      canMintMoney: true,
     },
     {
       name: 'Commercial Banks',
@@ -178,7 +178,7 @@ export function createMeshTopology(): XlnomyTopology {
       size: 1.0,
       emissiveIntensity: 0.3,
       initialReserves: 1_000_000n,
-      canMintMoney: false
+      canMintMoney: false,
     },
     {
       name: 'Customers',
@@ -189,8 +189,8 @@ export function createMeshTopology(): XlnomyTopology {
       size: 0.5,
       emissiveIntensity: 0.1,
       initialReserves: 10_000n,
-      canMintMoney: false
-    }
+      canMintMoney: false,
+    },
   ];
 
   const rules: ConnectionRules = {
@@ -199,7 +199,7 @@ export function createMeshTopology(): XlnomyTopology {
       { from: 'Commercial Banks', to: 'European Central Bank' },
       { from: 'Commercial Banks', to: 'Commercial Banks' }, // FULL MESH
       { from: 'Commercial Banks', to: 'Customers' },
-      { from: 'Customers', to: 'Commercial Banks' }
+      { from: 'Customers', to: 'Commercial Banks' },
     ],
     allowDirectInterbank: true, // Mesh: banks trade P2P
     requireHubRouting: false, // ECB optional
@@ -207,16 +207,16 @@ export function createMeshTopology(): XlnomyTopology {
     defaultCreditLimits: new Map([
       ['European Central Bank→Commercial Banks', 10_000_000n],
       ['Commercial Banks→Commercial Banks', 5_000_000n], // Interbank credit
-      ['Commercial Banks→Customers', 100_000n]
-    ])
+      ['Commercial Banks→Customers', 100_000n],
+    ]),
   };
 
   return {
     type: 'mesh',
     layers,
     rules,
-    crisisThreshold: 0.20,
-    crisisMode: 'star' // Crisis → force through ECB
+    crisisThreshold: 0.2,
+    crisisMode: 'star', // Crisis → force through ECB
   };
 }
 
@@ -235,7 +235,7 @@ export function createTieredTopology(): XlnomyTopology {
       size: 12.0,
       emissiveIntensity: 2.5,
       initialReserves: 500_000_000n, // $500M
-      canMintMoney: true
+      canMintMoney: true,
     },
     {
       name: 'Tier 1 Banks',
@@ -246,7 +246,7 @@ export function createTieredTopology(): XlnomyTopology {
       size: 1.5,
       emissiveIntensity: 0.5,
       initialReserves: 50_000_000n, // $50M
-      canMintMoney: false
+      canMintMoney: false,
     },
     {
       name: 'Tier 2 Banks',
@@ -257,7 +257,7 @@ export function createTieredTopology(): XlnomyTopology {
       size: 1.0,
       emissiveIntensity: 0.3,
       initialReserves: 5_000_000n, // $5M
-      canMintMoney: false
+      canMintMoney: false,
     },
     {
       name: 'Tier 3 Credit Unions',
@@ -268,7 +268,7 @@ export function createTieredTopology(): XlnomyTopology {
       size: 0.7,
       emissiveIntensity: 0.2,
       initialReserves: 500_000n, // $500K
-      canMintMoney: false
+      canMintMoney: false,
     },
     {
       name: 'Customers',
@@ -279,8 +279,8 @@ export function createTieredTopology(): XlnomyTopology {
       size: 0.5,
       emissiveIntensity: 0.1,
       initialReserves: 10_000n,
-      canMintMoney: false
-    }
+      canMintMoney: false,
+    },
   ];
 
   const rules: ConnectionRules = {
@@ -292,7 +292,7 @@ export function createTieredTopology(): XlnomyTopology {
       { from: 'Tier 2 Banks', to: 'Tier 3 Credit Unions' },
       { from: 'Tier 3 Credit Unions', to: 'Tier 2 Banks' },
       { from: 'Tier 3 Credit Unions', to: 'Customers' },
-      { from: 'Customers', to: 'Tier 3 Credit Unions' }
+      { from: 'Customers', to: 'Tier 3 Credit Unions' },
     ],
     allowDirectInterbank: false, // Only adjacent tiers
     requireHubRouting: false,
@@ -301,16 +301,16 @@ export function createTieredTopology(): XlnomyTopology {
       ['PBOC→Tier 1 Banks', 100_000_000n],
       ['Tier 1 Banks→Tier 2 Banks', 10_000_000n],
       ['Tier 2 Banks→Tier 3 Credit Unions', 1_000_000n],
-      ['Tier 3 Credit Unions→Customers', 50_000n]
-    ])
+      ['Tier 3 Credit Unions→Customers', 50_000n],
+    ]),
   };
 
   return {
     type: 'tiered',
     layers,
     rules,
-    crisisThreshold: 0.20,
-    crisisMode: 'star' // Crisis → all through PBOC
+    crisisThreshold: 0.2,
+    crisisMode: 'star', // Crisis → all through PBOC
   };
 }
 
@@ -329,7 +329,7 @@ export function createCorrespondentTopology(): XlnomyTopology {
       size: 15.0,
       emissiveIntensity: 3.0,
       initialReserves: 1_000_000_000n, // $1B
-      canMintMoney: true
+      canMintMoney: true,
     },
     {
       name: 'JPMorgan Correspondent',
@@ -340,7 +340,7 @@ export function createCorrespondentTopology(): XlnomyTopology {
       size: 3.0,
       emissiveIntensity: 1.0,
       initialReserves: 100_000_000n,
-      canMintMoney: false
+      canMintMoney: false,
     },
     {
       name: 'Local Banks',
@@ -351,7 +351,7 @@ export function createCorrespondentTopology(): XlnomyTopology {
       size: 1.0,
       emissiveIntensity: 0.3,
       initialReserves: 1_000_000n,
-      canMintMoney: false
+      canMintMoney: false,
     },
     {
       name: 'Customers',
@@ -362,8 +362,8 @@ export function createCorrespondentTopology(): XlnomyTopology {
       size: 0.5,
       emissiveIntensity: 0.1,
       initialReserves: 10_000n,
-      canMintMoney: false
-    }
+      canMintMoney: false,
+    },
   ];
 
   const rules: ConnectionRules = {
@@ -373,7 +373,7 @@ export function createCorrespondentTopology(): XlnomyTopology {
       { from: 'JPMorgan Correspondent', to: 'Local Banks' },
       { from: 'Local Banks', to: 'JPMorgan Correspondent' },
       { from: 'Local Banks', to: 'Customers' },
-      { from: 'Customers', to: 'Local Banks' }
+      { from: 'Customers', to: 'Local Banks' },
     ],
     allowDirectInterbank: false, // Local banks use correspondent
     requireHubRouting: true, // All via JPMorgan
@@ -381,16 +381,16 @@ export function createCorrespondentTopology(): XlnomyTopology {
     defaultCreditLimits: new Map([
       ['IMF→JPMorgan Correspondent', 500_000_000n],
       ['JPMorgan Correspondent→Local Banks', 10_000_000n],
-      ['Local Banks→Customers', 100_000n]
-    ])
+      ['Local Banks→Customers', 100_000n],
+    ]),
   };
 
   return {
     type: 'correspondent',
     layers,
     rules,
-    crisisThreshold: 0.20,
-    crisisMode: 'star'
+    crisisThreshold: 0.2,
+    crisisMode: 'star',
   };
 }
 
@@ -410,7 +410,7 @@ export function createHybridTopology(): XlnomyTopology {
       size: 10.0,
       emissiveIntensity: 1.0, // Lower when dormant, 3.0 in crisis
       initialReserves: 100_000_000n,
-      canMintMoney: true
+      canMintMoney: true,
     },
     {
       name: 'Big Four Banks',
@@ -421,7 +421,7 @@ export function createHybridTopology(): XlnomyTopology {
       size: 1.5,
       emissiveIntensity: 0.5,
       initialReserves: 1_000_000n,
-      canMintMoney: false
+      canMintMoney: false,
     },
     {
       name: 'Community Banks',
@@ -432,7 +432,7 @@ export function createHybridTopology(): XlnomyTopology {
       size: 0.8,
       emissiveIntensity: 0.2,
       initialReserves: 100_000n,
-      canMintMoney: false
+      canMintMoney: false,
     },
     {
       name: 'Customers',
@@ -443,8 +443,8 @@ export function createHybridTopology(): XlnomyTopology {
       size: 0.5,
       emissiveIntensity: 0.1,
       initialReserves: 10_000n,
-      canMintMoney: false
-    }
+      canMintMoney: false,
+    },
   ];
 
   const rules: ConnectionRules = {
@@ -463,7 +463,7 @@ export function createHybridTopology(): XlnomyTopology {
       { from: 'Big Four Banks', to: 'Customers' },
       { from: 'Community Banks', to: 'Customers' },
       { from: 'Customers', to: 'Big Four Banks' },
-      { from: 'Customers', to: 'Community Banks' }
+      { from: 'Customers', to: 'Community Banks' },
     ],
     allowDirectInterbank: true, // Normal mode: mesh
     requireHubRouting: false, // Crisis mode: switches to true
@@ -474,16 +474,16 @@ export function createHybridTopology(): XlnomyTopology {
       ['Big Four Banks→Community Banks', 1_000_000n],
       ['Community Banks→Community Banks', 200_000n],
       ['Big Four Banks→Customers', 100_000n],
-      ['Community Banks→Customers', 20_000n]
-    ])
+      ['Community Banks→Customers', 20_000n],
+    ]),
   };
 
   return {
     type: 'hybrid',
     layers,
     rules,
-    crisisThreshold: 0.20, // Reserves < 20% deposits → CRISIS MODE
-    crisisMode: 'star' // Morph to star during crisis
+    crisisThreshold: 0.2, // Reserves < 20% deposits → CRISIS MODE
+    crisisMode: 'star', // Morph to star during crisis
   };
 }
 
@@ -522,7 +522,7 @@ export function getCountryTopology(country: CountryPreset): XlnomyTopology {
       return {
         ...layer,
         name: country.centralBank,
-        color: country.color
+        color: country.color,
       };
     }
     return layer;
@@ -530,6 +530,6 @@ export function getCountryTopology(country: CountryPreset): XlnomyTopology {
 
   return {
     ...baseTopology,
-    layers: customLayers
+    layers: customLayers,
   };
 }

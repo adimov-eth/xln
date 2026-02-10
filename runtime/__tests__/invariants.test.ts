@@ -113,7 +113,7 @@ describe('Conservation Law: leftDiff + rightDiff + collateralDiff = 0', () => {
           rightDiff,
           collateralDiff,
           ondeltaDiff: 0n,
-        })
+        }),
       ).toThrow('FINTECH-SAFETY');
     }
   });
@@ -139,10 +139,10 @@ describe('Conservation Law: leftDiff + rightDiff + collateralDiff = 0', () => {
       const amount = randomBigInt(10000n);
       const diff = createSettlementDiff({
         tokenId: 0,
-        leftDiff: -amount,       // Left's reserve decreases
+        leftDiff: -amount, // Left's reserve decreases
         rightDiff: 0n,
-        collateralDiff: amount,  // Collateral increases
-        ondeltaDiff: amount,     // Ondelta tracks left's deposit
+        collateralDiff: amount, // Collateral increases
+        ondeltaDiff: amount, // Ondelta tracks left's deposit
       });
       expect(diff.leftDiff + diff.rightDiff + diff.collateralDiff).toBe(0n);
     }
@@ -153,9 +153,9 @@ describe('Conservation Law: leftDiff + rightDiff + collateralDiff = 0', () => {
       const amount = randomBigInt(10000n);
       const diff = createSettlementDiff({
         tokenId: 0,
-        leftDiff: amount,         // Left's reserve increases
+        leftDiff: amount, // Left's reserve increases
         rightDiff: 0n,
-        collateralDiff: -amount,  // Collateral decreases
+        collateralDiff: -amount, // Collateral decreases
         ondeltaDiff: -amount,
       });
       expect(diff.leftDiff + diff.rightDiff + diff.collateralDiff).toBe(0n);
@@ -334,9 +334,7 @@ describe('Frame Hash Determinism: same inputs produce same hash', () => {
         prevFrameHash: '0xabc',
         accountTxs: [],
         tokenIds: [...tokenIds].sort((a, b) => a - b),
-        deltas: [...deltas].sort((a, b) =>
-          JSON.stringify(a) < JSON.stringify(b) ? -1 : 1
-        ),
+        deltas: [...deltas].sort((a, b) => (JSON.stringify(a) < JSON.stringify(b) ? -1 : 1)),
       });
     };
 
@@ -407,7 +405,7 @@ describe('Settlement Batch Properties', () => {
             rightDiff,
             collateralDiff: -(leftDiff + rightDiff),
             ondeltaDiff: randomSignedBigInt(1000n),
-          })
+          }),
         );
       }
 

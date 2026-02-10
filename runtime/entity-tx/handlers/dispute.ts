@@ -49,7 +49,7 @@ function wrapTransformerArgs(args: string): string {
 
 function buildDeltaTransformerArguments(
   accountMachine: AccountMachine,
-  options: BuildArgsOptions = {}
+  options: BuildArgsOptions = {},
 ): { leftArguments: string; rightArguments: string } {
   const hasLocks = accountMachine.locks?.size ? accountMachine.locks.size > 0 : false;
   const hasSwaps = accountMachine.swapOffers?.size ? accountMachine.swapOffers.size > 0 : false;
@@ -59,8 +59,7 @@ function buildDeltaTransformerArguments(
 
   const leftFillRatios: number[] = [];
   const rightFillRatios: number[] = [];
-  const sortedSwaps = Array.from(accountMachine.swapOffers.entries())
-    .sort((a, b) => a[0].localeCompare(b[0]));
+  const sortedSwaps = Array.from(accountMachine.swapOffers.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
   for (const [offerId, offer] of sortedSwaps) {
     const ratio = options.fillRatiosByOfferId?.get(offerId) ?? 0;
@@ -89,7 +88,7 @@ function buildDeltaTransformerArguments(
 function buildPendingSwapFillRatios(
   entityState: EntityState,
   counterpartyEntityId: string,
-  account: AccountMachine
+  account: AccountMachine,
 ): Map<string, number> {
   const pending = entityState.pendingSwapFillRatios;
   if (!pending || pending.size === 0) return new Map();
@@ -113,8 +112,7 @@ function collectHtlcSecrets(entityState: EntityState, counterpartyEntityId: stri
   for (const route of entityState.htlcRoutes.values()) {
     if (!route.secret) continue;
     const involvesCounterparty =
-      route.inboundEntity === counterpartyEntityId ||
-      route.outboundEntity === counterpartyEntityId;
+      route.inboundEntity === counterpartyEntityId || route.outboundEntity === counterpartyEntityId;
     if (!involvesCounterparty) continue;
     if (seen.has(route.secret)) continue;
     seen.add(route.secret);
@@ -129,7 +127,7 @@ function collectHtlcSecrets(entityState: EntityState, counterpartyEntityId: stri
 export async function handleDisputeStart(
   entityState: EntityState,
   entityTx: Extract<EntityTx, { type: 'disputeStart' }>,
-  _env: Env
+  _env: Env,
 ): Promise<{ newState: EntityState; outputs: EntityInput[] }> {
   const { counterpartyEntityId, description } = entityTx.data;
   const newState = cloneEntityState(entityState);
@@ -210,20 +208,25 @@ export async function handleDisputeStart(
     cooperativeNonce,
     disputeNonce,
     proofbodyHash: proofBodyHashToUse,
-    sig: counterpartyDisputeHanko,  // Hanko signature
+    sig: counterpartyDisputeHanko, // Hanko signature
     initialArguments,
   });
 
   console.log(`✅ disputeStart: Added to jBatch for ${entityState.entityId.slice(-4)}`);
   console.log(`   Proof hash: ${proofBodyHashToUse.slice(0, 10)}...`);
-  console.log(`   Hanko sig length: ${counterpartyDisputeHanko?.length || 0}, first 40: ${counterpartyDisputeHanko?.slice(0, 40) || 'EMPTY'}`);
+  console.log(
+    `   Hanko sig length: ${counterpartyDisputeHanko?.length || 0}, first 40: ${counterpartyDisputeHanko?.slice(0, 40) || 'EMPTY'}`,
+  );
   console.log(`   cooperativeNonce: ${cooperativeNonce}, disputeNonce: ${disputeNonce}`);
 
   // NOTE: activeDispute will be set when DisputeStarted event arrives from J-machine
   // Event handler will query on-chain state and populate:
   // - startedByLeft, disputeTimeout, onChainCooperativeNonce
 
-  addMessage(newState, `⚔️ Dispute started vs ${counterpartyEntityId.slice(-4)} ${description ? `(${description})` : ''} - use jBroadcast to commit`);
+  addMessage(
+    newState,
+    `⚔️ Dispute started vs ${counterpartyEntityId.slice(-4)} ${description ? `(${description})` : ''} - use jBroadcast to commit`,
+  );
 
   return { newState, outputs };
 }
@@ -234,7 +237,7 @@ export async function handleDisputeStart(
 export async function handleDisputeFinalize(
   entityState: EntityState,
   entityTx: Extract<EntityTx, { type: 'disputeFinalize' }>,
-  _env: Env
+  _env: Env,
 ): Promise<{ newState: EntityState; outputs: EntityInput[] }> {
   const { counterpartyEntityId, cooperative, description } = entityTx.data;
   const newState = cloneEntityState(entityState);
@@ -277,9 +280,8 @@ export async function handleDisputeFinalize(
   // Counter-dispute: use counterparty's DisputeProof hanko (same as start, proves they signed newer state)
   // Unilateral: no signature (timeout enforces)
   // Cooperative: use cooperative settlement sig (not implemented yet)
-  const finalizeSig = isCounterDispute && account.counterpartyDisputeProofHanko
-    ? account.counterpartyDisputeProofHanko
-    : '0x';
+  const finalizeSig =
+    isCounterDispute && account.counterpartyDisputeProofHanko ? account.counterpartyDisputeProofHanko : '0x';
 
   const mappedFinalNonce = account.counterpartyDisputeProofBodyHash
     ? account.disputeProofNoncesByHash?.[account.counterpartyDisputeProofBodyHash]
@@ -307,30 +309,38 @@ export async function handleDisputeFinalize(
     throw new Error('disputeFinalize: missing counterparty proof body for counter-dispute');
   }
   const shouldUseStoredProof = !isCounterDispute && !cooperative && storedProofBody;
-  if (!isCounterDispute && !cooperative && currentProofResult.proofBodyHash !== account.activeDispute.initialProofbodyHash) {
-    console.warn(`⚠️ disputeFinalize: current proofBodyHash != initial (current=${currentProofResult.proofBodyHash.slice(0, 10)}..., initial=${account.activeDispute.initialProofbodyHash.slice(0, 10)}...)`);
+  if (
+    !isCounterDispute &&
+    !cooperative &&
+    currentProofResult.proofBodyHash !== account.activeDispute.initialProofbodyHash
+  ) {
+    console.warn(
+      `⚠️ disputeFinalize: current proofBodyHash != initial (current=${currentProofResult.proofBodyHash.slice(0, 10)}..., initial=${account.activeDispute.initialProofbodyHash.slice(0, 10)}...)`,
+    );
     if (!storedProofBody) {
       throw new Error('disputeFinalize: missing stored proofBody for unilateral finalize');
     }
   }
 
   const finalProofbody = isCounterDispute
-    ? (counterpartyProofBody || currentProofResult.proofBodyStruct)
-    : (shouldUseStoredProof ? storedProofBody : currentProofResult.proofBodyStruct);
+    ? counterpartyProofBody || currentProofResult.proofBodyStruct
+    : shouldUseStoredProof
+      ? storedProofBody
+      : currentProofResult.proofBodyStruct;
 
   const finalProof = {
     counterentity: counterpartyEntityId,
-    initialCooperativeNonce: account.activeDispute.initialCooperativeNonce,  // From disputeStart
+    initialCooperativeNonce: account.activeDispute.initialCooperativeNonce, // From disputeStart
     finalCooperativeNonce,
     initialDisputeNonce: account.activeDispute.initialDisputeNonce,
     finalDisputeNonce: isCounterDispute ? account.proofHeader.disputeNonce : account.activeDispute.initialDisputeNonce,
-    initialProofbodyHash: account.activeDispute.initialProofbodyHash,  // From disputeStart (commit)
-    finalProofbody,  // REVEAL
+    initialProofbodyHash: account.activeDispute.initialProofbodyHash, // From disputeStart (commit)
+    finalProofbody, // REVEAL
     finalArguments,
     initialArguments,
-    sig: finalizeSig,  // Empty for unilateral, counterparty DisputeProof hanko for counter
-    startedByLeft: account.activeDispute.startedByLeft,  // From on-chain
-    disputeUntilBlock: account.activeDispute.disputeTimeout,  // From on-chain
+    sig: finalizeSig, // Empty for unilateral, counterparty DisputeProof hanko for counter
+    startedByLeft: account.activeDispute.startedByLeft, // From on-chain
+    disputeUntilBlock: account.activeDispute.disputeTimeout, // From on-chain
     cooperative: cooperative || false,
   };
 
@@ -346,8 +356,12 @@ export async function handleDisputeFinalize(
     }
   }
 
-  console.log(`   Mode: ${isCounterDispute ? 'counter-dispute' : 'unilateral'}, timeout=${account.activeDispute.disputeTimeout}`);
-  console.log(`   DEBUG: initialCooperativeNonce=${finalProof.initialCooperativeNonce}, onChainNonce=${finalProof.finalCooperativeNonce}`);
+  console.log(
+    `   Mode: ${isCounterDispute ? 'counter-dispute' : 'unilateral'}, timeout=${account.activeDispute.disputeTimeout}`,
+  );
+  console.log(
+    `   DEBUG: initialCooperativeNonce=${finalProof.initialCooperativeNonce}, onChainNonce=${finalProof.finalCooperativeNonce}`,
+  );
 
   // Add to jBatch
   newState.jBatchState.batch.disputeFinalizations.push(finalProof);
@@ -355,7 +369,10 @@ export async function handleDisputeFinalize(
   console.log(`✅ disputeFinalize: Added to jBatch for ${entityState.entityId.slice(-4)}`);
   console.log(`   Mode: ${cooperative ? 'cooperative' : 'unilateral'}`);
 
-  addMessage(newState, `⚖️ Dispute finalized vs ${counterpartyEntityId.slice(-4)} ${description ? `(${description})` : ''} - use jBroadcast to commit`);
+  addMessage(
+    newState,
+    `⚖️ Dispute finalized vs ${counterpartyEntityId.slice(-4)} ${description ? `(${description})` : ''} - use jBroadcast to commit`,
+  );
 
   return { newState, outputs };
 }

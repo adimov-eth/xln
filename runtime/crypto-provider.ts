@@ -6,7 +6,7 @@
  */
 
 export interface CryptoKeyPair {
-  publicKey: string;  // Base64-encoded public key
+  publicKey: string; // Base64-encoded public key
   privateKey: string; // Base64-encoded private key
 }
 

@@ -4,7 +4,19 @@
  */
 
 import { encode } from './snapshot-coder';
-import type { RoutedEntityInput, EntityReplica, EntityState, Env, EnvSnapshot, RuntimeInput, AccountMachine, JReplica, LogCategory, BrowserVMState } from './types';
+import type {
+  RoutedEntityInput,
+  EntityReplica,
+  EntityState,
+  Env,
+  EnvSnapshot,
+  RuntimeInput,
+  AccountMachine,
+  AccountInput,
+  JReplica,
+  LogCategory,
+  BrowserVMState,
+} from './types';
 import type { Profile } from './networking/gossip';
 import { DEBUG } from './utils';
 import { validateEntityState } from './validation-utils';
@@ -26,7 +38,10 @@ export function canonicalAccountKey(entity1: string, entity2: string): string {
 /**
  * Get account perspective: Am I left or right? Derive from/to for current operation.
  */
-export function getAccountPerspective(account: AccountMachine, myEntityId: string): {
+export function getAccountPerspective(
+  account: AccountMachine,
+  myEntityId: string,
+): {
   iAmLeft: boolean;
   from: string;
   to: string;
@@ -198,10 +213,12 @@ function manualCloneEntityState(entityState: EntityState, forSnapshot: boolean =
     ),
     deferredAccountProposals: cloneMap(entityState.deferredAccountProposals || new Map()),
     accountInputQueue: cloneArray(entityState.accountInputQueue || []),
-    jBatchState: entityState.jBatchState ? {
-      ...entityState.jBatchState,
-      batch: cloneJBatch(entityState.jBatchState.batch),
-    } : undefined,
+    jBatchState: entityState.jBatchState
+      ? {
+          ...entityState.jBatchState,
+          batch: cloneJBatch(entityState.jBatchState.batch),
+        }
+      : undefined,
     // JBlock consensus state
     lastFinalizedJHeight: entityState.lastFinalizedJHeight ?? 0,
     jBlockObservations: cloneArray(entityState.jBlockObservations || []),
@@ -210,8 +227,8 @@ function manualCloneEntityState(entityState: EntityState, forSnapshot: boolean =
     htlcRoutes: new Map(
       Array.from((entityState.htlcRoutes || new Map()).entries()).map(([hashlock, route]) => [
         hashlock,
-        { ...route } // Clone route object
-      ])
+        { ...route }, // Clone route object
+      ]),
     ),
     htlcFeesEarned: entityState.htlcFeesEarned || 0n,
     // Orderbook extension (hub-only, contains TypedArrays)
@@ -219,20 +236,12 @@ function manualCloneEntityState(entityState: EntityState, forSnapshot: boolean =
     ...(entityState.orderbookExt && { orderbookExt: cloneOrderbookExt(entityState.orderbookExt) }),
     // Aggregated books (E-Machine view of A-Machine positions)
     swapBook: new Map(
-      Array.from((entityState.swapBook || new Map()).entries()).map(([id, entry]) => [
-        id,
-        { ...entry }
-      ])
+      Array.from((entityState.swapBook || new Map()).entries()).map(([id, entry]) => [id, { ...entry }]),
     ),
     lockBook: new Map(
-      Array.from((entityState.lockBook || new Map()).entries()).map(([id, entry]) => [
-        id,
-        { ...entry }
-      ])
+      Array.from((entityState.lockBook || new Map()).entries()).map(([id, entry]) => [id, { ...entry }]),
     ),
-    pendingSwapFillRatios: new Map(
-      Array.from((entityState.pendingSwapFillRatios || new Map()).entries())
-    ),
+    pendingSwapFillRatios: new Map(Array.from((entityState.pendingSwapFillRatios || new Map()).entries())),
   };
 }
 
@@ -257,10 +266,10 @@ function cloneOrderbookExt(ext: EntityState['orderbookExt']): EntityState['order
   }
 
   // Clone hubProfile with nested arrays
-  const clonedHubProfile = ext.hubProfile ? {
+  const clonedHubProfile = {
     ...ext.hubProfile,
     supportedPairs: ext.hubProfile.supportedPairs ? [...ext.hubProfile.supportedPairs] : [],
-  } : undefined;
+  };
 
   return {
     books: clonedBooks,
@@ -318,9 +327,11 @@ export const cloneEntityReplica = (replica: EntityReplica, forSnapshot: boolean 
         ...(replica.proposal.jOutputs && { jOutputs: [...replica.proposal.jOutputs] }),
         // Deep clone HashToSign objects (hash, type, context)
         ...(replica.proposal.hashesToSign && { hashesToSign: replica.proposal.hashesToSign.map(h => ({ ...h })) }),
-        ...(replica.proposal.collectedSigs && { collectedSigs: new Map(Array.from(replica.proposal.collectedSigs.entries()).map(([k, v]) => [k, [...v]])) }),
+        ...(replica.proposal.collectedSigs && {
+          collectedSigs: new Map(Array.from(replica.proposal.collectedSigs.entries()).map(([k, v]) => [k, [...v]])),
+        }),
         ...(replica.proposal.hankos && { hankos: [...replica.proposal.hankos] }),
-      }
+      },
     }),
     ...(replica.lockedFrame && {
       lockedFrame: {
@@ -329,10 +340,14 @@ export const cloneEntityReplica = (replica: EntityReplica, forSnapshot: boolean 
         hash: replica.lockedFrame.hash,
         newState: replica.lockedFrame.newState,
         // Deep clone HashToSign objects (hash, type, context)
-        ...(replica.lockedFrame.hashesToSign && { hashesToSign: replica.lockedFrame.hashesToSign.map(h => ({ ...h })) }),
-        ...(replica.lockedFrame.collectedSigs && { collectedSigs: new Map(Array.from(replica.lockedFrame.collectedSigs.entries()).map(([k, v]) => [k, [...v]])) }),
+        ...(replica.lockedFrame.hashesToSign && {
+          hashesToSign: replica.lockedFrame.hashesToSign.map(h => ({ ...h })),
+        }),
+        ...(replica.lockedFrame.collectedSigs && {
+          collectedSigs: new Map(Array.from(replica.lockedFrame.collectedSigs.entries()).map(([k, v]) => [k, [...v]])),
+        }),
         ...(replica.lockedFrame.hankos && { hankos: [...replica.lockedFrame.hankos] }),
-      }
+      },
     }),
     isProposer: replica.isProposer,
     ...(replica.position && { position: { ...replica.position } }),
@@ -388,7 +403,7 @@ export const captureSnapshot = async (
         }
       }
       if (browserVM?.serializeState) {
-        browserVMState = await browserVM.serializeState() as unknown as BrowserVMState;
+        browserVMState = (await browserVM.serializeState()) as unknown as BrowserVMState;
       }
     } catch {
       // Silent fail - stateRoot capture is optional
@@ -473,7 +488,7 @@ export const captureSnapshot = async (
           ...(jr.entityProviderAddress && { entityProviderAddress: jr.entityProviderAddress }),
           ...(jr.contracts && { contracts: { ...jr.contracts } }),
           reserves,
-          collaterals,  // Collateral state from bilateral accounts
+          collaterals, // Collateral state from bilateral accounts
           registeredEntities,
         };
       })
@@ -493,7 +508,9 @@ export const captureSnapshot = async (
     timestamp: env.timestamp,
     ...(env.runtimeSeed !== undefined && env.runtimeSeed !== null ? { runtimeSeed: env.runtimeSeed } : {}),
     ...(env.runtimeId ? { runtimeId: env.runtimeId } : {}),
-    eReplicas: new Map(Array.from(env.eReplicas.entries()).map(([key, replica]) => [key, cloneEntityReplica(replica, true)])), // forSnapshot=true excludes clonedForValidation
+    eReplicas: new Map(
+      Array.from(env.eReplicas.entries()).map(([key, replica]) => [key, cloneEntityReplica(replica, true)]),
+    ), // forSnapshot=true excludes clonedForValidation
     jReplicas,
     ...(browserVMState ? { browserVMState } : {}),
     runtimeInput: {
@@ -502,7 +519,9 @@ export const captureSnapshot = async (
         entityId: input.entityId,
         ...(input.signerId ? { signerId: input.signerId } : {}),
         ...(input.entityTxs && { entityTxs: [...input.entityTxs] }),
-        ...(input.hashPrecommits && { hashPrecommits: new Map(Array.from(input.hashPrecommits.entries()).map(([k, v]) => [k, [...v]])) }),
+        ...(input.hashPrecommits && {
+          hashPrecommits: new Map(Array.from(input.hashPrecommits.entries()).map(([k, v]) => [k, [...v]])),
+        }),
         ...(input.proposedFrame && { proposedFrame: input.proposedFrame }),
       })),
     },
@@ -510,7 +529,9 @@ export const captureSnapshot = async (
       entityId: output.entityId,
       ...(output.signerId ? { signerId: output.signerId } : {}),
       ...(output.entityTxs && { entityTxs: [...output.entityTxs] }),
-      ...(output.hashPrecommits && { hashPrecommits: new Map(Array.from(output.hashPrecommits.entries()).map(([k, v]) => [k, [...v]])) }),
+      ...(output.hashPrecommits && {
+        hashPrecommits: new Map(Array.from(output.hashPrecommits.entries()).map(([k, v]) => [k, [...v]])),
+      }),
       ...(output.proposedFrame && { proposedFrame: output.proposedFrame }),
     })),
     description: env.extra?.description || description,
@@ -541,7 +562,7 @@ export const captureSnapshot = async (
       const msgCount = replica.state.messages?.length || 0;
       const accountCount = replica.state.accounts?.size || 0;
       if (msgCount > 20 || accountCount > 10) {
-        console.warn(`   ${key.slice(0,25)}...: ${msgCount} msgs, ${accountCount} accounts`);
+        console.warn(`   ${key.slice(0, 25)}...: ${msgCount} msgs, ${accountCount} accounts`);
       }
     }
   }
@@ -567,9 +588,7 @@ export const captureSnapshot = async (
             `      ${i + 1}. ${tx.type} ${tx.entityId}:${tx.signerId} (${tx.data.isProposer ? 'proposer' : 'validator'})`,
           );
         } else if (tx.type === 'importJ') {
-          console.log(
-            `      ${i + 1}. ${tx.type} ${tx.data.name} (chain ${tx.data.chainId})`,
-          );
+          console.log(`      ${i + 1}. ${tx.type} ${tx.data.name} (chain ${tx.data.chainId})`);
         }
       });
     }
@@ -677,7 +696,7 @@ function manualCloneAccountMachine(account: AccountMachine, skipClonedForValidat
         deltas: [...pf.deltas],
       },
       pendingSignatures: [...account.proposal.pendingSignatures],
-      pendingAccountInput: { ...account.proposal.pendingAccountInput } as any,
+      pendingAccountInput: { ...account.proposal.pendingAccountInput } as AccountInput,
     };
     if (account.proposal.clonedForValidation && !skipClonedForValidation) {
       result.proposal.clonedForValidation = manualCloneAccountMachine(account.proposal.clonedForValidation, true);
@@ -741,16 +760,16 @@ function manualCloneAccountMachine(account: AccountMachine, skipClonedForValidat
   result.locks = new Map(
     Array.from(account.locks.entries()).map(([lockId, lock]) => [
       lockId,
-      { ...lock } // Clone lock object
-    ])
+      { ...lock }, // Clone lock object
+    ]),
   );
 
   // Swap state (deep clone swapOffers Map)
   result.swapOffers = new Map(
     Array.from((account.swapOffers || new Map()).entries()).map(([offerId, offer]) => [
       offerId,
-      { ...offer } // Clone offer object
-    ])
+      { ...offer }, // Clone offer object
+    ]),
   );
 
   return result;

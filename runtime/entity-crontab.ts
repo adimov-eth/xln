@@ -12,6 +12,7 @@
  */
 
 import type { Env, EntityReplica, RoutedEntityInput } from './types';
+import type { BrowserVMBatchProcessor } from './j-batch';
 import { isLeftEntity } from './entity-id-utils';
 
 export interface CrontabTask {
@@ -75,7 +76,7 @@ export function initCrontab(): CrontabState {
 export async function executeCrontab(
   env: Env,
   replica: EntityReplica,
-  crontabState: CrontabState
+  crontabState: CrontabState,
 ): Promise<RoutedEntityInput[]> {
   const now = replica.state.timestamp; // DETERMINISTIC: Use entity's own timestamp
   const allOutputs: RoutedEntityInput[] = [];
@@ -133,7 +134,9 @@ async function checkAccountTimeoutsHandler(_env: Env, replica: EntityReplica): P
         const heightExpired = currentHeight > 0 && currentHeight > tx.data.revealBeforeHeight;
         const timestampExpired = now > Number(tx.data.timelock);
         if (heightExpired || timestampExpired) {
-          console.warn(`⏰ HTLC-IN-PENDING-EXPIRED: Account ${counterpartyId.slice(-4)} frame h${pf.height}, lock ${tx.data.lockId.slice(0,12)}... expired`);
+          console.warn(
+            `⏰ HTLC-IN-PENDING-EXPIRED: Account ${counterpartyId.slice(-4)} frame h${pf.height}, lock ${tx.data.lockId.slice(0, 12)}... expired`,
+          );
           hasExpiredHtlc = true;
           break;
         }
@@ -149,7 +152,9 @@ async function checkAccountTimeoutsHandler(_env: Env, replica: EntityReplica): P
       // Non-HTLC pending frames: dispute suggestion after 30s
       const frameAge = now - pf.timestamp;
       if (frameAge > ACCOUNT_TIMEOUT_MS) {
-        console.warn(`⏰ PENDING-FRAME-STALE: Account with ${counterpartyId.slice(-4)} h${pf.height} for ${Math.floor(frameAge / 1000)}s — consider dispute`);
+        console.warn(
+          `⏰ PENDING-FRAME-STALE: Account with ${counterpartyId.slice(-4)} h${pf.height} for ${Math.floor(frameAge / 1000)}s — consider dispute`,
+        );
       }
     }
   }
@@ -161,18 +166,21 @@ async function checkAccountTimeoutsHandler(_env: Env, replica: EntityReplica): P
       outputs.push({
         entityId: replica.entityId,
         signerId: firstValidator,
-        entityTxs: [{
-          type: 'rollbackTimedOutFrames',
-          data: { timedOutAccounts }
-        }]
+        entityTxs: [
+          {
+            type: 'rollbackTimedOutFrames',
+            data: { timedOutAccounts },
+          },
+        ],
       });
-      console.warn(`⏰ ROLLBACK: Generated rollbackTimedOutFrames for ${timedOutAccounts.length} accounts (HTLC expired in pendingFrame)`);
+      console.warn(
+        `⏰ ROLLBACK: Generated rollbackTimedOutFrames for ${timedOutAccounts.length} accounts (HTLC expired in pendingFrame)`,
+      );
     }
   }
 
   return outputs;
 }
-
 
 /**
  * Check all HTLC locks for expiration and auto-timeout
@@ -188,7 +196,9 @@ async function checkHtlcTimeoutsHandler(_env: Env, replica: EntityReplica): Prom
   const currentHeight = replica.state.lastFinalizedJHeight || 0;
   const currentTimestamp = replica.state.timestamp; // Entity's deterministic clock
 
-  console.log(`⏰ HTLC-TIMEOUT-CRON: Checking locks (entity ${replica.entityId.slice(-4)}, height=${currentHeight}, timestamp=${currentTimestamp})`);
+  console.log(
+    `⏰ HTLC-TIMEOUT-CRON: Checking locks (entity ${replica.entityId.slice(-4)}, height=${currentHeight}, timestamp=${currentTimestamp})`,
+  );
 
   // Collect expired locks per account
   const expiredLocksByAccount: Array<{ accountId: string; lockId: string; lock: any }> = [];
@@ -202,7 +212,9 @@ async function checkHtlcTimeoutsHandler(_env: Env, replica: EntityReplica): Prom
 
     // Check each lock for expiration
     for (const [lockId, lock] of accountMachine.locks.entries()) {
-      console.log(`⏰   Checking lock ${lockId.slice(0,16)}... (heightDeadline=${lock.revealBeforeHeight}, timeDeadline=${lock.timelock})`);
+      console.log(
+        `⏰   Checking lock ${lockId.slice(0, 16)}... (heightDeadline=${lock.revealBeforeHeight}, timeDeadline=${lock.timelock})`,
+      );
 
       // Check if lock expired - BOTH conditions (height OR timestamp)
       // Height: Used when J-blocks are active (on-chain settlement)
@@ -212,7 +224,7 @@ async function checkHtlcTimeoutsHandler(_env: Env, replica: EntityReplica): Prom
       const expired = heightExpired || timestampExpired;
 
       if (expired) {
-        console.log(`⏰ HTLC-TIMEOUT: Lock ${lockId.slice(0,16)}... EXPIRED`);
+        console.log(`⏰ HTLC-TIMEOUT: Lock ${lockId.slice(0, 16)}... EXPIRED`);
         console.log(`   Height: ${currentHeight} > ${lock.revealBeforeHeight} = ${heightExpired}`);
         console.log(`   Timestamp: ${currentTimestamp} > ${lock.timelock} = ${timestampExpired}`);
         console.log(`   Account: ${counterpartyId.slice(-4)}, Amount: ${lock.amount}`);
@@ -220,7 +232,7 @@ async function checkHtlcTimeoutsHandler(_env: Env, replica: EntityReplica): Prom
         expiredLocksByAccount.push({
           accountId: counterpartyId,
           lockId,
-          lock
+          lock,
         });
       }
     }
@@ -237,10 +249,12 @@ async function checkHtlcTimeoutsHandler(_env: Env, replica: EntityReplica): Prom
       outputs.push({
         entityId: replica.entityId,
         signerId: firstValidator,
-        entityTxs: [{
-          type: 'processHtlcTimeouts',
-          data: { expiredLocks: expiredLocksByAccount }
-        }]
+        entityTxs: [
+          {
+            type: 'processHtlcTimeouts',
+            data: { expiredLocks: expiredLocksByAccount },
+          },
+        ],
       });
     }
   }
@@ -337,10 +351,9 @@ async function broadcastBatchHandler(env: Env, replica: EntityReplica): Promise<
     replica.entityId,
     replica.state.jBatchState,
     jurisdiction,
-    // BrowserVMInstance has processBatch at runtime, types are slightly mismatched
-    (browserVM || undefined) as any,
+    (browserVM ?? undefined) as BrowserVMBatchProcessor | undefined,
     replica.state.timestamp,
-    signerId
+    signerId,
   );
 
   if (result.success) {
@@ -350,17 +363,19 @@ async function broadcastBatchHandler(env: Env, replica: EntityReplica): Promise<
     outputs.push({
       entityId: replica.entityId,
       signerId: 'system',
-      entityTxs: [{
-        type: 'chatMessage',
-        data: {
-          message: `📤 Batch broadcasted: ${result.txHash?.slice(0, 16)}...`,
-          timestamp: replica.state.timestamp,
-          metadata: {
-            type: 'BATCH_BROADCAST',
-            txHash: result.txHash,
+      entityTxs: [
+        {
+          type: 'chatMessage',
+          data: {
+            message: `📤 Batch broadcasted: ${result.txHash?.slice(0, 16)}...`,
+            timestamp: replica.state.timestamp,
+            metadata: {
+              type: 'BATCH_BROADCAST',
+              txHash: result.txHash,
+            },
           },
         },
-      }],
+      ],
     });
   } else {
     console.error(`❌ jBatch broadcast failed: ${result.error}`);
@@ -380,10 +395,13 @@ async function hubRebalanceHandler(_env: Env, replica: EntityReplica): Promise<R
 
   const { deriveDelta } = await import('./account-utils');
 
-  const tokenAccountMap = new Map<number, {
-    netSpenders: Array<{ entityId: string; debt: bigint; collateral: bigint }>;
-    netReceivers: Array<{ entityId: string; requested: bigint }>;
-  }>();
+  const tokenAccountMap = new Map<
+    number,
+    {
+      netSpenders: Array<{ entityId: string; debt: bigint; collateral: bigint }>;
+      netReceivers: Array<{ entityId: string; requested: bigint }>;
+    }
+  >();
 
   for (const [counterpartyId, accountMachine] of replica.state.accounts.entries()) {
     for (const [tokenId, delta] of accountMachine.deltas.entries()) {
@@ -436,18 +454,20 @@ Match: ${rebalanceAmount} (${Number(rebalanceAmount * 100n) / Number(totalDebt |
     outputs.push({
       entityId: replica.entityId,
       signerId: 'system',
-      entityTxs: [{
-        type: 'chatMessage',
-        data: {
-          message,
-          timestamp: replica.state.timestamp,
-          metadata: {
-            type: 'REBALANCE_OPPORTUNITY',
-            tokenId,
-            rebalanceAmount: rebalanceAmount.toString(),
+      entityTxs: [
+        {
+          type: 'chatMessage',
+          data: {
+            message,
+            timestamp: replica.state.timestamp,
+            metadata: {
+              type: 'REBALANCE_OPPORTUNITY',
+              tokenId,
+              rebalanceAmount: rebalanceAmount.toString(),
+            },
           },
         },
-      }],
+      ],
     });
   }
 

@@ -9,7 +9,7 @@ import { getAccountPerspective } from '../../state-helpers';
 
 export function handleApproveWithdrawal(
   accountMachine: AccountMachine,
-  accountTx: Extract<AccountTx, { type: 'approve_withdrawal' }>
+  accountTx: Extract<AccountTx, { type: 'approve_withdrawal' }>,
 ): { success: boolean; events: string[]; error?: string; jBatchAction?: any } {
   const { tokenId, amount, requestId, approved } = accountTx.data;
   const events: string[] = [];
@@ -23,7 +23,7 @@ export function handleApproveWithdrawal(
     return {
       success: false,
       error: `Approval mismatch: expected ${request.amount} token ${request.tokenId}, got ${amount} token ${tokenId}`,
-      events
+      events,
     };
   }
 
@@ -48,7 +48,7 @@ export function handleApproveWithdrawal(
         counterpartyId: counterparty,
         tokenId,
         amount,
-      }
+      },
     };
   }
 

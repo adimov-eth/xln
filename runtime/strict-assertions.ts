@@ -30,16 +30,20 @@ const assertFrameHash = async (frame: AccountFrame, label: string): Promise<void
 const assertAccountFrames = async (
   account: AccountMachine,
   replicaKey: string,
-  counterpartyId: string
+  counterpartyId: string,
 ): Promise<void> => {
   const label = formatAccountLabel(replicaKey, counterpartyId);
   const { currentFrame } = account;
 
   if (currentFrame.height !== account.currentHeight) {
-    throw new Error(`[STRICT] ${label}: currentFrame.height ${currentFrame.height} != currentHeight ${account.currentHeight}`);
+    throw new Error(
+      `[STRICT] ${label}: currentFrame.height ${currentFrame.height} != currentHeight ${account.currentHeight}`,
+    );
   }
   if (account.proofHeader.disputeNonce !== account.currentHeight) {
-    throw new Error(`[STRICT] ${label}: disputeNonce ${account.proofHeader.disputeNonce} != currentHeight ${account.currentHeight}`);
+    throw new Error(
+      `[STRICT] ${label}: disputeNonce ${account.proofHeader.disputeNonce} != currentHeight ${account.currentHeight}`,
+    );
   }
 
   assertFrameShape(currentFrame, `${label} currentFrame`);
@@ -50,7 +54,9 @@ const assertAccountFrames = async (
   if (account.frameHistory.length > 0) {
     const lastFrame = account.frameHistory[account.frameHistory.length - 1]!;
     if (lastFrame.height !== account.currentHeight) {
-      throw new Error(`[STRICT] ${label}: frameHistory tail height ${lastFrame.height} != currentHeight ${account.currentHeight}`);
+      throw new Error(
+        `[STRICT] ${label}: frameHistory tail height ${lastFrame.height} != currentHeight ${account.currentHeight}`,
+      );
     }
     if (lastFrame.stateHash !== account.currentFrame.stateHash) {
       throw new Error(`[STRICT] ${label}: frameHistory tail hash mismatch`);

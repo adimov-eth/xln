@@ -45,9 +45,7 @@ export function validateScenario(parsed: ParsedScenario): boolean {
   if (parsed.errors.length > 0) {
     console.error('❌ Scenario has errors:');
     for (const error of parsed.errors) {
-      console.error(
-        `  Line ${error.lineNumber}: ${error.message}${error.context ? `\n    ${error.context}` : ''}`
-      );
+      console.error(`  Line ${error.lineNumber}: ${error.message}${error.context ? `\n    ${error.context}` : ''}`);
     }
     return false;
   }
@@ -56,7 +54,7 @@ export function validateScenario(parsed: ParsedScenario): boolean {
     console.warn('⚠️  Scenario has warnings:');
     for (const warning of parsed.warnings) {
       console.warn(
-        `  Line ${warning.lineNumber}: ${warning.message}${warning.suggestion ? `\n    💡 ${warning.suggestion}` : ''}`
+        `  Line ${warning.lineNumber}: ${warning.message}${warning.suggestion ? `\n    💡 ${warning.suggestion}` : ''}`,
       );
     }
   }

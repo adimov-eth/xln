@@ -29,7 +29,7 @@ type SettleReleaseTx = Extract<AccountTx, { type: 'settle_release' }>;
  */
 export async function handleSettleHold(
   accountMachine: AccountMachine,
-  tx: SettleHoldTx
+  tx: SettleHoldTx,
 ): Promise<{
   success: boolean;
   events: string[];
@@ -49,7 +49,7 @@ export async function handleSettleHold(
     return {
       success: false,
       events: [],
-      error: 'SECURITY: settle_hold requires active settlement workspace'
+      error: 'SECURITY: settle_hold requires active settlement workspace',
     };
   }
 
@@ -58,7 +58,7 @@ export async function handleSettleHold(
     return {
       success: false,
       events: [],
-      error: `SECURITY: settle_hold version mismatch (expected ${workspace.version}, got ${workspaceVersion})`
+      error: `SECURITY: settle_hold version mismatch (expected ${workspace.version}, got ${workspaceVersion})`,
     };
   }
 
@@ -74,11 +74,13 @@ export async function handleSettleHold(
   const workspaceDiffs = workspace.diffs || [];
 
   if (diffs.length !== workspaceDiffs.length) {
-    console.error(`❌ SECURITY: settle_hold diff count mismatch: tx=${diffs.length}, workspace=${workspaceDiffs.length}`);
+    console.error(
+      `❌ SECURITY: settle_hold diff count mismatch: tx=${diffs.length}, workspace=${workspaceDiffs.length}`,
+    );
     return {
       success: false,
       events: [],
-      error: 'SECURITY: settle_hold diffs count does not match workspace'
+      error: 'SECURITY: settle_hold diffs count does not match workspace',
     };
   }
 
@@ -94,17 +96,21 @@ export async function handleSettleHold(
     const expectedLeftWithdrawing = wsDiff.leftDiff < 0n ? -wsDiff.leftDiff : 0n;
     const expectedRightWithdrawing = wsDiff.rightDiff < 0n ? -wsDiff.rightDiff : 0n;
 
-    if (txDiff.tokenId !== wsDiff.tokenId ||
-        txDiff.leftWithdrawing !== expectedLeftWithdrawing ||
-        txDiff.rightWithdrawing !== expectedRightWithdrawing) {
+    if (
+      txDiff.tokenId !== wsDiff.tokenId ||
+      txDiff.leftWithdrawing !== expectedLeftWithdrawing ||
+      txDiff.rightWithdrawing !== expectedRightWithdrawing
+    ) {
       console.error(`❌ SECURITY: settle_hold diff[${i}] mismatch`);
-      console.error(`   tx: token=${txDiff.tokenId}, leftW=${txDiff.leftWithdrawing}, rightW=${txDiff.rightWithdrawing}`);
+      console.error(
+        `   tx: token=${txDiff.tokenId}, leftW=${txDiff.leftWithdrawing}, rightW=${txDiff.rightWithdrawing}`,
+      );
       console.error(`   ws: token=${wsDiff.tokenId}, leftD=${wsDiff.leftDiff}, rightD=${wsDiff.rightDiff}`);
       console.error(`   expected: leftW=${expectedLeftWithdrawing}, rightW=${expectedRightWithdrawing}`);
       return {
         success: false,
         events: [],
-        error: `SECURITY: settle_hold diff[${i}] does not match workspace`
+        error: `SECURITY: settle_hold diff[${i}] does not match workspace`,
       };
     }
   }
@@ -148,24 +154,28 @@ export async function handleSettleHold(
     // Check left capacity (skip for deposits — L1 validates reserves)
     if (!isLeftDeposit && existingLeftHold + diff.leftWithdrawing > leftCapacity) {
       console.error(`❌ SECURITY: settle_hold exceeds left capacity for token ${diff.tokenId}`);
-      console.error(`   requested: ${existingLeftHold} + ${diff.leftWithdrawing} = ${existingLeftHold + diff.leftWithdrawing}`);
+      console.error(
+        `   requested: ${existingLeftHold} + ${diff.leftWithdrawing} = ${existingLeftHold + diff.leftWithdrawing}`,
+      );
       console.error(`   capacity: ${leftCapacity}`);
       return {
         success: false,
         events: [],
-        error: `SECURITY: settle_hold exceeds left capacity for token ${diff.tokenId}`
+        error: `SECURITY: settle_hold exceeds left capacity for token ${diff.tokenId}`,
       };
     }
 
     // Check right capacity (skip for deposits — L1 validates reserves)
     if (!isRightDeposit && existingRightHold + diff.rightWithdrawing > rightCapacity) {
       console.error(`❌ SECURITY: settle_hold exceeds right capacity for token ${diff.tokenId}`);
-      console.error(`   requested: ${existingRightHold} + ${diff.rightWithdrawing} = ${existingRightHold + diff.rightWithdrawing}`);
+      console.error(
+        `   requested: ${existingRightHold} + ${diff.rightWithdrawing} = ${existingRightHold + diff.rightWithdrawing}`,
+      );
       console.error(`   capacity: ${rightCapacity}`);
       return {
         success: false,
         events: [],
-        error: `SECURITY: settle_hold exceeds right capacity for token ${diff.tokenId}`
+        error: `SECURITY: settle_hold exceeds right capacity for token ${diff.tokenId}`,
       };
     }
 
@@ -177,7 +187,9 @@ export async function handleSettleHold(
     delta.leftSettleHold += diff.leftWithdrawing;
     delta.rightSettleHold += diff.rightWithdrawing;
 
-    console.log(`   Token ${diff.tokenId}: leftHold=${delta.leftSettleHold}, rightHold=${delta.rightSettleHold}${isLeftDeposit ? ' (L-deposit)' : ''}${isRightDeposit ? ' (R-deposit)' : ''}`);
+    console.log(
+      `   Token ${diff.tokenId}: leftHold=${delta.leftSettleHold}, rightHold=${delta.rightSettleHold}${isLeftDeposit ? ' (L-deposit)' : ''}${isRightDeposit ? ' (R-deposit)' : ''}`,
+    );
   }
 
   return {
@@ -194,7 +206,7 @@ export async function handleSettleHold(
  */
 export async function handleSettleRelease(
   accountMachine: AccountMachine,
-  tx: SettleReleaseTx
+  tx: SettleReleaseTx,
 ): Promise<{
   success: boolean;
   events: string[];
@@ -220,14 +232,18 @@ export async function handleSettleRelease(
     const currentRightHold = delta.rightSettleHold;
 
     if (currentLeftHold < diff.leftWithdrawing) {
-      console.warn(`⚠️ SETTLE-RELEASE: leftSettleHold underflow! ${currentLeftHold} < ${diff.leftWithdrawing}, clamping to 0`);
+      console.warn(
+        `⚠️ SETTLE-RELEASE: leftSettleHold underflow! ${currentLeftHold} < ${diff.leftWithdrawing}, clamping to 0`,
+      );
       delta.leftSettleHold = 0n;
     } else {
       delta.leftSettleHold = currentLeftHold - diff.leftWithdrawing;
     }
 
     if (currentRightHold < diff.rightWithdrawing) {
-      console.warn(`⚠️ SETTLE-RELEASE: rightSettleHold underflow! ${currentRightHold} < ${diff.rightWithdrawing}, clamping to 0`);
+      console.warn(
+        `⚠️ SETTLE-RELEASE: rightSettleHold underflow! ${currentRightHold} < ${diff.rightWithdrawing}, clamping to 0`,
+      );
       delta.rightSettleHold = 0n;
     } else {
       delta.rightSettleHold = currentRightHold - diff.rightWithdrawing;

@@ -16,7 +16,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { safeStringify, safeParse } from '../serialization-utils';
 
 export type P2PKeyPair = {
-  publicKey: Uint8Array;  // 32 bytes
+  publicKey: Uint8Array; // 32 bytes
   privateKey: Uint8Array; // 32 bytes
 };
 
@@ -26,9 +26,7 @@ export type P2PKeyPair = {
  */
 export function deriveEncryptionKeyPair(seed: Uint8Array | string): P2PKeyPair {
   // Normalize seed to bytes
-  const seedBytes = typeof seed === 'string'
-    ? new TextEncoder().encode(seed)
-    : seed;
+  const seedBytes = typeof seed === 'string' ? new TextEncoder().encode(seed) : seed;
 
   // Hash seed to get 32-byte private key (ensures valid X25519 scalar)
   // Using domain separation to avoid key reuse with other derivations
@@ -62,10 +60,7 @@ export function deriveEncryptionKeyPair(seed: Uint8Array | string): P2PKeyPair {
  *
  * Wire format: ephemeralPub (32) + nonce (12) + ciphertext (data.length + 16)
  */
-export function encryptMessage(
-  plaintext: Uint8Array,
-  recipientPubKey: Uint8Array
-): Uint8Array {
+export function encryptMessage(plaintext: Uint8Array, recipientPubKey: Uint8Array): Uint8Array {
   // Generate ephemeral keypair (forward secrecy)
   const ephemeralPriv = x25519.utils.randomSecretKey();
   const ephemeralPub = x25519.getPublicKey(ephemeralPriv);
@@ -95,10 +90,7 @@ export function encryptMessage(
 /**
  * Decrypt message with our private key
  */
-export function decryptMessage(
-  packed: Uint8Array,
-  privateKey: Uint8Array
-): Uint8Array {
+export function decryptMessage(packed: Uint8Array, privateKey: Uint8Array): Uint8Array {
   if (packed.length < 44 + 16) {
     throw new Error('P2P_DECRYPT_ERROR: Message too short');
   }
@@ -124,10 +116,7 @@ export function decryptMessage(
 /**
  * Encrypt JSON object for recipient
  */
-export function encryptJSON(
-  data: unknown,
-  recipientPubKey: Uint8Array
-): string {
+export function encryptJSON(data: unknown, recipientPubKey: Uint8Array): string {
   // CRITICAL: Use safeStringify to handle BigInt values in AccountInput payloads
   const json = safeStringify(data);
   const plaintext = new TextEncoder().encode(json);
@@ -138,10 +127,7 @@ export function encryptJSON(
 /**
  * Decrypt JSON object with our private key
  */
-export function decryptJSON<T = unknown>(
-  encryptedBase64: string,
-  privateKey: Uint8Array
-): T {
+export function decryptJSON<T = unknown>(encryptedBase64: string, privateKey: Uint8Array): T {
   const encrypted = base64ToBytes(encryptedBase64);
   const plaintext = decryptMessage(encrypted, privateKey);
   const json = new TextDecoder().decode(plaintext);
@@ -153,7 +139,12 @@ export function decryptJSON<T = unknown>(
  * Convert public key to hex string (for profile sharing)
  */
 export function pubKeyToHex(pubKey: Uint8Array): string {
-  return '0x' + Array.from(pubKey).map(b => b.toString(16).padStart(2, '0')).join('');
+  return (
+    '0x' +
+    Array.from(pubKey)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('')
+  );
 }
 
 /**

@@ -93,7 +93,7 @@ export async function getHealthStatus(env: Env | null): Promise<HealthStatus> {
           entityId: profile.entityId,
           name: profile.metadata.name || 'Unknown',
           region: profile.metadata.region,
-          relayUrl: profile.metadata.relayUrl,
+          relayUrl: profile.metadata.relayUrl as string | undefined,
           status: 'healthy', // TODO: Add health check
         });
       }

@@ -12,9 +12,9 @@ import type { JAdapter } from '../jadapter/types';
  * Common metadata for all J-events (for JBlock tracking)
  */
 interface JEventMetadata {
-  blockNumber?: number;      // J-block number where event occurred
-  blockHash?: string;        // J-block hash for consensus
-  transactionHash?: string;  // On-chain transaction hash
+  blockNumber?: number; // J-block number where event occurred
+  blockHash?: string; // J-block hash for consensus
+  transactionHash?: string; // On-chain transaction hash
 }
 
 /**
@@ -28,7 +28,7 @@ export type JurisdictionEvent =
         entity: string;
         tokenId: number;
         newBalance: string;
-        symbol?: string;   // Optional - BrowserVM doesn't have token registry
+        symbol?: string; // Optional - BrowserVM doesn't have token registry
         decimals?: number; // Optional - use TOKEN_REGISTRY lookup if missing
       };
     })
@@ -74,10 +74,10 @@ export type JurisdictionEvent =
   | (JEventMetadata & {
       type: 'HankoBatchProcessed';
       data: {
-        entityId: string;      // Entity that submitted the batch
-        hankoHash: string;     // Hash of hanko data for verification
-        nonce: number;         // Batch nonce (incrementing per entity)
-        success: boolean;      // Whether batch processing succeeded
+        entityId: string; // Entity that submitted the batch
+        hankoHash: string; // Hash of hanko data for verification
+        nonce: number; // Batch nonce (incrementing per entity)
+        success: boolean; // Whether batch processing succeeded
       };
     })
   | (JEventMetadata & {
@@ -150,7 +150,7 @@ export interface JurisdictionEventData {
   events?: JurisdictionEvent[]; // Batched events from same block
   observedAt: number;
   blockNumber: number;
-  blockHash: string;  // Block hash for JBlock consensus
+  blockHash: string; // Block hash for JBlock consensus
   transactionHash: string;
 }
 
@@ -165,11 +165,11 @@ export const JBLOCK_LIVENESS_INTERVAL = 100;
  * Submitted as j_event EntityTx, aggregated by entity consensus.
  */
 export interface JBlockObservation {
-  signerId: string;              // Who observed this
-  jHeight: number;               // J-machine block number
-  jBlockHash: string;            // EVM block hash (or BrowserVM frame hash)
-  events: JurisdictionEvent[];   // Events relevant to this entity in this block
-  observedAt: number;            // When signer observed this (for timeout detection)
+  signerId: string; // Who observed this
+  jHeight: number; // J-machine block number
+  jBlockHash: string; // EVM block hash (or BrowserVM frame hash)
+  events: JurisdictionEvent[]; // Events relevant to this entity in this block
+  observedAt: number; // When signer observed this (for timeout detection)
 }
 
 /**
@@ -180,8 +180,8 @@ export interface JBlockFinalized {
   jHeight: number;
   jBlockHash: string;
   events: JurisdictionEvent[];
-  finalizedAt: number;           // When consensus was reached
-  signerCount: number;           // How many signers agreed (for audit)
+  finalizedAt: number; // When consensus was reached
+  signerCount: number; // How many signers agreed (for audit)
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -228,16 +228,16 @@ export type JTx =
  * Contains stateRoot for time travel + decoded contracts for UI
  */
 export interface JReplica {
-  name: string;                           // "ethereum", "base", "simnet"
-  blockNumber: bigint;                    // Current J-block height
-  stateRoot: Uint8Array;                  // 32 bytes - for time travel via setStateRoot()
-  mempool: JTx[];                         // Pending settlement txs
+  name: string; // "ethereum", "base", "simnet"
+  blockNumber: bigint; // Current J-block height
+  stateRoot: Uint8Array; // 32 bytes - for time travel via setStateRoot()
+  mempool: JTx[]; // Pending settlement txs
 
   // Block creation delay (ms-based for universal timing)
   // Creates visual delay where batches sit in mempool as yellow cubes
-  blockDelayMs: number;                   // Delay in ms before processing mempool (default: 300)
-  lastBlockTimestamp: number;             // Timestamp (ms) of last block creation
-  blockReady?: boolean;                   // True when mempool has items and blockDelayMs elapsed
+  blockDelayMs: number; // Delay in ms before processing mempool (default: 300)
+  lastBlockTimestamp: number; // Timestamp (ms) of last block creation
+  blockReady?: boolean; // True when mempool has items and blockDelayMs elapsed
 
   // JAdapter instance (for balance queries, transactions, etc)
   // Works with both browservm and rpc modes
@@ -264,7 +264,7 @@ export interface JReplica {
 
   // === SYNCED FROM DEPOSITORY.SOL ===
   // mapping(bytes32 => mapping(uint => uint)) _reserves
-  reserves?: Map<string, Map<number, bigint>>;  // entityId -> tokenId -> amount
+  reserves?: Map<string, Map<number, bigint>>; // entityId -> tokenId -> amount
 
   // mapping(bytes => mapping(uint => AccountCollateral)) _collaterals
   collaterals?: Map<string, Map<number, { collateral: bigint; ondelta: bigint }>>; // accountKey -> tokenId -> {collateral, ondelta}

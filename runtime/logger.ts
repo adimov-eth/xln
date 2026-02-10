@@ -32,21 +32,21 @@ export interface LogConfig {
 // Default log config - derived from constants.ts PERFORMANCE flags
 // Individual categories can be toggled at runtime via window.logConfig.set()
 export const LOG_CONFIG: LogConfig = {
-  ENTITY_TX: PERFORMANCE.DEBUG_CONSENSUS,        // Entity-level consensus
-  ACCOUNT_OPEN: PERFORMANCE.DEBUG_ACCOUNTS,      // Account creation
-  SIGNER_LOOKUP: PERFORMANCE.DEBUG_CONSENSUS,    // Validator management
-  PROCESS_TICK: PERFORMANCE.DEBUG_LOGGING,       // Tick processing
-  ENTITY_CONSENSUS: PERFORMANCE.DEBUG_CONSENSUS,  // Entity BFT consensus
+  ENTITY_TX: PERFORMANCE.DEBUG_CONSENSUS, // Entity-level consensus
+  ACCOUNT_OPEN: PERFORMANCE.DEBUG_ACCOUNTS, // Account creation
+  SIGNER_LOOKUP: PERFORMANCE.DEBUG_CONSENSUS, // Validator management
+  PROCESS_TICK: PERFORMANCE.DEBUG_LOGGING, // Tick processing
+  ENTITY_CONSENSUS: PERFORMANCE.DEBUG_CONSENSUS, // Entity BFT consensus
   ACCOUNT_CONSENSUS: PERFORMANCE.DEBUG_CONSENSUS, // Bilateral account consensus
-  ENTITY_OUTPUT: PERFORMANCE.DEBUG_LOGGING,      // Entity outputs
-  ENTITY_INPUT: PERFORMANCE.DEBUG_LOGGING,       // Entity inputs
-  SERVER_TICK: PERFORMANCE.DEBUG_LOGGING,        // Runtime tick processing
-  J_WATCHER: PERFORMANCE.LOG_BLOCKCHAIN_ERRORS,  // Blockchain watcher
+  ENTITY_OUTPUT: PERFORMANCE.DEBUG_LOGGING, // Entity outputs
+  ENTITY_INPUT: PERFORMANCE.DEBUG_LOGGING, // Entity inputs
+  SERVER_TICK: PERFORMANCE.DEBUG_LOGGING, // Runtime tick processing
+  J_WATCHER: PERFORMANCE.LOG_BLOCKCHAIN_ERRORS, // Blockchain watcher
   BLOCKCHAIN: PERFORMANCE.LOG_BLOCKCHAIN_ERRORS, // Blockchain interactions
-  GOSSIP: PERFORMANCE.DEBUG_LOGGING,             // Network gossip
-  R2R_FLOW: PERFORMANCE.DEBUG_ACCOUNTS,          // Reserve-to-reserve transfers
-  ACCOUNT_STATE: PERFORMANCE.DEBUG_ACCOUNTS,     // Account state changes
-  RUNTIME_TICK: PERFORMANCE.DEBUG_LOGGING,       // Runtime tick processing
+  GOSSIP: PERFORMANCE.DEBUG_LOGGING, // Network gossip
+  R2R_FLOW: PERFORMANCE.DEBUG_ACCOUNTS, // Reserve-to-reserve transfers
+  ACCOUNT_STATE: PERFORMANCE.DEBUG_ACCOUNTS, // Account state changes
+  RUNTIME_TICK: PERFORMANCE.DEBUG_LOGGING, // Runtime tick processing
 };
 
 let FAIL_FAST_ERRORS = false;
@@ -56,15 +56,17 @@ export function setFailFastErrors(enabled: boolean): void {
 }
 
 function formatLogArgs(args: unknown[]): string {
-  return args.map(arg => {
-    if (typeof arg === 'string') return arg;
-    if (typeof arg === 'bigint') return `${arg.toString()}n`;
-    try {
-      return JSON.stringify(arg);
-    } catch {
-      return String(arg);
-    }
-  }).join(' ');
+  return args
+    .map(arg => {
+      if (typeof arg === 'string') return arg;
+      if (typeof arg === 'bigint') return `${arg.toString()}n`;
+      try {
+        return JSON.stringify(arg);
+      } catch {
+        return String(arg);
+      }
+    })
+    .join(' ');
 }
 
 // Helper to check if logging is enabled for a category

@@ -21,7 +21,14 @@ import * as secp256k1 from '@noble/secp256k1';
 import { keccak256 } from 'ethers';
 
 import type { RuntimeInput, RoutedEntityInput } from '../types';
-import { deserializeWsMessage, hashHelloMessage, makeMessageId, serializeWsMessage, type RuntimeWsMessage, type RuntimeWsAuth } from './ws-protocol';
+import {
+  deserializeWsMessage,
+  hashHelloMessage,
+  makeMessageId,
+  serializeWsMessage,
+  type RuntimeWsMessage,
+  type RuntimeWsAuth,
+} from './ws-protocol';
 import { asFailFastPayload, failfastAssert } from './failfast';
 
 type ClientEntry = {
@@ -39,7 +46,7 @@ export type RuntimeWsServerOptions = {
   host?: string;
   port: number;
   serverId: string;
-  serverRuntimeId?: string;  // If set, messages to this runtimeId use local delivery
+  serverRuntimeId?: string; // If set, messages to this runtimeId use local delivery
   onRuntimeInput?: (from: string, input: RuntimeInput) => Promise<void> | void;
   onEntityInput?: (from: string, input: RoutedEntityInput) => Promise<void> | void;
   maxQueuePerRuntime?: number;
@@ -67,9 +74,7 @@ const now = () => {
 
 const parseRuntimeIdFromReq = (req: { headers?: Record<string, string | string[] | undefined>; url?: string }) => {
   const headers = req.headers || {};
-  const headerId =
-    (headers['x-runtime-id'] as string | undefined) ||
-    (headers['authorization'] as string | undefined);
+  const headerId = (headers['x-runtime-id'] as string | undefined) || (headers['authorization'] as string | undefined);
 
   if (headerId) return headerId;
   if (!req.url) return null;
@@ -204,7 +209,11 @@ export const startRuntimeWsServer = (options: RuntimeWsServerOptions) => {
   };
 
   const routeMessage = async (msg: RuntimeWsMessage, ws: WebSocket) => {
-    failfastAssert(typeof msg.type === 'string' && msg.type.length > 0, 'WS_SERVER_TYPE_INVALID', 'Missing message type');
+    failfastAssert(
+      typeof msg.type === 'string' && msg.type.length > 0,
+      'WS_SERVER_TYPE_INVALID',
+      'Missing message type',
+    );
     // GOSSIP ANNOUNCE: Store profiles in relay (clients pull when needed)
     if (msg.type === 'gossip_announce') {
       const payload = msg.payload as { profiles?: any[] } | undefined;
@@ -267,7 +276,8 @@ export const startRuntimeWsServer = (options: RuntimeWsServerOptions) => {
     // EXCEPT: encrypted messages must go through WS client for decryption
     const isLocalTarget = options.serverRuntimeId && target === options.serverRuntimeId;
     const isEncrypted = msg.encrypted === true;
-    const useLocalDelivery = isLocalTarget && (msg.type === 'entity_input' || msg.type === 'runtime_input') && !isEncrypted;
+    const useLocalDelivery =
+      isLocalTarget && (msg.type === 'entity_input' || msg.type === 'runtime_input') && !isEncrypted;
 
     const targetClient = clients.get(target);
     if (targetClient && !useLocalDelivery) {
@@ -336,7 +346,7 @@ export const startRuntimeWsServer = (options: RuntimeWsServerOptions) => {
       }
     });
 
-    ws.on('message', async (data) => {
+    ws.on('message', async data => {
       if (closed) return;
       const dataSize = getRawDataSize(data);
       if (dataSize > MAX_MESSAGE_BYTES) {
@@ -349,7 +359,9 @@ export const startRuntimeWsServer = (options: RuntimeWsServerOptions) => {
       try {
         msg = deserializeWsMessage(data as Buffer);
         failfastAssert(!!msg && typeof msg === 'object', 'WS_SERVER_MSG_INVALID', 'WS message must decode to object');
-        failfastAssert(typeof msg.type === 'string', 'WS_SERVER_MSG_TYPE_INVALID', 'WS message type must be string', { msg });
+        failfastAssert(typeof msg.type === 'string', 'WS_SERVER_MSG_TYPE_INVALID', 'WS message type must be string', {
+          msg,
+        });
       } catch (error) {
         const ff = asFailFastPayload(error);
         send(ws, { type: 'error', error: `Bad JSON: ${ff.code}: ${ff.message}` });
@@ -418,7 +430,7 @@ export const startRuntimeWsServer = (options: RuntimeWsServerOptions) => {
       }
     });
 
-    ws.on('error', (error) => {
+    ws.on('error', error => {
       closed = true;
       clearInterval(heartbeat);
       console.error(`[WS] Client error for ${runtimeId ?? 'unknown'}: ${(error as Error).message}`);
@@ -435,7 +447,7 @@ export const startRuntimeWsServer = (options: RuntimeWsServerOptions) => {
     console.log(`[WS] Runtime relay "${serverId}" listening on ${options.host || '0.0.0.0'}:${port}`);
   });
 
-  wss.on('error', (error) => {
+  wss.on('error', error => {
     const err = error as Error & { code?: string };
     const code = err.code ? ` (${err.code})` : '';
     console.error(`[WS] Runtime relay "${serverId}" failed: ${err.message}${code}`);
@@ -457,13 +469,12 @@ export const startRuntimeWsServer = (options: RuntimeWsServerOptions) => {
   };
 };
 
-if ((import.meta as any).main) {
+if (import.meta.main) {
   // Parse --port argument or use WS_PORT env var
   const args = process.argv;
   const portArgIdx = args.indexOf('--port');
-  const port = portArgIdx !== -1 && args[portArgIdx + 1]
-    ? Number(args[portArgIdx + 1])
-    : Number(process.env.WS_PORT || 8787);
+  const port =
+    portArgIdx !== -1 && args[portArgIdx + 1] ? Number(args[portArgIdx + 1]) : Number(process.env.WS_PORT || 8787);
   const serverId = process.env.WS_SERVER_ID || 'hub';
   console.log(`[WS] Starting relay server on port ${port}`);
   startRuntimeWsServer({ port, serverId });

@@ -17,7 +17,7 @@ import { initJBatch, batchAddReserveToReserve } from '../../j-batch';
 
 export async function handleReserveToReserve(
   entityState: EntityState,
-  entityTx: Extract<EntityTx, { type: 'reserve_to_reserve' }>
+  entityTx: Extract<EntityTx, { type: 'reserve_to_reserve' }>,
 ): Promise<{ newState: EntityState; outputs: EntityInput[] }> {
   const { toEntityId, tokenId, amount } = entityTx.data;
   const newState = cloneEntityState(entityState);
@@ -38,15 +38,11 @@ export async function handleReserveToReserve(
   }
 
   // Add to jBatch (will be broadcast via j_broadcast tx)
-  batchAddReserveToReserve(
-    newState.jBatchState,
-    toEntityId,
-    tokenId,
-    amount
-  );
+  batchAddReserveToReserve(newState.jBatchState, toEntityId, tokenId, amount);
 
-  addMessage(newState,
-    `📦 Queued R→R: ${amount} token ${tokenId} to ${toEntityId.slice(-4)} (use jBroadcast to commit)`
+  addMessage(
+    newState,
+    `📦 Queued R→R: ${amount} token ${tokenId} to ${toEntityId.slice(-4)} (use jBroadcast to commit)`,
   );
 
   console.log(`✅ reserve_to_reserve: Added to jBatch for ${entityState.entityId.slice(-4)}`);

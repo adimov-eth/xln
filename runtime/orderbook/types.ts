@@ -22,7 +22,7 @@ export function canonicalPair(tokenA: number, tokenB: number): { base: number; q
 export function deriveSide(giveTokenId: number, wantTokenId: number): 0 | 1 {
   // If giving base token (lower id), you're SELLING base
   // If giving quote token (higher id), you're BUYING base
-  return giveTokenId < wantTokenId ? 1 : 0;  // 1 = SELL, 0 = BUY
+  return giveTokenId < wantTokenId ? 1 : 0; // 1 = SELL, 0 = BUY
 }
 
 /** Calculate fill amount from ratio (uint16) */
@@ -44,17 +44,16 @@ export const BPS_BASE = 10000;
  * All values in basis points, must sum to 10000 (100%)
  */
 export interface SpreadDistribution {
-  makerBps: number;         // Price improvement to maker
-  takerBps: number;         // Rebate to taker
-  hubBps: number;           // Hub revenue
+  makerBps: number; // Price improvement to maker
+  takerBps: number; // Rebate to taker
+  hubBps: number; // Hub revenue
   makerReferrerBps: number; // Reward to maker's referrer
   takerReferrerBps: number; // Reward to taker's referrer
 }
 
 /** Validate spread distribution sums to 100% */
 export function validateSpreadDistribution(dist: SpreadDistribution): boolean {
-  const total = dist.makerBps + dist.takerBps + dist.hubBps +
-                dist.makerReferrerBps + dist.takerReferrerBps;
+  const total = dist.makerBps + dist.takerBps + dist.hubBps + dist.makerReferrerBps + dist.takerReferrerBps;
   return total === BPS_BASE;
 }
 
@@ -75,9 +74,9 @@ export interface HubProfile {
   entityId: string;
   name: string;
   spreadDistribution: SpreadDistribution;
-  referenceTokenId: number;  // Token for fee payments (e.g., USDC = 2)
-  minTradeSize: bigint;      // Minimum trade size in reference token
-  supportedPairs: string[];  // e.g., ["1/2", "1/3"]
+  referenceTokenId: number; // Token for fee payments (e.g., USDC = 2)
+  minTradeSize: bigint; // Minimum trade size in reference token
+  supportedPairs: string[]; // e.g., ["1/2", "1/3"]
 }
 
 /**
@@ -85,21 +84,18 @@ export interface HubProfile {
  * Amounts in reference token (quote currency)
  */
 export interface SpreadAllocation {
-  totalSpread: bigint;       // taker_limit - maker_price
-  makerBonus: bigint;        // Added to maker's execution price
-  takerRebate: bigint;       // Returned to taker
-  hubRevenue: bigint;        // Hub keeps
-  makerReferrerFee: bigint;  // DirectPayment to maker's referrer
-  takerReferrerFee: bigint;  // DirectPayment to taker's referrer
+  totalSpread: bigint; // taker_limit - maker_price
+  makerBonus: bigint; // Added to maker's execution price
+  takerRebate: bigint; // Returned to taker
+  hubRevenue: bigint; // Hub keeps
+  makerReferrerFee: bigint; // DirectPayment to maker's referrer
+  takerReferrerFee: bigint; // DirectPayment to taker's referrer
 }
 
 /**
  * Calculate spread allocation based on distribution rules
  */
-export function calculateSpreadAllocation(
-  spread: bigint,
-  distribution: SpreadDistribution
-): SpreadAllocation {
+export function calculateSpreadAllocation(spread: bigint, distribution: SpreadDistribution): SpreadAllocation {
   if (spread <= 0n) {
     return {
       totalSpread: 0n,
@@ -137,7 +133,7 @@ export function calculateSpreadAllocation(
  */
 export interface EntityReferral {
   entityId: string;
-  referrerId: string | null;  // Who onboarded this entity (null if organic)
+  referrerId: string | null; // Who onboarded this entity (null if organic)
   timestamp: number;
 }
 

@@ -12,11 +12,11 @@ export type JAdapterMode = 'browservm' | 'anvil' | 'rpc';
 export interface JAdapterConfig {
   mode: JAdapterMode;
   chainId: number;
-  rpcUrl?: string;                    // Required for anvil/rpc
-  stateFile?: string;                 // Anvil: --load-state, BrowserVM: import path
-  privateKey?: string;                // Signer key (default: hardhat #0)
-  fromReplica?: JReplica;             // Sync addresses from existing replica
-  browserVMState?: BrowserVMState;    // Import BrowserVM state directly
+  rpcUrl?: string; // Required for anvil/rpc
+  stateFile?: string; // Anvil: --load-state, BrowserVM: import path
+  privateKey?: string; // Signer key (default: hardhat #0)
+  fromReplica?: JReplica; // Sync addresses from existing replica
+  browserVMState?: BrowserVMState; // Import BrowserVM state directly
 }
 
 export interface JAdapterAddresses {
@@ -87,7 +87,7 @@ export interface JAdapter {
     diffs: SettlementDiff[],
     forgiveDebtsInTokenIds?: number[],
     insuranceRegs?: InsuranceReg[],
-    sig?: string
+    sig?: string,
   ): Promise<JTxReceipt>;
 
   // Writes - Entity Management
@@ -109,16 +109,19 @@ export interface JAdapter {
       tokenType?: number;
       externalTokenId?: bigint;
       internalTokenId?: number;
-    }
+    },
   ): Promise<JEvent[]>;
 
   // === High-level J-tx submission (unified interface for all modes) ===
   // Handles encoding, signing, and execution. Events arrive via j-watcher → next frame.
-  submitTx(jTx: JTx, options: {
-    env: any;           // Runtime env (for hanko signing)
-    signerId?: string;  // Which signer to use for hanko
-    timestamp?: number; // Block timestamp (scenarioMode)
-  }): Promise<JSubmitResult>;
+  submitTx(
+    jTx: JTx,
+    options: {
+      env: any; // Runtime env (for hanko signing)
+      signerId?: string; // Which signer to use for hanko
+      timestamp?: number; // Block timestamp (scenarioMode)
+    },
+  ): Promise<JSubmitResult>;
 
   // === J-Watcher integration ===
   // Starts feeding J-events back to runtime mempool. Same object handles submit + watch.
@@ -187,7 +190,11 @@ export interface BrowserVMProvider {
   serializeState(): Promise<any>;
   restoreState(state: any): Promise<void>;
   onAny(callback: (events: any[]) => void): () => void;
-  getCollateral(entityId: string, counterpartyId: string, tokenId: number): Promise<{ collateral: bigint; ondelta: bigint }>;
+  getCollateral(
+    entityId: string,
+    counterpartyId: string,
+    tokenId: number,
+  ): Promise<{ collateral: bigint; ondelta: bigint }>;
   getReserves(entityId: string, tokenId: number): Promise<bigint>;
   getEntityNonce(entityId: string): Promise<bigint>;
   signSettlement(
@@ -195,7 +202,7 @@ export interface BrowserVMProvider {
     counterpartyEntityId: string,
     diffs: SettlementDiff[],
     forgiveDebtsInTokenIds?: number[],
-    insuranceRegs?: InsuranceReg[]
+    insuranceRegs?: InsuranceReg[],
   ): Promise<string>;
   settleWithInsurance(
     leftEntity: string,
@@ -203,6 +210,7 @@ export interface BrowserVMProvider {
     diffs: SettlementDiff[],
     forgiveDebtsInTokenIds?: number[],
     insuranceRegs?: InsuranceReg[],
-    sig?: string
+    sig?: string,
   ): Promise<any[]>;
+  fundSignerWallet(address: string, amount?: bigint): Promise<void>;
 }

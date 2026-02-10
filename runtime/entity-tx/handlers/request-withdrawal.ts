@@ -3,7 +3,7 @@ import type { AccountKey } from '../../ids';
 
 export function handleRequestWithdrawal(
   state: EntityState,
-  entityTx: Extract<EntityTx, { type: 'requestWithdrawal' }>
+  entityTx: Extract<EntityTx, { type: 'requestWithdrawal' }>,
 ): EntityState {
   const { counterpartyEntityId, tokenId, amount } = entityTx.data;
 
@@ -23,8 +23,8 @@ export function handleRequestWithdrawal(
     data: {
       tokenId,
       amount,
-      requestId
-    }
+      requestId,
+    },
   };
 
   // Add to account mempool (will be picked up by AUTO-PROPOSE)

@@ -22,7 +22,7 @@ export async function handleHtlcLock(
   byLeft: boolean,
   currentTimestamp: number,
   currentHeight: number,
-  isValidation: boolean = false
+  isValidation: boolean = false,
 ): Promise<{ success: boolean; events: string[]; error?: string }> {
   console.log('🔒 handleHtlcLock CALLED');
   const lockId = accountTx.data.lockId as LockId;
@@ -50,7 +50,7 @@ export async function handleHtlcLock(
     return {
       success: false,
       error: `revealBeforeHeight ${revealBeforeHeight} already passed (current height: ${currentHeight})`,
-      events
+      events,
     };
   }
 
@@ -129,16 +129,18 @@ export async function handleHtlcLock(
   // CRITICAL CONSENSUS FIX: Add during validation too (prevents duplicate lockId in same frame)
   // BUT only on commit persist to real accountMachine (validation uses temporary clone)
   if (!isValidation) {
-    console.log(`🔒 COMMIT: Adding lock, lockId=${lockId.slice(0,16)}`);
+    console.log(`🔒 COMMIT: Adding lock, lockId=${lockId.slice(0, 16)}`);
     accountMachine.locks.set(lockId, lock);
-    console.log(`✅ Lock added to Map: ${lockId.slice(0,16)}..., locks.size=${accountMachine.locks.size}`);
+    console.log(`✅ Lock added to Map: ${lockId.slice(0, 16)}..., locks.size=${accountMachine.locks.size}`);
   } else {
     // Validation: Add to clone to check duplicates, but clone is discarded
     accountMachine.locks.set(lockId, lock);
     console.log(`⏭️ VALIDATION: Lock added to validation clone (dup check), size=${accountMachine.locks.size}`);
   }
 
-  events.push(`🔒 HTLC locked: ${amount} token ${tokenId}, expires block ${revealBeforeHeight}, hash ${hashlock.slice(0,16)}...`);
+  events.push(
+    `🔒 HTLC locked: ${amount} token ${tokenId}, expires block ${revealBeforeHeight}, hash ${hashlock.slice(0, 16)}...`,
+  );
 
   console.log(`✅ handleHtlcLock SUCCESS, returning events: ${events.length}`);
   return { success: true, events };

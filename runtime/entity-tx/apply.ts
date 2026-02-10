@@ -32,9 +32,13 @@ import { submitSettle } from '../evm';
 import { logError } from '../logger';
 import { FINANCIAL } from '../constants';
 
-export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx: EntityTx): Promise<ApplyEntityTxResult> => {
+export const applyEntityTx = async (
+  env: Env,
+  entityState: EntityState,
+  entityTx: EntityTx,
+): Promise<ApplyEntityTxResult> => {
   if (!entityTx) {
-    logError("ENTITY_TX", `❌ EntityTx is undefined!`);
+    logError('ENTITY_TX', `❌ EntityTx is undefined!`);
     return { newState: entityState, outputs: [] };
   }
 
@@ -177,10 +181,16 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
           const runtimeDb = env ? getRuntimeDb(env) : null;
           if (runtimeDb && env) {
             await tryOpenDb(env);
-            await processProfileUpdate(runtimeDb, profileData.entityId, profileData, profileData.hankoSignature || '', env);
+            await processProfileUpdate(
+              runtimeDb,
+              profileData.entityId,
+              profileData,
+              profileData.hankoSignature || '',
+              env,
+            );
           }
         } catch (error) {
-          logError("ENTITY_TX", `❌ Failed to process profile update for ${profileData.entityId}:`, error);
+          logError('ENTITY_TX', `❌ Failed to process profile update for ${profileData.entityId}:`, error);
         }
       } else {
         console.warn(`⚠️ Invalid profile-update transaction data:`, entityTx.data);
@@ -242,11 +252,15 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
       const isLeft = isLeftEntity(entityState.entityId, targetEntityId);
 
       if (entityState.accounts.has(counterpartyId as AccountKey)) {
-        console.log(`💳 OPEN-ACCOUNT: Account with ${formatEntityId(counterpartyId)} already exists, skipping duplicate request`);
+        console.log(
+          `💳 OPEN-ACCOUNT: Account with ${formatEntityId(counterpartyId)} already exists, skipping duplicate request`,
+        );
         return { newState: entityState, outputs: [] };
       }
 
-      console.log(`💳 OPEN-ACCOUNT: Opening account with ${counterpartyId} (counterparty: ${counterpartyId.slice(-4)})`);
+      console.log(
+        `💳 OPEN-ACCOUNT: Opening account with ${counterpartyId} (counterparty: ${counterpartyId.slice(-4)})`,
+      );
 
       // Emit account opening event
       env.emit('AccountOpening', {
@@ -298,7 +312,7 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
           // CHANNEL.TS REFERENCE: Proper message counters (NOT timestamps!)
           // Removed isProposer - use isLeft() function like old_src Channel.ts
           proofHeader: {
-            fromEntity: entityState.entityId,  // Perspective-dependent for signing
+            fromEntity: entityState.entityId, // Perspective-dependent for signing
             toEntity: counterpartyId,
             cooperativeNonce: 0,
             disputeNonce: 0,
@@ -306,7 +320,7 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
           proofBody: { tokenIds: [], deltas: [] },
           // Dispute configuration (default: 20 blocks = 2 * 10)
           disputeConfig: {
-            leftDisputeDelay: 2,  // 20 blocks for left entity
+            leftDisputeDelay: 2, // 20 blocks for left entity
             rightDisputeDelay: 2, // 20 blocks for right entity
           },
           frameHistory: [],
@@ -343,7 +357,7 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
         // Side auto-detected by handler from frame proposer
         localAccount.mempool.push(
           { type: 'add_delta', data: { tokenId } },
-          { type: 'set_credit_limit', data: { tokenId, amount: creditAmount } }
+          { type: 'set_credit_limit', data: { tokenId, amount: creditAmount } },
         );
         console.log(`📝 Initiator queued [add_delta, set_credit_limit] (credit=${creditAmount})`);
       } else {
@@ -361,13 +375,15 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
       // Anti-ping-pong: counterparty's accounts.has() check (line 243) prevents infinite loop
       outputs.push({
         entityId: targetEntityId,
-        entityTxs: [{
-          type: 'openAccount',
-          data: {
-            targetEntityId: entityState.entityId,
-            tokenId: entityTx.data.tokenId ?? 1,
-          }
-        }]
+        entityTxs: [
+          {
+            type: 'openAccount',
+            data: {
+              targetEntityId: entityState.entityId,
+              tokenId: entityTx.data.tokenId ?? 1,
+            },
+          },
+        ],
       });
       console.log(`📤 Sent openAccount request to counterparty ${formatEntityId(targetEntityId)} (signer: auto)`);
 
@@ -383,12 +399,16 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
         const profile = buildEntityProfile(newState, existingName, monotonicTimestamp);
         const mergedProfile = mergeProfileWithExisting(profile, existingProfile);
 
-        console.log(`🏗️ Built profile for ${newState.entityId.slice(-4)}: accounts=${mergedProfile.accounts?.length || 0} name=${mergedProfile.metadata?.name || 'none'}`);
+        console.log(
+          `🏗️ Built profile for ${newState.entityId.slice(-4)}: accounts=${mergedProfile.accounts?.length || 0} name=${mergedProfile.metadata?.name || 'none'}`,
+        );
 
         if (env.runtimeId) {
           mergedProfile.runtimeId = env.runtimeId;
         }
-        console.log(`📡 Announcing profile ${newState.entityId.slice(-4)} ts=${monotonicTimestamp} accounts=${mergedProfile.accounts?.length || 0}`);
+        console.log(
+          `📡 Announcing profile ${newState.entityId.slice(-4)} ts=${monotonicTimestamp} accounts=${mergedProfile.accounts?.length || 0}`,
+        );
         env.gossip.announce(mergedProfile);
       }
 
@@ -413,17 +433,19 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
           accountId,
           tx: {
             type: 'htlc_resolve',
-            data: { lockId, outcome: 'error' as const, reason: 'timeout' }
-          }
+            data: { lockId, outcome: 'error' as const, reason: 'timeout' },
+          },
         });
-        console.log(`⏰   Queued timeout for lock ${lockId.slice(0,16)}... on account ${accountId.slice(-4)}`);
+        console.log(`⏰   Queued timeout for lock ${lockId.slice(0, 16)}... on account ${accountId.slice(-4)}`);
       }
 
       return { newState, outputs, mempoolOps };
     }
 
     if (entityTx.type === 'rollbackTimedOutFrames') {
-      console.log(`⏰ ROLLBACK-TIMED-OUT-FRAMES: Processing ${entityTx.data.timedOutAccounts.length} timed-out accounts`);
+      console.log(
+        `⏰ ROLLBACK-TIMED-OUT-FRAMES: Processing ${entityTx.data.timedOutAccounts.length} timed-out accounts`,
+      );
 
       const newState = cloneEntityState(entityState);
       const outputs: RoutedEntityInput[] = [];
@@ -438,7 +460,9 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
 
         // Verify the frame height matches (avoid stale rollback)
         if (accountMachine.proposal.pendingFrame.height !== frameHeight) {
-          console.log(`⏰   Account ${counterpartyId.slice(-4)}: frame height mismatch (pending=${accountMachine.proposal.pendingFrame.height}, expected=${frameHeight})`);
+          console.log(
+            `⏰   Account ${counterpartyId.slice(-4)}: frame height mismatch (pending=${accountMachine.proposal.pendingFrame.height}, expected=${frameHeight})`,
+          );
           continue;
         }
 
@@ -459,10 +483,12 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
                     lockId: route.inboundLockId,
                     outcome: 'error' as const,
                     reason: 'ack_timeout',
-                  }
-                }
+                  },
+                },
               });
-              console.log(`⬅️   HTLC cancel backward: hashlock=${hashlock.slice(0,12)}... → inbound ${route.inboundEntity.slice(-4)}`);
+              console.log(
+                `⬅️   HTLC cancel backward: hashlock=${hashlock.slice(0, 12)}... → inbound ${route.inboundEntity.slice(-4)}`,
+              );
               newState.htlcRoutes.delete(hashlock);
             }
             // Don't re-add htlc_lock to mempool (it's being cancelled)
@@ -475,7 +501,9 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
 
         // Clear pending state (same as rollback in account-consensus.ts)
         delete accountMachine.proposal;
-        console.log(`⏰   Account ${counterpartyId.slice(-4)}: pendingFrame cleared, mempool=${accountMachine.mempool.length}`);
+        console.log(
+          `⏰   Account ${counterpartyId.slice(-4)}: pendingFrame cleared, mempool=${accountMachine.mempool.length}`,
+        );
       }
 
       return { newState, outputs, mempoolOps };
@@ -500,20 +528,22 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
             timelock,
             revealBeforeHeight,
             amount,
-            tokenId
+            tokenId,
             // NO envelope - for timeout testing
-          }
-        }
+          },
+        },
       });
 
-      console.log(`🔒   Queued htlc_lock for ${counterpartyId.slice(-4)}, lockId=${lockId.slice(0,16)}...`);
+      console.log(`🔒   Queued htlc_lock for ${counterpartyId.slice(-4)}, lockId=${lockId.slice(0, 16)}...`);
 
       return { newState, outputs, mempoolOps };
     }
 
     if (entityTx.type === 'directPayment') {
       console.log(`💸 ═════════════════════════════════════════════════════════════`);
-      console.log(`💸 DIRECT-PAYMENT HANDLER: ${entityState.entityId.slice(-4)} → ${entityTx.data.targetEntityId.slice(-4)}`);
+      console.log(
+        `💸 DIRECT-PAYMENT HANDLER: ${entityState.entityId.slice(-4)} → ${entityTx.data.targetEntityId.slice(-4)}`,
+      );
       console.log(`💸 Amount: ${entityTx.data.amount}, TokenId: ${entityTx.data.tokenId}`);
       console.log(`💸 Route: ${entityTx.data.route?.map(r => r.slice(-4)).join('→') || 'NONE (will calculate)'}`);
       console.log(`💸 Description: ${entityTx.data.description || 'none'}`);
@@ -535,7 +565,10 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
       // Extract payment details
       let { targetEntityId, tokenId, amount, route, description } = entityTx.data;
       if (amount < FINANCIAL.MIN_PAYMENT_AMOUNT || amount > FINANCIAL.MAX_PAYMENT_AMOUNT) {
-        logError("ENTITY_TX", `❌ Payment amount out of bounds: ${amount.toString()} (min ${FINANCIAL.MIN_PAYMENT_AMOUNT.toString()}, max ${FINANCIAL.MAX_PAYMENT_AMOUNT.toString()})`);
+        logError(
+          'ENTITY_TX',
+          `❌ Payment amount out of bounds: ${amount.toString()} (min ${FINANCIAL.MIN_PAYMENT_AMOUNT.toString()}, max ${FINANCIAL.MAX_PAYMENT_AMOUNT.toString()})`,
+        );
         addMessage(newState, `❌ Payment failed: amount out of bounds`);
         return { newState, outputs: [] };
       }
@@ -561,12 +594,12 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
               route = paths[0].path;
               console.log(`💸 Found route: ${route.map(e => formatEntityId(e)).join(' → ')}`);
             } else {
-              logError("ENTITY_TX", `❌ No route found to ${formatEntityId(targetEntityId)}`);
+              logError('ENTITY_TX', `❌ No route found to ${formatEntityId(targetEntityId)}`);
               addMessage(newState, `❌ Payment failed: No route to ${formatEntityId(targetEntityId)}`);
               return { newState, outputs: [] };
             }
           } else {
-            logError("ENTITY_TX", `❌ Cannot find route: Gossip layer not available`);
+            logError('ENTITY_TX', `❌ Cannot find route: Gossip layer not available`);
             addMessage(newState, `❌ Payment failed: Network routing unavailable`);
             return { newState, outputs: [] };
           }
@@ -575,15 +608,19 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
 
       // Validate route starts with current entity
       if (route.length < 1 || route[0] !== entityState.entityId) {
-        console.error(`❌ ROUTE VALIDATION FAILED: route.length=${route.length}, route[0]=${route[0]?.slice(-4)}, entityId=${entityState.entityId.slice(-4)}`);
-        logError("ENTITY_TX", `❌ Invalid route: doesn't start with current entity`);
+        console.error(
+          `❌ ROUTE VALIDATION FAILED: route.length=${route.length}, route[0]=${route[0]?.slice(-4)}, entityId=${entityState.entityId.slice(-4)}`,
+        );
+        logError('ENTITY_TX', `❌ Invalid route: doesn't start with current entity`);
         return { newState: entityState, outputs: [] };
       }
 
       // Validate route ends with targetEntityId
       if (route[route.length - 1] !== targetEntityId) {
-        console.error(`❌ ROUTE VALIDATION FAILED: route ends with ${route[route.length - 1]?.slice(-4)}, expected targetEntityId=${targetEntityId.slice(-4)}`);
-        logError("ENTITY_TX", `❌ Invalid route: route end must match targetEntityId`);
+        console.error(
+          `❌ ROUTE VALIDATION FAILED: route ends with ${route[route.length - 1]?.slice(-4)}, expected targetEntityId=${targetEntityId.slice(-4)}`,
+        );
+        logError('ENTITY_TX', `❌ Invalid route: route end must match targetEntityId`);
         return { newState: entityState, outputs: [] };
       }
 
@@ -601,7 +638,7 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
       const nextHop = route[1];
       if (!nextHop) {
         console.error(`❌ ROUTE ERROR: No next hop in route=[${route.map(r => r.slice(-4)).join(',')}]`);
-        logError("ENTITY_TX", `❌ Invalid route: no next hop specified in route`);
+        logError('ENTITY_TX', `❌ Invalid route: no next hop specified in route`);
         return { newState, outputs: [] };
       }
 
@@ -609,7 +646,7 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
       // Account keyed by counterparty ID
       const accountMachine = newState.accounts.get(nextHop as AccountKey);
       if (!accountMachine) {
-        logError("ENTITY_TX", `❌ No account with next hop: ${nextHop}`);
+        logError('ENTITY_TX', `❌ No account with next hop: ${nextHop}`);
         addMessage(newState, `❌ Payment failed: No account with ${formatEntityId(nextHop)}`);
         return { newState, outputs: [] };
       }
@@ -627,7 +664,7 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
           route: route.slice(1), // Remove sender from route (next hop needs to see themselves in route[0])
           description: description || `Payment to ${formatEntityId(targetEntityId)}`,
           fromEntityId: entityState.entityId, // ✅ EXPLICIT direction
-          toEntityId: nextHop,                 // ✅ EXPLICIT direction
+          toEntityId: nextHop, // ✅ EXPLICIT direction
         },
       };
 
@@ -640,15 +677,18 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
         console.log(`💸   Amount: ${accountTx.data.amount}`);
         console.log(`💸   From: ${accountTx.data.fromEntityId?.slice(-4)}`);
         console.log(`💸   To: ${accountTx.data.toEntityId?.slice(-4)}`);
-        console.log(`💸   Route after slice: [${accountTx.data.route?.map((r: string) => r.slice(-4)).join(',') || 'none'}]`);
+        console.log(
+          `💸   Route after slice: [${accountTx.data.route?.map((r: string) => r.slice(-4)).join(',') || 'none'}]`,
+        );
         console.log(`💸 mempoolOps.length: ${mempoolOps.length}`);
 
         const isLeft = isLeftEntity(accountMachine.proofHeader.fromEntity, accountMachine.proofHeader.toEntity);
         console.log(`💸 Account state: isLeft=${isLeft}, hasPendingFrame=${!!accountMachine.proposal}`);
 
         // Message about payment initiation
-        addMessage(newState,
-          `💸 Sending ${amount} (token ${tokenId}) to ${formatEntityId(targetEntityId)} via ${route.length - 1} hops`
+        addMessage(
+          newState,
+          `💸 Sending ${amount} (token ${tokenId}) to ${formatEntityId(targetEntityId)} via ${route.length - 1} hops`,
         );
 
         // The payment is now queued for entity-level orchestration
@@ -663,7 +703,7 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
           outputs.push({
             entityId: entityState.entityId,
             signerId: firstValidator,
-            entityTxs: [] // Empty transaction array - just triggers processing
+            entityTxs: [], // Empty transaction array - just triggers processing
           });
           console.log(`💸 Added processing trigger: outputs.length=${outputs.length}`);
         }
@@ -688,7 +728,9 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
       const { handleJBroadcast } = await import('./handlers/j-broadcast');
       const batch = entityState.jBatchState?.batch;
       if (batch) {
-        console.log(`🔍 APPLY j_broadcast: ${entityState.entityId.slice(-4)} batch r2r=${batch.reserveToReserve.length}, r2c=${batch.reserveToCollateral.length}, c2r=${batch.collateralToReserve.length}, settlements=${batch.settlements.length}, starts=${batch.disputeStarts.length}, finals=${batch.disputeFinalizations.length}`);
+        console.log(
+          `🔍 APPLY j_broadcast: ${entityState.entityId.slice(-4)} batch r2r=${batch.reserveToReserve.length}, r2c=${batch.reserveToCollateral.length}, c2r=${batch.collateralToReserve.length}, settlements=${batch.settlements.length}, starts=${batch.disputeStarts.length}, finals=${batch.disputeFinalizations.length}`,
+        );
       } else {
         console.log(`🔍 APPLY j_broadcast: ${entityState.entityId.slice(-4)} has no jBatchState`);
       }
@@ -743,7 +785,9 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
     }
 
     if (entityTx.type === 'extendCredit') {
-      console.log(`💳 EXTEND-CREDIT: ${entityState.entityId.slice(-4)} extending credit to ${entityTx.data.counterpartyEntityId.slice(-4)}`);
+      console.log(
+        `💳 EXTEND-CREDIT: ${entityState.entityId.slice(-4)} extending credit to ${entityTx.data.counterpartyEntityId.slice(-4)}`,
+      );
 
       const newState = cloneEntityState(entityState);
       const outputs: RoutedEntityInput[] = [];
@@ -767,7 +811,9 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
 
       // Pure: return mempoolOp instead of mutating directly
       mempoolOps.push({ accountId: counterpartyEntityId, tx: accountTx });
-      console.log(`💳 Added set_credit_limit to mempoolOps for account with ${counterpartyEntityId.slice(-4)} amount=${amount}`);
+      console.log(
+        `💳 Added set_credit_limit to mempoolOps for account with ${counterpartyEntityId.slice(-4)} amount=${amount}`,
+      );
 
       addMessage(newState, `💳 Extended credit of ${amount} to ${counterpartyEntityId.slice(-4)}`);
 
@@ -777,7 +823,7 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
         outputs.push({
           entityId: entityState.entityId,
           signerId: firstValidator,
-          entityTxs: [] // Empty - triggers processing
+          entityTxs: [], // Empty - triggers processing
         });
       }
 
@@ -788,12 +834,15 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
 
     // === SWAP ENTITY HANDLERS ===
     if (entityTx.type === 'placeSwapOffer') {
-      console.log(`📊 PLACE-SWAP-OFFER: ${entityState.entityId.slice(-4)} placing offer with ${entityTx.data.counterpartyEntityId.slice(-4)}`);
+      console.log(
+        `📊 PLACE-SWAP-OFFER: ${entityState.entityId.slice(-4)} placing offer with ${entityTx.data.counterpartyEntityId.slice(-4)}`,
+      );
 
       const newState = cloneEntityState(entityState);
       const outputs: RoutedEntityInput[] = [];
       const mempoolOps: MempoolOp[] = [];
-      const { counterpartyEntityId, offerId, giveTokenId, giveAmount, wantTokenId, wantAmount, minFillRatio } = entityTx.data;
+      const { counterpartyEntityId, offerId, giveTokenId, giveAmount, wantTokenId, wantAmount, minFillRatio } =
+        entityTx.data;
 
       // Use canonical key for account lookup
       // Account keyed by counterparty ID
@@ -835,7 +884,9 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
     }
 
     if (entityTx.type === 'resolveSwap') {
-      console.log(`💱 RESOLVE-SWAP: ${entityState.entityId.slice(-4)} resolving offer with ${entityTx.data.counterpartyEntityId.slice(-4)}`);
+      console.log(
+        `💱 RESOLVE-SWAP: ${entityState.entityId.slice(-4)} resolving offer with ${entityTx.data.counterpartyEntityId.slice(-4)}`,
+      );
 
       const newState = cloneEntityState(entityState);
       const outputs: RoutedEntityInput[] = [];
@@ -899,7 +950,9 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
     }
 
     if (entityTx.type === 'cancelSwapOffer' || entityTx.type === 'cancelSwap') {
-      console.log(`📊 CANCEL-SWAP: ${entityState.entityId.slice(-4)} cancelling offer with ${entityTx.data.counterpartyEntityId.slice(-4)}`);
+      console.log(
+        `📊 CANCEL-SWAP: ${entityState.entityId.slice(-4)} cancelling offer with ${entityTx.data.counterpartyEntityId.slice(-4)}`,
+      );
 
       const newState = cloneEntityState(entityState);
       const outputs: RoutedEntityInput[] = [];
@@ -950,14 +1003,14 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
       for (const diff of diffs) {
         const sum = diff.leftDiff + diff.rightDiff + diff.collateralDiff;
         if (sum !== 0n) {
-          logError("ENTITY_TX", `❌ INVARIANT-VIOLATION: leftDiff + rightDiff + collateralDiff = ${sum} (must be 0)`);
+          logError('ENTITY_TX', `❌ INVARIANT-VIOLATION: leftDiff + rightDiff + collateralDiff = ${sum} (must be 0)`);
           throw new Error(`Settlement invariant violation: ${sum} !== 0`);
         }
       }
 
       // Step 2: Validate account exists (keyed by counterparty ID)
       if (!newState.accounts.has(counterpartyEntityId as AccountKey)) {
-        logError("ENTITY_TX", `❌ No account exists with ${formatEntityId(counterpartyEntityId)}`);
+        logError('ENTITY_TX', `❌ No account exists with ${formatEntityId(counterpartyEntityId)}`);
         throw new Error(`No account with ${counterpartyEntityId}`);
       }
 
@@ -966,7 +1019,7 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
       const leftEntity = isLeft ? entityState.entityId : counterpartyEntityId;
       const rightEntity = isLeft ? counterpartyEntityId : entityState.entityId;
 
-      console.log(`🏦 Canonical order: left=${leftEntity.slice(0,10)}..., right=${rightEntity.slice(0,10)}...`);
+      console.log(`🏦 Canonical order: left=${leftEntity.slice(0, 10)}..., right=${rightEntity.slice(0, 10)}...`);
       console.log(`🏦 We are: ${isLeft ? 'LEFT' : 'RIGHT'}`);
 
       // Step 4: Get jurisdiction config
@@ -988,7 +1041,9 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
 
       // Step 6: Call Depository.settle() - fire and forget (j-watcher handles result)
       if (!sig || sig === '0x') {
-        throw new Error(`Settlement ${entityState.entityId.slice(-4)}↔${counterpartyEntityId.slice(-4)} missing hanko signature`);
+        throw new Error(
+          `Settlement ${entityState.entityId.slice(-4)}↔${counterpartyEntityId.slice(-4)} missing hanko signature`,
+        );
       }
 
       try {
@@ -996,11 +1051,12 @@ export const applyEntityTx = async (env: Env, entityState: EntityState, entityTx
         console.log(`✅ Settlement transaction sent: ${result.txHash}`);
 
         // Add message to chat
-        addMessage(newState,
-          `🏦 ${description || 'Settlement'} tx: ${result.txHash.slice(0, 10)}... (block ${result.blockNumber})`
+        addMessage(
+          newState,
+          `🏦 ${description || 'Settlement'} tx: ${result.txHash.slice(0, 10)}... (block ${result.blockNumber})`,
         );
       } catch (error) {
-        logError("ENTITY_TX", `❌ Settlement transaction failed:`, error);
+        logError('ENTITY_TX', `❌ Settlement transaction failed:`, error);
         addMessage(newState, `❌ Settlement failed: ${(error as Error).message}`);
         throw error; // Re-throw to trigger outer catch
       }

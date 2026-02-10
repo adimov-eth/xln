@@ -46,13 +46,15 @@ const toUint16 = (value: bigint, label: string): number => {
 
 export const encodeBoard = (config: ConsensusConfig): string => {
   const entityIds = config.validators.map(toBoardEntityId);
-  const votingPowers = config.validators.map((validator) => toUint16(config.shares[validator] || 1n, `weight(${validator})`));
+  const votingPowers = config.validators.map(validator =>
+    toUint16(config.shares[validator] || 1n, `weight(${validator})`),
+  );
   const threshold = toUint16(config.threshold, 'threshold');
 
   const abiCoder = ethers.AbiCoder.defaultAbiCoder();
   return abiCoder.encode(
     ['tuple(uint16,bytes32[],uint16[],uint32,uint32,uint32)'],
-    [[threshold, entityIds, votingPowers, 0, 0, 0]]
+    [[threshold, entityIds, votingPowers, 0, 0, 0]],
   );
 };
 
@@ -170,7 +172,7 @@ export const extractNumberFromEntityId = (entityId: string): number => {
       // For lazy entities: generate deterministic display number from hash
       // Take last 4 bytes and convert to display number (always positive)
       const hashSuffix = entityId.slice(-8); // Last 4 bytes as hex
-      const displayNum = parseInt(hashSuffix, 16) % 9000000 + 1000000; // 1M-10M range
+      const displayNum = (parseInt(hashSuffix, 16) % 9000000) + 1000000; // 1M-10M range
       return displayNum;
     } catch (error) {
       throw new Error(`FINTECH-SAFETY: Invalid entityId format: ${entityId} - ${error}`);
@@ -188,7 +190,7 @@ export const extractNumberFromEntityId = (entityId: string): number => {
       }
 
       // Large numeric strings - use modulo for display
-      const displayNum = Number(num % 9000000n + 1000000n);
+      const displayNum = Number((num % 9000000n) + 1000000n);
       return displayNum;
     } catch (error) {
       throw new Error(`FINTECH-SAFETY: Invalid numeric entityId: ${entityId} - ${error}`);
@@ -267,8 +269,14 @@ export const createNumberedEntity = async (
 
     // Register the entity on-chain with its board configuration
     const { entityNumber } = await registerNumberedEntityOnChain(
-      { mode: 'proposer-based', threshold, validators, shares: validators.reduce((acc, v) => ({ ...acc, [v]: 1n }), {}), jurisdiction },
-      name
+      {
+        mode: 'proposer-based',
+        threshold,
+        validators,
+        shares: validators.reduce((acc, v) => ({ ...acc, [v]: 1n }), {}),
+        jurisdiction,
+      },
+      name,
     );
 
     const entityId = generateNumberedEntityId(entityNumber);

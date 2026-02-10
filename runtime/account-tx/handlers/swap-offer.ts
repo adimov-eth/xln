@@ -22,8 +22,23 @@ export async function handleSwapOffer(
   accountTx: Extract<AccountTx, { type: 'swap_offer' }>,
   byLeft: boolean,
   currentHeight: number,
-  isValidation: boolean = false
-): Promise<{ success: boolean; events: string[]; error?: string; swapOfferCreated?: { offerId: string; makerIsLeft: boolean; fromEntity: string; toEntity: string; giveTokenId: number; giveAmount: bigint; wantTokenId: number; wantAmount: bigint; minFillRatio: number } }> {
+  isValidation: boolean = false,
+): Promise<{
+  success: boolean;
+  events: string[];
+  error?: string;
+  swapOfferCreated?: {
+    offerId: string;
+    makerIsLeft: boolean;
+    fromEntity: string;
+    toEntity: string;
+    giveTokenId: number;
+    giveAmount: bigint;
+    wantTokenId: number;
+    wantAmount: bigint;
+    minFillRatio: number;
+  };
+}> {
   const { offerId, giveTokenId, giveAmount, wantTokenId, wantAmount, minFillRatio } = accountTx.data;
   const events: string[] = [];
 
@@ -141,7 +156,9 @@ export async function handleSwapOffer(
     console.log(`📊 COMMIT: Swap offer stored`);
   }
 
-  events.push(`📊 Swap offer created: ${offerId.slice(0,8)}... give ${giveAmount} token${giveTokenId} for ${wantAmount} token${wantTokenId}`);
+  events.push(
+    `📊 Swap offer created: ${offerId.slice(0, 8)}... give ${giveAmount} token${giveTokenId} for ${wantAmount} token${wantTokenId}`,
+  );
 
   // Return event with canonical entities for deterministic attribution
   return {
@@ -150,7 +167,7 @@ export async function handleSwapOffer(
     swapOfferCreated: {
       offerId,
       makerIsLeft,
-      fromEntity: leftEntity,   // Canonical entities (same on both sides)
+      fromEntity: leftEntity, // Canonical entities (same on both sides)
       toEntity: rightEntity,
       giveTokenId,
       giveAmount,

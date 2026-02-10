@@ -51,16 +51,20 @@ export type Profile = {
     // Additional fields
     entityPublicKey?: string; // hex public key for signature verification
     encryptionPubKey?: string; // X25519 public key for E2E encryption (hex)
+    cryptoPublicKey?: string; // RSA-OAEP public key for HTLC envelope encryption
     expiresAt?: number; // TTL timestamp for profile expiry
     [key: string]: unknown;
   };
   // Account capacities for routing
   accounts?: Array<{
     counterpartyId: string;
-    tokenCapacities: Map<number, {
-      inCapacity: bigint;
-      outCapacity: bigint;
-    }>;
+    tokenCapacities: Map<
+      number,
+      {
+        inCapacity: bigint;
+        outCapacity: bigint;
+      }
+    >;
   }>;
 };
 
@@ -68,7 +72,7 @@ export interface GossipLayer {
   profiles: Map<string, Profile>;
   announce: (profile: Profile) => void;
   getProfiles: () => Profile[];
-  getHubs: () => Profile[];  // Get all profiles with isHub=true
+  getHubs: () => Profile[]; // Get all profiles with isHub=true
   getProfileBundle?: (entityId: string) => { profile?: Profile; peers: Profile[] };
   getNetworkGraph: () => {
     findPaths: (source: string, target: string, amount?: bigint, tokenId?: number) => Promise<any[]>;
@@ -101,14 +105,13 @@ export function createGossipLayer(): GossipLayer {
   };
 
   const announce = (profile: Profile): void => {
-    logDebug('GOSSIP', `📢 gossip.announce INPUT: ${profile.entityId.slice(-4)} accounts=${profile.accounts?.length || 0}`);
+    logDebug(
+      'GOSSIP',
+      `📢 gossip.announce INPUT: ${profile.entityId.slice(-4)} accounts=${profile.accounts?.length || 0}`,
+    );
     const nowTs = Date.now();
-    const incomingLastUpdated = typeof profile.metadata?.lastUpdated === 'number'
-      ? profile.metadata.lastUpdated
-      : 0;
-    const incomingExpiresAt = typeof profile.metadata?.expiresAt === 'number'
-      ? profile.metadata.expiresAt
-      : 0;
+    const incomingLastUpdated = typeof profile.metadata?.lastUpdated === 'number' ? profile.metadata.lastUpdated : 0;
+    const incomingExpiresAt = typeof profile.metadata?.expiresAt === 'number' ? profile.metadata.expiresAt : 0;
     const fallbackExpiresAt = Math.max(nowTs + PROFILE_TTL_MS, incomingLastUpdated + PROFILE_TTL_MS);
     const sanitizedExpiresAt = incomingExpiresAt > nowTs ? incomingExpiresAt : fallbackExpiresAt;
 
@@ -129,7 +132,10 @@ export function createGossipLayer(): GossipLayer {
       },
     };
 
-    logDebug('GOSSIP', `📢 After normalize: ${profile.entityId.slice(-4)} accounts=${normalizedProfile.accounts?.length || 0}`);
+    logDebug(
+      'GOSSIP',
+      `📢 After normalize: ${profile.entityId.slice(-4)} accounts=${normalizedProfile.accounts?.length || 0}`,
+    );
     // Only update if newer timestamp or no existing profile
     const existing = profiles.get(profile.entityId);
     const newTimestamp = normalizedProfile.metadata?.lastUpdated || 0;
@@ -138,20 +144,26 @@ export function createGossipLayer(): GossipLayer {
     const shouldUpdate =
       !existing ||
       newTimestamp > existingTimestamp ||
-      (newTimestamp === existingTimestamp && (
-        (!existing.runtimeId && !!normalizedProfile.runtimeId) ||
-        (existing.runtimeId !== normalizedProfile.runtimeId) ||
-        (!!normalizedProfile.metadata?.entityPublicKey && existing.metadata?.entityPublicKey !== normalizedProfile.metadata?.entityPublicKey) ||
-        ((existing.accounts?.length || 0) !== (normalizedProfile.accounts?.length || 0))  // Accept if accounts changed
-      ));
+      (newTimestamp === existingTimestamp &&
+        ((!existing.runtimeId && !!normalizedProfile.runtimeId) ||
+          existing.runtimeId !== normalizedProfile.runtimeId ||
+          (!!normalizedProfile.metadata?.entityPublicKey &&
+            existing.metadata?.entityPublicKey !== normalizedProfile.metadata?.entityPublicKey) ||
+          (existing.accounts?.length || 0) !== (normalizedProfile.accounts?.length || 0))); // Accept if accounts changed
 
     if (shouldUpdate) {
       profiles.set(profile.entityId, normalizedProfile);
-      logDebug('GOSSIP', `📡 Gossip SAVED: ${profile.entityId.slice(-4)} ts=${newTimestamp} accounts=${normalizedProfile.accounts?.length || 0}`);
+      logDebug(
+        'GOSSIP',
+        `📡 Gossip SAVED: ${profile.entityId.slice(-4)} ts=${newTimestamp} accounts=${normalizedProfile.accounts?.length || 0}`,
+      );
 
       // VERIFY: Check что profile действительно сохранился
       const verify = profiles.get(profile.entityId);
-      logDebug('GOSSIP', `✅ VERIFY after SET: ${profile.entityId.slice(-4)} accounts=${verify?.accounts?.length || 0} (should be ${normalizedProfile.accounts?.length})`);
+      logDebug(
+        'GOSSIP',
+        `✅ VERIFY after SET: ${profile.entityId.slice(-4)} accounts=${verify?.accounts?.length || 0} (should be ${normalizedProfile.accounts?.length})`,
+      );
     } else {
       logDebug('GOSSIP', `📡 Gossip REJECTED: ${profile.entityId.slice(-4)} ts=${newTimestamp}<=${existingTimestamp}`);
     }
@@ -162,7 +174,10 @@ export function createGossipLayer(): GossipLayer {
     const result = Array.from(profiles.values());
     logDebug('GOSSIP', `🔍 getProfiles(): Returning ${result.length} profiles`);
     for (const p of result) {
-      logDebug('GOSSIP', `  - ${p.entityId.slice(-4)}: accounts=${p.accounts?.length || 0} ts=${p.metadata?.lastUpdated}`);
+      logDebug(
+        'GOSSIP',
+        `  - ${p.entityId.slice(-4)}: accounts=${p.accounts?.length || 0} ts=${p.metadata?.lastUpdated}`,
+      );
     }
     return result;
   };
@@ -174,11 +189,14 @@ export function createGossipLayer(): GossipLayer {
       p =>
         p.metadata?.isHub === true ||
         p.capabilities?.includes('hub') === true ||
-        p.capabilities?.includes('routing') === true
+        p.capabilities?.includes('routing') === true,
     );
     logDebug('GOSSIP', `🏠 getHubs(): Found ${hubs.length} hubs`);
     for (const h of hubs) {
-      logDebug('GOSSIP', `  - ${h.entityId.slice(-4)}: ${h.metadata?.name || 'unnamed'} region=${h.metadata?.region || 'unknown'}`);
+      logDebug(
+        'GOSSIP',
+        `  - ${h.entityId.slice(-4)}: ${h.metadata?.name || 'unnamed'} region=${h.metadata?.region || 'unknown'}`,
+      );
     }
     return hubs;
   };
@@ -252,7 +270,7 @@ export function createGossipLayer(): GossipLayer {
         }
 
         return []; // No path found
-      }
+      },
     };
   };
 

@@ -176,10 +176,7 @@ describe('Identity System - Display Formatting', () => {
   });
 
   test('formatReplicaDisplay combines entity and signer', () => {
-    const key = createReplicaKey(
-      '0x0000000000000000000000000000000000000000000000000000000000000001',
-      'alice'
-    );
+    const key = createReplicaKey('0x0000000000000000000000000000000000000000000000000000000000000001', 'alice');
     const display = formatReplicaDisplay(key);
     expect(display).toContain('#1');
     expect(display).toContain('alice');

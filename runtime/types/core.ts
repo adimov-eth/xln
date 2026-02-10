@@ -66,7 +66,7 @@ export type HashType = 'entityFrame' | 'accountFrame' | 'dispute' | 'settlement'
 export interface HashToSign {
   hash: string;
   type: HashType;
-  context: string;  // e.g., "account:0002:frame:1" or "account:0002:dispute"
+  context: string; // e.g., "account:0002:frame:1" or "account:0002:dispute"
 }
 
 // Entity types - canonical definition in ids.ts

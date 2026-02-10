@@ -32,7 +32,7 @@ export async function executeScenario(
   options: {
     maxTimestamp?: number;
     tickInterval?: number; // Milliseconds per tick (0 = instant for embeds)
-  } = {}
+  } = {},
 ): Promise<ScenarioExecutionResult> {
   const { maxTimestamp = 1000, tickInterval = 1000 } = options;
 
@@ -108,11 +108,7 @@ export async function executeScenario(
 /**
  * Execute a single scenario event
  */
-async function executeEvent(
-  env: Env,
-  event: ScenarioEvent,
-  context: ScenarioExecutionContext
-): Promise<void> {
+async function executeEvent(env: Env, event: ScenarioEvent, context: ScenarioExecutionContext): Promise<void> {
   for (const action of event.actions) {
     await executeAction(env, action, context);
   }
@@ -139,11 +135,7 @@ async function executeEvent(
 /**
  * Execute a single action
  */
-async function executeAction(
-  env: Env,
-  action: ScenarioAction,
-  context: ScenarioExecutionContext
-): Promise<void> {
+async function executeAction(env: Env, action: ScenarioAction, context: ScenarioExecutionContext): Promise<void> {
   const { type, entityId, params } = action;
 
   switch (type) {
@@ -205,11 +197,7 @@ async function executeAction(
  * 3. Imports them into EXISTING runtime state (additive, not replacement)
  * 4. Creates snapshots with narrative metadata
  */
-async function handleImport(
-  params: any[],
-  context: ScenarioExecutionContext,
-  env: Env
-): Promise<void> {
+async function handleImport(params: any[], context: ScenarioExecutionContext, env: Env): Promise<void> {
   const jurisdictions = await getAvailableJurisdictions();
   if (!jurisdictions || jurisdictions.length === 0) {
     throw new Error('No jurisdictions available');
@@ -273,7 +261,7 @@ async function handleImport(
           threshold: 1n,
         };
       }),
-      arrakis
+      arrakis,
     );
 
     console.log(`  ✅ Batch registered ${results.length} entities in single block!`);
@@ -283,12 +271,7 @@ async function handleImport(
     // For small batches, use parallel individual registration
     const registrationPromises = entitiesToRegister.map(scenarioId => {
       const signerId = String(scenarioId);
-      return createNumberedEntity(
-        `Entity-${scenarioId}`,
-        [signerId],
-        1n,
-        arrakis
-      );
+      return createNumberedEntity(`Entity-${scenarioId}`, [signerId], 1n, arrakis);
     });
 
     results = await Promise.all(registrationPromises);
@@ -302,7 +285,9 @@ async function handleImport(
     if (!result || !scenarioId) continue;
 
     context.entityMapping.set(scenarioId, result.entityId);
-    console.log(`  ✅ import scenario=${scenarioId} → entity#${result.entityNumber} (${result.entityId.slice(0, 10)}...)`);
+    console.log(
+      `  ✅ import scenario=${scenarioId} → entity#${result.entityNumber} (${result.entityId.slice(0, 10)}...)`,
+    );
 
     // Store position in gossip profile if provided
     if (positionData && ('x' in positionData || 'y' in positionData || 'z' in positionData)) {
@@ -321,7 +306,7 @@ async function handleImport(
           name: `Entity-${scenarioId}`,
           avatar: '',
           position,
-        }
+        },
       });
 
       console.log(`  📍 Positioned at (${position.x}, ${position.y}, ${position.z})`);
@@ -356,11 +341,7 @@ async function handleImport(
  * Create 3D grid of entities with automatic connections
  * Syntax: grid N (creates N×N×N cube) OR grid X Y Z spacing=40
  */
-async function handleGrid(
-  params: any[],
-  context: ScenarioExecutionContext,
-  env: Env
-): Promise<void> {
+async function handleGrid(params: any[], context: ScenarioExecutionContext, env: Env): Promise<void> {
   const positional = getPositionalParams(params);
   const named = namedParamsToObject(params);
 
@@ -398,11 +379,7 @@ async function handleGrid(
     if (!coord.includes('_')) continue; // Skip non-grid entities
     const parts = coord.split('_');
     if (parts.length === 3) {
-      const maxCoord = Math.max(
-        parseInt(parts[0] || '0'),
-        parseInt(parts[1] || '0'),
-        parseInt(parts[2] || '0')
-      );
+      const maxCoord = Math.max(parseInt(parts[0] || '0'), parseInt(parts[1] || '0'), parseInt(parts[2] || '0'));
       existingSize = Math.max(existingSize, maxCoord + 1);
     }
   }
@@ -415,7 +392,7 @@ async function handleGrid(
 
   // Phase 1: Create only NEW entities (outer shell)
   const entities: Array<{ name: string; validators: string[]; threshold: bigint }> = [];
-  const positions = new Map<string, {x: number, y: number, z: number}>();
+  const positions = new Map<string, { x: number; y: number; z: number }>();
 
   for (let z = 0; z < Z; z++) {
     for (let y = 0; y < Y; y++) {
@@ -430,13 +407,13 @@ async function handleGrid(
         entities.push({
           name: `Grid-${id}`,
           validators: [`g${id}`],
-          threshold: 1n
+          threshold: 1n,
         });
 
         const pos = {
           x: x * spacing,
           y: y * spacing,
-          z: z * spacing
+          z: z * spacing,
         };
         positions.set(id, pos);
         console.log(`📍 GRID-POS-A: Entity ${id} generated at (${pos.x}, ${pos.y}, ${pos.z})`);
@@ -450,7 +427,6 @@ async function handleGrid(
   }
 
   console.log(`  ➕ Creating ${entities.length} new entities (shell growth)`);
-
 
   // Batch create all entities
   const { createNumberedEntitiesBatch } = await import('../entity-factory.js');
@@ -477,7 +453,7 @@ async function handleGrid(
           name: entityDef.name,
           avatar: '',
           position: pos,
-        }
+        },
       });
     }
 
@@ -488,7 +464,7 @@ async function handleGrid(
     };
     if (pos) {
       txData.position = pos;
-      console.log(`📍 GRID-POS-B: RuntimeTx for ${result.entityId.slice(0,10)} has position:`, pos);
+      console.log(`📍 GRID-POS-B: RuntimeTx for ${result.entityId.slice(0, 10)} has position:`, pos);
     }
 
     runtimeTxs.push({
@@ -535,10 +511,12 @@ async function handleGrid(
           connectionInputs.push({
             entityId: entityId1,
             signerId: `g${id1}`,
-            entityTxs: [{
-              type: 'openAccount',
-              data: { targetEntityId: entityId2 }
-            }]
+            entityTxs: [
+              {
+                type: 'openAccount',
+                data: { targetEntityId: entityId2 },
+              },
+            ],
           });
         }
       }
@@ -558,10 +536,12 @@ async function handleGrid(
           connectionInputs.push({
             entityId: entityId1,
             signerId: `g${id1}`,
-            entityTxs: [{
-              type: 'openAccount',
-              data: { targetEntityId: entityId2 }
-            }]
+            entityTxs: [
+              {
+                type: 'openAccount',
+                data: { targetEntityId: entityId2 },
+              },
+            ],
           });
         }
       }
@@ -581,10 +561,12 @@ async function handleGrid(
           connectionInputs.push({
             entityId: entityId1,
             signerId: `g${id1}`,
-            entityTxs: [{
-              type: 'openAccount',
-              data: { targetEntityId: entityId2 }
-            }]
+            entityTxs: [
+              {
+                type: 'openAccount',
+                data: { targetEntityId: entityId2 },
+              },
+            ],
           });
         }
       }
@@ -608,7 +590,7 @@ async function handleLazyGrid(
   Z: number,
   spacing: number,
   context: ScenarioExecutionContext,
-  env: Env
+  env: Env,
 ): Promise<void> {
   const { cryptoHash } = await import('../utils.js');
 
@@ -639,7 +621,7 @@ async function handleLazyGrid(
             name: gridCoord.slice(0, 4), // First 4 chars for lazy entities
             avatar: '',
             position: pos,
-          }
+          },
         });
 
         // Create in-memory replica (no blockchain registration)
@@ -687,13 +669,13 @@ async function handleLazyGrid(
           connectionInputs.push({
             entityId: entityId1,
             signerId: `lazy_${id1}`,
-            entityTxs: [{ type: 'openAccount', data: { targetEntityId: entityId2 } }]
+            entityTxs: [{ type: 'openAccount', data: { targetEntityId: entityId2 } }],
           });
           // Entity2 → Entity1 connection (reciprocal)
           connectionInputs.push({
             entityId: entityId2,
             signerId: `lazy_${id2}`,
-            entityTxs: [{ type: 'openAccount', data: { targetEntityId: entityId1 } }]
+            entityTxs: [{ type: 'openAccount', data: { targetEntityId: entityId1 } }],
           });
         }
       }
@@ -714,13 +696,13 @@ async function handleLazyGrid(
           connectionInputs.push({
             entityId: entityId1,
             signerId: `lazy_${id1}`,
-            entityTxs: [{ type: 'openAccount', data: { targetEntityId: entityId2 } }]
+            entityTxs: [{ type: 'openAccount', data: { targetEntityId: entityId2 } }],
           });
           // Entity2 → Entity1 connection (reciprocal)
           connectionInputs.push({
             entityId: entityId2,
             signerId: `lazy_${id2}`,
-            entityTxs: [{ type: 'openAccount', data: { targetEntityId: entityId1 } }]
+            entityTxs: [{ type: 'openAccount', data: { targetEntityId: entityId1 } }],
           });
         }
       }
@@ -741,13 +723,13 @@ async function handleLazyGrid(
           connectionInputs.push({
             entityId: entityId1,
             signerId: `lazy_${id1}`,
-            entityTxs: [{ type: 'openAccount', data: { targetEntityId: entityId2 } }]
+            entityTxs: [{ type: 'openAccount', data: { targetEntityId: entityId2 } }],
           });
           // Entity2 → Entity1 connection (reciprocal)
           connectionInputs.push({
             entityId: entityId2,
             signerId: `lazy_${id2}`,
-            entityTxs: [{ type: 'openAccount', data: { targetEntityId: entityId1 } }]
+            entityTxs: [{ type: 'openAccount', data: { targetEntityId: entityId1 } }],
           });
         }
       }
@@ -763,11 +745,7 @@ async function handleLazyGrid(
  * Execute random payments across the network
  * Syntax: payRandom count=10 minHops=0 maxHops=5 minAmount=1000 maxAmount=100000 token=1
  */
-async function handlePayRandom(
-  params: any[],
-  context: ScenarioExecutionContext,
-  env: Env
-): Promise<void> {
+async function handlePayRandom(params: any[], context: ScenarioExecutionContext, env: Env): Promise<void> {
   const named = namedParamsToObject(params);
 
   const count = parseInt(String(named['count'] || '1'));
@@ -820,22 +798,28 @@ async function handlePayRandom(
     const offset = amountRange > 0n ? BigInt(sequence) % amountRange : 0n;
     const amount = minAmount + offset;
 
-    console.log(`  💸 Payment ${i + 1}/${count}: ${sourceEntityId.slice(0,8)} → ${destEntityId.slice(0,8)} (${amount} tokens)`);
+    console.log(
+      `  💸 Payment ${i + 1}/${count}: ${sourceEntityId.slice(0, 8)} → ${destEntityId.slice(0, 8)} (${amount} tokens)`,
+    );
 
-    await process(env, [{
-      entityId: sourceEntityId,
-      signerId: signerId,
-      entityTxs: [{
-        type: 'directPayment',
-        data: {
-          targetEntityId: destEntityId,
-          tokenId: token,
-          amount: amount,
-          route: [], // Will be auto-calculated
-          description: `Random payment #${i + 1}`
-        }
-      }]
-    }]);
+    await process(env, [
+      {
+        entityId: sourceEntityId,
+        signerId: signerId,
+        entityTxs: [
+          {
+            type: 'directPayment',
+            data: {
+              targetEntityId: destEntityId,
+              tokenId: token,
+              amount: amount,
+              route: [], // Will be auto-calculated
+              description: `Random payment #${i + 1}`,
+            },
+          },
+        ],
+      },
+    ]);
 
     // Wait before next payment (skip if tickInterval=0 for fast embed mode)
     if (i < count - 1 && context.tickInterval > 0) {
@@ -850,11 +834,7 @@ async function handlePayRandom(
  * Execute Reserve-to-Reserve transfer
  * Syntax: r2r <fromEntityIndex> <toEntityIndex> <amount>
  */
-async function handleR2R(
-  params: any[],
-  context: ScenarioExecutionContext,
-  env: Env
-): Promise<void> {
+async function handleR2R(params: any[], context: ScenarioExecutionContext, env: Env): Promise<void> {
   const fromIndex = String(params[0]);
   const toIndex = String(params[1]);
   const amount = BigInt(params[2] || '0');
@@ -880,18 +860,22 @@ async function handleR2R(
 
   const { process } = await import('../runtime.js');
 
-  await process(env, [{
-    entityId: fromEntityId,
-    signerId: fromReplica.signerId,
-    entityTxs: [{
-      type: 'payFromReserve',
-      data: {
-        targetEntityId: toEntityId,
-        tokenId: 0, // Default token
-        amount: amount
-      }
-    }]
-  }]);
+  await process(env, [
+    {
+      entityId: fromEntityId,
+      signerId: fromReplica.signerId,
+      entityTxs: [
+        {
+          type: 'payFromReserve',
+          data: {
+            targetEntityId: toEntityId,
+            tokenId: 0, // Default token
+            amount: amount,
+          },
+        },
+      ],
+    },
+  ]);
 
   console.log(`  ✅ R2R complete: ${fromIndex} → ${toIndex}`);
 }
@@ -900,11 +884,7 @@ async function handleR2R(
  * Fund entity reserves (mint tokens to entity)
  * Syntax: fund <entityIndex> <amount>
  */
-async function handleFund(
-  params: any[],
-  context: ScenarioExecutionContext,
-  env: Env
-): Promise<void> {
+async function handleFund(params: any[], context: ScenarioExecutionContext, env: Env): Promise<void> {
   const entityIndex = String(params[0]);
   const amount = BigInt(params[1] || '0');
 
@@ -928,17 +908,21 @@ async function handleFund(
 
   const { process } = await import('../runtime.js');
 
-  await process(env, [{
-    entityId: entityId,
-    signerId: replica.signerId,
-    entityTxs: [{
-      type: 'payToReserve',
-      data: {
-        tokenId: 0, // Default token
-        amount: amount
-      }
-    }]
-  }]);
+  await process(env, [
+    {
+      entityId: entityId,
+      signerId: replica.signerId,
+      entityTxs: [
+        {
+          type: 'payToReserve',
+          data: {
+            tokenId: 0, // Default token
+            amount: amount,
+          },
+        },
+      ],
+    },
+  ]);
 
   console.log(`  ✅ Fund complete: ${entityIndex} +${amount}`);
 }
@@ -950,7 +934,7 @@ async function handleOpenAccount(
   entityId: string,
   params: any[],
   context: ScenarioExecutionContext,
-  env: Env
+  env: Env,
 ): Promise<void> {
   const counterpartyScenarioId = String(params[0]);
 
@@ -958,9 +942,7 @@ async function handleOpenAccount(
   const toAddress = context.entityMapping.get(counterpartyScenarioId);
 
   if (!fromAddress || !toAddress) {
-    throw new Error(
-      `Entity mapping not found: ${entityId}→${fromAddress}, ${counterpartyScenarioId}→${toAddress}`
-    );
+    throw new Error(`Entity mapping not found: ${entityId}→${fromAddress}, ${counterpartyScenarioId}→${toAddress}`);
   }
 
   console.log(`  🔗 ${entityId} openAccount ${counterpartyScenarioId}`);
@@ -985,11 +967,7 @@ async function handleOpenAccount(
 /**
  * Handle deposit action
  */
-async function handleDeposit(
-  entityId: string,
-  params: any[],
-  context: ScenarioExecutionContext
-): Promise<void> {
+async function handleDeposit(entityId: string, params: any[], context: ScenarioExecutionContext): Promise<void> {
   const counterpartyScenarioId = String(params[0]);
   const amount = BigInt(params[1]);
 
@@ -1008,11 +986,7 @@ async function handleDeposit(
 /**
  * Handle withdraw action
  */
-async function handleWithdraw(
-  entityId: string,
-  params: any[],
-  context: ScenarioExecutionContext
-): Promise<void> {
+async function handleWithdraw(entityId: string, params: any[], context: ScenarioExecutionContext): Promise<void> {
   const counterpartyScenarioId = String(params[0]);
   const amount = BigInt(params[1]);
 
@@ -1031,11 +1005,7 @@ async function handleWithdraw(
 /**
  * Handle transfer action
  */
-async function handleTransfer(
-  entityId: string,
-  params: any[],
-  context: ScenarioExecutionContext
-): Promise<void> {
+async function handleTransfer(entityId: string, params: any[], context: ScenarioExecutionContext): Promise<void> {
   const counterpartyScenarioId = String(params[0]);
   const amount = BigInt(params[1]);
 
@@ -1054,11 +1024,7 @@ async function handleTransfer(
 /**
  * Handle chat message
  */
-async function handleChat(
-  entityId: string,
-  params: any[],
-  context: ScenarioExecutionContext
-): Promise<void> {
+async function handleChat(entityId: string, params: any[], context: ScenarioExecutionContext): Promise<void> {
   const message = String(params[0]);
 
   const fromAddress = context.entityMapping.get(entityId);
@@ -1074,11 +1040,7 @@ async function handleChat(
 /**
  * Apply view state to the current frame
  */
-function applyViewState(
-  env: Env,
-  viewState: ViewState,
-  context: ScenarioExecutionContext
-): void {
+function applyViewState(env: Env, viewState: ViewState, context: ScenarioExecutionContext): void {
   // Store in context for later application to EnvSnapshot
   context.viewStateHistory.set(context.currentFrameIndex, viewState);
 
@@ -1105,9 +1067,6 @@ function applyViewState(
 /**
  * Helper to convert scenario entity ID to actual address
  */
-export function resolveEntityAddress(
-  scenarioId: string,
-  context: ScenarioExecutionContext
-): string | undefined {
+export function resolveEntityAddress(scenarioId: string, context: ScenarioExecutionContext): string | undefined {
   return context.entityMapping.get(scenarioId);
 }

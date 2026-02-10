@@ -13,7 +13,7 @@ import type {
   ContractRunner,
   ContractMethod,
   Listener,
-} from "ethers";
+} from 'ethers';
 import type {
   TypedContractEvent,
   TypedDeferredTopicFilter,
@@ -21,7 +21,7 @@ import type {
   TypedLogDescription,
   TypedListener,
   TypedContractMethod,
-} from "./common";
+} from './common';
 
 export declare namespace DeltaTransformer {
   export type PaymentStruct = {
@@ -31,12 +31,7 @@ export declare namespace DeltaTransformer {
     hash: BytesLike;
   };
 
-  export type PaymentStructOutput = [
-    deltaIndex: bigint,
-    amount: bigint,
-    revealedUntilBlock: bigint,
-    hash: string
-  ] & {
+  export type PaymentStructOutput = [deltaIndex: bigint, amount: bigint, revealedUntilBlock: bigint, hash: string] & {
     deltaIndex: bigint;
     amount: bigint;
     revealedUntilBlock: bigint;
@@ -56,7 +51,7 @@ export declare namespace DeltaTransformer {
     addDeltaIndex: bigint,
     addAmount: bigint,
     subDeltaIndex: bigint,
-    subAmount: bigint
+    subAmount: bigint,
   ] & {
     ownerIsLeft: boolean;
     addDeltaIndex: bigint;
@@ -72,7 +67,7 @@ export declare namespace DeltaTransformer {
 
   export type BatchStructOutput = [
     payment: DeltaTransformer.PaymentStructOutput[],
-    swap: DeltaTransformer.SwapStructOutput[]
+    swap: DeltaTransformer.SwapStructOutput[],
   ] & {
     payment: DeltaTransformer.PaymentStructOutput[];
     swap: DeltaTransformer.SwapStructOutput[];
@@ -81,69 +76,26 @@ export declare namespace DeltaTransformer {
 
 export interface DeltaTransformerInterface extends Interface {
   getFunction(
-    nameOrSignature:
-      | "applyBatch"
-      | "cleanSecret"
-      | "encodeBatch"
-      | "hashToBlock"
-      | "logDeltas"
-      | "revealSecret"
+    nameOrSignature: 'applyBatch' | 'cleanSecret' | 'encodeBatch' | 'hashToBlock' | 'logDeltas' | 'revealSecret',
   ): FunctionFragment;
 
   getEvent(
-    nameOrSignatureOrTopic:
-      | "LogAddress"
-      | "LogBool"
-      | "LogBytes"
-      | "LogBytes32"
-      | "LogInt"
-      | "LogString"
-      | "LogUint"
+    nameOrSignatureOrTopic: 'LogAddress' | 'LogBool' | 'LogBytes' | 'LogBytes32' | 'LogInt' | 'LogString' | 'LogUint',
   ): EventFragment;
 
-  encodeFunctionData(
-    functionFragment: "applyBatch",
-    values: [BigNumberish[], BytesLike, BytesLike, BytesLike]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "cleanSecret",
-    values: [BytesLike]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "encodeBatch",
-    values: [DeltaTransformer.BatchStruct]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "hashToBlock",
-    values: [BytesLike]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "logDeltas",
-    values: [string, BigNumberish[]]
-  ): string;
-  encodeFunctionData(
-    functionFragment: "revealSecret",
-    values: [BytesLike]
-  ): string;
+  encodeFunctionData(functionFragment: 'applyBatch', values: [BigNumberish[], BytesLike, BytesLike, BytesLike]): string;
+  encodeFunctionData(functionFragment: 'cleanSecret', values: [BytesLike]): string;
+  encodeFunctionData(functionFragment: 'encodeBatch', values: [DeltaTransformer.BatchStruct]): string;
+  encodeFunctionData(functionFragment: 'hashToBlock', values: [BytesLike]): string;
+  encodeFunctionData(functionFragment: 'logDeltas', values: [string, BigNumberish[]]): string;
+  encodeFunctionData(functionFragment: 'revealSecret', values: [BytesLike]): string;
 
-  decodeFunctionResult(functionFragment: "applyBatch", data: BytesLike): Result;
-  decodeFunctionResult(
-    functionFragment: "cleanSecret",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "encodeBatch",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(
-    functionFragment: "hashToBlock",
-    data: BytesLike
-  ): Result;
-  decodeFunctionResult(functionFragment: "logDeltas", data: BytesLike): Result;
-  decodeFunctionResult(
-    functionFragment: "revealSecret",
-    data: BytesLike
-  ): Result;
+  decodeFunctionResult(functionFragment: 'applyBatch', data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: 'cleanSecret', data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: 'encodeBatch', data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: 'hashToBlock', data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: 'logDeltas', data: BytesLike): Result;
+  decodeFunctionResult(functionFragment: 'revealSecret', data: BytesLike): Result;
 }
 
 export namespace LogAddressEvent {
@@ -246,157 +198,87 @@ export interface DeltaTransformer extends BaseContract {
   queryFilter<TCEvent extends TypedContractEvent>(
     event: TCEvent,
     fromBlockOrBlockhash?: string | number | undefined,
-    toBlock?: string | number | undefined
+    toBlock?: string | number | undefined,
   ): Promise<Array<TypedEventLog<TCEvent>>>;
   queryFilter<TCEvent extends TypedContractEvent>(
     filter: TypedDeferredTopicFilter<TCEvent>,
     fromBlockOrBlockhash?: string | number | undefined,
-    toBlock?: string | number | undefined
+    toBlock?: string | number | undefined,
   ): Promise<Array<TypedEventLog<TCEvent>>>;
 
-  on<TCEvent extends TypedContractEvent>(
-    event: TCEvent,
-    listener: TypedListener<TCEvent>
-  ): Promise<this>;
+  on<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
   on<TCEvent extends TypedContractEvent>(
     filter: TypedDeferredTopicFilter<TCEvent>,
-    listener: TypedListener<TCEvent>
+    listener: TypedListener<TCEvent>,
   ): Promise<this>;
 
-  once<TCEvent extends TypedContractEvent>(
-    event: TCEvent,
-    listener: TypedListener<TCEvent>
-  ): Promise<this>;
+  once<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
   once<TCEvent extends TypedContractEvent>(
     filter: TypedDeferredTopicFilter<TCEvent>,
-    listener: TypedListener<TCEvent>
+    listener: TypedListener<TCEvent>,
   ): Promise<this>;
 
-  listeners<TCEvent extends TypedContractEvent>(
-    event: TCEvent
-  ): Promise<Array<TypedListener<TCEvent>>>;
+  listeners<TCEvent extends TypedContractEvent>(event: TCEvent): Promise<Array<TypedListener<TCEvent>>>;
   listeners(eventName?: string): Promise<Array<Listener>>;
-  removeAllListeners<TCEvent extends TypedContractEvent>(
-    event?: TCEvent
-  ): Promise<this>;
+  removeAllListeners<TCEvent extends TypedContractEvent>(event?: TCEvent): Promise<this>;
 
   applyBatch: TypedContractMethod<
-    [
-      deltas: BigNumberish[],
-      encodedBatch: BytesLike,
-      leftArguments: BytesLike,
-      rightArguments: BytesLike
-    ],
+    [deltas: BigNumberish[], encodedBatch: BytesLike, leftArguments: BytesLike, rightArguments: BytesLike],
     [bigint[]],
-    "nonpayable"
+    'nonpayable'
   >;
 
-  cleanSecret: TypedContractMethod<[hash: BytesLike], [void], "nonpayable">;
+  cleanSecret: TypedContractMethod<[hash: BytesLike], [void], 'nonpayable'>;
 
-  encodeBatch: TypedContractMethod<
-    [b: DeltaTransformer.BatchStruct],
-    [string],
-    "view"
-  >;
+  encodeBatch: TypedContractMethod<[b: DeltaTransformer.BatchStruct], [string], 'view'>;
 
-  hashToBlock: TypedContractMethod<[arg0: BytesLike], [bigint], "view">;
+  hashToBlock: TypedContractMethod<[arg0: BytesLike], [bigint], 'view'>;
 
-  logDeltas: TypedContractMethod<
-    [_msg: string, deltas: BigNumberish[]],
-    [void],
-    "view"
-  >;
+  logDeltas: TypedContractMethod<[_msg: string, deltas: BigNumberish[]], [void], 'view'>;
 
-  revealSecret: TypedContractMethod<[secret: BytesLike], [void], "nonpayable">;
+  revealSecret: TypedContractMethod<[secret: BytesLike], [void], 'nonpayable'>;
 
-  getFunction<T extends ContractMethod = ContractMethod>(
-    key: string | FunctionFragment
-  ): T;
+  getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
 
   getFunction(
-    nameOrSignature: "applyBatch"
+    nameOrSignature: 'applyBatch',
   ): TypedContractMethod<
-    [
-      deltas: BigNumberish[],
-      encodedBatch: BytesLike,
-      leftArguments: BytesLike,
-      rightArguments: BytesLike
-    ],
+    [deltas: BigNumberish[], encodedBatch: BytesLike, leftArguments: BytesLike, rightArguments: BytesLike],
     [bigint[]],
-    "nonpayable"
+    'nonpayable'
   >;
+  getFunction(nameOrSignature: 'cleanSecret'): TypedContractMethod<[hash: BytesLike], [void], 'nonpayable'>;
+  getFunction(nameOrSignature: 'encodeBatch'): TypedContractMethod<[b: DeltaTransformer.BatchStruct], [string], 'view'>;
+  getFunction(nameOrSignature: 'hashToBlock'): TypedContractMethod<[arg0: BytesLike], [bigint], 'view'>;
   getFunction(
-    nameOrSignature: "cleanSecret"
-  ): TypedContractMethod<[hash: BytesLike], [void], "nonpayable">;
-  getFunction(
-    nameOrSignature: "encodeBatch"
-  ): TypedContractMethod<[b: DeltaTransformer.BatchStruct], [string], "view">;
-  getFunction(
-    nameOrSignature: "hashToBlock"
-  ): TypedContractMethod<[arg0: BytesLike], [bigint], "view">;
-  getFunction(
-    nameOrSignature: "logDeltas"
-  ): TypedContractMethod<
-    [_msg: string, deltas: BigNumberish[]],
-    [void],
-    "view"
-  >;
-  getFunction(
-    nameOrSignature: "revealSecret"
-  ): TypedContractMethod<[secret: BytesLike], [void], "nonpayable">;
+    nameOrSignature: 'logDeltas',
+  ): TypedContractMethod<[_msg: string, deltas: BigNumberish[]], [void], 'view'>;
+  getFunction(nameOrSignature: 'revealSecret'): TypedContractMethod<[secret: BytesLike], [void], 'nonpayable'>;
 
   getEvent(
-    key: "LogAddress"
-  ): TypedContractEvent<
-    LogAddressEvent.InputTuple,
-    LogAddressEvent.OutputTuple,
-    LogAddressEvent.OutputObject
-  >;
+    key: 'LogAddress',
+  ): TypedContractEvent<LogAddressEvent.InputTuple, LogAddressEvent.OutputTuple, LogAddressEvent.OutputObject>;
   getEvent(
-    key: "LogBool"
-  ): TypedContractEvent<
-    LogBoolEvent.InputTuple,
-    LogBoolEvent.OutputTuple,
-    LogBoolEvent.OutputObject
-  >;
+    key: 'LogBool',
+  ): TypedContractEvent<LogBoolEvent.InputTuple, LogBoolEvent.OutputTuple, LogBoolEvent.OutputObject>;
   getEvent(
-    key: "LogBytes"
-  ): TypedContractEvent<
-    LogBytesEvent.InputTuple,
-    LogBytesEvent.OutputTuple,
-    LogBytesEvent.OutputObject
-  >;
+    key: 'LogBytes',
+  ): TypedContractEvent<LogBytesEvent.InputTuple, LogBytesEvent.OutputTuple, LogBytesEvent.OutputObject>;
   getEvent(
-    key: "LogBytes32"
-  ): TypedContractEvent<
-    LogBytes32Event.InputTuple,
-    LogBytes32Event.OutputTuple,
-    LogBytes32Event.OutputObject
-  >;
+    key: 'LogBytes32',
+  ): TypedContractEvent<LogBytes32Event.InputTuple, LogBytes32Event.OutputTuple, LogBytes32Event.OutputObject>;
   getEvent(
-    key: "LogInt"
-  ): TypedContractEvent<
-    LogIntEvent.InputTuple,
-    LogIntEvent.OutputTuple,
-    LogIntEvent.OutputObject
-  >;
+    key: 'LogInt',
+  ): TypedContractEvent<LogIntEvent.InputTuple, LogIntEvent.OutputTuple, LogIntEvent.OutputObject>;
   getEvent(
-    key: "LogString"
-  ): TypedContractEvent<
-    LogStringEvent.InputTuple,
-    LogStringEvent.OutputTuple,
-    LogStringEvent.OutputObject
-  >;
+    key: 'LogString',
+  ): TypedContractEvent<LogStringEvent.InputTuple, LogStringEvent.OutputTuple, LogStringEvent.OutputObject>;
   getEvent(
-    key: "LogUint"
-  ): TypedContractEvent<
-    LogUintEvent.InputTuple,
-    LogUintEvent.OutputTuple,
-    LogUintEvent.OutputObject
-  >;
+    key: 'LogUint',
+  ): TypedContractEvent<LogUintEvent.InputTuple, LogUintEvent.OutputTuple, LogUintEvent.OutputObject>;
 
   filters: {
-    "LogAddress(string,address)": TypedContractEvent<
+    'LogAddress(string,address)': TypedContractEvent<
       LogAddressEvent.InputTuple,
       LogAddressEvent.OutputTuple,
       LogAddressEvent.OutputObject
@@ -407,29 +289,21 @@ export interface DeltaTransformer extends BaseContract {
       LogAddressEvent.OutputObject
     >;
 
-    "LogBool(string,bool)": TypedContractEvent<
+    'LogBool(string,bool)': TypedContractEvent<
       LogBoolEvent.InputTuple,
       LogBoolEvent.OutputTuple,
       LogBoolEvent.OutputObject
     >;
-    LogBool: TypedContractEvent<
-      LogBoolEvent.InputTuple,
-      LogBoolEvent.OutputTuple,
-      LogBoolEvent.OutputObject
-    >;
+    LogBool: TypedContractEvent<LogBoolEvent.InputTuple, LogBoolEvent.OutputTuple, LogBoolEvent.OutputObject>;
 
-    "LogBytes(string,bytes)": TypedContractEvent<
+    'LogBytes(string,bytes)': TypedContractEvent<
       LogBytesEvent.InputTuple,
       LogBytesEvent.OutputTuple,
       LogBytesEvent.OutputObject
     >;
-    LogBytes: TypedContractEvent<
-      LogBytesEvent.InputTuple,
-      LogBytesEvent.OutputTuple,
-      LogBytesEvent.OutputObject
-    >;
+    LogBytes: TypedContractEvent<LogBytesEvent.InputTuple, LogBytesEvent.OutputTuple, LogBytesEvent.OutputObject>;
 
-    "LogBytes32(string,bytes32)": TypedContractEvent<
+    'LogBytes32(string,bytes32)': TypedContractEvent<
       LogBytes32Event.InputTuple,
       LogBytes32Event.OutputTuple,
       LogBytes32Event.OutputObject
@@ -440,37 +314,25 @@ export interface DeltaTransformer extends BaseContract {
       LogBytes32Event.OutputObject
     >;
 
-    "LogInt(string,int256)": TypedContractEvent<
+    'LogInt(string,int256)': TypedContractEvent<
       LogIntEvent.InputTuple,
       LogIntEvent.OutputTuple,
       LogIntEvent.OutputObject
     >;
-    LogInt: TypedContractEvent<
-      LogIntEvent.InputTuple,
-      LogIntEvent.OutputTuple,
-      LogIntEvent.OutputObject
-    >;
+    LogInt: TypedContractEvent<LogIntEvent.InputTuple, LogIntEvent.OutputTuple, LogIntEvent.OutputObject>;
 
-    "LogString(string,string)": TypedContractEvent<
+    'LogString(string,string)': TypedContractEvent<
       LogStringEvent.InputTuple,
       LogStringEvent.OutputTuple,
       LogStringEvent.OutputObject
     >;
-    LogString: TypedContractEvent<
-      LogStringEvent.InputTuple,
-      LogStringEvent.OutputTuple,
-      LogStringEvent.OutputObject
-    >;
+    LogString: TypedContractEvent<LogStringEvent.InputTuple, LogStringEvent.OutputTuple, LogStringEvent.OutputObject>;
 
-    "LogUint(string,uint256)": TypedContractEvent<
+    'LogUint(string,uint256)': TypedContractEvent<
       LogUintEvent.InputTuple,
       LogUintEvent.OutputTuple,
       LogUintEvent.OutputObject
     >;
-    LogUint: TypedContractEvent<
-      LogUintEvent.InputTuple,
-      LogUintEvent.OutputTuple,
-      LogUintEvent.OutputObject
-    >;
+    LogUint: TypedContractEvent<LogUintEvent.InputTuple, LogUintEvent.OutputTuple, LogUintEvent.OutputObject>;
   };
 }

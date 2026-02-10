@@ -145,5 +145,5 @@ type Result<T, E> = { _tag: 'Ok'; value: T } | { _tag: 'Err'; error: E };
 - **No .md in /runtime/**: Documentation goes in `/docs/`
 - **Bun only**: Never use npm, node, or pnpm
 - **Test framework**: `bun:test` (import `describe`, `expect`, `test` from `bun:test`)
-- **14 pre-existing type errors** in `bun run check` — known, don't fix unless asked
+- **Zero type errors** in `bun run check` — strict mode enforced, keep it clean
 - **No TODO comments**: Fix the issue now or ask the user for direction

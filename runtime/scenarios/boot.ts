@@ -79,11 +79,7 @@ export async function ensureBrowserVM(env: any) {
  * Attach a BrowserVM-backed JAdapter to an existing jReplica and start watching.
  * This bridges BrowserVM events → JAdapter → env.runtimeInput.entityInputs
  */
-export async function attachBrowserVMAdapter(
-  env: Env,
-  jReplicaName: string,
-  browserVM: any,
-): Promise<void> {
+export async function attachBrowserVMAdapter(env: Env, jReplicaName: string, browserVM: any): Promise<void> {
   const jReplica = env.jReplicas?.get(jReplicaName);
   if (!jReplica) throw new Error(`jReplica "${jReplicaName}" not found`);
 
@@ -121,7 +117,7 @@ export function createJReplica(
   env: Env,
   name: string,
   depositoryAddress: string,
-  position: { x: number; y: number; z: number } = { x: 0, y: 600, z: 0 }
+  position: { x: number; y: number; z: number } = { x: 0, y: 600, z: 0 },
 ) {
   if (!env.jReplicas) {
     env.jReplicas = new Map();
@@ -137,8 +133,8 @@ export function createJReplica(
     position,
     contracts: {
       depository: depositoryAddress,
-      entityProvider: '0x0000000000000000000000000000000000000000'
-    }
+      entityProvider: '0x0000000000000000000000000000000000000000',
+    },
   };
 
   env.jReplicas.set(name, jReplica);
@@ -150,16 +146,13 @@ export function createJReplica(
 /**
  * Create jurisdiction config for entity registration
  */
-export function createJurisdictionConfig(
-  name: string,
-  depositoryAddress: string
-): JurisdictionConfig {
+export function createJurisdictionConfig(name: string, depositoryAddress: string): JurisdictionConfig {
   return {
     name,
     chainId: 31337,
     entityProviderAddress: '0x0000000000000000000000000000000000000000',
     depositoryAddress,
-    rpc: 'browservm://'
+    rpc: 'browservm://',
   };
 }
 
@@ -171,7 +164,7 @@ export async function createNumberedEntity(
   entityNumber: number,
   name: string,
   jurisdiction: JurisdictionConfig,
-  position: { x: number; y: number; z: number }
+  position: { x: number; y: number; z: number },
 ): Promise<string> {
   const entityId = '0x' + entityNumber.toString(16).padStart(64, '0');
   const signer = `${entityNumber}`;
@@ -179,23 +172,25 @@ export async function createNumberedEntity(
   const { applyRuntimeInput } = await import('../runtime');
 
   await applyRuntimeInput(env, {
-    runtimeTxs: [{
-      type: 'importReplica' as const,
-      entityId,
-      signerId: signer,
-      data: {
-        isProposer: true,
-        position,
-        config: {
-          mode: 'proposer-based' as const,
-          threshold: 1n,
-          validators: [signer],
-          shares: { [signer]: 1n },
-          jurisdiction
-        }
-      }
-    }],
-    entityInputs: []
+    runtimeTxs: [
+      {
+        type: 'importReplica' as const,
+        entityId,
+        signerId: signer,
+        data: {
+          isProposer: true,
+          position,
+          config: {
+            mode: 'proposer-based' as const,
+            threshold: 1n,
+            validators: [signer],
+            shares: { [signer]: 1n },
+            jurisdiction,
+          },
+        },
+      },
+    ],
+    entityInputs: [],
   });
 
   return entityId;
@@ -209,7 +204,7 @@ export async function createGridEntities(
   dimensions: { x: number; y: number; z: number }, // Grid size in each dimension
   jurisdiction: JurisdictionConfig,
   centerOffset: { x: number; y: number; z: number } = { x: 0, y: 0, z: 0 },
-  spacing: number = 40
+  spacing: number = 40,
 ): Promise<string[]> {
   const entities: string[] = [];
   let entityNum = 1;
@@ -221,13 +216,7 @@ export async function createGridEntities(
         const y = centerOffset.y + (yi - dimensions.y / 2 + 0.5) * spacing;
         const z = centerOffset.z + (zi - dimensions.z / 2 + 0.5) * spacing;
 
-        const entityId = await createNumberedEntity(
-          env,
-          entityNum,
-          `Node${entityNum}`,
-          jurisdiction,
-          { x, y, z }
-        );
+        const entityId = await createNumberedEntity(env, entityNum, `Node${entityNum}`, jurisdiction, { x, y, z });
 
         entities.push(entityId);
         entityNum++;

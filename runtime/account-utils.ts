@@ -31,7 +31,7 @@ export function deriveDelta(delta: Delta, isLeft: boolean): DerivedDelta {
   // VALIDATE AT SOURCE: Financial data must be valid
   validateDelta(delta, 'deriveDelta');
 
-  const nonNegative = (x: bigint): bigint => x < 0n ? 0n : x;
+  const nonNegative = (x: bigint): bigint => (x < 0n ? 0n : x);
 
   const totalDelta = delta.ondelta + delta.offdelta;
 
@@ -96,14 +96,17 @@ export function deriveDelta(delta: Delta, isLeft: boolean): DerivedDelta {
 
   if (!isLeft) {
     // Flip for RIGHT entity perspective
-    [inCollateral, inAllowance, inCapacity,
-     outCollateral, outAllowance, outCapacity] =
-    [outCollateral, outAllowance, outCapacity,
-     inCollateral, inAllowance, inCapacity];
+    [inCollateral, inAllowance, inCapacity, outCollateral, outAllowance, outCapacity] = [
+      outCollateral,
+      outAllowance,
+      outCapacity,
+      inCollateral,
+      inAllowance,
+      inCapacity,
+    ];
 
     [ownCreditLimit, peerCreditLimit] = [peerCreditLimit, ownCreditLimit];
-    [outOwnCredit, inOwnCredit, outPeerCredit, inPeerCredit] =
-    [inPeerCredit, outPeerCredit, inOwnCredit, outOwnCredit];
+    [outOwnCredit, inOwnCredit, outPeerCredit, inPeerCredit] = [inPeerCredit, outPeerCredit, inOwnCredit, outOwnCredit];
   }
 
   // ASCII visualization
@@ -115,22 +118,16 @@ export function deriveDelta(delta: Delta, isLeft: boolean): DerivedDelta {
 
   // ASCII visualization - proper bar with position marker
   // Build the full capacity bar first
-  const fullBar =
-    '-'.repeat(leftCreditWidth) +
-    '='.repeat(collateralWidth) +
-    '-'.repeat(rightCreditWidth);
+  const fullBar = '-'.repeat(leftCreditWidth) + '='.repeat(collateralWidth) + '-'.repeat(rightCreditWidth);
 
   // Insert position marker at deltaPosition
   const clampedPosition = Math.max(0, Math.min(deltaPosition, fullBar.length));
-  const ascii =
-    '[' +
-    fullBar.substring(0, clampedPosition) +
-    '|' +
-    fullBar.substring(clampedPosition) +
-    ']';
+  const ascii = '[' + fullBar.substring(0, clampedPosition) + '|' + fullBar.substring(clampedPosition) + ']';
 
   if (PERFORMANCE.DEBUG_ACCOUNTS) {
-    console.log(`✅ deriveDelta RETURN: isLeft=${isLeft}, inCap=${inCapacity}, outCap=${outCapacity}, SUM=${inCapacity + outCapacity}`);
+    console.log(
+      `✅ deriveDelta RETURN: isLeft=${isLeft}, inCap=${inCapacity}, outCap=${outCapacity}, SUM=${inCapacity + outCapacity}`,
+    );
   }
 
   return {
@@ -149,8 +146,8 @@ export function deriveDelta(delta: Delta, isLeft: boolean): DerivedDelta {
     outCapacity,
     outOwnCredit,
     inPeerCredit,
-    peerCreditUsed,  // HYBRID: credit peer lent that we're using
-    ownCreditUsed,   // HYBRID: credit we lent that peer is using
+    peerCreditUsed, // HYBRID: credit peer lent that we're using
+    ownCreditUsed, // HYBRID: credit we lent that peer is using
     ascii,
   };
 }
@@ -191,12 +188,14 @@ export const TOKEN_REGISTRY: Record<number, { symbol: string; name: string; deci
 };
 
 export function getTokenInfo(tokenId: number) {
-  return TOKEN_REGISTRY[tokenId] || { 
-    symbol: `TKN${tokenId}`, 
-    name: `Token ${tokenId}`, 
-    decimals: 18, 
-    color: '#999' 
-  };
+  return (
+    TOKEN_REGISTRY[tokenId] || {
+      symbol: `TKN${tokenId}`,
+      name: `Token ${tokenId}`,
+      decimals: 18,
+      color: '#999',
+    }
+  );
 }
 
 /**

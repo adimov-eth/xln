@@ -213,5 +213,5 @@ export function namedParamsToObject(params: ActionParam[]): Record<string, strin
  * Helper to get positional params only
  */
 export function getPositionalParams(params: ActionParam[]): (string | number | bigint)[] {
-  return params.filter(p => typeof p !== 'object' || ('start' in p)) as (string | number | bigint)[];
+  return params.filter(p => typeof p !== 'object' || 'start' in p) as (string | number | bigint)[];
 }

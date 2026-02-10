@@ -35,11 +35,7 @@ export function parseTokenAmount(tokenId: number, humanAmount: string): bigint {
  * Convert between different token precisions while maintaining BigInt
  * Useful for cross-token calculations
  */
-export function convertTokenPrecision(
-  amount: bigint,
-  fromDecimals: number,
-  toDecimals: number
-): bigint {
+export function convertTokenPrecision(amount: bigint, fromDecimals: number, toDecimals: number): bigint {
   if (fromDecimals === toDecimals) return amount;
 
   if (fromDecimals > toDecimals) {
@@ -66,7 +62,11 @@ export function calculatePercentage(amount: bigint | null | undefined, total: bi
 /**
  * Format asset balance using ethers (for AssetBalance type)
  */
-export function formatAssetAmount(balance: { amount: bigint | null | undefined; decimals: number; symbol: string }): string {
+export function formatAssetAmount(balance: {
+  amount: bigint | null | undefined;
+  decimals: number;
+  symbol: string;
+}): string {
   // Handle null/undefined amounts
   if (balance.amount === null || balance.amount === undefined) {
     return `0 ${balance.symbol}`;
@@ -111,13 +111,16 @@ export const BigIntMath = {
   /**
    * Safe division with remainder and null handling
    */
-  divide: (dividend: bigint | null | undefined, divisor: bigint | null | undefined): { quotient: bigint; remainder: bigint } => {
+  divide: (
+    dividend: bigint | null | undefined,
+    divisor: bigint | null | undefined,
+  ): { quotient: bigint; remainder: bigint } => {
     const safeDividend = dividend ?? 0n;
     const safeDivisor = divisor ?? 1n; // Avoid division by zero
     if (safeDivisor === 0n) throw new Error('Division by zero');
     return {
       quotient: safeDividend / safeDivisor,
-      remainder: safeDividend % safeDivisor
+      remainder: safeDividend % safeDivisor,
     };
   },
 

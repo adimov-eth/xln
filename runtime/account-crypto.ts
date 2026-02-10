@@ -16,13 +16,9 @@ import * as bip39 from 'bip39';
 // Always install a sync HMAC implementation (Node/Bun fast path, browser fallback).
 const installHmacSync = () => {
   if (secp256k1.utils.hmacSha256Sync) return;
-  const isBrowser =
-    typeof window !== 'undefined' &&
-    typeof window.document !== 'undefined';
+  const isBrowser = typeof window !== 'undefined' && typeof window.document !== 'undefined';
   const isNodeLike =
-    !isBrowser &&
-    (typeof (globalThis as any).Bun !== 'undefined' ||
-      (typeof process !== 'undefined' && !!process.versions?.node));
+    !isBrowser && ('Bun' in globalThis || (typeof process !== 'undefined' && !!process.versions?.node));
   try {
     if (isNodeLike && typeof require !== 'undefined') {
       const crypto = require('crypto');
@@ -56,19 +52,20 @@ const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 const mnemonicCache = new Map<string, string>();
 const bytesToHex = (bytes: Uint8Array): string =>
-  Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+  Array.from(bytes)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 // Ensure a full Buffer implementation exists before bip39 (Buffer.isBuffer is required).
 const ensureGlobalBuffer = () => {
-  const globalBuffer = (globalThis as any).Buffer;
+  const globalBuffer = (globalThis as { Buffer?: typeof BufferPolyfill }).Buffer;
   if (!globalBuffer || typeof globalBuffer.isBuffer !== 'function') {
-    (globalThis as any).Buffer = BufferPolyfill;
+    (globalThis as unknown as { Buffer: typeof BufferPolyfill }).Buffer = BufferPolyfill;
   }
 };
 
 const toSeedBytes = (seed: Uint8Array | string): Uint8Array =>
   typeof seed === 'string' ? textEncoder.encode(seed) : seed;
-const toSeedText = (seed: Uint8Array | string): string =>
-  typeof seed === 'string' ? seed : textDecoder.decode(seed);
+const toSeedText = (seed: Uint8Array | string): string => (typeof seed === 'string' ? seed : textDecoder.decode(seed));
 
 const parseSignerIndex = (signerId: string): number | null => {
   const trimmed = signerId.trim();
@@ -153,7 +150,9 @@ const getOrDeriveKey = (envSeed: Uint8Array | string, signerId: string): Uint8Ar
 
   // PURE: ONLY use env seed, NEVER fall back to global
   if (envSeed === undefined || envSeed === null) {
-    throw new Error(`CRYPTO_DETERMINISM_VIOLATION: getOrDeriveKey called without env.runtimeSeed for signer ${signerId}`);
+    throw new Error(
+      `CRYPTO_DETERMINISM_VIOLATION: getOrDeriveKey called without env.runtimeSeed for signer ${signerId}`,
+    );
   }
   const seedLen = typeof envSeed === 'string' ? envSeed.length : envSeed.length;
   console.log(`✅ Deriving key from env seed (${seedLen} bytes)`);
@@ -208,7 +207,9 @@ export function getSignerPrivateKey(env: any, signerId: string): Uint8Array {
   const cached = signerKeys.get(signerId);
   if (cached) return cached;
   if (env?.runtimeSeed === undefined || env?.runtimeSeed === null) {
-    throw new Error(`CRYPTO_DETERMINISM_VIOLATION: getSignerPrivateKey called without env.runtimeSeed for signer ${signerId}`);
+    throw new Error(
+      `CRYPTO_DETERMINISM_VIOLATION: getSignerPrivateKey called without env.runtimeSeed for signer ${signerId}`,
+    );
   }
   return getOrDeriveKey(env.runtimeSeed, signerId);
 }
@@ -274,10 +275,7 @@ export function getSignerAddress(env: any, signerId: string): string | null {
  * Register signer keys derived from a deterministic seed
  * Formula: privateKey = HMAC-SHA256(seed, signerId)
  */
-export async function registerSeededKeys(
-  seed: Uint8Array | string,
-  signerIds: string[]
-): Promise<void> {
+export async function registerSeededKeys(seed: Uint8Array | string, signerIds: string[]): Promise<void> {
   setRuntimeSeed(seed);
 
   for (const signerId of signerIds) {
@@ -300,9 +298,7 @@ export function registerSignerKey(signerId: string, privateKey: Uint8Array): voi
 export function registerSignerPublicKey(signerId: string, publicKey: Uint8Array | string): void {
   if (signerKeys.has(signerId)) return; // Already has private key
   const bytes =
-    typeof publicKey === 'string'
-      ? Uint8Array.from(Buffer.from(publicKey.replace(/^0x/, ''), 'hex'))
-      : publicKey;
+    typeof publicKey === 'string' ? Uint8Array.from(Buffer.from(publicKey.replace(/^0x/, ''), 'hex')) : publicKey;
   externalPublicKeys.set(signerId, bytes);
   signerPublicKeys.delete(signerId);
 }
@@ -328,18 +324,24 @@ export function clearSignerKeys(): void {
  * Sign account frame using secp256k1
  * Returns: 65-byte signature (r + s + recovery)
  */
-export function signAccountFrame(
-  env: any,
-  signerId: string,
-  frameHash: string
-): string {
+export function signAccountFrame(env: any, signerId: string, frameHash: string): string {
   if (env?.runtimeSeed === undefined || env?.runtimeSeed === null) {
-    throw new Error(`CRYPTO_DETERMINISM_VIOLATION: signAccountFrame called without env.runtimeSeed for signer ${signerId}`);
+    throw new Error(
+      `CRYPTO_DETERMINISM_VIOLATION: signAccountFrame called without env.runtimeSeed for signer ${signerId}`,
+    );
   }
 
-  console.log(`🔑 signAccountFrame CALLED: signerId=${signerId.slice(-4)}, frameHash=${frameHash.slice(0, 10)}, source=env`);
-  console.log(`🔑 Available signerKeys:`, Array.from(signerKeys.keys()).map(k => k.slice(-4)));
-  console.log(`🔑 Available signerPublicKeys:`, Array.from(signerPublicKeys.keys()).map(k => k.slice(-4)));
+  console.log(
+    `🔑 signAccountFrame CALLED: signerId=${signerId.slice(-4)}, frameHash=${frameHash.slice(0, 10)}, source=env`,
+  );
+  console.log(
+    `🔑 Available signerKeys:`,
+    Array.from(signerKeys.keys()).map(k => k.slice(-4)),
+  );
+  console.log(
+    `🔑 Available signerPublicKeys:`,
+    Array.from(signerPublicKeys.keys()).map(k => k.slice(-4)),
+  );
 
   // CRITICAL: Sign raw hash - NO double hashing
   // On-chain _recoverSigner expects ecrecover(hash, sig) where hash is the raw 32-byte message
@@ -363,20 +365,21 @@ export function signDigest(seed: Uint8Array | string, signerId: string, digestHe
 /**
  * Verify account signature using secp256k1
  */
-export function verifyAccountSignature(
-  env: any,
-  signerId: string,
-  frameHash: string,
-  signature: string
-): boolean {
+export function verifyAccountSignature(env: any, signerId: string, frameHash: string, signature: string): boolean {
   const quiet = env?.quietRuntimeLogs === true;
   const publicKey = getSignerPublicKey(env, signerId);
   if (!publicKey) {
     // Always warn on missing keys - this is a real error
     console.warn(`⚠️ Cannot verify - no public key for signerId=${signerId.slice(-4)}`);
     if (!quiet) {
-      console.warn(`⚠️ Available keys:`, Array.from(signerPublicKeys.keys()).map(k => k.slice(-4)));
-      console.warn(`⚠️ Available external keys:`, Array.from(externalPublicKeys.keys()).map(k => k.slice(-4)));
+      console.warn(
+        `⚠️ Available keys:`,
+        Array.from(signerPublicKeys.keys()).map(k => k.slice(-4)),
+      );
+      console.warn(
+        `⚠️ Available external keys:`,
+        Array.from(externalPublicKeys.keys()).map(k => k.slice(-4)),
+      );
     }
     return false;
   }
@@ -406,7 +409,7 @@ export function validateAccountSignatures(
   env: any,
   frameHash: string,
   signatures: string[],
-  expectedSigners: string[]
+  expectedSigners: string[],
 ): { valid: boolean; validSigners: string[] } {
   const validSigners: string[] = [];
   const remaining = new Set(expectedSigners);

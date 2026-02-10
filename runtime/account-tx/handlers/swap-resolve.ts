@@ -43,8 +43,13 @@ export async function handleSwapResolve(
   accountTx: Extract<AccountTx, { type: 'swap_resolve' }>,
   byLeft: boolean,
   _currentHeight: number,
-  _isValidation: boolean = false
-): Promise<{ success: boolean; events: string[]; error?: string; swapOfferCancelled?: { offerId: string; accountId: string } }> {
+  _isValidation: boolean = false,
+): Promise<{
+  success: boolean;
+  events: string[];
+  error?: string;
+  swapOfferCancelled?: { offerId: string; accountId: string };
+}> {
   const { offerId, fillRatio, cancelRemainder } = accountTx.data;
   const events: string[] = [];
 
@@ -84,9 +89,7 @@ export async function handleSwapResolve(
   // Maker must receive AT LEAST their limit price - taker pays any dust
   const filledGive = (effectiveGive * BigInt(fillRatio)) / BigInt(MAX_FILL_RATIO);
   // Ceiling division: (a * b + c - 1) / c ensures maker gets >= limit price
-  const filledWant = effectiveGive > 0n
-    ? (filledGive * effectiveWant + effectiveGive - 1n) / effectiveGive
-    : 0n;
+  const filledWant = effectiveGive > 0n ? (filledGive * effectiveWant + effectiveGive - 1n) / effectiveGive : 0n;
 
   if (fillRatio > 0) {
     if (filledGive < FINANCIAL.MIN_PAYMENT_AMOUNT || filledGive > FINANCIAL.MAX_PAYMENT_AMOUNT) {
@@ -134,7 +137,11 @@ export async function handleSwapResolve(
     const takerIsLeft = !offer.makerIsLeft;
     const takerDerived = deriveDelta(wantDelta, takerIsLeft);
     if (filledWant > takerDerived.outCapacity) {
-      return { success: false, error: `Taker insufficient capacity: needs ${filledWant}, has ${takerDerived.outCapacity}`, events };
+      return {
+        success: false,
+        error: `Taker insufficient capacity: needs ${filledWant}, has ${takerDerived.outCapacity}`,
+        events,
+      };
     }
   }
 
@@ -199,7 +206,9 @@ export async function handleSwapResolve(
       if (offer.makerIsLeft) {
         const currentHold = giveDelta.leftSwapHold || 0n;
         if (currentHold < remainingHold) {
-          console.error(`⚠️ Swap remainder hold underflow! leftSwapHold=${currentHold} < remainingHold=${remainingHold}`);
+          console.error(
+            `⚠️ Swap remainder hold underflow! leftSwapHold=${currentHold} < remainingHold=${remainingHold}`,
+          );
           giveDelta.leftSwapHold = 0n;
         } else {
           giveDelta.leftSwapHold = currentHold - remainingHold;
@@ -207,7 +216,9 @@ export async function handleSwapResolve(
       } else {
         const currentHold = giveDelta.rightSwapHold || 0n;
         if (currentHold < remainingHold) {
-          console.error(`⚠️ Swap remainder hold underflow! rightSwapHold=${currentHold} < remainingHold=${remainingHold}`);
+          console.error(
+            `⚠️ Swap remainder hold underflow! rightSwapHold=${currentHold} < remainingHold=${remainingHold}`,
+          );
           giveDelta.rightSwapHold = 0n;
         } else {
           giveDelta.rightSwapHold = currentHold - remainingHold;
@@ -216,7 +227,9 @@ export async function handleSwapResolve(
     }
     accountMachine.swapOffers.delete(offerId);
     swapOfferCancelled = { offerId, accountId: makerId };
-    events.push(`📊 Swap offer ${offerId.slice(0,8)}... ${fillRatio === MAX_FILL_RATIO ? 'fully filled' : 'cancelled'}`);
+    events.push(
+      `📊 Swap offer ${offerId.slice(0, 8)}... ${fillRatio === MAX_FILL_RATIO ? 'fully filled' : 'cancelled'}`,
+    );
   } else {
     // Partial fill - update remaining amounts (use quantized values for consistency)
     offer.giveAmount = effectiveGive - filledGive;
@@ -226,7 +239,7 @@ export async function handleSwapResolve(
       offer.quantizedGive = offer.giveAmount;
       offer.quantizedWant = offer.wantAmount;
     }
-    events.push(`📊 Swap offer ${offerId.slice(0,8)}... partially filled, ${offer.giveAmount} remaining`);
+    events.push(`📊 Swap offer ${offerId.slice(0, 8)}... partially filled, ${offer.giveAmount} remaining`);
   }
 
   return { success: true, events, ...(swapOfferCancelled !== undefined && { swapOfferCancelled }) };

@@ -72,7 +72,16 @@ export {
 } from './ids';
 
 import type { EntityId, SignerId, ReplicaKey } from './ids';
-import type { Env, Delta, DerivedDelta, EntityProfile, JurisdictionConfig, ConsensusConfig, RuntimeInput, EntityInput } from './types';
+import type {
+  Env,
+  Delta,
+  DerivedDelta,
+  EntityProfile,
+  JurisdictionConfig,
+  ConsensusConfig,
+  RuntimeInput,
+  EntityInput,
+} from './types';
 import type { JAdapter } from './jadapter/types';
 
 export type BrowserVMTokenInfo = {
@@ -113,11 +122,14 @@ export type BrowserVMInstance = {
       tokenType?: number;
       externalTokenId?: bigint;
       internalTokenId?: number;
-    }
+    },
   ) => Promise<BrowserVMEvent[]>;
   registerEntityWallet?: (entityId: string, privateKey: string) => void;
   // Account queries
-  getAccountInfo?: (entityId: string, counterpartyId: string) => Promise<{ cooperativeNonce: bigint; disputeHash: string; disputeTimeout: bigint }>;
+  getAccountInfo?: (
+    entityId: string,
+    counterpartyId: string,
+  ) => Promise<{ cooperativeNonce: bigint; disputeHash: string; disputeTimeout: bigint }>;
   setDefaultDisputeDelay?: (delayBlocks: number) => Promise<void>;
   // Block management
   setBlockTimestamp?: (timestamp: number) => void;
@@ -133,7 +145,11 @@ export type BrowserVMInstance = {
   // Time travel and historical queries
   timeTravel?: (stateRoot: Uint8Array) => Promise<void>;
   getReserves?: (entityId: string, tokenId: number) => Promise<bigint>;
-  getCollateral?: (entityId: string, counterpartyId: string, tokenId: number) => Promise<{ collateral: bigint; ondelta: bigint }>;
+  getCollateral?: (
+    entityId: string,
+    counterpartyId: string,
+    tokenId: number,
+  ) => Promise<{ collateral: bigint; ondelta: bigint }>;
   getDebts?: (entityId: string, tokenId: number) => Promise<Array<{ amount: bigint; creditor: string }>>;
   // State capture and sync
   captureStateRoot?: () => Promise<Uint8Array>;
@@ -146,14 +162,19 @@ export type BrowserVMInstance = {
   }>;
   syncAllCollaterals?: (
     accountPairs: Array<{ entityId: string; counterpartyId: string }>,
-    tokenId: number
+    tokenId: number,
   ) => Promise<Map<string, Map<number, { collateral: bigint; ondelta: bigint }>>>;
   getBlockHeight?: () => bigint;
   // Debug helpers
   debugFundReserves?: (entityId: string, tokenId: number, amount: bigint) => Promise<BrowserVMEvent[]>;
   reserveToReserve?: (from: string, to: string, tokenId: number, amount: bigint) => Promise<BrowserVMEvent[]>;
   // Batch processing
-  processBatch?: (encodedBatch: string, entityProvider: string, hankoData: string, nonce: bigint) => Promise<BrowserVMEvent[]>;
+  processBatch?: (
+    encodedBatch: string,
+    entityProvider: string,
+    hankoData: string,
+    nonce: bigint,
+  ) => Promise<BrowserVMEvent[]>;
   // Event subscription (implements BrowserVMEventSource)
   onAny?: (callback: (events: BrowserVMEvent[]) => void) => () => void;
   // Lifecycle
@@ -230,11 +251,15 @@ export interface XLNModule {
   // Core lifecycle
   main: () => Promise<Env>;
   process: (env: Env, inputs?: unknown[], delay?: number) => Promise<Env>;
-  registerEnvChangeCallback: (env: Env, callback: (env: Env) => void) => (() => void);
+  registerEnvChangeCallback: (env: Env, callback: (env: Env) => void) => () => void;
   getEnv: (env?: Env | null) => Env | null;
   getActiveJAdapter?: (env: Env | null) => JAdapter | null;
   processJBlockEvents?: (env: Env) => Promise<void>;
-  queueEntityInput?: (entityId: string, signerId: string, txData: { type: string; [key: string]: any }) => Promise<void>;
+  queueEntityInput?: (
+    entityId: string,
+    signerId: string,
+    txData: { type: string; [key: string]: any },
+  ) => Promise<void>;
 
   // Identity system (from ids.ts)
   parseReplicaKey: (keyString: string) => ReplicaKey;
@@ -303,12 +328,25 @@ export interface XLNModule {
   generateLazyEntityId: (validators: string[] | { name: string; weight: number }[], threshold: bigint) => string;
   generateNumberedEntityId: (entityNumber: number) => string;
   generateNamedEntityId: (name: string) => string;
-  createLazyEntity: (name: string, validators: string[], threshold: bigint, jurisdiction?: JurisdictionConfig) => { config: ConsensusConfig; executionTimeMs: number };
-  createNumberedEntity: (name: string, validators: string[], threshold: bigint, jurisdiction: JurisdictionConfig) => Promise<{ config: ConsensusConfig; entityNumber: number; entityId: string }>;
+  createLazyEntity: (
+    name: string,
+    validators: string[],
+    threshold: bigint,
+    jurisdiction?: JurisdictionConfig,
+  ) => { config: ConsensusConfig; executionTimeMs: number };
+  createNumberedEntity: (
+    name: string,
+    validators: string[],
+    threshold: bigint,
+    jurisdiction: JurisdictionConfig,
+  ) => Promise<{ config: ConsensusConfig; entityNumber: number; entityId: string }>;
   createNumberedEntitiesBatch: (env: Env, jId: string, count: number) => Promise<Env>;
 
   // Runtime operations
-  applyRuntimeInput: (env: Env, input: RuntimeInput) => Promise<{ entityOutbox: EntityInput[]; mergedInputs: EntityInput[] }>;
+  applyRuntimeInput: (
+    env: Env,
+    input: RuntimeInput,
+  ) => Promise<{ entityOutbox: EntityInput[]; mergedInputs: EntityInput[] }>;
   startP2P: (env: Env, config?: P2PConfig) => unknown;
   stopP2P: (env: Env) => void;
   getP2P: (env: Env) => unknown;
@@ -320,7 +358,7 @@ export interface XLNModule {
   createEmptyEnv: (seed?: Uint8Array | string | null) => Env;
   setRuntimeSeed: (env: Env, seed: string | null) => void;
   setRuntimeId: (env: Env, id: string | null) => void;
-  deriveRuntimeId: (seed: string) => string;  // Derive runtimeId from seed (for isolated envs)
+  deriveRuntimeId: (seed: string) => string; // Derive runtimeId from seed (for isolated envs)
 
   // Scenarios namespace (replaces legacy prepopulate functions)
   scenarios: {
@@ -349,10 +387,21 @@ export interface XLNModule {
     diffs: SettlementDiff[],
     forgiveDebtsInTokenIds?: number[],
     insuranceRegs?: Array<{ insured: string; insurer: string; tokenId: number; limit: bigint; expiresAt: bigint }>,
-    sig?: string
+    sig?: string,
   ) => Promise<{ txHash: string }>;
-  submitReserveToReserve: (jurisdiction: JurisdictionConfig, fromEntity: string, toEntity: string, tokenId: number, amount: string) => Promise<{ txHash: string }>;
-  submitProcessBatch: (jurisdiction: JurisdictionConfig, entityId: string, batch: unknown, signerId?: string) => Promise<{ transaction: unknown; receipt: unknown }>;
+  submitReserveToReserve: (
+    jurisdiction: JurisdictionConfig,
+    fromEntity: string,
+    toEntity: string,
+    tokenId: number,
+    amount: string,
+  ) => Promise<{ txHash: string }>;
+  submitProcessBatch: (
+    jurisdiction: JurisdictionConfig,
+    entityId: string,
+    batch: unknown,
+    signerId?: string,
+  ) => Promise<{ transaction: unknown; receipt: unknown }>;
   submitPrefundAccount: (env: Env, entityId: string, tokenAddress: string, amount: bigint) => Promise<Env>;
   debugFundReserves: (env: Env, entityId: string, tokenAddress: string, amount: bigint) => Promise<Env>;
 
@@ -396,8 +445,27 @@ export interface XLNModule {
   formatShortEntityId: (entityId: string) => string;
 
   // Bilateral consensus state
-  classifyBilateralState: (myAccount: unknown, peerCurrentHeight: number | undefined, isLeft: boolean) => { state: string; isLeftEntity: boolean; shouldRollback: boolean; pendingHeight: number | null; mempoolCount: number };
-  getAccountBarVisual: (leftState: unknown, rightState: unknown) => { glowColor: string | null; glowSide: string | null; glowIntensity: number; isDashed: boolean; pulseSpeed: number };
+  classifyBilateralState: (
+    myAccount: unknown,
+    peerCurrentHeight: number | undefined,
+    isLeft: boolean,
+  ) => {
+    state: string;
+    isLeftEntity: boolean;
+    shouldRollback: boolean;
+    pendingHeight: number | null;
+    mempoolCount: number;
+  };
+  getAccountBarVisual: (
+    leftState: unknown,
+    rightState: unknown,
+  ) => {
+    glowColor: string | null;
+    glowSide: string | null;
+    glowIntensity: number;
+    isDashed: boolean;
+    pulseSpeed: number;
+  };
 }
 
 /**

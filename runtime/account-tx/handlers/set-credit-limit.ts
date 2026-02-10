@@ -14,7 +14,7 @@ const MAX_CREDIT_LIMIT = FINANCIAL.MAX_PAYMENT_AMOUNT * 1000n; // 1000x max paym
 export function handleSetCreditLimit(
   accountMachine: AccountMachine,
   accountTx: Extract<AccountTx, { type: 'set_credit_limit' }>,
-  byLeft: boolean
+  byLeft: boolean,
 ): { success: boolean; events: string[]; error?: string } {
   const tokenId = accountTx.data.tokenId as TokenId;
   const { amount } = accountTx.data;
@@ -59,6 +59,8 @@ export function handleSetCreditLimit(
     events.push(`💳 Right credit limit = ${amount.toString()} for token ${tokenId}`);
   }
 
-  console.log(`✅ Set credit limit for token ${tokenId}: left=${delta.leftCreditLimit}, right=${delta.rightCreditLimit}`);
+  console.log(
+    `✅ Set credit limit for token ${tokenId}: left=${delta.leftCreditLimit}, right=${delta.rightCreditLimit}`,
+  );
   return { success: true, events };
 }

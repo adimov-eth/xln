@@ -13,14 +13,26 @@ import { createVM, runTx } from '@ethereumjs/vm';
 import { createBlock } from '@ethereumjs/block';
 import type { Block } from '@ethereumjs/block';
 import { createLegacyTx, createTxFromRLP } from '@ethereumjs/tx';
-import { createAddressFromPrivateKey, createAddressFromString, hexToBytes, createAccount, bytesToHex } from '@ethereumjs/util';
+import {
+  createAddressFromPrivateKey,
+  createAddressFromString,
+  hexToBytes,
+  createAccount,
+  bytesToHex,
+} from '@ethereumjs/util';
 import type { Address } from '@ethereumjs/util';
 import { createCustomCommon, Mainnet } from '@ethereumjs/common';
 import { ethers } from 'ethers';
 import { safeStringify } from '../serialization-utils.js';
 import { getCachedSignerPrivateKey } from '../account-crypto.js';
 import { isLeftEntity, normalizeEntityId } from '../entity-id-utils';
-import { DEFAULT_TOKENS, DEFAULT_TOKEN_SUPPLY, DEFAULT_SIGNER_FAUCET, TOKEN_REGISTRATION_AMOUNT } from './default-tokens';
+import { computeAccountKey } from './helpers';
+import {
+  DEFAULT_TOKENS,
+  DEFAULT_TOKEN_SUPPLY,
+  DEFAULT_SIGNER_FAUCET,
+  TOKEN_REGISTRATION_AMOUNT,
+} from './default-tokens';
 
 const BLOCK_GAS_LIMIT = 200_000_000n; // Simnet headroom for large deploys/batches
 
@@ -33,7 +45,7 @@ export interface EVMEvent {
   name: string;
   args: Record<string, unknown>;
   blockNumber?: number;
-  blockHash?: string;  // Block hash for JBlock consensus
+  blockHash?: string; // Block hash for JBlock consensus
   timestamp?: number;
 }
 
@@ -56,7 +68,10 @@ export class BrowserVMProvider {
   private entityProviderInterface: ethers.Interface | null = null;
   private accountInterface: ethers.Interface | null = null;
   private erc20Interface: ethers.Interface | null = null;
-  private tokenRegistry: Map<string, { address: string; name: string; symbol: string; decimals: number; tokenId: number }> = new Map();
+  private tokenRegistry: Map<
+    string,
+    { address: string; name: string; symbol: string; decimals: number; tokenId: number }
+  > = new Map();
   private fundedAddresses: Set<string> = new Set();
   private initialized = false;
   private quietLogs = false;
@@ -71,23 +86,26 @@ export class BrowserVMProvider {
   private eventCallbacks: Set<(events: EVMEvent[]) => void> = new Set();
 
   // Transaction receipts for ethers compatibility
-  private txReceipts: Map<string, {
-    transactionHash: string;
-    blockNumber: number;
-    blockHash: string;
-    from: string;
-    to: string | null;
-    contractAddress: string | null;
-    status: number;
-    logs: Array<{
-      address: string;
-      topics: string[];
-      data: string;
-      blockNumber: number;
+  private txReceipts: Map<
+    string,
+    {
       transactionHash: string;
-      logIndex: number;
-    }>;
-  }> = new Map();
+      blockNumber: number;
+      blockHash: string;
+      from: string;
+      to: string | null;
+      contractAddress: string | null;
+      status: number;
+      logs: Array<{
+        address: string;
+        topics: string[];
+        data: string;
+        blockNumber: number;
+        transactionHash: string;
+        logIndex: number;
+      }>;
+    }
+  > = new Map();
 
   constructor() {
     // Hardhat default account #0
@@ -104,7 +122,6 @@ export class BrowserVMProvider {
       console.log(...args);
     }
   }
-
 
   /** Initialize VM and deploy contracts */
   async init(): Promise<void> {
@@ -126,8 +143,10 @@ export class BrowserVMProvider {
 
       if (!accountResp.ok) throw new Error(`Failed to load Account artifact: ${accountResp.status}`);
       if (!depositoryResp.ok) throw new Error(`Failed to load Depository artifact: ${depositoryResp.status}`);
-      if (!entityProviderResp.ok) throw new Error(`Failed to load EntityProvider artifact: ${entityProviderResp.status}`);
-      if (!deltaTransformerResp.ok) throw new Error(`Failed to load DeltaTransformer artifact: ${deltaTransformerResp.status}`);
+      if (!entityProviderResp.ok)
+        throw new Error(`Failed to load EntityProvider artifact: ${entityProviderResp.status}`);
+      if (!deltaTransformerResp.ok)
+        throw new Error(`Failed to load DeltaTransformer artifact: ${deltaTransformerResp.status}`);
       if (!erc20Resp.ok) throw new Error(`Failed to load ERC20Mock artifact: ${erc20Resp.status}`);
 
       this.accountArtifact = await accountResp.json();
@@ -142,9 +161,15 @@ export class BrowserVMProvider {
       const basePath = path.join(process.cwd(), 'jurisdictions/artifacts/contracts');
 
       this.accountArtifact = JSON.parse(fs.readFileSync(path.join(basePath, 'Account.sol/Account.json'), 'utf-8'));
-      this.depositoryArtifact = JSON.parse(fs.readFileSync(path.join(basePath, 'Depository.sol/Depository.json'), 'utf-8'));
-      this.entityProviderArtifact = JSON.parse(fs.readFileSync(path.join(basePath, 'EntityProvider.sol/EntityProvider.json'), 'utf-8'));
-      this.deltaTransformerArtifact = JSON.parse(fs.readFileSync(path.join(basePath, 'DeltaTransformer.sol/DeltaTransformer.json'), 'utf-8'));
+      this.depositoryArtifact = JSON.parse(
+        fs.readFileSync(path.join(basePath, 'Depository.sol/Depository.json'), 'utf-8'),
+      );
+      this.entityProviderArtifact = JSON.parse(
+        fs.readFileSync(path.join(basePath, 'EntityProvider.sol/EntityProvider.json'), 'utf-8'),
+      );
+      this.deltaTransformerArtifact = JSON.parse(
+        fs.readFileSync(path.join(basePath, 'DeltaTransformer.sol/DeltaTransformer.json'), 'utf-8'),
+      );
       this.erc20Artifact = JSON.parse(fs.readFileSync(path.join(basePath, 'ERC20Mock.sol/ERC20Mock.json'), 'utf-8'));
       console.log('[BrowserVM] Loaded artifacts from filesystem (CLI mode)');
     }
@@ -179,7 +204,7 @@ export class BrowserVMProvider {
     // Deploy contracts in order: Account (library) → EntityProvider → Depository(EP) → DeltaTransformer
     await this.deployAccount();
     await this.deployEntityProvider();
-    await this.deployDepository();  // Now requires EntityProvider address
+    await this.deployDepository(); // Now requires EntityProvider address
     await this.deployDeltaTransformer();
     await this.deployDefaultTokens();
 
@@ -209,12 +234,15 @@ export class BrowserVMProvider {
     console.log('[BrowserVM] Deploying Account library...');
     const currentNonce = await this.getCurrentNonce();
 
-    const tx = createLegacyTx({
-      gasLimit: 100000000n,
-      gasPrice: 10n,
-      data: this.accountArtifact.bytecode,
-      nonce: currentNonce,
-    }, { common: this.common }).sign(this.deployerPrivKey);
+    const tx = createLegacyTx(
+      {
+        gasLimit: 100000000n,
+        gasPrice: 10n,
+        data: this.accountArtifact.bytecode,
+        nonce: currentNonce,
+      },
+      { common: this.common },
+    ).sign(this.deployerPrivKey);
 
     const result = await this.runTxInBlock(tx);
 
@@ -248,7 +276,9 @@ export class BrowserVMProvider {
     const placeholders = linkedBytecode.match(placeholderRegex);
 
     if (placeholders && placeholders.length > 0) {
-      console.log(`[BrowserVM] Found ${placeholders.length} library placeholders, linking Account at ${accountAddrHex}`);
+      console.log(
+        `[BrowserVM] Found ${placeholders.length} library placeholders, linking Account at ${accountAddrHex}`,
+      );
       linkedBytecode = linkedBytecode.replace(placeholderRegex, accountAddrHex);
     } else {
       console.warn('[BrowserVM] No library placeholders found in Depository bytecode');
@@ -258,18 +288,21 @@ export class BrowserVMProvider {
     const { ethers } = await import('ethers');
     const constructorArgs = ethers.AbiCoder.defaultAbiCoder().encode(
       ['address'],
-      [this.entityProviderAddress.toString()]
+      [this.entityProviderAddress.toString()],
     );
     const deployData = linkedBytecode + constructorArgs.slice(2); // Remove 0x from args
 
     const currentNonce = await this.getCurrentNonce();
 
-    const tx = createLegacyTx({
-      gasLimit: 100000000n,
-      gasPrice: 10n,
-      data: deployData as `0x${string}`,
-      nonce: currentNonce,
-    }, { common: this.common }).sign(this.deployerPrivKey);
+    const tx = createLegacyTx(
+      {
+        gasLimit: 100000000n,
+        gasPrice: 10n,
+        data: deployData as `0x${string}`,
+        nonce: currentNonce,
+      },
+      { common: this.common },
+    ).sign(this.deployerPrivKey);
 
     const result = await this.runTxInBlock(tx);
 
@@ -294,12 +327,15 @@ export class BrowserVMProvider {
     console.log('[BrowserVM] Deploying EntityProvider...');
     const currentNonce = await this.getCurrentNonce();
 
-    const tx = createLegacyTx({
-      gasLimit: 100000000n,
-      gasPrice: 10n,
-      data: this.entityProviderArtifact.bytecode,
-      nonce: currentNonce,
-    }, { common: this.common }).sign(this.deployerPrivKey);
+    const tx = createLegacyTx(
+      {
+        gasLimit: 100000000n,
+        gasPrice: 10n,
+        data: this.entityProviderArtifact.bytecode,
+        nonce: currentNonce,
+      },
+      { common: this.common },
+    ).sign(this.deployerPrivKey);
 
     const result = await this.runTxInBlock(tx);
 
@@ -317,12 +353,15 @@ export class BrowserVMProvider {
     console.log('[BrowserVM] Deploying DeltaTransformer...');
     const currentNonce = await this.getCurrentNonce();
 
-    const tx = createLegacyTx({
-      gasLimit: 100000000n,
-      gasPrice: 10n,
-      data: this.deltaTransformerArtifact.bytecode,
-      nonce: currentNonce,
-    }, { common: this.common }).sign(this.deployerPrivKey);
+    const tx = createLegacyTx(
+      {
+        gasLimit: 100000000n,
+        gasPrice: 10n,
+        data: this.deltaTransformerArtifact.bytecode,
+        nonce: currentNonce,
+      },
+      { common: this.common },
+    ).sign(this.deployerPrivKey);
 
     const result = await this.runTxInBlock(tx);
 
@@ -379,7 +418,9 @@ export class BrowserVMProvider {
     }
 
     this.fundedAddresses.add(normalized);
-    console.log(`[BrowserVM] Faucet funded ${address.slice(0, 10)}... with ${amount} of ${this.tokenRegistry.size} tokens`);
+    console.log(
+      `[BrowserVM] Faucet funded ${address.slice(0, 10)}... with ${amount} of ${this.tokenRegistry.size} tokens`,
+    );
   }
 
   private async deployDefaultTokens(): Promise<void> {
@@ -411,12 +452,15 @@ export class BrowserVMProvider {
     const constructorData = abiCoder.encode(['string', 'string', 'uint256'], [name, symbol, supply]);
     const bytecode = `${this.erc20Artifact.bytecode}${constructorData.slice(2)}`;
 
-    const tx = createLegacyTx({
-      gasLimit: 5_000_000n,
-      gasPrice: 10n,
-      data: bytecode as `0x${string}`,
-      nonce: currentNonce,
-    }, { common: this.common }).sign(this.deployerPrivKey);
+    const tx = createLegacyTx(
+      {
+        gasLimit: 5_000_000n,
+        gasPrice: 10n,
+        data: bytecode as `0x${string}`,
+        nonce: currentNonce,
+      },
+      { common: this.common },
+    ).sign(this.deployerPrivKey);
 
     const result = await this.runTxInBlock(tx);
 
@@ -429,25 +473,35 @@ export class BrowserVMProvider {
 
   private async registerErc20Token(tokenAddress: string): Promise<number> {
     const packedToken = this.packTokenReference(0, tokenAddress, 0);
-    await this.approveErc20(this.deployerPrivKey, tokenAddress, this.depositoryAddress!.toString(), TOKEN_REGISTRATION_AMOUNT);
+    await this.approveErc20(
+      this.deployerPrivKey,
+      tokenAddress,
+      this.depositoryAddress!.toString(),
+      TOKEN_REGISTRATION_AMOUNT,
+    );
 
-    const callData = this.depositoryInterface!.encodeFunctionData('externalTokenToReserve', [{
-      entity: ethers.ZeroHash,
-      contractAddress: tokenAddress,
-      externalTokenId: 0,
-      tokenType: 0,
-      internalTokenId: 0,
-      amount: TOKEN_REGISTRATION_AMOUNT,
-    }]);
+    const callData = this.depositoryInterface!.encodeFunctionData('externalTokenToReserve', [
+      {
+        entity: ethers.ZeroHash,
+        contractAddress: tokenAddress,
+        externalTokenId: 0,
+        tokenType: 0,
+        internalTokenId: 0,
+        amount: TOKEN_REGISTRATION_AMOUNT,
+      },
+    ]);
 
     const currentNonce = await this.getCurrentNonce();
-    const tx = createLegacyTx({
-      to: this.depositoryAddress!,
-      gasLimit: 1_000_000n,
-      gasPrice: 10n,
-      data: hexToBytes(callData as `0x${string}`),
-      nonce: currentNonce,
-    }, { common: this.common }).sign(this.deployerPrivKey);
+    const tx = createLegacyTx(
+      {
+        to: this.depositoryAddress!,
+        gasLimit: 1_000_000n,
+        gasPrice: 10n,
+        data: hexToBytes(callData as `0x${string}`),
+        nonce: currentNonce,
+      },
+      { common: this.common },
+    ).sign(this.deployerPrivKey);
 
     const result = await this.runTxInBlock(tx);
 
@@ -514,21 +568,27 @@ export class BrowserVMProvider {
 
   async approveErc20(privKey: Uint8Array, tokenAddress: string, spender: string, amount: bigint): Promise<string> {
     const callData = this.erc20Interface!.encodeFunctionData('approve', [spender, amount]);
-    const result = await this.executeTx({
-      to: tokenAddress,
-      data: callData,
-      gasLimit: 200000n,
-    }, privKey);
+    const result = await this.executeTx(
+      {
+        to: tokenAddress,
+        data: callData,
+        gasLimit: 200000n,
+      },
+      privKey,
+    );
     return result.txHash;
   }
 
   async transferErc20(privKey: Uint8Array, tokenAddress: string, to: string, amount: bigint): Promise<string> {
     const callData = this.erc20Interface!.encodeFunctionData('transfer', [to, amount]);
-    const result = await this.executeTx({
-      to: tokenAddress,
-      data: callData,
-      gasLimit: 200000n,
-    }, privKey);
+    const result = await this.executeTx(
+      {
+        to: tokenAddress,
+        data: callData,
+        gasLimit: 200000n,
+      },
+      privKey,
+    );
     return result.txHash;
   }
 
@@ -541,26 +601,32 @@ export class BrowserVMProvider {
       tokenType?: number;
       externalTokenId?: bigint;
       internalTokenId?: number;
-    }
+    },
   ): Promise<EVMEvent[]> {
     const tokenType = options?.tokenType ?? 0;
     const externalTokenIdRaw = options?.externalTokenId ?? 0n;
     const externalTokenId = typeof externalTokenIdRaw === 'bigint' ? externalTokenIdRaw : BigInt(externalTokenIdRaw);
     const internalTokenId = options?.internalTokenId ?? 0;
-    const callData = this.depositoryInterface!.encodeFunctionData('externalTokenToReserve', [{
-      entity: entityId,
-      contractAddress: tokenAddress,
-      externalTokenId,
-      tokenType,
-      internalTokenId,
-      amount,
-    }]);
+    const callData = this.depositoryInterface!.encodeFunctionData('externalTokenToReserve', [
+      {
+        entity: entityId,
+        contractAddress: tokenAddress,
+        externalTokenId,
+        tokenType,
+        internalTokenId,
+        amount,
+      },
+    ]);
 
-    const result = await this.executeTx({
-      to: this.depositoryAddress!.toString(),
-      data: callData,
-      gasLimit: 1_000_000n,
-    }, privKey, { emitEvents: true });
+    const result = await this.executeTx(
+      {
+        to: this.depositoryAddress!.toString(),
+        data: callData,
+        gasLimit: 1_000_000n,
+      },
+      privKey,
+      { emitEvents: true },
+    );
 
     return result.events || [];
   }
@@ -568,7 +634,7 @@ export class BrowserVMProvider {
   async executeTx(
     txData: { to?: string; data?: string; gasLimit?: bigint; value?: bigint },
     privKey: Uint8Array = this.deployerPrivKey,
-    options?: { emitEvents?: boolean }
+    options?: { emitEvents?: boolean },
   ): Promise<{ txHash: string; events?: EVMEvent[] }> {
     const fromAddress = createAddressFromPrivateKey(privKey);
     const currentNonce = await this.getNonceForAddress(fromAddress);
@@ -616,7 +682,7 @@ export class BrowserVMProvider {
 
     if (result.execResult.exceptionError) {
       const err = result.execResult.exceptionError;
-      const errMsg = typeof err === 'object' ? (err.error || err.message || JSON.stringify(err)) : String(err);
+      const errMsg = typeof err === 'object' ? err.error || err.message || JSON.stringify(err) : String(err);
       throw new Error(`executeSignedTx failed: ${errMsg}`);
     }
 
@@ -758,13 +824,16 @@ export class BrowserVMProvider {
     // Always query nonce from VM (don't trust local counter)
     const currentNonce = await this.getCurrentNonce();
 
-    const tx = createLegacyTx({
-      to: this.depositoryAddress,
-      gasLimit: 1000000n,
-      gasPrice: 10n,
-      data: hexToBytes(callData as `0x${string}`),
-      nonce: currentNonce,
-    }, { common: this.common }).sign(this.deployerPrivKey);
+    const tx = createLegacyTx(
+      {
+        to: this.depositoryAddress,
+        gasLimit: 1000000n,
+        gasPrice: 10n,
+        data: hexToBytes(callData as `0x${string}`),
+        nonce: currentNonce,
+      },
+      { common: this.common },
+    ).sign(this.deployerPrivKey);
 
     const result = await this.runTxInBlock(tx);
 
@@ -787,13 +856,16 @@ export class BrowserVMProvider {
 
     const callData = this.depositoryInterface.encodeFunctionData('setDefaultDisputeDelay', [delayBlocks]);
     const currentNonce = await this.getCurrentNonce();
-    const tx = createLegacyTx({
-      to: this.depositoryAddress,
-      gasLimit: 500000n,
-      gasPrice: 10n,
-      data: hexToBytes(callData as `0x${string}`),
-      nonce: currentNonce,
-    }, { common: this.common }).sign(this.deployerPrivKey);
+    const tx = createLegacyTx(
+      {
+        to: this.depositoryAddress,
+        gasLimit: 500000n,
+        gasPrice: 10n,
+        data: hexToBytes(callData as `0x${string}`),
+        nonce: currentNonce,
+      },
+      { common: this.common },
+    ).sign(this.deployerPrivKey);
 
     const result = await this.runTxInBlock(tx);
     if (result.execResult.exceptionError) {
@@ -814,25 +886,30 @@ export class BrowserVMProvider {
     // Always query nonce from VM
     const currentNonce = await this.getCurrentNonce();
 
-    const tx = createLegacyTx({
-      to: this.depositoryAddress,
-      gasLimit: 1000000n,
-      gasPrice: 10n,
-      data: hexToBytes(callData as `0x${string}`),
-      nonce: currentNonce,
-    }, { common: this.common }).sign(this.deployerPrivKey);
+    const tx = createLegacyTx(
+      {
+        to: this.depositoryAddress,
+        gasLimit: 1000000n,
+        gasPrice: 10n,
+        data: hexToBytes(callData as `0x${string}`),
+        nonce: currentNonce,
+      },
+      { common: this.common },
+    ).sign(this.deployerPrivKey);
 
     const result = await this.runTxInBlock(tx);
 
     if (result.execResult.exceptionError) {
       const err = result.execResult.exceptionError;
-      const errMsg = typeof err === 'object' ? (err.error || err.message || JSON.stringify(err)) : String(err);
+      const errMsg = typeof err === 'object' ? err.error || err.message || JSON.stringify(err) : String(err);
       console.error(`[BrowserVM] R2R FAILED: from=${from}, to=${to}, tokenId=${tokenId}, amount=${amount}`);
       console.error(`[BrowserVM] R2R error details:`, err);
       throw new Error(`reserveToReserve failed: ${errMsg}`);
     }
 
-    console.log(`[BrowserVM] R2R SUCCESS: ${amount} token${tokenId} from ${from.slice(0, 10)}... to ${to.slice(0, 10)}...`);
+    console.log(
+      `[BrowserVM] R2R SUCCESS: ${amount} token${tokenId} from ${from.slice(0, 10)}... to ${to.slice(0, 10)}...`,
+    );
 
     // Emit events to j-watcher subscribers
     return this.emitEvents(result.execResult.logs || []);
@@ -868,7 +945,12 @@ export class BrowserVMProvider {
    * @param entityId - Entity depositing collateral (must be a valid entityId for Hanko signing)
    * @param counterpartyId - The counterparty entity (must sign the settlement)
    */
-  async reserveToCollateralDirect(entityId: string, counterpartyId: string, tokenId: number, amount: bigint): Promise<EVMEvent[]> {
+  async reserveToCollateralDirect(
+    entityId: string,
+    counterpartyId: string,
+    tokenId: number,
+    amount: bigint,
+  ): Promise<EVMEvent[]> {
     if (!this.depositoryAddress || !this.depositoryInterface) throw new Error('Depository not deployed');
 
     // Use settle() with appropriate diffs to achieve R2C effect
@@ -877,13 +959,15 @@ export class BrowserVMProvider {
     const rightEntity = isLeft ? counterpartyId : entityId;
 
     // R2C: Reduce entity's reserve, increase collateral + ondelta
-    const diffs = [{
-      tokenId,
-      leftDiff: isLeft ? -BigInt(amount) : 0n,
-      rightDiff: isLeft ? 0n : -BigInt(amount),
-      collateralDiff: BigInt(amount),
-      ondeltaDiff: isLeft ? BigInt(amount) : -BigInt(amount),
-    }];
+    const diffs = [
+      {
+        tokenId,
+        leftDiff: isLeft ? -BigInt(amount) : 0n,
+        rightDiff: isLeft ? 0n : -BigInt(amount),
+        collateralDiff: BigInt(amount),
+        ondeltaDiff: isLeft ? BigInt(amount) : -BigInt(amount),
+      },
+    ];
 
     // Generate counterparty signature (REQUIRED)
     const sig = await this.signSettlement(entityId, counterpartyId, diffs, [], []);
@@ -898,48 +982,45 @@ export class BrowserVMProvider {
     ]);
 
     const currentNonce = await this.getCurrentNonce();
-    const tx = createLegacyTx({
-      to: this.depositoryAddress,
-      gasLimit: 1000000n,
-      gasPrice: 10n,
-      data: hexToBytes(callData as `0x${string}`),
-      nonce: currentNonce,
-    }, { common: this.common }).sign(this.deployerPrivKey);
+    const tx = createLegacyTx(
+      {
+        to: this.depositoryAddress,
+        gasLimit: 1000000n,
+        gasPrice: 10n,
+        data: hexToBytes(callData as `0x${string}`),
+        nonce: currentNonce,
+      },
+      { common: this.common },
+    ).sign(this.deployerPrivKey);
 
     const result = await this.runTxInBlock(tx);
     if (result.execResult.exceptionError) {
       const err = result.execResult.exceptionError;
-      const errMsg = typeof err === 'object' ? (err.error || err.message || JSON.stringify(err)) : String(err);
-      console.error(`[BrowserVM] R2C FAILED: entity=${entityId}, counterparty=${counterpartyId}, tokenId=${tokenId}, amount=${amount}`);
+      const errMsg = typeof err === 'object' ? err.error || err.message || JSON.stringify(err) : String(err);
+      console.error(
+        `[BrowserVM] R2C FAILED: entity=${entityId}, counterparty=${counterpartyId}, tokenId=${tokenId}, amount=${amount}`,
+      );
       console.error(`[BrowserVM] R2C error details:`, err);
       throw new Error(`R2C failed: ${errMsg}`);
     }
-    console.log(`[BrowserVM] R2C SUCCESS: ${amount} from ${entityId.slice(0, 10)}... → account with ${counterpartyId.slice(0, 10)}...`);
+    console.log(
+      `[BrowserVM] R2C SUCCESS: ${amount} from ${entityId.slice(0, 10)}... → account with ${counterpartyId.slice(0, 10)}...`,
+    );
     console.log(`[BrowserVM] R2C: logs=${result.execResult.logs?.length || 0}`);
 
     return this.emitEvents(result.execResult.logs || []);
   }
 
   /** Get collateral for an account */
-  async getCollateral(entityId: string, counterpartyId: string, tokenId: number): Promise<{ collateral: bigint; ondelta: bigint }> {
+  async getCollateral(
+    entityId: string,
+    counterpartyId: string,
+    tokenId: number,
+  ): Promise<{ collateral: bigint; ondelta: bigint }> {
     if (!this.depositoryAddress || !this.depositoryInterface) throw new Error('Depository not deployed');
 
-    // Use ethers Interface for ABI encoding (same as mainnet)
-    // Solidity mapping: _collaterals(bytes channelKey, uint tokenId) -> AccountCollateral
-    // Need to compute channelKey first via accountKey(e1, e2), then call the mapping getter
-    const channelKeyData = this.depositoryInterface.encodeFunctionData('accountKey', [entityId, counterpartyId]);
-    const channelKeyResult = await this.vm.evm.runCall({
-      to: this.depositoryAddress,
-      caller: this.deployerAddress,
-      data: hexToBytes(channelKeyData as `0x${string}`),
-      gasLimit: 100000n,
-    });
-    if (channelKeyResult.execResult.exceptionError) return { collateral: 0n, ondelta: 0n };
-    const channelKeyDecoded = this.depositoryInterface.decodeFunctionResult(
-      'accountKey',
-      channelKeyResult.execResult.returnValue
-    );
-    const channelKey = channelKeyDecoded[0];
+    // Compute channel key off-chain (identical to Account.sol's accountKey: sort + abi.encodePacked)
+    const channelKey = computeAccountKey(entityId, counterpartyId);
 
     const callData = this.depositoryInterface.encodeFunctionData('_collaterals', [channelKey, tokenId]);
 
@@ -1033,7 +1114,7 @@ export class BrowserVMProvider {
 
     throw new Error(
       `BrowserVM missing wallet for entity ${entityId.slice(0, 20)}... ` +
-      `(registerEntityWallet or importReplica with runtimeSeed-derived signer)`
+        `(registerEntityWallet or importReplica with runtimeSeed-derived signer)`,
     );
   }
 
@@ -1060,8 +1141,11 @@ export class BrowserVMProvider {
   private isNumberedEntity(entityId: string): boolean {
     const normalized = entityId.toLowerCase();
     const entityNum = parseInt(normalized.slice(-8), 16);
-    return entityNum > 0 && entityNum < 10000 &&
-      normalized.startsWith('0x0000000000000000000000000000000000000000000000000000');
+    return (
+      entityNum > 0 &&
+      entityNum < 10000 &&
+      normalized.startsWith('0x0000000000000000000000000000000000000000000000000000')
+    );
   }
 
   private buildSingleSignerHanko(entityId: string, hash: string, wallet: ethers.Wallet): string {
@@ -1076,18 +1160,20 @@ export class BrowserVMProvider {
 
     return abiCoder.encode(
       ['tuple(bytes32[],bytes,tuple(bytes32,uint256[],uint256[],uint256)[])'],
-      [[
-        [], // placeholders
-        packedSig, // packed signatures (single signer)
+      [
         [
+          [], // placeholders
+          packedSig, // packed signatures (single signer)
           [
-            paddedEntityId, // entityId
-            [0], // entityIndexes
-            [1], // weights
-            1, // threshold
+            [
+              paddedEntityId, // entityId
+              [0], // entityIndexes
+              [1], // weights
+              1, // threshold
+            ],
           ],
         ],
-      ]]
+      ],
     );
   }
 
@@ -1133,7 +1219,7 @@ export class BrowserVMProvider {
       tokenId: number;
       limit: bigint;
       expiresAt: bigint;
-    }> = []
+    }> = [],
   ): Promise<string> {
     // Get current cooperativeNonce from chain
     const accountInfo = await this.getAccountInfo(initiatorEntityId, counterpartyEntityId);
@@ -1150,7 +1236,15 @@ export class BrowserVMProvider {
     // Include depositoryAddress for chain+depository binding (replay protection)
     const abiCoder = ethers.AbiCoder.defaultAbiCoder();
     const encodedMsg = abiCoder.encode(
-      ['uint256', 'address', 'bytes', 'uint256', 'tuple(uint256,int256,int256,int256,int256)[]', 'uint256[]', 'tuple(bytes32,bytes32,uint256,uint256,uint256)[]'],
+      [
+        'uint256',
+        'address',
+        'bytes',
+        'uint256',
+        'tuple(uint256,int256,int256,int256,int256)[]',
+        'uint256[]',
+        'tuple(bytes32,bytes32,uint256,uint256,uint256)[]',
+      ],
       [
         BrowserVMProvider.MessageType.CooperativeUpdate,
         this.depositoryAddress?.toString() || '0x0000000000000000000000000000000000000000',
@@ -1159,7 +1253,7 @@ export class BrowserVMProvider {
         diffs.map(d => [d.tokenId, d.leftDiff, d.rightDiff, d.collateralDiff, d.ondeltaDiff]),
         forgiveDebtsInTokenIds,
         insuranceRegs.map(r => [r.insured, r.insurer, r.tokenId, r.limit, r.expiresAt]),
-      ]
+      ],
     );
 
     const hash = ethers.keccak256(encodedMsg);
@@ -1167,14 +1261,18 @@ export class BrowserVMProvider {
     console.log(`  hash: ${hash}`);
     console.log(`  channelKey: ${channelKey} (${(channelKey.length - 2) / 2} bytes)`);
     console.log(`  cooperativeNonce: ${cooperativeNonce}`);
-    console.log(`  diffs: ${JSON.stringify(diffs.map(d => ({ tokenId: d.tokenId, leftDiff: d.leftDiff.toString(), rightDiff: d.rightDiff.toString(), collateralDiff: d.collateralDiff.toString(), ondeltaDiff: d.ondeltaDiff.toString() })))}`);
+    console.log(
+      `  diffs: ${JSON.stringify(diffs.map(d => ({ tokenId: d.tokenId, leftDiff: d.leftDiff.toString(), rightDiff: d.rightDiff.toString(), collateralDiff: d.collateralDiff.toString(), ondeltaDiff: d.ondeltaDiff.toString() })))}`,
+    );
     console.log(`  encodedMsg length: ${(encodedMsg.length - 2) / 2} bytes`);
     console.log(`  encodedMsg first 200: ${encodedMsg.slice(0, 200)}`);
     console.log(`  MessageType value: ${BrowserVMProvider.MessageType.CooperativeUpdate}`);
 
     const counterpartyWallet = this.getSigningWallet(counterpartyEntityId);
     const hankoEncoded = this.buildSingleSignerHanko(counterpartyEntityId, hash, counterpartyWallet);
-    console.log(`[BrowserVM] Built Hanko signature for entity ${counterpartyEntityId.slice(0, 10)}... (signer=${counterpartyWallet.address.slice(0, 10)}...)`);
+    console.log(
+      `[BrowserVM] Built Hanko signature for entity ${counterpartyEntityId.slice(0, 10)}... (signer=${counterpartyWallet.address.slice(0, 10)}...)`,
+    );
     return hankoEncoded;
   }
 
@@ -1187,7 +1285,7 @@ export class BrowserVMProvider {
     counterpartyEntityId: string,
     cooperativeNonce: bigint,
     disputeNonce: bigint,
-    proofbodyHash: string
+    proofbodyHash: string,
   ): Promise<string> {
     const channelKey = this.getChannelKey(entityId, counterpartyEntityId);
 
@@ -1196,7 +1294,14 @@ export class BrowserVMProvider {
     const abiCoder = ethers.AbiCoder.defaultAbiCoder();
     const encodedMsg = abiCoder.encode(
       ['uint256', 'address', 'bytes', 'uint256', 'uint256', 'bytes32'],
-      [BrowserVMProvider.MessageType.DisputeProof, this.depositoryAddress?.toString() || '0x0000000000000000000000000000000000000000', channelKey, cooperativeNonce, disputeNonce, proofbodyHash]
+      [
+        BrowserVMProvider.MessageType.DisputeProof,
+        this.depositoryAddress?.toString() || '0x0000000000000000000000000000000000000000',
+        channelKey,
+        cooperativeNonce,
+        disputeNonce,
+        proofbodyHash,
+      ],
     );
 
     const hash = ethers.keccak256(encodedMsg);
@@ -1207,24 +1312,14 @@ export class BrowserVMProvider {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /** Get on-chain account info (cooperativeNonce, disputeHash, disputeTimeout) */
-  async getAccountInfo(entityId: string, counterpartyId: string): Promise<{ cooperativeNonce: bigint; disputeHash: string; disputeTimeout: bigint }> {
+  async getAccountInfo(
+    entityId: string,
+    counterpartyId: string,
+  ): Promise<{ cooperativeNonce: bigint; disputeHash: string; disputeTimeout: bigint }> {
     if (!this.depositoryAddress || !this.depositoryInterface) throw new Error('Depository not deployed');
 
-    const channelKeyData = this.depositoryInterface.encodeFunctionData('accountKey', [entityId, counterpartyId]);
-    const channelKeyResult = await this.vm.evm.runCall({
-      to: this.depositoryAddress,
-      caller: this.deployerAddress,
-      data: hexToBytes(channelKeyData as `0x${string}`),
-      gasLimit: 100000n,
-    });
-    if (channelKeyResult.execResult.exceptionError) {
-      return { cooperativeNonce: 0n, disputeHash: '0x', disputeTimeout: 0n };
-    }
-    const channelKeyDecoded = this.depositoryInterface.decodeFunctionResult(
-      'accountKey',
-      channelKeyResult.execResult.returnValue
-    );
-    const channelKey = channelKeyDecoded[0];
+    // Compute channel key off-chain (identical to Account.sol's accountKey: sort + abi.encodePacked)
+    const channelKey = computeAccountKey(entityId, counterpartyId);
 
     const callData = this.depositoryInterface.encodeFunctionData('_accounts', [channelKey]);
     const result = await this.vm.evm.runCall({
@@ -1246,7 +1341,7 @@ export class BrowserVMProvider {
   }
 
   /** Get debts for an entity */
-  async getDebts(entityId: string, tokenId: number): Promise<Array<{amount: bigint, creditor: string}>> {
+  async getDebts(entityId: string, tokenId: number): Promise<Array<{ amount: bigint; creditor: string }>> {
     if (!this.depositoryAddress || !this.depositoryInterface) throw new Error('Depository not deployed');
 
     // Use ethers Interface for ABI encoding (same as mainnet)
@@ -1278,13 +1373,16 @@ export class BrowserVMProvider {
     const callData = this.depositoryInterface.encodeFunctionData('enforceDebts', [entityId, tokenId, maxIterations]);
 
     const currentNonce = await this.getCurrentNonce();
-    const tx = createLegacyTx({
-      to: this.depositoryAddress,
-      gasLimit: 2000000n,
-      gasPrice: 10n,
-      data: hexToBytes(callData as `0x${string}`),
-      nonce: currentNonce,
-    }, { common: this.common }).sign(this.deployerPrivKey);
+    const tx = createLegacyTx(
+      {
+        to: this.depositoryAddress,
+        gasLimit: 2000000n,
+        gasPrice: 10n,
+        data: hexToBytes(callData as `0x${string}`),
+        nonce: currentNonce,
+      },
+      { common: this.common },
+    ).sign(this.deployerPrivKey);
 
     const result = await this.runTxInBlock(tx);
 
@@ -1303,7 +1401,12 @@ export class BrowserVMProvider {
   }
 
   /** Process batch (Hanko) - calls Depository.processBatch() directly (no TS logic duplication) */
-  async processBatch(encodedBatch: string, entityProvider: string, hankoData: string, nonce: bigint): Promise<EVMEvent[]> {
+  async processBatch(
+    encodedBatch: string,
+    entityProvider: string,
+    hankoData: string,
+    nonce: bigint,
+  ): Promise<EVMEvent[]> {
     if (!this.depositoryAddress || !this.depositoryInterface) {
       throw new Error('Depository not deployed');
     }
@@ -1312,16 +1415,24 @@ export class BrowserVMProvider {
 
     // BrowserVM submits as admin to mirror J-machine execution (Hanko still enforced on-chain).
     // Call Depository.processBatch() - ALL logic in Solidity (single source of truth)
-    const callData = this.depositoryInterface.encodeFunctionData('processBatch', [encodedBatch, entityProvider, hankoData, nonce]);
+    const callData = this.depositoryInterface.encodeFunctionData('processBatch', [
+      encodedBatch,
+      entityProvider,
+      hankoData,
+      nonce,
+    ]);
 
     const currentNonce = await this.getCurrentNonce();
-    const tx = createLegacyTx({
-      to: this.depositoryAddress,
-      gasLimit: 10000000n,
-      gasPrice: 10n,
-      data: hexToBytes(callData as `0x${string}`),
-      nonce: currentNonce,
-    }, { common: this.common }).sign(this.deployerPrivKey);
+    const tx = createLegacyTx(
+      {
+        to: this.depositoryAddress,
+        gasLimit: 10000000n,
+        gasPrice: 10n,
+        data: hexToBytes(callData as `0x${string}`),
+        nonce: currentNonce,
+      },
+      { common: this.common },
+    ).sign(this.deployerPrivKey);
 
     const result = await this.runTxInBlock(tx);
 
@@ -1334,7 +1445,7 @@ export class BrowserVMProvider {
       try {
         const decoded = ethers.AbiCoder.defaultAbiCoder().decode(
           ['tuple(bytes32[],bytes,tuple(bytes32,uint256[],uint256[],uint256)[])'],
-          hankoData
+          hankoData,
         );
         const claims = decoded[0][2];
         if (claims.length > 0) {
@@ -1355,10 +1466,7 @@ export class BrowserVMProvider {
           }
           if (!revertReason && returnData.startsWith('0x08c379a0')) {
             try {
-              const decodedReason = ethers.AbiCoder.defaultAbiCoder().decode(
-                ['string'],
-                `0x${returnData.slice(10)}`
-              );
+              const decodedReason = ethers.AbiCoder.defaultAbiCoder().decode(['string'], `0x${returnData.slice(10)}`);
               revertReason = String(decodedReason[0]);
             } catch {
               // best-effort only
@@ -1376,7 +1484,9 @@ export class BrowserVMProvider {
         console.log('  revertReason:', revertReason);
       }
       if (claimedEntityId) {
-        console.log(`[BrowserVM] Hanko entity=${claimedEntityId.slice(0, 10)}..., nonce=${nonce} expectedNext=${expectedNextNonce}`);
+        console.log(
+          `[BrowserVM] Hanko entity=${claimedEntityId.slice(0, 10)}..., nonce=${nonce} expectedNext=${expectedNextNonce}`,
+        );
       }
       if (batchSummary) {
         console.log(`[BrowserVM] Batch summary: ${batchSummary}`);
@@ -1464,12 +1574,14 @@ export class BrowserVMProvider {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /** Get all insurance lines for an entity */
-  async getInsuranceLines(entityId: string): Promise<Array<{
-    insurer: string;
-    tokenId: number;
-    remaining: bigint;
-    expiresAt: bigint;
-  }>> {
+  async getInsuranceLines(entityId: string): Promise<
+    Array<{
+      insurer: string;
+      tokenId: number;
+      remaining: bigint;
+      expiresAt: bigint;
+    }>
+  > {
     if (!this.depositoryAddress || !this.depositoryInterface) {
       throw new Error('Depository not deployed');
     }
@@ -1521,7 +1633,10 @@ export class BrowserVMProvider {
     }
 
     try {
-      const decoded = this.depositoryInterface.decodeFunctionResult('getAvailableInsurance', result.execResult.returnValue);
+      const decoded = this.depositoryInterface.decodeFunctionResult(
+        'getAvailableInsurance',
+        result.execResult.returnValue,
+      );
       return decoded[0];
     } catch {
       return 0n;
@@ -1554,7 +1669,7 @@ export class BrowserVMProvider {
       limit: bigint;
       expiresAt: bigint;
     }> = [],
-    sig?: string
+    sig?: string,
   ): Promise<any[]> {
     if (!this.depositoryAddress || !this.depositoryInterface) {
       throw new Error('Depository not deployed');
@@ -1573,7 +1688,9 @@ export class BrowserVMProvider {
     console.log(`[BrowserVM] settle call params:`);
     console.log(`  leftEntity: ${leftEntity}`);
     console.log(`  rightEntity: ${rightEntity}`);
-    console.log(`  diffs: ${JSON.stringify(diffs.map(d => ({ tokenId: d.tokenId, leftDiff: d.leftDiff.toString(), rightDiff: d.rightDiff.toString(), collateralDiff: d.collateralDiff.toString(), ondeltaDiff: d.ondeltaDiff.toString() })))}`);
+    console.log(
+      `  diffs: ${JSON.stringify(diffs.map(d => ({ tokenId: d.tokenId, leftDiff: d.leftDiff.toString(), rightDiff: d.rightDiff.toString(), collateralDiff: d.collateralDiff.toString(), ondeltaDiff: d.ondeltaDiff.toString() })))}`,
+    );
     console.log(`  finalSig length: ${finalSig.length}`);
 
     const callData = this.depositoryInterface.encodeFunctionData('settle', [
@@ -1597,7 +1714,9 @@ export class BrowserVMProvider {
       console.log(`  [5] sig length: ${decoded[5].length} bytes`);
       if (decoded[2].length > 0) {
         const d = decoded[2][0];
-        console.log(`  [2][0] diff: tokenId=${d[0]}, leftDiff=${d[1]}, rightDiff=${d[2]}, collateralDiff=${d[3]}, ondeltaDiff=${d[4]}`);
+        console.log(
+          `  [2][0] diff: tokenId=${d[0]}, leftDiff=${d[1]}, rightDiff=${d[2]}, collateralDiff=${d[3]}, ondeltaDiff=${d[4]}`,
+        );
       }
       // Debug: Dump first 200 bytes of sig
       const sigHex = decoded[5] as string;
@@ -1607,16 +1726,19 @@ export class BrowserVMProvider {
     }
 
     // Try with different gas limits to isolate the gas hog
-    const gasLimit = finalSig.length > 100 ? 30000000n : 2000000n;  // More gas for Hanko
+    const gasLimit = finalSig.length > 100 ? 30000000n : 2000000n; // More gas for Hanko
     console.log(`[BrowserVM] Using gas limit: ${gasLimit}`);
     const currentNonce = await this.getCurrentNonce();
-    const tx = createLegacyTx({
-      to: this.depositoryAddress,
-      gasLimit,
-      gasPrice: 10n,
-      data: hexToBytes(callData as `0x${string}`),
-      nonce: currentNonce,
-    }, { common: this.common }).sign(this.deployerPrivKey);
+    const tx = createLegacyTx(
+      {
+        to: this.depositoryAddress,
+        gasLimit,
+        gasPrice: 10n,
+        data: hexToBytes(callData as `0x${string}`),
+        nonce: currentNonce,
+      },
+      { common: this.common },
+    ).sign(this.deployerPrivKey);
 
     const result = await this.runTxInBlock(tx);
 
@@ -1635,7 +1757,10 @@ export class BrowserVMProvider {
         console.log('[BrowserVM] Events before revert:', logsBeforeRevert.length);
         const events = this.parseLogs(logsBeforeRevert);
         for (const ev of events) {
-          console.log(`   Event: ${ev.name}`, JSON.stringify(ev.args, (_k, v) => typeof v === 'bigint' ? v.toString() : v));
+          console.log(
+            `   Event: ${ev.name}`,
+            JSON.stringify(ev.args, (_k, v) => (typeof v === 'bigint' ? v.toString() : v)),
+          );
         }
       } else {
         console.log('[BrowserVM] No events emitted before revert');
@@ -1665,7 +1790,9 @@ export class BrowserVMProvider {
               console.error('[BrowserVM] Custom error:', selectors[errorSel]);
             }
           }
-        } catch { /* ignore decode errors */ }
+        } catch {
+          /* ignore decode errors */
+        }
       }
 
       return [];
@@ -1686,10 +1813,9 @@ export class BrowserVMProvider {
    */
   private parseLogs(logs: any[]): EVMEvent[] {
     // Collect all interfaces that can parse events
-    const interfaces = [
-      this.depositoryInterface,
-      this.accountInterface,
-    ].filter((iface): iface is ethers.Interface => iface !== null);
+    const interfaces = [this.depositoryInterface, this.accountInterface].filter(
+      (iface): iface is ethers.Interface => iface !== null,
+    );
 
     if (interfaces.length === 0) return [];
 
@@ -1705,9 +1831,7 @@ export class BrowserVMProvider {
           if (parsed) {
             decoded.push({
               name: parsed.name,
-              args: Object.fromEntries(
-                parsed.fragment.inputs.map((input, i) => [input.name, parsed.args[i]])
-              ),
+              args: Object.fromEntries(parsed.fragment.inputs.map((input, i) => [input.name, parsed.args[i]])),
               blockNumber: this.blockHeight,
               blockHash: this.blockHash,
               timestamp: this.blockTimestamp,
@@ -1793,7 +1917,9 @@ export class BrowserVMProvider {
   }
 
   /** Get entity info by ID from EntityProvider contract */
-  async getEntityInfo(entityId: string): Promise<{ exists: boolean; name?: string; currentBoardHash?: string; registrationBlock?: number }> {
+  async getEntityInfo(
+    entityId: string,
+  ): Promise<{ exists: boolean; name?: string; currentBoardHash?: string; registrationBlock?: number }> {
     if (!this.entityProviderAddress || !this.entityProviderInterface) {
       throw new Error('EntityProvider not deployed');
     }
@@ -1831,7 +1957,13 @@ export class BrowserVMProvider {
   // ═══════════════════════════════════════════════════════════════════════════
 
   /** Serialize full EVM state (all trie nodes) for persistence */
-  async serializeState(): Promise<{ version: number; stateRoot: string; trieData: Array<[string, string]>; nonce: string; addresses: { depository: string; entityProvider: string } }> {
+  async serializeState(): Promise<{
+    version: number;
+    stateRoot: string;
+    trieData: Array<[string, string]>;
+    nonce: string;
+    addresses: { depository: string; entityProvider: string };
+  }> {
     if (!this.initialized) throw new Error('BrowserVM not initialized');
 
     const stateRoot = await this.vm.stateManager.getStateRoot();
@@ -1858,12 +1990,8 @@ export class BrowserVMProvider {
       return raw.length % 2 === 1 ? `0${raw}` : raw;
     };
     for (const [key, value] of trieMap.entries()) {
-      const keyHexRaw = typeof key === 'string'
-        ? key
-        : Buffer.from(key).toString('hex');
-      const valueHexRaw = typeof value === 'string'
-        ? value
-        : Buffer.from(value).toString('hex');
+      const keyHexRaw = typeof key === 'string' ? key : Buffer.from(key).toString('hex');
+      const valueHexRaw = typeof value === 'string' ? value : Buffer.from(value).toString('hex');
       const keyHex = normalizeHex(keyHexRaw);
       const valueHex = normalizeHex(valueHexRaw);
       trieData.push([keyHex, valueHex]);
@@ -1884,7 +2012,12 @@ export class BrowserVMProvider {
   }
 
   /** Restore EVM state from serialized data (for page reload) */
-  async restoreState(data: { stateRoot: string; trieData: Array<[string, string]>; nonce: string; addresses: { depository: string; entityProvider: string } }): Promise<void> {
+  async restoreState(data: {
+    stateRoot: string;
+    trieData: Array<[string, string]>;
+    nonce: string;
+    addresses: { depository: string; entityProvider: string };
+  }): Promise<void> {
     if (!this.initialized) {
       // Need to init first to get contracts deployed structure
       await this.init();
@@ -2018,7 +2151,9 @@ export class BrowserVMProvider {
       // Check version - invalidate stale cache if contract ABI changed
       const cachedVersion = data.version || 1; // Pre-version data is v1
       if (cachedVersion !== CONTRACT_VERSION) {
-        this.log(`[BrowserVM] ⚠️ Version mismatch: cached=${cachedVersion}, current=${CONTRACT_VERSION} - clearing stale cache`);
+        this.log(
+          `[BrowserVM] ⚠️ Version mismatch: cached=${cachedVersion}, current=${CONTRACT_VERSION} - clearing stale cache`,
+        );
         this.clearLocalStorage(key);
         return false;
       }
@@ -2042,7 +2177,7 @@ export class BrowserVMProvider {
   /** Sync all collaterals from BrowserVM for given account pairs */
   async syncAllCollaterals(
     accountPairs: Array<{ entityId: string; counterpartyId: string }>,
-    tokenId: number
+    tokenId: number,
   ): Promise<Map<string, Map<number, { collateral: bigint; ondelta: bigint }>>> {
     const collaterals = new Map<string, Map<number, { collateral: bigint; ondelta: bigint }>>();
 
@@ -2153,13 +2288,16 @@ export class BrowserVMProvider {
     const callData = this.entityProviderInterface.encodeFunctionData('registerNumberedEntitiesBatch', [boardHashes]);
     const currentNonce = await this.getCurrentNonce();
 
-    const tx = createLegacyTx({
-      to: this.entityProviderAddress,
-      gasLimit: 5000000n,
-      gasPrice: 10n,
-      data: hexToBytes(callData as `0x${string}`),
-      nonce: currentNonce,
-    }, { common: this.common }).sign(this.deployerPrivKey);
+    const tx = createLegacyTx(
+      {
+        to: this.entityProviderAddress,
+        gasLimit: 5000000n,
+        gasPrice: 10n,
+        data: hexToBytes(callData as `0x${string}`),
+        nonce: currentNonce,
+      },
+      { common: this.common },
+    ).sign(this.deployerPrivKey);
 
     const result = await this.runTxInBlock(tx);
 
@@ -2168,10 +2306,15 @@ export class BrowserVMProvider {
     }
 
     // Decode return value - array of uint256 entity numbers
-    const decoded = this.entityProviderInterface.decodeFunctionResult('registerNumberedEntitiesBatch', result.execResult.returnValue);
+    const decoded = this.entityProviderInterface.decodeFunctionResult(
+      'registerNumberedEntitiesBatch',
+      result.execResult.returnValue,
+    );
     const entityNumbers = (decoded[0] as bigint[]).map((n: bigint) => Number(n));
 
-    console.log(`[BrowserVM] registerNumberedEntitiesBatch: ${boardHashes.length} entities → [${entityNumbers.join(',')}]`);
+    console.log(
+      `[BrowserVM] registerNumberedEntitiesBatch: ${boardHashes.length} entities → [${entityNumbers.join(',')}]`,
+    );
     return {
       entityNumbers,
       txHash: '0x' + 'browservm-register-batch'.padStart(64, '0'),
@@ -2191,7 +2334,9 @@ export class BrowserVMProvider {
     for (const signerId of signerIds) {
       const privateKey = getCachedSignerPrivateKey(signerId);
       if (!privateKey) {
-        throw new Error(`No private key for signerId ${signerId} - register signer keys (vault seed or registerSignerKey) before entity registration`);
+        throw new Error(
+          `No private key for signerId ${signerId} - register signer keys (vault seed or registerSignerKey) before entity registration`,
+        );
       }
 
       // Get validator address from private key
@@ -2206,20 +2351,24 @@ export class BrowserVMProvider {
       // Solidity memory layout: https://docs.soliditylang.org/en/latest/abi-spec.html
       const encodedBoard = abiCoder.encode(
         ['tuple(uint16,bytes32[],uint16[],uint32,uint32,uint32)'],
-        [[
-          1n, // votingThreshold (uint16)
-          [validatorEntityId], // entityIds (bytes32[])
-          [1n], // votingPowers (uint16[])
-          0n, // boardChangeDelay (uint32)
-          0n, // controlChangeDelay (uint32)
-          0n, // dividendChangeDelay (uint32)
-        ]]
+        [
+          [
+            1n, // votingThreshold (uint16)
+            [validatorEntityId], // entityIds (bytes32[])
+            [1n], // votingPowers (uint16[])
+            0n, // boardChangeDelay (uint32)
+            0n, // controlChangeDelay (uint32)
+            0n, // dividendChangeDelay (uint32)
+          ],
+        ],
       );
 
       const boardHash = ethers.keccak256(encodedBoard);
       boardHashes.push(boardHash);
 
-      console.log(`[BrowserVM] Entity ${signerId}: validator=${validatorAddress}, entityId=${validatorEntityId.slice(0, 20)}...`);
+      console.log(
+        `[BrowserVM] Entity ${signerId}: validator=${validatorAddress}, entityId=${validatorEntityId.slice(0, 20)}...`,
+      );
       console.log(`[BrowserVM]   boardHash=${boardHash}`);
     }
 
@@ -2233,7 +2382,9 @@ export class BrowserVMProvider {
       if (entityNum === undefined) continue;
       const entityId = '0x' + entityNum.toString(16).padStart(64, '0');
       const info = await this.getEntityInfo(entityId);
-      console.log(`[BrowserVM]   Verified entity ${entityNum}: stored boardHash=${info.currentBoardHash?.slice(0, 18)}...`);
+      console.log(
+        `[BrowserVM]   Verified entity ${entityNum}: stored boardHash=${info.currentBoardHash?.slice(0, 18)}...`,
+      );
       if (info.currentBoardHash !== boardHashes[i]) {
         console.error(`[BrowserVM] ⚠️ Hash mismatch! Expected ${boardHashes[i]}, got ${info.currentBoardHash}`);
       }
@@ -2241,5 +2392,4 @@ export class BrowserVMProvider {
 
     return entityNumbers;
   }
-
 }

@@ -3,7 +3,14 @@ import { isOk } from '../../types';
 import type { AccountKey, LockId, EntityId } from '../../ids';
 import { handleAccountInput as processAccountInput } from '../../account-consensus';
 import { addMessage, addMessages, getAccountPerspective, emitScopedEvents } from '../../state-helpers';
-import { applyCommand, createBook, canonicalPair, deriveSide, type BookState, type OrderbookExtState } from '../../orderbook';
+import {
+  applyCommand,
+  createBook,
+  canonicalPair,
+  deriveSide,
+  type BookState,
+  type OrderbookExtState,
+} from '../../orderbook';
 import { HTLC } from '../../constants';
 import { formatEntityId, HEAVY_LOGS } from '../../utils';
 import { isLeftEntity } from '../../entity-id-utils';
@@ -20,10 +27,10 @@ export interface MempoolOp {
 
 export interface SwapOfferEvent {
   offerId: string;
-  makerIsLeft: boolean;     // Simple boolean (account-level context)
-  fromEntity: string;       // Account pair (left entity)
-  toEntity: string;         // Account pair (right entity)
-  accountId?: string;       // Added by entity handler (Hub's Map key for this account)
+  makerIsLeft: boolean; // Simple boolean (account-level context)
+  fromEntity: string; // Account pair (left entity)
+  toEntity: string; // Account pair (right entity)
+  accountId?: string; // Added by entity handler (Hub's Map key for this account)
   giveTokenId: number;
   giveAmount: bigint;
   wantTokenId: number;
@@ -37,8 +44,9 @@ export interface SwapCancelEvent {
 }
 
 export interface MatchResult {
-  mempoolOps: MempoolOp[];       // swap_resolve txs to push
-  bookUpdates: {                 // orderbook state mutations
+  mempoolOps: MempoolOp[]; // swap_resolve txs to push
+  bookUpdates: {
+    // orderbook state mutations
     pairId: string;
     book: BookState;
   }[];
@@ -55,13 +63,19 @@ export interface AccountHandlerResult {
   hashesToSign?: Array<{ hash: string; type: 'accountFrame' | 'dispute' | 'settlement'; context: string }>;
 }
 
-export async function handleAccountInput(state: EntityState, input: AccountInput, env: Env): Promise<AccountHandlerResult> {
+export async function handleAccountInput(
+  state: EntityState,
+  input: AccountInput,
+  env: Env,
+): Promise<AccountHandlerResult> {
   console.log(`🚀 APPLY accountInput: ${input.fromEntityId.slice(-4)} → ${input.toEntityId.slice(-4)}`);
   const isFrame = input.type === 'proposal' || input.type === 'ack';
-  console.log(`🚀 APPLY accountInput details: type=${input.type}, height=${isFrame ? input.height : 'N/A'}, hasNewFrame=${isFrame ? !!input.newAccountFrame : false}, hasPrevHanko=${input.type === 'ack' ? !!input.prevHanko : false}`);
+  console.log(
+    `🚀 APPLY accountInput details: type=${input.type}, height=${isFrame ? input.height : 'N/A'}, hasNewFrame=${isFrame ? !!input.newAccountFrame : false}, hasPrevHanko=${input.type === 'ack' ? !!input.prevHanko : false}`,
+  );
 
   // CRITICAL: Don't clone here - state already cloned at entity level (applyEntityTx)
-  const newState: EntityState = state;  // Use state directly
+  const newState: EntityState = state; // Use state directly
   const outputs: EntityInput[] = [];
 
   // Collect events for entity-level orchestration (pure - no direct mempool mutation)
@@ -76,7 +90,9 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
   const counterpartyId = input.fromEntityId;
   let accountMachine = newState.accounts.get(counterpartyId as AccountKey);
   if (!accountMachine) {
-    console.log(`💳 Creating new account machine for ${counterpartyId.slice(-4)} (counterparty: ${counterpartyId.slice(-4)})`);
+    console.log(
+      `💳 Creating new account machine for ${counterpartyId.slice(-4)} (counterparty: ${counterpartyId.slice(-4)})`,
+    );
 
     // CONSENSUS FIX: Start with empty deltas (Channel.ts pattern)
     const initialDeltas = new Map();
@@ -129,8 +145,8 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
       lastFinalizedJHeight: 0,
       // Dispute resolution (delay values * 10 = blocks)
       disputeConfig: {
-        leftDisputeDelay: 10,   // 100 blocks
-        rightDisputeDelay: 10,  // 100 blocks
+        leftDisputeDelay: 10, // 100 blocks
+        rightDisputeDelay: 10, // 100 blocks
       },
       onChainSettlementNonce: 0,
     };
@@ -158,7 +174,7 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
       input.settleAction,
       input.fromEntityId,
       newState.entityId,
-      newState.timestamp // Entity-level timestamp for determinism
+      newState.timestamp, // Entity-level timestamp for determinism
     );
 
     if (result.success) {
@@ -168,8 +184,10 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
       addMessage(newState, `⚠️ Settlement: ${result.message}`);
     }
   } else if (input.type === 'proposal' || input.type === 'ack') {
-  // CHANNEL.TS PATTERN: Process frame-level consensus ONLY
-    console.log(`🤝 Processing frame from ${input.fromEntityId.slice(-4)}, accountMachine.pendingFrame=${accountMachine.proposal ? `h${accountMachine.proposal.pendingFrame.height}` : 'none'}`);
+    // CHANNEL.TS PATTERN: Process frame-level consensus ONLY
+    console.log(
+      `🤝 Processing frame from ${input.fromEntityId.slice(-4)}, accountMachine.pendingFrame=${accountMachine.proposal ? `h${accountMachine.proposal.pendingFrame.height}` : 'none'}`,
+    );
 
     const result = await processAccountInput(env, accountMachine, input);
 
@@ -199,12 +217,19 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
       // CRITICAL: Only process NEW locks (prevent replay on re-processing same frame)
       // Check if this is a NEW frame (just committed) by comparing heights
       const justCommittedFrame = input.newAccountFrame;
-      const isNewFrame = Boolean(justCommittedFrame && justCommittedFrame.height > (accountMachine.currentHeight - 1));
+      const isNewFrame = Boolean(justCommittedFrame && justCommittedFrame.height > accountMachine.currentHeight - 1);
 
       if (isNewFrame && justCommittedFrame?.accountTxs) {
-        if (HEAVY_LOGS) console.log(`🔍 HTLC-CHECK: isNewFrame=${isNewFrame}, inputHeight=${justCommittedFrame.height}, currentHeight=${accountMachine.currentHeight}`);
+        if (HEAVY_LOGS)
+          console.log(
+            `🔍 HTLC-CHECK: isNewFrame=${isNewFrame}, inputHeight=${justCommittedFrame.height}, currentHeight=${accountMachine.currentHeight}`,
+          );
         if (HEAVY_LOGS) console.log(`🔍 HTLC-CHECK: accountMachine.locks.size=${accountMachine.locks.size}`);
-        if (HEAVY_LOGS) console.log(`🔍 FRAME-TXS: ${justCommittedFrame.accountTxs.length} txs in frame:`, justCommittedFrame.accountTxs.map(tx => tx.type));
+        if (HEAVY_LOGS)
+          console.log(
+            `🔍 FRAME-TXS: ${justCommittedFrame.accountTxs.length} txs in frame:`,
+            justCommittedFrame.accountTxs.map(tx => tx.type),
+          );
         for (const accountTx of justCommittedFrame.accountTxs) {
           if (HEAVY_LOGS) console.log(`🔍 HTLC-CHECK: Checking committed tx type=${accountTx.type}`);
 
@@ -230,7 +255,9 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
               console.log(`   📝 Stored LEFT obs from counterparty (${accountMachine.leftJObservations.length} total)`);
             } else {
               accountMachine.rightJObservations.push(obs);
-              console.log(`   📝 Stored RIGHT obs from counterparty (${accountMachine.rightJObservations.length} total)`);
+              console.log(
+                `   📝 Stored RIGHT obs from counterparty (${accountMachine.rightJObservations.length} total)`,
+              );
             }
 
             // Try finalize now that we have counterparty's observation
@@ -252,7 +279,9 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
             const lock = accountMachine.locks.get(accountTx.data.lockId as LockId);
             if (HEAVY_LOGS) console.log(`🔍 HTLC-CHECK: lock found? ${!!lock}`);
             if (!lock) {
-              console.log(`❌ HTLC-CHECK: Lock not in accountMachine.locks (lockId=${accountTx.data.lockId.slice(0,16)}...)`);
+              console.log(
+                `❌ HTLC-CHECK: Lock not in accountMachine.locks (lockId=${accountTx.data.lockId.slice(0, 16)}...)`,
+              );
               continue;
             }
 
@@ -265,12 +294,14 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
             let envelope = lock.envelope;
             console.log(`🧅 ═════════════════════════════════════════════════════════════`);
             console.log(`🧅 ENVELOPE RECEIVED at ${newState.entityId.slice(-4)}`);
-            console.log(`🧅 LockId: ${lock.lockId.slice(0,16)}...`);
-            console.log(`🧅 Hashlock: ${lock.hashlock.slice(0,16)}...`);
+            console.log(`🧅 LockId: ${lock.lockId.slice(0, 16)}...`);
+            console.log(`🧅 Hashlock: ${lock.hashlock.slice(0, 16)}...`);
             console.log(`🧅 Amount: ${lock.amount}`);
             console.log(`🧅 Envelope type: ${typeof envelope}`);
             if (typeof envelope !== 'string') {
-              console.log(`🧅 OUTER envelope: finalRecipient=${envelope.finalRecipient}, nextHop=${envelope.nextHop?.slice(-4)}`);
+              console.log(
+                `🧅 OUTER envelope: finalRecipient=${envelope.finalRecipient}, nextHop=${envelope.nextHop?.slice(-4)}`,
+              );
             }
             console.log(`🧅 OUTER envelope structure: ${JSON.stringify(envelope, null, 2).slice(0, 300)}...`);
 
@@ -298,16 +329,25 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
                 // Unwrap decrypted envelope
                 const { unwrapEnvelope } = await import('../../htlc-envelope-types');
                 envelope = unwrapEnvelope(envelopeData);
-                console.log(`🔓 Unwrapped envelope: finalRecipient=${envelope.finalRecipient}, nextHop=${envelope.nextHop?.slice(-4)}`);
+                console.log(
+                  `🔓 Unwrapped envelope: finalRecipient=${envelope.finalRecipient}, nextHop=${envelope.nextHop?.slice(-4)}`,
+                );
                 console.log(`🔓 Decrypted envelope structure: ${JSON.stringify(envelope, null, 2).slice(0, 300)}...`);
               } catch (e) {
-                console.log(`❌ HTLC-GATE: ENVELOPE_DECRYPT_FAIL - ${e instanceof Error ? e.message : String(e)} [lockId=${lock.lockId.slice(0,16)}]`);
-                env.error('network', 'ENVELOPE_DECRYPT_FAIL', {
-                  lockId: lock.lockId,
-                  reason: e instanceof Error ? e.message : String(e),
-                  fromEntityId: input.fromEntityId,
-                  toEntityId: input.toEntityId,
-                }, state.entityId);
+                console.log(
+                  `❌ HTLC-GATE: ENVELOPE_DECRYPT_FAIL - ${e instanceof Error ? e.message : String(e)} [lockId=${lock.lockId.slice(0, 16)}]`,
+                );
+                env.error(
+                  'network',
+                  'ENVELOPE_DECRYPT_FAIL',
+                  {
+                    lockId: lock.lockId,
+                    reason: e instanceof Error ? e.message : String(e),
+                    fromEntityId: input.fromEntityId,
+                    toEntityId: input.toEntityId,
+                  },
+                  state.entityId,
+                );
                 console.log(`🧅 ═════════════════════════════════════════════════════════════`);
                 continue;
               }
@@ -332,16 +372,25 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
                 // Unwrap decrypted envelope - THIS is our actual routing instruction
                 const { unwrapEnvelope } = await import('../../htlc-envelope-types');
                 envelope = unwrapEnvelope(envelopeData);
-                console.log(`🔓 Unwrapped envelope: finalRecipient=${envelope.finalRecipient}, nextHop=${envelope.nextHop?.slice(-4)}`);
+                console.log(
+                  `🔓 Unwrapped envelope: finalRecipient=${envelope.finalRecipient}, nextHop=${envelope.nextHop?.slice(-4)}`,
+                );
                 console.log(`🔓 Decrypted envelope structure: ${JSON.stringify(envelope, null, 2).slice(0, 300)}...`);
               } catch (e) {
-                console.log(`❌ HTLC-GATE: ENVELOPE_DECRYPT_FAIL - ${e instanceof Error ? e.message : String(e)} [lockId=${lock.lockId.slice(0,16)}]`);
-                env.error('network', 'ENVELOPE_DECRYPT_FAIL', {
-                  lockId: lock.lockId,
-                  reason: e instanceof Error ? e.message : String(e),
-                  fromEntityId: input.fromEntityId,
-                  toEntityId: input.toEntityId,
-                }, state.entityId);
+                console.log(
+                  `❌ HTLC-GATE: ENVELOPE_DECRYPT_FAIL - ${e instanceof Error ? e.message : String(e)} [lockId=${lock.lockId.slice(0, 16)}]`,
+                );
+                env.error(
+                  'network',
+                  'ENVELOPE_DECRYPT_FAIL',
+                  {
+                    lockId: lock.lockId,
+                    reason: e instanceof Error ? e.message : String(e),
+                    fromEntityId: input.fromEntityId,
+                    toEntityId: input.toEntityId,
+                  },
+                  state.entityId,
+                );
                 console.log(`🧅 ═════════════════════════════════════════════════════════════`);
                 continue;
               }
@@ -372,14 +421,21 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
               continue;
             }
             if (lock.hashlock !== accountTx.data.hashlock) {
-              console.log(`❌ HTLC: Envelope hashlock mismatch: lock=${lock.hashlock.slice(0,16)}..., tx=${accountTx.data.hashlock.slice(0,16)}...`);
-              env.error('consensus', 'HTLC_ENVELOPE_HASHLOCK_MISMATCH', {
-                lockId: lock.lockId,
-                lockHashlock: lock.hashlock,
-                txHashlock: accountTx.data.hashlock,
-                fromEntityId: input.fromEntityId,
-                toEntityId: input.toEntityId,
-              }, state.entityId);
+              console.log(
+                `❌ HTLC: Envelope hashlock mismatch: lock=${lock.hashlock.slice(0, 16)}..., tx=${accountTx.data.hashlock.slice(0, 16)}...`,
+              );
+              env.error(
+                'consensus',
+                'HTLC_ENVELOPE_HASHLOCK_MISMATCH',
+                {
+                  lockId: lock.lockId,
+                  lockHashlock: lock.hashlock,
+                  txHashlock: accountTx.data.hashlock,
+                  fromEntityId: input.fromEntityId,
+                  toEntityId: input.toEntityId,
+                },
+                state.entityId,
+              );
               console.log(`🧅 ═════════════════════════════════════════════════════════════`);
               continue;
             }
@@ -391,7 +447,11 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
               const hasNextHopAccount = newState.accounts.has(envelope.nextHop as AccountKey);
               if (!hasNextHopAccount) {
                 console.log(`❌ HTLC: Cannot forward - no account with nextHop ${envelope.nextHop.slice(-4)}`);
-                console.log(`❌ HTLC: Available accounts: [${Array.from(newState.accounts.keys()).map(k => k.slice(-4)).join(', ')}]`);
+                console.log(
+                  `❌ HTLC: Available accounts: [${Array.from(newState.accounts.keys())
+                    .map(k => k.slice(-4))
+                    .join(', ')}]`,
+                );
                 console.log(`🧅 ═════════════════════════════════════════════════════════════`);
                 continue;
               }
@@ -410,11 +470,11 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
                     data: {
                       lockId: lock.lockId,
                       outcome: 'secret' as const,
-                      secret: envelope.secret
-                    }
-                  }
+                      secret: envelope.secret,
+                    },
+                  },
                 });
-                console.log(`🎯 HTLC: Final recipient, revealing secret=${envelope.secret.slice(0,16)}...`);
+                console.log(`🎯 HTLC: Final recipient, revealing secret=${envelope.secret.slice(0, 16)}...`);
                 console.log(`🧅 ═════════════════════════════════════════════════════════════`);
               } else {
                 console.log(`❌ HTLC: Final recipient envelope missing secret!`);
@@ -427,11 +487,14 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
               console.log(`➡️ Forwarding to: ${nextHop.slice(-4)}`);
 
               // Register route for backward propagation
-              const inboundEntity = newState.entityId === accountMachine.leftEntity
-                ? accountMachine.rightEntity
-                : accountMachine.leftEntity;
+              const inboundEntity =
+                newState.entityId === accountMachine.leftEntity
+                  ? accountMachine.rightEntity
+                  : accountMachine.leftEntity;
 
-              console.log(`➡️ Registering route: ${inboundEntity.slice(-4)} → ${newState.entityId.slice(-4)} → ${nextHop.slice(-4)}`);
+              console.log(
+                `➡️ Registering route: ${inboundEntity.slice(-4)} → ${newState.entityId.slice(-4)} → ${nextHop.slice(-4)}`,
+              );
 
               // Create route object (typed as HtlcRoute for pendingFee)
               const htlcRoute: HtlcRoute = {
@@ -440,7 +503,7 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
                 inboundLockId: lock.lockId,
                 outboundEntity: nextHop,
                 outboundLockId: `${lock.lockId}-fwd`,
-                createdTimestamp: newState.timestamp
+                createdTimestamp: newState.timestamp,
               };
               newState.htlcRoutes.set(lock.hashlock, htlcRoute);
 
@@ -453,8 +516,8 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
                   accountId: input.fromEntityId,
                   tx: {
                     type: 'htlc_resolve',
-                    data: { lockId: lock.lockId, outcome: 'error' as const, reason: cancelReason }
-                  }
+                    data: { lockId: lock.lockId, outcome: 'error' as const, reason: cancelReason },
+                  },
                 });
                 // Clean up route
                 newState.htlcRoutes.delete(lock.hashlock);
@@ -471,7 +534,9 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
                   forwardAmount = calculateHtlcFee(lock.amount);
                   feeAmount = calculateHtlcFeeAmount(lock.amount);
                 } catch (e) {
-                  console.log(`❌ HTLC: Fee calculation failed for amount ${lock.amount}: ${e instanceof Error ? e.message : String(e)}`);
+                  console.log(
+                    `❌ HTLC: Fee calculation failed for amount ${lock.amount}: ${e instanceof Error ? e.message : String(e)}`,
+                  );
                   cancelInboundLock(`amount_too_small`);
                   continue;
                 }
@@ -495,13 +560,17 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
                 // Timelock validation: forward must have breathing room (1s safety margin for processing delays)
                 const SAFETY_MARGIN_MS = 1000;
                 if (forwardTimelock < BigInt(newState.timestamp) + BigInt(SAFETY_MARGIN_MS)) {
-                  console.log(`❌ HTLC-GATE: TIMELOCK_TOO_TIGHT - forward=${forwardTimelock}, current+margin=${BigInt(newState.timestamp) + BigInt(SAFETY_MARGIN_MS)} [lockId=${lock.lockId.slice(0,16)}]`);
+                  console.log(
+                    `❌ HTLC-GATE: TIMELOCK_TOO_TIGHT - forward=${forwardTimelock}, current+margin=${BigInt(newState.timestamp) + BigInt(SAFETY_MARGIN_MS)} [lockId=${lock.lockId.slice(0, 16)}]`,
+                  );
                   cancelInboundLock(`timelock_too_tight`);
                   continue;
                 }
 
                 if (forwardHeight <= currentJHeight) {
-                  console.log(`❌ HTLC-GATE: HEIGHT_EXPIRED - forward=${forwardHeight}, current=${currentJHeight}, lock=${lock.revealBeforeHeight} [lockId=${lock.lockId.slice(0,16)}]`);
+                  console.log(
+                    `❌ HTLC-GATE: HEIGHT_EXPIRED - forward=${forwardHeight}, current=${currentJHeight}, lock=${lock.revealBeforeHeight} [lockId=${lock.lockId.slice(0, 16)}]`,
+                  );
                   cancelInboundLock(`height_expired`);
                   continue;
                 }
@@ -512,7 +581,9 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
                 console.log(`➡️ Amount: ${lock.amount} → ${forwardAmount} (fee=${feeAmount})`);
                 console.log(`➡️ Timelock: ${lock.timelock} → ${forwardTimelock}`);
                 console.log(`➡️ Height: ${lock.revealBeforeHeight} → ${forwardHeight}`);
-                console.log(`➡️ Inner envelope: ${innerEnvelope ? JSON.stringify(innerEnvelope, null, 2).slice(0, 200) : 'NONE'}...`);
+                console.log(
+                  `➡️ Inner envelope: ${innerEnvelope ? JSON.stringify(innerEnvelope, null, 2).slice(0, 200) : 'NONE'}...`,
+                );
 
                 mempoolOps.push({
                   accountId: nextHop,
@@ -525,9 +596,9 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
                       revealBeforeHeight: forwardHeight,
                       amount: forwardAmount,
                       tokenId: lock.tokenId,
-                      envelope: innerEnvelope  // Next hop's envelope
-                    }
-                  }
+                      envelope: innerEnvelope, // Next hop's envelope
+                    },
+                  },
                 });
                 console.log(`🧅 ═════════════════════════════════════════════════════════════`);
 
@@ -567,7 +638,12 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
             console.log(`💸   Amount: ${forwardAmount}`);
             console.log(`💸   From: ${state.entityId.slice(-4)}`);
             console.log(`💸   To: ${nextHop.slice(-4)}`);
-            console.log(`💸   Route: [${forward.route.slice(1).map(r => r.slice(-4)).join(',')}]`);
+            console.log(
+              `💸   Route: [${forward.route
+                .slice(1)
+                .map(r => r.slice(-4))
+                .join(',')}]`,
+            );
 
             mempoolOps.push({
               accountId: nextHopAccountKey, // CRITICAL: Use canonical key, not entity ID!
@@ -580,8 +656,8 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
                   description: forward.description || 'Forwarded payment',
                   fromEntityId: state.entityId,
                   toEntityId: nextHop,
-                }
-              }
+                },
+              },
             });
 
             console.log(`💸 FORWARD QUEUED: mempoolOps.length=${mempoolOps.length}`);
@@ -602,7 +678,7 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
       // When an htlc_resolve(error) happens, propagate cancel backward through route
       const timedOutHashlocks = rv.timedOutHashlocks || [];
       for (const timedOutHashlock of timedOutHashlocks) {
-        console.log(`⬅️ HTLC-ERROR: Propagating cancel for hashlock ${timedOutHashlock.slice(0,16)}...`);
+        console.log(`⬅️ HTLC-ERROR: Propagating cancel for hashlock ${timedOutHashlock.slice(0, 16)}...`);
         const route = newState.htlcRoutes.get(timedOutHashlock);
         if (route) {
           // Clear pending fee (won't be earned)
@@ -620,8 +696,8 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
                   lockId: route.inboundLockId,
                   outcome: 'error' as const,
                   reason: 'downstream_error',
-                }
-              }
+                },
+              },
             });
             console.log(`⬅️ HTLC: Propagating cancel to ${route.inboundEntity.slice(-4)}`);
           }
@@ -652,7 +728,7 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
       }
 
       for (const { secret, hashlock } of revealedSecrets) {
-        if (HEAVY_LOGS) console.log(`🔍 HTLC-SECRET: Processing revealed secret for hash ${hashlock.slice(0,16)}...`);
+        if (HEAVY_LOGS) console.log(`🔍 HTLC-SECRET: Processing revealed secret for hash ${hashlock.slice(0, 16)}...`);
         const route = newState.htlcRoutes.get(hashlock);
         if (route) {
           // Store secret
@@ -682,9 +758,9 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
                 data: {
                   lockId: route.inboundLockId,
                   outcome: 'secret' as const,
-                  secret
-                }
-              }
+                  secret,
+                },
+              },
             });
             console.log(`⬅️ HTLC: Propagating secret to ${route.inboundEntity.slice(-4)}`);
           } else {
@@ -698,7 +774,7 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
             entityId: state.entityId,
           });
         } else {
-          console.log(`⚠️ HTLC: No route found for hashlock ${hashlock.slice(0,16)}...`);
+          console.log(`⚠️ HTLC: No route found for hashlock ${hashlock.slice(0, 16)}...`);
         }
       }
 
@@ -730,13 +806,17 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
         // Multi-validator entities sync account state via entity-level consensus (not bilateral broadcast)
         outputs.push({
           entityId: rv.response.toEntityId,
-          entityTxs: [{
-            type: 'accountInput',
-            data: rv.response
-          }]
+          entityTxs: [
+            {
+              type: 'accountInput',
+              data: rv.response,
+            },
+          ],
         });
 
-        console.log(`✅ ACK-RESPONSE queued: ${state.entityId.slice(-4)} → ${rv.response.toEntityId.slice(-4)}, type=${rv.response.type}, hasPrevHanko=${rv.response.type === 'ack' ? !!rv.response.prevHanko : false}`);
+        console.log(
+          `✅ ACK-RESPONSE queued: ${state.entityId.slice(-4)} → ${rv.response.toEntityId.slice(-4)}, type=${rv.response.type}, hasPrevHanko=${rv.response.type === 'ack' ? !!rv.response.prevHanko : false}`,
+        );
       }
     } else {
       const errVal = result.error;
@@ -748,15 +828,21 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
         toEntityId: input.toEntityId,
         reason: errVal.error,
       });
-      env.error('consensus', 'FRAME_CONSENSUS_FAILED', {
-        reason: errVal.error,
-        fromEntityId: input.fromEntityId,
-        toEntityId: input.toEntityId,
-      }, state.entityId);
+      env.error(
+        'consensus',
+        'FRAME_CONSENSUS_FAILED',
+        {
+          reason: errVal.error,
+          fromEntityId: input.fromEntityId,
+          toEntityId: input.toEntityId,
+        },
+        state.entityId,
+      );
     }
   } else {
     // Exhaustive check: all AccountInput variants handled above
-    const _exhaustiveCheck: never = input; void _exhaustiveCheck;
+    const _exhaustiveCheck: never = input;
+    void _exhaustiveCheck;
     console.error(`❌ Received unknown AccountInput type - invalid!`);
   }
 
@@ -774,10 +860,7 @@ export async function handleAccountInput(state: EntityState, input: AccountInput
  * Process swap offers through hub's orderbook (PURE - returns events, no mutations)
  * Called at entity level after aggregating all swap events
  */
-export function processOrderbookSwaps(
-  hubState: EntityState,
-  swapOffers: SwapOfferEvent[]
-): MatchResult {
+export function processOrderbookSwaps(hubState: EntityState, swapOffers: SwapOfferEvent[]): MatchResult {
   const mempoolOps: MempoolOp[] = [];
   const bookUpdates: { pairId: string; book: BookState }[] = [];
   const ext = hubState.orderbookExt as OrderbookExtState | undefined;
@@ -802,7 +885,7 @@ export function processOrderbookSwaps(
     // NOTE (MEDIUM-1): Amounts below LOT_SCALE will be truncated to 0 lots and rejected
     // This is acceptable: sub-$0.001 orders at typical ETH prices are uneconomical anyway
     const LOT_SCALE = 10n ** 12n;
-    const MAX_LOTS = 0xFFFFFFFFn;
+    const MAX_LOTS = 0xffffffffn;
 
     let priceTicks: bigint;
     let qtyLots: bigint;
@@ -812,7 +895,9 @@ export function processOrderbookSwaps(
     if (side === 1) {
       const baseAmount = offer.giveAmount;
       if (baseAmount % LOT_SCALE !== 0n) {
-        console.warn(`⚠️ ORDERBOOK: giveAmount not aligned to LOT_SCALE — skipping offer=${offer.offerId}, amount=${baseAmount}`);
+        console.warn(
+          `⚠️ ORDERBOOK: giveAmount not aligned to LOT_SCALE — skipping offer=${offer.offerId}, amount=${baseAmount}`,
+        );
         continue;
       }
       priceTicks = (offer.wantAmount * 100n) / offer.giveAmount;
@@ -822,7 +907,9 @@ export function processOrderbookSwaps(
     } else {
       const baseAmount = offer.wantAmount;
       if (baseAmount % LOT_SCALE !== 0n) {
-        console.warn(`⚠️ ORDERBOOK: wantAmount not aligned to LOT_SCALE — skipping offer=${offer.offerId}, amount=${baseAmount}`);
+        console.warn(
+          `⚠️ ORDERBOOK: wantAmount not aligned to LOT_SCALE — skipping offer=${offer.offerId}, amount=${baseAmount}`,
+        );
         continue;
       }
       priceTicks = (offer.giveAmount * 100n) / offer.wantAmount;
@@ -832,7 +919,9 @@ export function processOrderbookSwaps(
     }
 
     if (qtyLots === 0n || qtyLots > MAX_LOTS || priceTicks <= 0n || priceTicks > MAX_LOTS) {
-      console.warn(`⚠️ ORDERBOOK: Invalid order — skipping offer=${offer.offerId}, qty=${qtyLots}, price=${priceTicks}`);
+      console.warn(
+        `⚠️ ORDERBOOK: Invalid order — skipping offer=${offer.offerId}, qty=${qtyLots}, price=${priceTicks}`,
+      );
       continue;
     }
 
@@ -864,7 +953,9 @@ export function processOrderbookSwaps(
 
     const makerId = offer.makerIsLeft ? offer.fromEntity : offer.toEntity;
     const namespacedOrderId = `${accountId}:${offer.offerId}`;
-    console.log(`📊 ORDERBOOK ADD: maker=${formatEntityId(makerId)}, orderId=${namespacedOrderId.slice(-20)}, side=${side}, price=${priceTicks}, qty=${qtyLots}`);
+    console.log(
+      `📊 ORDERBOOK ADD: maker=${formatEntityId(makerId)}, orderId=${namespacedOrderId.slice(-20)}, side=${side}, price=${priceTicks}, qty=${qtyLots}`,
+    );
 
     const result = applyCommand(book, {
       kind: 0,
@@ -907,7 +998,9 @@ export function processOrderbookSwaps(
           takerEntry.filledLots += event.qty;
         }
 
-        console.log(`📊 ORDERBOOK TRADE: ${extractOfferId(event.makerOrderId)} ↔ ${extractOfferId(event.takerOrderId)} @ ${event.price}, qty=${event.qty}`);
+        console.log(
+          `📊 ORDERBOOK TRADE: ${extractOfferId(event.makerOrderId)} ↔ ${extractOfferId(event.takerOrderId)} @ ${event.price}, qty=${event.qty}`,
+        );
       }
     }
 
@@ -929,19 +1022,21 @@ export function processOrderbookSwaps(
       if (!hubState.accounts.has(accountId as AccountKey)) {
         console.warn(`⚠️ ORDERBOOK: Account not found for swap_resolve, skipping`);
         console.warn(`   Looking for: "${accountId}"`);
-        console.warn(`   Hub has: ${Array.from(hubState.accounts.keys()).map(k => `"${k}"`).join(', ')}`);
+        console.warn(
+          `   Hub has: ${Array.from(hubState.accounts.keys())
+            .map(k => `"${k}"`)
+            .join(', ')}`,
+        );
         continue;
       }
       console.log(`✅ ORDERBOOK-LOOKUP: Found account for ${accountId.slice(-8)}, generating swap_resolve`);
 
       const filledBig = BigInt(filledLots);
       const originalBig = BigInt(originalLots);
-      const fillRatio = originalBig > 0n
-        ? Number((filledBig * BigInt(MAX_FILL_RATIO)) / originalBig)
-        : 0;
+      const fillRatio = originalBig > 0n ? Number((filledBig * BigInt(MAX_FILL_RATIO)) / originalBig) : 0;
 
-      const orderStillInBook = book.orderIdToIdx.has(namespacedOrderId) &&
-        book.orderActive[book.orderIdToIdx.get(namespacedOrderId)!];
+      const orderStillInBook =
+        book.orderIdToIdx.has(namespacedOrderId) && book.orderActive[book.orderIdToIdx.get(namespacedOrderId)!];
 
       mempoolOps.push({
         accountId,
@@ -951,10 +1046,12 @@ export function processOrderbookSwaps(
             offerId,
             fillRatio: Math.min(fillRatio, MAX_FILL_RATIO),
             cancelRemainder: !orderStillInBook,
-          }
-        }
+          },
+        },
       });
-      console.log(`📤 ORDERBOOK: Queued swap_resolve for ${offerId.slice(-8)}, fill=${(fillRatio/MAX_FILL_RATIO*100).toFixed(1)}%, cancel=${!orderStillInBook}`);
+      console.log(
+        `📤 ORDERBOOK: Queued swap_resolve for ${offerId.slice(-8)}, fill=${((fillRatio / MAX_FILL_RATIO) * 100).toFixed(1)}%, cancel=${!orderStillInBook}`,
+      );
     }
   }
 
@@ -966,7 +1063,7 @@ export function processOrderbookSwaps(
  */
 export function processOrderbookCancels(
   hubState: EntityState,
-  cancels: SwapCancelEvent[]
+  cancels: SwapCancelEvent[],
 ): { pairId: string; book: BookState }[] {
   const bookUpdates: { pairId: string; book: BookState }[] = [];
   const ext = hubState.orderbookExt as OrderbookExtState | undefined;
@@ -985,7 +1082,7 @@ export function processOrderbookCancels(
       if (!ownerId) continue; // Skip if owner not found
 
       const result = applyCommand(book, {
-        kind: 1,  // CANCEL command - only needs ownerId and orderId
+        kind: 1, // CANCEL command - only needs ownerId and orderId
         ownerId,
         orderId: namespacedOrderId,
       });

@@ -27,6 +27,7 @@ import { resolveEntityProposerId } from './state-helpers';
 import { deriveEncryptionKeyPair, decryptJSON, type P2PKeyPair } from './networking/p2p-crypto';
 import { asFailFastPayload, failfastAssert } from './networking/failfast';
 import { buildEntityProfile } from './networking/gossip-helper';
+import type { Profile } from './networking/gossip';
 import { ethers } from 'ethers';
 import { ERC20Mock__factory } from '../jurisdictions/typechain-types/factories/ERC20Mock__factory';
 
@@ -43,8 +44,6 @@ let tokenCatalogCache: JTokenInfo[] | null = null;
 let tokenCatalogPromise: Promise<JTokenInfo[]> | null = null;
 let processGuardsInstalled = false;
 
- 
-
 const summarizeJWatcherEvents = (inputs: RoutedEntityInput[]): { totalEvents: number; summary: string } => {
   const counts = new Map<string, number>();
   let totalEvents = 0;
@@ -53,13 +52,7 @@ const summarizeJWatcherEvents = (inputs: RoutedEntityInput[]): { totalEvents: nu
     for (const tx of txs) {
       if (tx?.type === 'j_event' && tx?.data?.events) {
         for (const ev of tx.data.events) {
-          const evAny = ev as any;
-          const name =
-            typeof evAny?.type === 'string'
-              ? evAny.type
-              : typeof evAny?.name === 'string'
-                ? evAny.name
-                : 'Unknown';
+          const name = ev.type;
           counts.set(name, (counts.get(name) ?? 0) + 1);
           totalEvents += 1;
         }
@@ -96,7 +89,9 @@ const drainJWatcherQueue = async (env: Env, label = 'J-WATCHER'): Promise<void> 
   env.runtimeInput.entityInputs = otherInputs;
 
   const { totalEvents, summary } = summarizeJWatcherEvents(jEventInputs);
-  console.log(`[${label}] Applying ${jEventInputs.length} queued inputs (${totalEvents} events${summary ? `: ${summary}` : ''})`);
+  console.log(
+    `[${label}] Applying ${jEventInputs.length} queued inputs (${totalEvents} events${summary ? `: ${summary}` : ''})`,
+  );
   await applyRuntimeInput(env, { runtimeTxs: [], entityInputs: jEventInputs });
   console.log(`[${label}] Applied ${jEventInputs.length} queued inputs`);
 };
@@ -114,7 +109,7 @@ const applyJEventsToEnv = async (env: Env, events: JEvent[], label = 'J-EVENTS')
   >();
 
   for (const ev of events) {
-    const entity = (ev as any)?.args?.entity || (ev as any)?.args?.entityId || (ev as any)?.args?.leftEntity;
+    const entity = ev.args['entity'] || ev.args['entityId'] || ev.args['leftEntity'];
     if (!entity) continue;
     const key = String(entity).toLowerCase();
     const entry = grouped.get(key) ?? {
@@ -124,8 +119,8 @@ const applyJEventsToEnv = async (env: Env, events: JEvent[], label = 'J-EVENTS')
       transactionHash: ev.transactionHash ?? '0x',
     };
     entry.events.push({
-      type: (ev.name ?? (ev as any).type ?? 'ReserveUpdated') as JurisdictionEvent['type'],
-      data: ((ev as any).args ?? {}) as JurisdictionEvent['data'],
+      type: ev.name as JurisdictionEvent['type'],
+      data: ev.args as JurisdictionEvent['data'],
     } as JurisdictionEvent);
     grouped.set(key, entry);
   }
@@ -136,21 +131,25 @@ const applyJEventsToEnv = async (env: Env, events: JEvent[], label = 'J-EVENTS')
     entityInputs.push({
       entityId,
       signerId: 'j-event',
-      entityTxs: [{
-        type: 'j_event',
-        data: {
-          from: 'j-event',
-          event: entry.events[0] ?? ({
-            type: 'ReserveUpdated',
-            data: { entity: entityId, tokenId: 0, newBalance: '0' },
-          } as JurisdictionEvent),
-          events: entry.events,
-          observedAt,
-          blockNumber: entry.blockNumber,
-          blockHash: entry.blockHash,
-          transactionHash: entry.transactionHash,
+      entityTxs: [
+        {
+          type: 'j_event',
+          data: {
+            from: 'j-event',
+            event:
+              entry.events[0] ??
+              ({
+                type: 'ReserveUpdated',
+                data: { entity: entityId, tokenId: 0, newBalance: '0' },
+              } as JurisdictionEvent),
+            events: entry.events,
+            observedAt,
+            blockNumber: entry.blockNumber,
+            blockHash: entry.blockHash,
+            transactionHash: entry.transactionHash,
+          },
         },
-      }],
+      ],
     });
   }
 
@@ -163,7 +162,7 @@ const startJWatcherProcessingLoop = (env: Env): void => {
   if (jWatcherProcessInterval) return;
   jWatcherProcessInterval = setInterval(() => {
     if (!env.runtimeInput?.entityInputs?.length) return;
-    drainJWatcherQueue(env, 'J-WATCHER').catch((err) => {
+    drainJWatcherQueue(env, 'J-WATCHER').catch(err => {
       console.warn('[J-WATCHER] Failed to apply queued events:', (err as Error).message);
     });
   }, 100);
@@ -175,8 +174,8 @@ const hasPendingRuntimeWork = (env: Env): boolean => {
   if (env.pendingNetworkOutputs?.length) return true;
   if (env.runtimeInput?.runtimeTxs?.length) return true;
   // Check P2P mempool (where enqueueRuntimeInputs puts inbound messages)
-  if ((env as any).runtimeMempool?.entityInputs?.length) return true;
-  if ((env as any).runtimeMempool?.runtimeTxs?.length) return true;
+  if (env.runtimeMempool?.entityInputs?.length) return true;
+  if (env.runtimeMempool?.runtimeTxs?.length) return true;
 
   if (env.jReplicas) {
     for (const replica of env.jReplicas.values()) {
@@ -206,7 +205,7 @@ const waitForReserveUpdate = async (
   entityId: string,
   tokenId: number,
   expectedMin: bigint,
-  timeoutMs = 10000
+  timeoutMs = 10000,
 ): Promise<bigint | null> => {
   if (!globalJAdapter) return null;
   const started = Date.now();
@@ -244,11 +243,15 @@ const hubSignerAddresses = new Map<string, string>();
 const HUB_MESH_TOKEN_ID = 1;
 const HUB_MESH_CREDIT_AMOUNT = 1_000_000n * 10n ** 18n;
 
-const getHubWallet = async (env: Env, hubEntityId?: string): Promise<{ hubEntityId: string; hubSignerId: string; wallet: ethers.Wallet } | null> => {
+const getHubWallet = async (
+  env: Env,
+  hubEntityId?: string,
+): Promise<{ hubEntityId: string; hubSignerId: string; wallet: ethers.Wallet } | null> => {
   if (!globalJAdapter) return null;
   const hubs = env.gossip?.getProfiles()?.filter(p => p.metadata?.isHub === true) || [];
   if (hubs.length === 0) return null;
-  const selectedHub = hubEntityId ? hubs.find(h => h.entityId === hubEntityId) || hubs[0] : hubs[0];
+  const selectedHub = hubEntityId ? (hubs.find(h => h.entityId === hubEntityId) ?? hubs[0]) : hubs[0];
+  if (!selectedHub) return null;
   const targetEntityId = selectedHub.entityId;
   const signerLabel = hubSignerLabels.get(targetEntityId);
   if (!signerLabel) {
@@ -260,7 +263,9 @@ const getHubWallet = async (env: Env, hubEntityId?: string): Promise<{ hubEntity
   const hubPrivateKeyHex = '0x' + Buffer.from(hubPrivateKeyBytes).toString('hex');
   const wallet = new ethers.Wallet(hubPrivateKeyHex, globalJAdapter.provider);
   if (hubSignerAddress && wallet.address.toLowerCase() !== hubSignerAddress.toLowerCase()) {
-    console.error(`[XLN] Hub signer address mismatch for ${targetEntityId.slice(0, 12)}... expected=${hubSignerAddress} got=${wallet.address}`);
+    console.error(
+      `[XLN] Hub signer address mismatch for ${targetEntityId.slice(0, 12)}... expected=${hubSignerAddress} got=${wallet.address}`,
+    );
     return null;
   }
   return { hubEntityId: targetEntityId, hubSignerId: hubSignerAddress ?? wallet.address, wallet };
@@ -288,7 +293,13 @@ const getAccountDelta = (env: Env, entityId: string, counterpartyId: string, tok
   return account.deltas.get(tokenId as TokenId) ?? null;
 };
 
-const hasPairMutualCredit = (env: Env, leftEntityId: string, rightEntityId: string, tokenId: number, amount: bigint): boolean => {
+const hasPairMutualCredit = (
+  env: Env,
+  leftEntityId: string,
+  rightEntityId: string,
+  tokenId: number,
+  amount: bigint,
+): boolean => {
   const delta = getAccountDelta(env, leftEntityId, rightEntityId, tokenId);
   if (!delta) return false;
   return (delta.leftCreditLimit ?? 0n) >= amount && (delta.rightCreditLimit ?? 0n) >= amount;
@@ -303,11 +314,7 @@ const getHubSignerForEntity = (env: Env, entityId: string): string => {
   return hubSignerAddresses.get(entityId) || resolveEntityProposerId(env, entityId, 'hub-mesh-bootstrap');
 };
 
-const waitUntil = async (
-  predicate: () => boolean,
-  maxAttempts = 120,
-  stepMs = 200,
-): Promise<boolean> => {
+const waitUntil = async (predicate: () => boolean, maxAttempts = 120, stepMs = 200): Promise<boolean> => {
   for (let i = 0; i < maxAttempts; i++) {
     if (predicate()) return true;
     await sleep(stepMs);
@@ -361,43 +368,53 @@ const ensureHubPairMeshCredit = async (env: Env, leftEntityId: string, rightEnti
     120,
   );
   if (!hasBothAccounts) {
-    console.warn(`[XLN] Hub mesh account open timed out: ${leftEntityId.slice(0, 8)}.. ↔ ${rightEntityId.slice(0, 8)}..`);
+    console.warn(
+      `[XLN] Hub mesh account open timed out: ${leftEntityId.slice(0, 8)}.. ↔ ${rightEntityId.slice(0, 8)}..`,
+    );
   }
 
   const creditInputs: RoutedEntityInput[] = [
     {
       entityId: leftEntityId,
       signerId: leftSignerId,
-      entityTxs: [{
-        type: 'extendCredit',
-        data: {
-          counterpartyEntityId: rightEntityId,
-          tokenId: HUB_MESH_TOKEN_ID,
-          amount: HUB_MESH_CREDIT_AMOUNT,
+      entityTxs: [
+        {
+          type: 'extendCredit',
+          data: {
+            counterpartyEntityId: rightEntityId,
+            tokenId: HUB_MESH_TOKEN_ID,
+            amount: HUB_MESH_CREDIT_AMOUNT,
+          },
         },
-      }],
+      ],
     },
     {
       entityId: rightEntityId,
       signerId: rightSignerId,
-      entityTxs: [{
-        type: 'extendCredit',
-        data: {
-          counterpartyEntityId: leftEntityId,
-          tokenId: HUB_MESH_TOKEN_ID,
-          amount: HUB_MESH_CREDIT_AMOUNT,
+      entityTxs: [
+        {
+          type: 'extendCredit',
+          data: {
+            counterpartyEntityId: leftEntityId,
+            tokenId: HUB_MESH_TOKEN_ID,
+            amount: HUB_MESH_CREDIT_AMOUNT,
+          },
         },
-      }],
+      ],
     },
   ];
 
-  console.log(`[XLN] Extending $1M bidirectional credit for ${leftEntityId.slice(0, 8)}.. ↔ ${rightEntityId.slice(0, 8)}..`);
+  console.log(
+    `[XLN] Extending $1M bidirectional credit for ${leftEntityId.slice(0, 8)}.. ↔ ${rightEntityId.slice(0, 8)}..`,
+  );
   await applyRuntimeInput(env, { runtimeTxs: [], entityInputs: creditInputs });
   await settleRuntimeFor(env, 45);
 
   const ready = hasPairMutualCredit(env, leftEntityId, rightEntityId, HUB_MESH_TOKEN_ID, HUB_MESH_CREDIT_AMOUNT);
   if (!ready) {
-    console.warn(`[XLN] Hub pair credit still below target: ${leftEntityId.slice(0, 8)}.. ↔ ${rightEntityId.slice(0, 8)}..`);
+    console.warn(
+      `[XLN] Hub pair credit still below target: ${leftEntityId.slice(0, 8)}.. ↔ ${rightEntityId.slice(0, 8)}..`,
+    );
   } else {
     console.log(`[XLN] Hub pair credit ready: ${leftEntityId.slice(0, 8)}.. ↔ ${rightEntityId.slice(0, 8)}..`);
   }
@@ -406,11 +423,15 @@ const ensureHubPairMeshCredit = async (env: Env, leftEntityId: string, rightEnti
 const bootstrapHubMeshCredit = async (env: Env, requiredHubEntityIds: string[]): Promise<void> => {
   if (requiredHubEntityIds.length < 3) return;
   const normalized = requiredHubEntityIds.map(id => id.toLowerCase());
-  const gossipReady = await waitUntil(() => {
-    const profiles = env.gossip?.getProfiles?.() || [];
-    const ids = new Set(profiles.map(p => p.entityId.toLowerCase()));
-    return normalized.every(id => ids.has(id));
-  }, 120, 100);
+  const gossipReady = await waitUntil(
+    () => {
+      const profiles = env.gossip?.getProfiles?.() || [];
+      const ids = new Set(profiles.map(p => p.entityId.toLowerCase()));
+      return normalized.every(id => ids.has(id));
+    },
+    120,
+    100,
+  );
 
   if (!gossipReady) {
     console.warn('[XLN] Hub mesh bootstrap skipped: all hubs were not visible in gossip in time');
@@ -493,7 +514,9 @@ const ensureTokenCatalog = async (): Promise<JTokenInfo[]> => {
       if (firstToken?.address) {
         const code = await globalJAdapter.provider.getCode(firstToken.address).catch(() => '0x');
         if (code === '0x' || code.length < 10) {
-          console.warn(`[ensureTokenCatalog] Token ${firstToken.symbol} at ${firstToken.address} has no code - deploying fresh tokens`);
+          console.warn(
+            `[ensureTokenCatalog] Token ${firstToken.symbol} at ${firstToken.address} has no code - deploying fresh tokens`,
+          );
           await deployDefaultTokensOnRpc();
           const refreshed = await globalJAdapter.getTokenRegistry().catch(() => []);
           return refreshed;
@@ -520,7 +543,7 @@ const ensureTokenCatalog = async (): Promise<JTokenInfo[]> => {
 const updateJurisdictionsJson = async (
   contracts: JAdapter['addresses'],
   rpcUrl?: string,
-  chainIdOverride?: number
+  chainIdOverride?: number,
 ): Promise<void> => {
   try {
     const fs = await import('fs/promises');
@@ -591,7 +614,7 @@ const DEFAULT_OPTIONS: XlnServerOptions = {
   relaySeeds: ['ws://localhost:8080/relay'],
   serverId: 'xln-server',
 };
-const DEFAULT_TOKEN_CATALOG = DEFAULT_TOKENS.map((token) => ({ ...token }));
+const DEFAULT_TOKEN_CATALOG = DEFAULT_TOKENS.map(token => ({ ...token }));
 
 // ============================================================================
 // WEBSOCKET STATE
@@ -642,20 +665,19 @@ const pushRelayDebugEvent = (event: Omit<RelayDebugEvent, 'id' | 'ts'>): void =>
   }
 };
 
-const resetServerDebugState = (env: Env | null, preserveHubs = true): { remainingReplicas: number; remainingProfiles: number } => {
+const resetServerDebugState = (
+  env: Env | null,
+  preserveHubs = true,
+): { remainingReplicas: number; remainingProfiles: number } => {
   relayDebugEvents.length = 0;
   relayDebugId = 0;
   pendingMessages.clear();
 
   // Preserve full hub profiles (runtimeId + encryption keys) so immediate post-reset
   // routing does not fail with P2P_NO_PUBKEY before fresh gossip arrives.
-  const hubSet = new Set(activeHubEntityIds.map((id) => id.toLowerCase()));
+  const hubSet = new Set(activeHubEntityIds.map(id => id.toLowerCase()));
   const preservedHubProfiles = preserveHubs
-    ? new Map(
-      Array.from(gossipProfiles.entries()).filter(([entityId]) =>
-        hubSet.has(String(entityId).toLowerCase())
-      )
-    )
+    ? new Map(Array.from(gossipProfiles.entries()).filter(([entityId]) => hubSet.has(String(entityId).toLowerCase())))
     : new Map<string, { profile: any; timestamp: number }>();
 
   if (env) {
@@ -746,7 +768,7 @@ const installProcessSafetyGuards = (): void => {
   if (processGuardsInstalled) return;
   processGuardsInstalled = true;
 
-  process.on('unhandledRejection', (reason) => {
+  process.on('unhandledRejection', reason => {
     const message = reason instanceof Error ? reason.message : String(reason);
     const stack = reason instanceof Error ? reason.stack : undefined;
     console.error(`[PROCESS] Unhandled rejection: ${message}`);
@@ -757,7 +779,7 @@ const installProcessSafetyGuards = (): void => {
     });
   });
 
-  process.on('uncaughtException', (error) => {
+  process.on('uncaughtException', error => {
     const message = error?.message || 'Unknown uncaught exception';
     console.error(`[PROCESS] Uncaught exception: ${message}`);
     pushRelayDebugEvent({
@@ -805,7 +827,9 @@ const seedHubProfilesInRelayCache = (
 
     const profile = buildEntityProfile(hubState, hub.name, seededAt);
     profile.runtimeId = env.runtimeId;
-    profile.capabilities = Array.from(new Set([...(profile.capabilities || []), ...(hub.capabilities || ['hub', 'routing', 'faucet'])]));
+    profile.capabilities = Array.from(
+      new Set([...(profile.capabilities || []), ...(hub.capabilities || ['hub', 'routing', 'faucet'])]),
+    );
     profile.metadata = {
       ...(profile.metadata || {}),
       isHub: true,
@@ -846,7 +870,7 @@ const faucetLock = {
     } else {
       this.locked = false;
     }
-  }
+  },
 };
 let faucetNonce: number | null = null;
 
@@ -902,7 +926,11 @@ const serveStatic = async (pathname: string, staticDir: string): Promise<Respons
 const handleRelayMessage = async (ws: any, msg: any, env: Env | null) => {
   try {
     failfastAssert(!!msg && typeof msg === 'object', 'RELAY_MSG_OBJECT_INVALID', 'Relay payload must be an object');
-    failfastAssert(typeof msg.type === 'string' && msg.type.length > 0, 'RELAY_MSG_TYPE_INVALID', 'Relay message type is required');
+    failfastAssert(
+      typeof msg.type === 'string' && msg.type.length > 0,
+      'RELAY_MSG_TYPE_INVALID',
+      'Relay message type is required',
+    );
   } catch (error) {
     const ff = asFailFastPayload(error);
     pushRelayDebugEvent({
@@ -917,7 +945,8 @@ const handleRelayMessage = async (ws: any, msg: any, env: Env | null) => {
   }
 
   const { type, to, from, payload, id } = msg;
-  const traceId = typeof id === 'string' && id.length > 0 ? id : `relay-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  const traceId =
+    typeof id === 'string' && id.length > 0 ? id : `relay-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
   let size = 0;
   try {
     size = JSON.stringify(msg).length;
@@ -926,7 +955,7 @@ const handleRelayMessage = async (ws: any, msg: any, env: Env | null) => {
   }
   // Only log non-gossip messages (gossip fires every 1s per client)
   if (type !== 'gossip_request' && type !== 'gossip_response' && type !== 'gossip_announce') {
-    console.log(`[RELAY-MSG] type=${type} from=${from?.slice?.(0,10) || 'none'} to=${to?.slice?.(0,10) || 'none'}`);
+    console.log(`[RELAY-MSG] type=${type} from=${from?.slice?.(0, 10) || 'none'} to=${to?.slice?.(0, 10) || 'none'}`);
   }
   pushRelayDebugEvent({
     event: 'message',
@@ -967,15 +996,15 @@ const handleRelayMessage = async (ws: any, msg: any, env: Env | null) => {
 
   // Gossip announce: store profiles locally in relay
   if (type === 'gossip_announce') {
-    const profiles = (payload?.profiles || []) as any[];
+    const profiles = (payload?.profiles || []) as Record<string, unknown>[];
     let stored = 0;
     for (const profile of profiles) {
       if (!profile || typeof profile !== 'object') continue;
       // Ensure runtimeId is always present for routing resolution.
       const normalized = {
         ...profile,
-        runtimeId: profile.runtimeId || from,
-      };
+        runtimeId: profile['runtimeId'] || from,
+      } as Profile;
       if (storeGossipProfile(normalized)) stored += 1;
       // Mirror into server env gossip cache so runtime-side routing can resolve immediately.
       try {
@@ -1011,15 +1040,17 @@ const handleRelayMessage = async (ws: any, msg: any, env: Env | null) => {
       msgType: type,
       details: { returnedProfiles: profiles.length, traceId },
     });
-    ws.send(safeStringify({
-      type: 'gossip_response',
-      id: `gossip_${Date.now()}`,
-      from: relayServerId,
-      to: from,
-      timestamp: Date.now(),
-      payload: { profiles },
-      inReplyTo: id,
-    }));
+    ws.send(
+      safeStringify({
+        type: 'gossip_response',
+        id: `gossip_${Date.now()}`,
+        from: relayServerId,
+        to: from,
+        timestamp: Date.now(),
+        payload: { profiles },
+        inReplyTo: id,
+      }),
+    );
     return;
   }
 
@@ -1043,7 +1074,13 @@ const handleRelayMessage = async (ws: any, msg: any, env: Env | null) => {
   }
 
   // Routable messages
-  if (type === 'entity_input' || type === 'runtime_input' || type === 'gossip_request' || type === 'gossip_response' || type === 'gossip_announce') {
+  if (
+    type === 'entity_input' ||
+    type === 'runtime_input' ||
+    type === 'gossip_request' ||
+    type === 'gossip_response' ||
+    type === 'gossip_announce'
+  ) {
     if (!to) {
       pushRelayDebugEvent({
         event: 'error',
@@ -1057,7 +1094,9 @@ const handleRelayMessage = async (ws: any, msg: any, env: Env | null) => {
       return;
     }
 
-    console.log(`[RELAY] ${type} from=${from?.slice(0,10)} to=${to?.slice(0,10)} encrypted=${msg.encrypted ?? false}`);
+    console.log(
+      `[RELAY] ${type} from=${from?.slice(0, 10)} to=${to?.slice(0, 10)} encrypted=${msg.encrypted ?? false}`,
+    );
 
     const target = clients.get(to);
     if (target) {
@@ -1088,7 +1127,9 @@ const handleRelayMessage = async (ws: any, msg: any, env: Env | null) => {
           }
           if (!serverKeyPair) throw new Error('No server encryption key for local decrypt');
           input = decryptJSON<RoutedEntityInput>(payload, serverKeyPair.privateKey);
-          console.log(`[RELAY] → decrypted entity_input: entityId=${input.entityId?.slice(-8)} txs=${input.entityTxs?.length ?? 0}`);
+          console.log(
+            `[RELAY] → decrypted entity_input: entityId=${input.entityId?.slice(-8)} txs=${input.entityTxs?.length ?? 0}`,
+          );
         } else {
           input = payload as RoutedEntityInput;
           console.log(`[RELAY] → plaintext entity_input: entityId=${input.entityId?.slice(-8)}`);
@@ -1172,17 +1213,19 @@ const handleRpcMessage = (ws: any, msg: any, env: Env | null) => {
 
   if (type === 'get_env' && env) {
     // Serialize env for remote UI
-    ws.send(safeStringify({
-      type: 'env_snapshot',
-      inReplyTo: id,
-      data: {
-        height: env.height,
-        timestamp: env.timestamp,
-        runtimeId: env.runtimeId,
-        entityCount: env.eReplicas?.size || 0,
-        // Add more fields as needed
-      }
-    }));
+    ws.send(
+      safeStringify({
+        type: 'env_snapshot',
+        inReplyTo: id,
+        data: {
+          height: env.height,
+          timestamp: env.timestamp,
+          runtimeId: env.runtimeId,
+          entityCount: env.eReplicas?.size || 0,
+          // Add more fields as needed
+        },
+      }),
+    );
     return;
   }
 
@@ -1211,14 +1254,9 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
   if ((pathname === '/api/rpc' || pathname === '/rpc') && req.method === 'POST') {
     const allowLocal = process.env.ALLOW_LOCAL_RPC_PROXY === 'true';
     const explicitUpstream = process.env.RPC_UPSTREAM_URL || process.env.PUBLIC_RPC_URL || process.env.ANVIL_RPC;
-    const jMachineRpc = env?.activeJurisdiction
-      ? env.jReplicas.get(env.activeJurisdiction)?.rpcs?.[0]
-      : undefined;
+    const jMachineRpc = env?.activeJurisdiction ? env.jReplicas.get(env.activeJurisdiction)?.rpcs?.[0] : undefined;
     const upstream = explicitUpstream || jMachineRpc || '';
-    const isLocal =
-      upstream.includes('localhost') ||
-      upstream.includes('127.0.0.1') ||
-      upstream.includes('0.0.0.0');
+    const isLocal = upstream.includes('localhost') || upstream.includes('127.0.0.1') || upstream.includes('0.0.0.0');
 
     if (!upstream) {
       pushRelayDebugEvent({
@@ -1234,10 +1272,13 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
         reason: 'RPC_PROXY_LOCAL_BLOCKED',
         details: { upstream },
       });
-      return new Response(JSON.stringify({
-        error: 'Local RPC upstream is blocked in this environment',
-        upstream,
-      }), { status: 503, headers });
+      return new Response(
+        JSON.stringify({
+          error: 'Local RPC upstream is blocked in this environment',
+          upstream,
+        }),
+        { status: 503, headers },
+      );
     }
 
     try {
@@ -1272,8 +1313,8 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
     const { getHealthStatus } = await import('./health.ts');
     const health = await getHealthStatus(env);
     // Ensure hubs are visible even when env.gossip is stale by merging relay cache profiles.
-    const relayHubProfiles = getAllGossipProfiles().filter((p: any) =>
-      p?.metadata?.isHub === true || (Array.isArray(p?.capabilities) && p.capabilities.includes('hub'))
+    const relayHubProfiles = getAllGossipProfiles().filter(
+      (p: any) => p?.metadata?.isHub === true || (Array.isArray(p?.capabilities) && p.capabilities.includes('hub')),
     );
     const existing = new Set((health.hubs || []).map(h => String(h.entityId).toLowerCase()));
     for (const p of relayHubProfiles) {
@@ -1294,20 +1335,26 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
 
   // Runtime state
   if (pathname === '/api/state' && env) {
-    return new Response(JSON.stringify({
-      height: env.height,
-      timestamp: env.timestamp,
-      runtimeId: env.runtimeId,
-      entityCount: env.eReplicas?.size || 0,
-    }), { headers });
+    return new Response(
+      JSON.stringify({
+        height: env.height,
+        timestamp: env.timestamp,
+        runtimeId: env.runtimeId,
+        entityCount: env.eReplicas?.size || 0,
+      }),
+      { headers },
+    );
   }
 
   // Connected clients
   if (pathname === '/api/clients') {
-    return new Response(JSON.stringify({
-      count: clients.size,
-      clients: Array.from(clients.keys()),
-    }), { headers });
+    return new Response(
+      JSON.stringify({
+        count: clients.size,
+        clients: Array.from(clients.keys()),
+      }),
+      { headers },
+    );
   }
 
   // Relay debug timeline (single source for network + critical runtime events)
@@ -1325,21 +1372,25 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
     let filtered = relayDebugEvents;
     if (since > 0) filtered = filtered.filter(e => e.ts >= since);
     if (event) filtered = filtered.filter(e => e.event === event);
-    if (runtimeId) filtered = filtered.filter(e => e.runtimeId === runtimeId || e.from === runtimeId || e.to === runtimeId);
+    if (runtimeId)
+      filtered = filtered.filter(e => e.runtimeId === runtimeId || e.from === runtimeId || e.to === runtimeId);
     if (from) filtered = filtered.filter(e => e.from === from);
     if (to) filtered = filtered.filter(e => e.to === to);
     if (msgType) filtered = filtered.filter(e => e.msgType === msgType);
     if (status) filtered = filtered.filter(e => e.status === status);
 
     const events = filtered.slice(-last);
-    return new Response(safeStringify({
-      ok: true,
-      total: relayDebugEvents.length,
-      returned: events.length,
-      serverTime: Date.now(),
-      filters: { last, event, runtimeId, from, to, msgType, status, since: Number.isFinite(since) ? since : 0 },
-      events,
-    }), { headers });
+    return new Response(
+      safeStringify({
+        ok: true,
+        total: relayDebugEvents.length,
+        returned: events.length,
+        serverTime: Date.now(),
+        filters: { last, event, runtimeId, from, to, msgType, status, since: Number.isFinite(since) ? since : 0 },
+        events,
+      }),
+      { headers },
+    );
   }
 
   if (pathname === '/api/debug/reset' && req.method === 'POST') {
@@ -1370,12 +1421,15 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
         ...stats,
       },
     });
-    return new Response(safeStringify({
-      ok: true,
-      preserveHubs,
-      ...stats,
-      ts: Date.now(),
-    }), { headers });
+    return new Response(
+      safeStringify({
+        ok: true,
+        preserveHubs,
+        ...stats,
+        ts: Date.now(),
+      }),
+      { headers },
+    );
   }
 
   // Registered gossip entities (single source from relay profile store)
@@ -1389,10 +1443,13 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
       .map(([entityId, entry]) => {
         const profile = entry.profile || {};
         const runtimeId = typeof profile.runtimeId === 'string' ? profile.runtimeId : undefined;
-        const name = typeof profile?.metadata?.name === 'string' && profile.metadata.name.trim().length > 0
-          ? profile.metadata.name.trim()
-          : entityId;
-        const isHub = profile?.metadata?.isHub === true || (Array.isArray(profile?.capabilities) && profile.capabilities.includes('hub'));
+        const name =
+          typeof profile?.metadata?.name === 'string' && profile.metadata.name.trim().length > 0
+            ? profile.metadata.name.trim()
+            : entityId;
+        const isHub =
+          profile?.metadata?.isHub === true ||
+          (Array.isArray(profile?.capabilities) && profile.capabilities.includes('hub'));
         const online = runtimeId ? clients.has(runtimeId) : false;
         return {
           entityId,
@@ -1405,22 +1462,26 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
           metadata: profile?.metadata || {},
         };
       })
-      .filter((e) => {
+      .filter(e => {
         if (onlineOnly && !e.online) return false;
         if (!q) return true;
-        const blob = `${e.entityId} ${e.runtimeId || ''} ${e.name} ${JSON.stringify(e.capabilities || [])}`.toLowerCase();
+        const blob =
+          `${e.entityId} ${e.runtimeId || ''} ${e.name} ${JSON.stringify(e.capabilities || [])}`.toLowerCase();
         return blob.includes(q);
       })
       .sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0))
       .slice(0, limit);
 
-    return new Response(safeStringify({
-      ok: true,
-      totalRegistered: gossipProfiles.size,
-      returned: entities.length,
-      serverTime: Date.now(),
-      entities,
-    }), { headers });
+    return new Response(
+      safeStringify({
+        ok: true,
+        totalRegistered: gossipProfiles.size,
+        returned: entities.length,
+        serverTime: Date.now(),
+        entities,
+      }),
+      { headers },
+    );
   }
 
   // J-event watching is handled by JAdapter.startWatching() per-jReplica
@@ -1449,7 +1510,8 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
     // Acquire mutex to prevent nonce collisions
     await faucetLock.acquire();
     try {
-      const requestId = (globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
+      const requestId =
+        globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
       const logPrefix = `FAUCET/ERC20 ${requestId}`;
       if (!globalJAdapter) {
         faucetLock.release();
@@ -1471,23 +1533,25 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
 
       if (globalJAdapter.mode === 'browservm') {
         const browserVM = globalJAdapter.getBrowserVM();
-        const fundSignerWallet = (browserVM as any)?.fundSignerWallet;
-        if (typeof fundSignerWallet !== 'function') {
+        if (!browserVM) {
           faucetLock.release();
           return new Response(JSON.stringify({ error: 'BrowserVM faucet unavailable' }), { status: 503, headers });
         }
         const amountWei = ethers.parseUnits(amount, 18);
-        await fundSignerWallet.call(browserVM, userAddress, amountWei);
+        await browserVM.fundSignerWallet(userAddress, amountWei);
         faucetLock.release();
         console.log(`[${logPrefix}] BrowserVM funded ${userAddress} amount=${amount}`);
-        return new Response(JSON.stringify({
-          success: true,
-          type: 'erc20',
-          amount,
-          tokenSymbol,
-          userAddress,
-          requestId,
-        }), { headers });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            type: 'erc20',
+            amount,
+            tokenSymbol,
+            userAddress,
+            requestId,
+          }),
+          { headers },
+        );
       }
 
       if (tokenSymbol?.toUpperCase?.() === 'ETH') {
@@ -1512,15 +1576,18 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
         await tx.wait();
         faucetLock.release();
         console.log(`[${logPrefix}] ETH-only faucet tx=${tx.hash}`);
-        return new Response(JSON.stringify({
-          success: true,
-          type: 'gas',
-          amount,
-          tokenSymbol: 'ETH',
-          userAddress,
-          txHash: tx.hash,
-          requestId,
-        }), { headers });
+        return new Response(
+          JSON.stringify({
+            success: true,
+            type: 'gas',
+            amount,
+            tokenSymbol: 'ETH',
+            userAddress,
+            txHash: tx.hash,
+            requestId,
+          }),
+          { headers },
+        );
       }
 
       const tokens = await ensureTokenCatalog();
@@ -1549,7 +1616,7 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
         faucetNonce = pendingNonce;
       }
       const nonce = faucetNonce;
-      const tx = await erc20.transfer(userAddress, amountWei, { nonce });
+      const tx = await erc20.getFunction('transfer')(userAddress, amountWei, { nonce });
       faucetNonce = nonce + 1;
       await tx.wait();
       console.log(`[${logPrefix}] ERC20 transfer tx=${tx.hash}`);
@@ -1580,16 +1647,19 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
       }
 
       faucetLock.release();
-      return new Response(JSON.stringify({
-        success: true,
-        type: 'erc20',
-        amount,
-        tokenSymbol,
-        userAddress,
-        txHash: tx.hash,
-        ...(ethTxHash ? { ethTxHash } : {}),
-        requestId,
-      }), { headers });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          type: 'erc20',
+          amount,
+          tokenSymbol,
+          userAddress,
+          txHash: tx.hash,
+          ...(ethTxHash ? { ethTxHash } : {}),
+          requestId,
+        }),
+        { headers },
+      );
     } catch (error: any) {
       faucetLock.release();
       console.error('[FAUCET/ERC20] Error:', error);
@@ -1601,7 +1671,8 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
   if (pathname === '/api/faucet/gas' && req.method === 'POST') {
     await faucetLock.acquire();
     try {
-      const requestId = (globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
+      const requestId =
+        globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
       const logPrefix = `FAUCET/GAS ${requestId}`;
       if (!globalJAdapter) {
         faucetLock.release();
@@ -1645,14 +1716,17 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
       console.log(`[${logPrefix}] ETH topup tx=${tx.hash}`);
 
       faucetLock.release();
-      return new Response(JSON.stringify({
-        success: true,
-        type: 'gas',
-        amount,
-        userAddress,
-        txHash: tx.hash,
-        requestId,
-      }), { headers });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          type: 'gas',
+          amount,
+          userAddress,
+          txHash: tx.hash,
+          requestId,
+        }),
+        { headers },
+      );
     } catch (error: any) {
       faucetLock.release();
       console.error('[FAUCET/GAS] Error:', error);
@@ -1680,7 +1754,8 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
       let tokenId = typeof rawTokenId === 'number' ? rawTokenId : Number(rawTokenId);
       const tokenSymbol = typeof body?.tokenSymbol === 'string' ? body.tokenSymbol : undefined;
       const amount = typeof body?.amount === 'string' ? body.amount : String(body?.amount ?? '100');
-      const requestId = (globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`);
+      const requestId =
+        globalThis.crypto?.randomUUID?.() ?? `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
       const logPrefix = `FAUCET/RESERVE ${requestId}`;
 
       if (!userEntityId) {
@@ -1693,12 +1768,18 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
       }
 
       // Get hub from gossip (no hardcoded hub!)
-      const hubs = env.gossip?.getProfiles()?.filter(p => p.metadata?.isHub === true && p.capabilities?.includes('faucet')) || [];
+      const hubs =
+        env.gossip?.getProfiles()?.filter(p => p.metadata?.isHub === true && p.capabilities?.includes('faucet')) || [];
       if (hubs.length === 0) {
         faucetLock.release();
         return new Response(JSON.stringify({ error: 'No faucet hub available' }), { status: 503, headers });
       }
-      const hubEntityId = hubs[0].entityId;
+      const firstHub = hubs[0];
+      if (!firstHub) {
+        faucetLock.release();
+        return new Response(JSON.stringify({ error: 'No faucet hub available' }), { status: 503, headers });
+      }
+      const hubEntityId = firstHub.entityId;
 
       const hubSignerId = resolveEntityProposerId(env, hubEntityId, 'faucet-reserve');
       const tokenCatalog = await ensureTokenCatalog();
@@ -1711,11 +1792,16 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
       }
       if (!tokenMeta) {
         faucetLock.release();
-        return new Response(JSON.stringify({ error: `Unknown token for faucet`, tokenId, tokenSymbol }), { status: 400, headers });
+        return new Response(JSON.stringify({ error: `Unknown token for faucet`, tokenId, tokenSymbol }), {
+          status: 400,
+          headers,
+        });
       }
       const decimals = typeof tokenMeta.decimals === 'number' ? tokenMeta.decimals : 18;
       const amountWei = ethers.parseUnits(amount, decimals);
-      console.log(`[${logPrefix}] Request: hub=${hubEntityId.slice(0, 16)}... signer=${hubSignerId} → user=${userEntityId.slice(0, 16)}... tokenId=${tokenId} symbol=${tokenMeta.symbol} amount=${amount} decimals=${decimals}`);
+      console.log(
+        `[${logPrefix}] Request: hub=${hubEntityId.slice(0, 16)}... signer=${hubSignerId} → user=${userEntityId.slice(0, 16)}... tokenId=${tokenId} symbol=${tokenMeta.symbol} amount=${amount} decimals=${decimals}`,
+      );
 
       const prevUserReserve = await globalJAdapter.getReserves(userEntityId, tokenId).catch(() => 0n);
       let hubReplicaKey = Array.from(env.eReplicas?.keys?.() || []).find(key => key.startsWith(`${hubEntityId}:`));
@@ -1724,44 +1810,53 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
       console.log(`[${logPrefix}] Hub reserve before R2R: token ${tokenId} = ${hubReserve.toString()}`);
       if (hubReserve < amountWei) {
         faucetLock.release();
-        return new Response(JSON.stringify({
-          error: `Hub has insufficient reserves for token ${tokenId}`,
-          have: hubReserve.toString(),
-          need: amountWei.toString(),
-          requestId,
-        }), { status: 409, headers });
+        return new Response(
+          JSON.stringify({
+            error: `Hub has insufficient reserves for token ${tokenId}`,
+            have: hubReserve.toString(),
+            need: amountWei.toString(),
+            requestId,
+          }),
+          { status: 409, headers },
+        );
       }
 
       // Use entity txs (R2R + j_broadcast) instead of direct admin call
-      await runtimeProcess(env, [{
-        entityId: hubEntityId,
-        signerId: hubSignerId,
-        entityTxs: [
-          {
-            type: 'reserve_to_reserve',
-            data: {
-              toEntityId: userEntityId,
-              tokenId,
-              amount: amountWei,
+      await runtimeProcess(env, [
+        {
+          entityId: hubEntityId,
+          signerId: hubSignerId,
+          entityTxs: [
+            {
+              type: 'reserve_to_reserve',
+              data: {
+                toEntityId: userEntityId,
+                tokenId,
+                amount: amountWei,
+              },
             },
-          },
-          {
-            type: 'j_broadcast',
-            data: {},
-          },
-        ],
-      }]);
+            {
+              type: 'j_broadcast',
+              data: {},
+            },
+          ],
+        },
+      ]);
       // Log hub jBatchState summary after queuing
       hubReplicaKey = Array.from(env.eReplicas?.keys?.() || []).find(key => key.startsWith(`${hubEntityId}:`));
       hubReplica = hubReplicaKey ? env.eReplicas?.get(hubReplicaKey) : null;
       if (hubReplica?.state?.jBatchState?.batch) {
-        const batch = hubReplica.state.jBatchState.batch as any;
-        console.log(`[${logPrefix}] Hub jBatch: r2r=${batch.reserveToReserve?.length || 0}, r2c=${batch.reserveToCollateral?.length || 0}, c2r=${batch.collateralToReserve?.length || 0}, settlements=${batch.settlements?.length || 0}, pending=${hubReplica.state.jBatchState.pendingBroadcast ? 'yes' : 'no'}`);
+        const batch = hubReplica.state.jBatchState.batch;
+        console.log(
+          `[${logPrefix}] Hub jBatch: r2r=${batch.reserveToReserve?.length || 0}, r2c=${batch.reserveToCollateral?.length || 0}, c2r=${batch.collateralToReserve?.length || 0}, settlements=${batch.settlements?.length || 0}, pending=${hubReplica.state.jBatchState.pendingBroadcast ? 'yes' : 'no'}`,
+        );
       }
       if (env.jReplicas) {
         for (const [name, replica] of env.jReplicas.entries()) {
           if ((replica.mempool?.length ?? 0) > 0) {
-            console.log(`[${logPrefix}] J-mempool "${name}": size=${replica.mempool.length}, block=${replica.blockNumber ?? 0}, lastTs=${replica.lastBlockTimestamp ?? 0}`);
+            console.log(
+              `[${logPrefix}] J-mempool "${name}": size=${replica.mempool.length}, block=${replica.blockNumber ?? 0}, lastTs=${replica.lastBlockTimestamp ?? 0}`,
+            );
           }
         }
       }
@@ -1771,32 +1866,41 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
       const jBatchCleared = await waitForJBatchClear(env, 5000);
       if (!jBatchCleared) {
         faucetLock.release();
-        return new Response(JSON.stringify({
-          error: 'J-batch did not broadcast in time',
-          requestId,
-        }), { status: 504, headers });
+        return new Response(
+          JSON.stringify({
+            error: 'J-batch did not broadcast in time',
+            requestId,
+          }),
+          { status: 504, headers },
+        );
       }
 
       const expectedMin = prevUserReserve + amountWei;
       const updatedReserve = await waitForReserveUpdate(userEntityId, tokenId, expectedMin, 10000);
       if (updatedReserve === null) {
         faucetLock.release();
-        return new Response(JSON.stringify({
-          error: 'Reserve update not confirmed on-chain',
-          requestId,
-        }), { status: 504, headers });
+        return new Response(
+          JSON.stringify({
+            error: 'Reserve update not confirmed on-chain',
+            requestId,
+          }),
+          { status: 504, headers },
+        );
       }
 
       faucetLock.release();
-      return new Response(JSON.stringify({
-        success: true,
-        type: 'reserve',
-        amount,
-        tokenId,
-        from: hubEntityId.slice(0, 16) + '...',
-        to: userEntityId.slice(0, 16) + '...',
-        requestId,
-      }), { headers });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          type: 'reserve',
+          amount,
+          tokenId,
+          from: hubEntityId.slice(0, 16) + '...',
+          to: userEntityId.slice(0, 16) + '...',
+          requestId,
+        }),
+        { headers },
+      );
     } catch (error: any) {
       faucetLock.release();
       console.error('[FAUCET/RESERVE] Error:', error);
@@ -1822,7 +1926,9 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
       const allProfiles = env.gossip?.getProfiles() || [];
       console.log(`[FAUCET/OFFCHAIN] profiles=${allProfiles.length} user=${userEntityId.slice(-8)}`);
       for (const p of allProfiles) {
-        console.log(`  profile: ${p.entityId.slice(-8)} isHub=${p.metadata?.isHub} caps=[${p.capabilities?.join(',')}]`);
+        console.log(
+          `  profile: ${p.entityId.slice(-8)} isHub=${p.metadata?.isHub} caps=[${p.capabilities?.join(',')}]`,
+        );
       }
       const hubs = allProfiles.filter(p => p.metadata?.isHub === true && p.capabilities?.includes('faucet'));
       if (hubs.length === 0) {
@@ -1836,44 +1942,60 @@ const handleApi = async (req: Request, pathname: string, env: Env | null): Promi
             hint: 'No faucet-capable hubs in gossip cache',
           },
         });
-        return new Response(JSON.stringify({
-          error: 'No faucet hub available in gossip',
-          code: 'FAUCET_HUBS_EMPTY',
-          profiles: allProfiles.length,
-        }), { status: 503, headers });
+        return new Response(
+          JSON.stringify({
+            error: 'No faucet hub available in gossip',
+            code: 'FAUCET_HUBS_EMPTY',
+            profiles: allProfiles.length,
+          }),
+          { status: 503, headers },
+        );
       }
-      const hubEntityId = hubs[0].entityId;
+      const firstHub = hubs[0];
+      if (!firstHub) {
+        return new Response(JSON.stringify({ error: 'No faucet hub available' }), { status: 503, headers });
+      }
+      const hubEntityId = firstHub.entityId;
       // Get actual signerId from entity's validators (not runtimeId!)
       const hubSignerId = resolveEntityProposerId(env, hubEntityId, 'faucet-offchain');
-      console.log(`[FAUCET/OFFCHAIN] hub=${hubEntityId.slice(-8)} signer=${hubSignerId.slice(-8)} amount=${amount} token=${tokenId}`);
+      console.log(
+        `[FAUCET/OFFCHAIN] hub=${hubEntityId.slice(-8)} signer=${hubSignerId.slice(-8)} amount=${amount} token=${tokenId}`,
+      );
 
       const amountWei = ethers.parseUnits(amount, 18);
 
       // Send payment from hub to user via account
-      await runtimeProcess(env, [{
-        entityId: hubEntityId,
-        signerId: hubSignerId,
-        entityTxs: [{
-          type: 'directPayment',
-          data: {
-            targetEntityId: userEntityId,
-            tokenId,
-            amount: amountWei,
-            route: [hubEntityId, userEntityId], // Direct route
-            description: 'faucet-offchain',
-          },
-        }],
-      }]);
+      await runtimeProcess(env, [
+        {
+          entityId: hubEntityId,
+          signerId: hubSignerId,
+          entityTxs: [
+            {
+              type: 'directPayment',
+              data: {
+                targetEntityId: userEntityId,
+                tokenId,
+                amount: amountWei,
+                route: [hubEntityId, userEntityId], // Direct route
+                description: 'faucet-offchain',
+              },
+            },
+          ],
+        },
+      ]);
       console.log(`[FAUCET/OFFCHAIN] ✅ Payment sent`);
 
-      return new Response(JSON.stringify({
-        success: true,
-        type: 'offchain',
-        amount,
-        tokenId,
-        from: hubEntityId.slice(0, 16) + '...',
-        to: userEntityId.slice(0, 16) + '...',
-      }), { headers });
+      return new Response(
+        JSON.stringify({
+          success: true,
+          type: 'offchain',
+          amount,
+          tokenId,
+          from: hubEntityId.slice(0, 16) + '...',
+          to: userEntityId.slice(0, 16) + '...',
+        }),
+        { headers },
+      );
     } catch (error: any) {
       console.error('[FAUCET/OFFCHAIN] Error:', error);
       return new Response(JSON.stringify({ error: error.message }), { status: 500, headers });
@@ -1893,12 +2015,11 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
   console.log('Options:', opts);
   const options = { ...DEFAULT_OPTIONS, ...opts };
   relayServerId = options.serverId ?? DEFAULT_OPTIONS.serverId ?? 'xln-server';
-  const relaySeeds =
-    opts.relaySeeds?.length
-      ? opts.relaySeeds
-      : process.env.RELAY_URL
-        ? [process.env.RELAY_URL]
-        : options.relaySeeds;
+  const relaySeeds = opts.relaySeeds?.length
+    ? opts.relaySeeds
+    : process.env.RELAY_URL
+      ? [process.env.RELAY_URL]
+      : options.relaySeeds;
 
   // Always initialize runtime - every node needs it
   console.log('[XLN] Initializing runtime...');
@@ -1926,7 +2047,10 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
       // Try cwd first, then fallback to /root/xln (prod)
       const cwdPath = path.join(process.cwd(), 'jurisdictions.json');
       const prodPath = '/root/xln/jurisdictions.json';
-      const jurisdictionsPath = await fs.access(cwdPath).then(() => cwdPath).catch(() => prodPath);
+      const jurisdictionsPath = await fs
+        .access(cwdPath)
+        .then(() => cwdPath)
+        .catch(() => prodPath);
       console.log(`[XLN] Loading jurisdictions from: ${jurisdictionsPath}`);
       const jurisdictionsData = await fs.readFile(jurisdictionsPath, 'utf-8');
       const jurisdictions = JSON.parse(jurisdictionsData);
@@ -1971,12 +2095,16 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
       }
     }
     if (!anvilReady) {
-      throw new Error(`❌ FAIL-FAST: ANVIL not reachable at ${anvilRpc} after ${maxRetries}s. Is hardhat node running?`);
+      throw new Error(
+        `❌ FAIL-FAST: ANVIL not reachable at ${anvilRpc} after ${maxRetries}s. Is hardhat node running?`,
+      );
     }
 
     // Ensure fromReplica carries correct chainId (override if stale)
     if (fromReplica && fromReplica.chainId !== detectedChainId) {
-      console.warn(`[XLN] fromReplica chainId (${fromReplica.chainId}) does not match RPC chainId (${detectedChainId}) - overriding`);
+      console.warn(
+        `[XLN] fromReplica chainId (${fromReplica.chainId}) does not match RPC chainId (${detectedChainId}) - overriding`,
+      );
       fromReplica.chainId = detectedChainId;
     }
 
@@ -2117,17 +2245,21 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
     startP2P(env, {
       relayUrls: relaySeeds,
       advertiseEntityIds: hubEntityIds,
-      isHub: true,  // CRITICAL: Mark as hub so profiles get isHub metadata
+      isHub: true, // CRITICAL: Mark as hub so profiles get isHub metadata
     });
     // Seed relay gossip cache immediately with full hub metadata so first client
     // message routing does not fail waiting for async relay round-trips.
-    seedHubProfilesInRelayCache(env, hubConfigs.map((cfg, idx) => ({
-      entityId: hubEntityIds[idx],
-      name: cfg.name,
-      region: cfg.region,
-      routingFeePPM: cfg.routingFeePPM,
-      capabilities: cfg.capabilities,
-    })), relayUrl);
+    seedHubProfilesInRelayCache(
+      env,
+      hubConfigs.map((cfg, idx) => ({
+        entityId: hubEntityIds[idx]!,
+        name: cfg.name,
+        region: cfg.region,
+        routingFeePPM: cfg.routingFeePPM,
+        capabilities: cfg.capabilities,
+      })),
+      relayUrl,
+    );
   }
 
   // Wait for gossip to update (gossip.announce() might be async)
@@ -2172,25 +2304,30 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
       if (globalJAdapter.mode === 'browservm') {
         const browserVM = globalJAdapter.getBrowserVM();
         if (browserVM) {
-          await (browserVM as any).fundSignerWallet(hubWalletAddress, 1_000_000_000n * 10n ** 18n); // 1B tokens
+          await browserVM.fundSignerWallet(hubWalletAddress, 1_000_000_000n * 10n ** 18n); // 1B tokens
           console.log('[XLN] Hub wallet funded with ERC20 + ETH');
         }
       } else {
         // RPC/anvil: Fund hub wallet with ERC20 tokens + ETH from deployer
         const deployer = globalJAdapter.signer;
-        const ERC20_ABI = ['function transfer(address to, uint256 amount) returns (bool)', 'function balanceOf(address) view returns (uint256)'];
+        const ERC20_ABI = [
+          'function transfer(address to, uint256 amount) returns (bool)',
+          'function balanceOf(address) view returns (uint256)',
+        ];
 
         for (const token of tokenCatalog) {
           if (!token?.address) continue;
           try {
             const erc20 = new ethers.Contract(token.address, ERC20_ABI, deployer);
-            const hubBalance = await erc20.balanceOf(hubWalletAddress);
+            const hubBalance = await erc20.getFunction('balanceOf')(hubWalletAddress);
             const targetBalance = 1_000_000_000n * 10n ** BigInt(token.decimals ?? 18);
             if (hubBalance < targetBalance) {
               const transferAmount = targetBalance - hubBalance;
-              const tx = await erc20.transfer(hubWalletAddress, transferAmount);
+              const tx = await erc20.getFunction('transfer')(hubWalletAddress, transferAmount);
               await tx.wait();
-              console.log(`[XLN] Hub wallet funded with ${token.symbol}: ${ethers.formatUnits(transferAmount, token.decimals ?? 18)}`);
+              console.log(
+                `[XLN] Hub wallet funded with ${token.symbol}: ${ethers.formatUnits(transferAmount, token.decimals ?? 18)}`,
+              );
             }
           } catch (err) {
             console.warn(`[XLN] Hub wallet funding failed (${token.symbol}):`, (err as Error).message);
@@ -2215,7 +2352,8 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
       }
 
       // Fund hub entity reserves in Depository (all registered tokens)
-      const reserveTokens = tokenCatalog.length > 0 ? tokenCatalog : await globalJAdapter.getTokenRegistry().catch(() => []);
+      const reserveTokens =
+        tokenCatalog.length > 0 ? tokenCatalog : await globalJAdapter.getTokenRegistry().catch(() => []);
       for (const token of reserveTokens) {
         const tokenId = typeof token.tokenId === 'number' ? token.tokenId : undefined;
         if (!tokenId) continue;
@@ -2223,7 +2361,9 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
         const amount = 1_000_000_000n * 10n ** BigInt(decimals);
         try {
           const events = await globalJAdapter.debugFundReserves(hubEntityId, tokenId, amount);
-          console.log(`[XLN] Hub reserves funded: tokenId=${tokenId} amount=${ethers.formatUnits(amount, decimals)} for ${hubEntityId.slice(0, 10)}...`);
+          console.log(
+            `[XLN] Hub reserves funded: tokenId=${tokenId} amount=${ethers.formatUnits(amount, decimals)} for ${hubEntityId.slice(0, 10)}...`,
+          );
           await applyJEventsToEnv(env, events, 'HUB-FUND');
         } catch (err) {
           console.warn(`[XLN] Hub reserve funding failed (tokenId=${tokenId}):`, (err as Error).message);
@@ -2236,7 +2376,9 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
     await bootstrapHubMeshCredit(env, hubEntityIds.slice(0, 3));
   }
 
-  const server = Bun.serve({
+  type WsData = { type: 'relay' | 'rpc'; env: Env };
+
+  const server = Bun.serve<WsData>({
     port: options.port,
     hostname: options.host,
 
@@ -2248,8 +2390,8 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
       if (req.headers.get('upgrade') === 'websocket') {
         const wsType = pathname === '/relay' ? 'relay' : pathname === '/rpc' ? 'rpc' : null;
         if (wsType) {
-          const upgraded = (server as any).upgrade(req, { data: { type: wsType, env } });
-          if (upgraded) return undefined as any;
+          const upgraded = server.upgrade(req, { data: { type: wsType, env } });
+          if (upgraded) return;
         }
         return new Response('WebSocket upgrade failed', { status: 400 });
       }
@@ -2281,7 +2423,7 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
 
     websocket: {
       open(ws) {
-        const data = (ws as any).data;
+        const data = ws.data;
         console.log(`[WS] New ${data.type} connection`);
         pushRelayDebugEvent({
           event: 'ws_open',
@@ -2290,12 +2432,12 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
       },
 
       message(ws, message) {
-        const data = (ws as any).data;
+        const data = ws.data;
         const msgStr = message.toString();
         try {
           const msg = JSON.parse(msgStr);
           if (data.type === 'relay') {
-            Promise.resolve(handleRelayMessage(ws, msg, data.env)).catch((error) => {
+            Promise.resolve(handleRelayMessage(ws, msg, data.env)).catch(error => {
               const reason = (error as Error).message || 'relay handler error';
               console.error(`[WS] Relay handler error: ${reason}`);
               pushRelayDebugEvent({
@@ -2315,7 +2457,7 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
               }
             });
           } else if (data.type === 'rpc') {
-            Promise.resolve(handleRpcMessage(ws, msg, data.env)).catch((error) => {
+            Promise.resolve(handleRpcMessage(ws, msg, data.env)).catch(error => {
               const reason = (error as Error).message || 'rpc handler error';
               console.error(`[WS] RPC handler error: ${reason}`);
               pushRelayDebugEvent({
@@ -2350,7 +2492,7 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
               event: 'ws_close',
               runtimeId: id,
               from: id,
-              details: { channel: ((ws as any).data || {}).type || 'unknown' },
+              details: { channel: ws.data?.type || 'unknown' },
             });
             break;
           }
@@ -2387,7 +2529,7 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
 // CLI ENTRY POINT
 // ============================================================================
 
-if ((import.meta as any).main) {
+if (import.meta.main) {
   console.log('═══ SERVER.TS ENTRY POINT ═══');
   console.log('ENV: USE_ANVIL =', process.env.USE_ANVIL);
   console.log('ENV: ANVIL_RPC =', process.env.ANVIL_RPC);
@@ -2410,11 +2552,13 @@ if ((import.meta as any).main) {
 
   console.log('Calling startXlnServer with options:', options);
 
-  startXlnServer(options).then(() => {
-    console.log('[XLN] Server started successfully');
-  }).catch(error => {
-    console.error('[XLN] Server failed:', error);
-    console.error('Stack:', error.stack);
-    process.exit(1);
-  });
+  startXlnServer(options)
+    .then(() => {
+      console.log('[XLN] Server started successfully');
+    })
+    .catch(error => {
+      console.error('[XLN] Server failed:', error);
+      console.error('Stack:', error.stack);
+      process.exit(1);
+    });
 }
