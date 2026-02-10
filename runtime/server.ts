@@ -2515,6 +2515,18 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
   }
 
   if (hubEntityIds.length >= 3) {
+    // Re-seed gossip profiles (originals may have expired during slow on-chain funding)
+    seedHubProfilesInRelayCache(
+      env,
+      hubConfigs.map((cfg, idx) => ({
+        entityId: hubEntityIds[idx]!,
+        name: cfg.name,
+        region: cfg.region,
+        routingFeePPM: cfg.routingFeePPM,
+        capabilities: cfg.capabilities,
+      })),
+      relayUrl,
+    );
     await bootstrapHubMeshCredit(env, hubEntityIds.slice(0, 3));
   }
 
