@@ -1,0 +1,35 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deployer": "0xdC372D0E73C39F448782bC488dDDaD8bda597236",
+  "deployedAt": "2026-02-10T01:29:37.414Z",
+  "contracts": {
+    "account": "0x0aE2AB7c431a46453Cc02f001150Eff506143497",
+    "entityProvider": "0x9716FEF71DE545fB56C70ECeC4d0bB9cA7A96334",
+    "depository": "0x5F5b3b5BA005094B8cF1F3A6bd3D12B001Aeb558",
+    "deltaTransformer": "0xe5eAdB3C42F883B9F4173e63584DCea47CDDd1Fa"
+  },
+  "tokens": [
+    {
+      "name": "USD Coin",
+      "symbol": "USDC",
+      "decimals": 18,
+      "address": "0x5663b91633AC6c08e7a386851caEf1edF2F7386a",
+      "tokenId": 1
+    },
+    {
+      "name": "Wrapped Ether",
+      "symbol": "WETH",
+      "decimals": 18,
+      "address": "0x578297C60750673165Ef8F8938460452b0F1e0e2",
+      "tokenId": 2
+    },
+    {
+      "name": "Tether USD",
+      "symbol": "USDT",
+      "decimals": 18,
+      "address": "0xe168C34133f2dcDe5E6ac47fcF1e417a3bf29709",
+      "tokenId": 3
+    }
+  ]
+}

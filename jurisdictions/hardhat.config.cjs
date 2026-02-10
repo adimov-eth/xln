@@ -1,9 +1,9 @@
-require("@nomicfoundation/hardhat-toolbox");
-require("@typechain/hardhat");
+require('@nomicfoundation/hardhat-toolbox');
+require('@typechain/hardhat');
 
 module.exports = {
   solidity: {
-    version: "0.8.24",
+    version: '0.8.24',
     settings: {
       optimizer: {
         enabled: true,
@@ -13,13 +13,13 @@ module.exports = {
     },
   },
   typechain: {
-    outDir: "typechain-types",
-    target: "ethers-v6",
+    outDir: 'typechain-types',
+    target: 'ethers-v6',
   },
   networks: {
     localhost: {
-      url: "http://127.0.0.1:8545",
-      allowUnlimitedContractSize: true
+      url: 'http://127.0.0.1:8545',
+      allowUnlimitedContractSize: true,
     },
     hardhat: {
       chainId: 1337,
@@ -27,19 +27,27 @@ module.exports = {
       blockGasLimit: 300000000,
       mining: {
         auto: true,
-        interval: 0
-      }
+        interval: 0,
+      },
+    },
+    // ═══════════════════════════════════════════════════════════════════
+    // Ethereum L1 Testnets
+    // ═══════════════════════════════════════════════════════════════════
+    sepolia: {
+      url: process.env.SEPOLIA_RPC || 'https://ethereum-sepolia-rpc.publicnode.com',
+      chainId: 11155111,
+      accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
     },
     // ═══════════════════════════════════════════════════════════════════
     // Base Networks (Coinbase L2)
     // ═══════════════════════════════════════════════════════════════════
-    "base-sepolia": {
-      url: process.env.BASE_SEPOLIA_RPC || "https://sepolia.base.org",
+    'base-sepolia': {
+      url: process.env.BASE_SEPOLIA_RPC || 'https://sepolia.base.org',
       chainId: 84532,
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
     },
-    "base-mainnet": {
-      url: process.env.BASE_MAINNET_RPC || "https://mainnet.base.org",
+    'base-mainnet': {
+      url: process.env.BASE_MAINNET_RPC || 'https://mainnet.base.org',
       chainId: 8453,
       accounts: process.env.DEPLOYER_PRIVATE_KEY ? [process.env.DEPLOYER_PRIVATE_KEY] : [],
     },
@@ -47,19 +55,19 @@ module.exports = {
     // Legacy local networks
     // ═══════════════════════════════════════════════════════════════════
     ethereum: {
-      url: "http://127.0.0.1:8545",
+      url: 'http://127.0.0.1:8545',
       chainId: 1337,
-      allowUnlimitedContractSize: true
+      allowUnlimitedContractSize: true,
     },
     polygon: {
-      url: "http://0.0.0.0:8546",
+      url: 'http://0.0.0.0:8546',
       chainId: 1337,
-      allowUnlimitedContractSize: true
+      allowUnlimitedContractSize: true,
     },
     arbitrum: {
-      url: "http://0.0.0.0:8547",
+      url: 'http://0.0.0.0:8547',
       chainId: 1337,
-      allowUnlimitedContractSize: true
+      allowUnlimitedContractSize: true,
     },
-  }
+  },
 };
