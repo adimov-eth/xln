@@ -2028,15 +2028,103 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
   startRuntimeLoop(env);
   console.log('[XLN] Runtime event loop started ✓');
 
-  // Initialize J-adapter (anvil for testnet, browserVM for local)
+  // Initialize J-adapter (RPC_URL for testnet, anvil for local testnet, browserVM for local)
+  const rpcUrl = process.env.RPC_URL;
   const anvilRpc = process.env.ANVIL_RPC || 'http://localhost:8545';
   const useAnvil = process.env.USE_ANVIL === 'true';
 
   console.log('[XLN] J-adapter mode check:');
+  console.log('  RPC_URL =', rpcUrl ?? '(not set)');
   console.log('  USE_ANVIL =', useAnvil);
   console.log('  ANVIL_RPC =', anvilRpc);
 
-  if (useAnvil) {
+  if (rpcUrl) {
+    // ═══════════════════════════════════════════════════════════════════
+    // Testnet/Mainnet mode — connect to deployed contracts via RPC_URL
+    // Requires: RPC_URL, DEPLOYER_PRIVATE_KEY, jurisdictions/deployments/<network>.json
+    // ═══════════════════════════════════════════════════════════════════
+    console.log('[XLN] Connecting to chain via RPC_URL...');
+
+    const deployerKey = process.env.DEPLOYER_PRIVATE_KEY;
+    if (!deployerKey) {
+      throw new Error('DEPLOYER_PRIVATE_KEY required when RPC_URL is set');
+    }
+
+    // Probe RPC for chain ID
+    const probe = new ethers.JsonRpcProvider(rpcUrl);
+    const network = await probe.getNetwork();
+    const detectedChainId = Number(network.chainId);
+    console.log(`[XLN] RPC connected (chainId: ${detectedChainId})`);
+
+    // Load deployment artifact
+    const fs = await import('fs/promises');
+    const path = await import('path');
+
+    // Map chainId → deployment file
+    const CHAIN_FILES: Record<number, string> = {
+      11155111: 'sepolia.json',
+      84532: 'base-sepolia.json',
+    };
+    const deploymentFile = CHAIN_FILES[detectedChainId] ?? `chain-${detectedChainId}.json`;
+    const deploymentPath = path.join(process.cwd(), 'jurisdictions', 'deployments', deploymentFile);
+
+    let deploymentData: {
+      contracts: { account: string; entityProvider: string; depository: string; deltaTransformer: string };
+      tokens?: Array<{ symbol: string; name: string; address: string; decimals: number; tokenId: number }>;
+      network?: string;
+    };
+    try {
+      const raw = await fs.readFile(deploymentPath, 'utf-8');
+      deploymentData = JSON.parse(raw);
+      console.log(`[XLN] Loaded deployment from ${deploymentFile}`);
+    } catch {
+      throw new Error(`Missing deployment artifact: ${deploymentPath}. Run deploy-direct.cjs first.`);
+    }
+
+    const jName = deploymentData.network ?? deploymentFile.replace('.json', '');
+
+    // Build fromReplica from deployment artifact
+    const fromReplica: JReplica = {
+      name: jName,
+      blockNumber: 0n,
+      stateRoot: new Uint8Array(32),
+      mempool: [],
+      blockDelayMs: 0,
+      lastBlockTimestamp: Date.now(),
+      position: { x: 0, y: 0, z: 0 },
+      depositoryAddress: deploymentData.contracts.depository,
+      entityProviderAddress: deploymentData.contracts.entityProvider,
+      contracts: deploymentData.contracts,
+      rpcs: [rpcUrl],
+      chainId: detectedChainId,
+    };
+
+    globalJAdapter = await createJAdapter({
+      mode: 'rpc',
+      chainId: detectedChainId,
+      rpcUrl,
+      privateKey: deployerKey.startsWith('0x') ? deployerKey : `0x${deployerKey}`,
+      fromReplica,
+    });
+
+    const block = await globalJAdapter.provider.getBlockNumber();
+    console.log(`[XLN] Chain connected (block: ${block})`);
+
+    // Register J-replica in env
+    if (globalJAdapter && env) {
+      if (!env.jReplicas) env.jReplicas = new Map();
+      if (!env.jReplicas.has(jName)) {
+        env.jReplicas.set(jName, {
+          ...fromReplica,
+          blockDelayMs: 12000, // ~12s block time on Sepolia
+          lastBlockTimestamp: env.timestamp,
+          jadapter: globalJAdapter,
+        });
+        console.log(`[XLN] J-replica "${jName}" registered in env`);
+      }
+      if (!env.activeJurisdiction) env.activeJurisdiction = jName;
+    }
+  } else if (useAnvil) {
     console.log('[XLN] Connecting to Anvil testnet...');
 
     // Fetch deployed contract addresses from jurisdictions.json
@@ -2185,7 +2273,7 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
   // Bootstrap hub entities (idempotent - normal entity + gossip tag)
   const { bootstrapHubs } = await import('../scripts/bootstrap-hub');
   const relayUrl = relaySeeds?.[0] ?? 'wss://xln.finance/relay';
-  const publicRpc = process.env.PUBLIC_RPC ?? anvilRpc;
+  const publicRpc = process.env.PUBLIC_RPC ?? rpcUrl ?? anvilRpc;
   const publicHttp = process.env.PUBLIC_HTTP ?? '';
   const hubConfigs = [
     {
@@ -2301,6 +2389,8 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
       console.log(`[XLN] Hub wallet address (${hubEntityId.slice(0, 10)}...): ${hubWalletAddress}`);
 
       // Fund hub wallet if using BrowserVM
+      const isRealChainTransfer = globalJAdapter.chainId !== 31337 && globalJAdapter.chainId !== 1337;
+
       if (globalJAdapter.mode === 'browservm') {
         const browserVM = globalJAdapter.getBrowserVM();
         if (browserVM) {
@@ -2314,15 +2404,25 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
           'function transfer(address to, uint256 amount) returns (bool)',
           'function balanceOf(address) view returns (uint256)',
         ];
-
         for (const token of tokenCatalog) {
           if (!token?.address) continue;
           try {
             const erc20 = new ethers.Contract(token.address, ERC20_ABI, deployer);
             const hubBalance = await erc20.getFunction('balanceOf')(hubWalletAddress);
-            const targetBalance = 1_000_000_000n * 10n ** BigInt(token.decimals ?? 18);
+            const decimals = BigInt(token.decimals ?? 18);
+            // Real chains: 10M per hub wallet; local: 1B
+            const targetBalance = isRealChainTransfer
+              ? 10_000_000n * 10n ** decimals
+              : 1_000_000_000n * 10n ** decimals;
             if (hubBalance < targetBalance) {
-              const transferAmount = targetBalance - hubBalance;
+              const needed = targetBalance - hubBalance;
+              // Check deployer's actual balance to avoid insufficient-balance reverts
+              const deployerBal = await erc20.getFunction('balanceOf')(await deployer.getAddress());
+              const transferAmount = deployerBal < needed ? deployerBal : needed;
+              if (transferAmount === 0n) {
+                console.warn(`[XLN] Deployer has no ${token.symbol} left, skipping hub wallet funding`);
+                continue;
+              }
               const tx = await erc20.getFunction('transfer')(hubWalletAddress, transferAmount);
               await tx.wait();
               console.log(
@@ -2334,12 +2434,15 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
           }
         }
 
-        // Fund hub wallet with ETH for gas (huge amount for faucet operations)
+        // Fund hub wallet with ETH for gas
         try {
+          console.log(`[XLN] Checking hub wallet ETH balance...`);
           const currentEth = await globalJAdapter.provider.getBalance(hubWalletAddress);
-          const targetEth = ethers.parseEther('1000'); // 1000 ETH for faucet operations
+          // Real chains: only send 0.1 ETH for gas; local: 1000 ETH for faucet
+          const targetEth = isRealChainTransfer ? ethers.parseEther('0.1') : ethers.parseEther('1000');
           if (currentEth < targetEth) {
             const topup = targetEth - currentEth;
+            console.log(`[XLN] Sending ${ethers.formatEther(topup)} ETH to hub wallet...`);
             const ethTx = await deployer.sendTransaction({ to: hubWalletAddress, value: topup });
             await ethTx.wait();
             console.log(`[XLN] Hub wallet funded with ${ethers.formatEther(topup)} ETH for gas`);
@@ -2358,13 +2461,52 @@ export async function startXlnServer(opts: Partial<XlnServerOptions> = {}): Prom
         const tokenId = typeof token.tokenId === 'number' ? token.tokenId : undefined;
         if (!tokenId) continue;
         const decimals = typeof token.decimals === 'number' ? token.decimals : 18;
-        const amount = 1_000_000_000n * 10n ** BigInt(decimals);
+        // Use smaller amounts on real chains (testnet ETH is scarce)
+        const amount = isRealChainTransfer
+          ? 10_000_000n * 10n ** BigInt(decimals) // 10M tokens on testnet
+          : 1_000_000_000n * 10n ** BigInt(decimals); // 1B on local
         try {
-          const events = await globalJAdapter.debugFundReserves(hubEntityId, tokenId, amount);
-          console.log(
-            `[XLN] Hub reserves funded: tokenId=${tokenId} amount=${ethers.formatUnits(amount, decimals)} for ${hubEntityId.slice(0, 10)}...`,
-          );
-          await applyJEventsToEnv(env, events, 'HUB-FUND');
+          if (isRealChainTransfer && token.address) {
+            // Real chain: deposit ERC20 from deployer → hub reserves via externalTokenToReserve
+            const deployer = globalJAdapter.signer;
+            const ERC20_ABI = [
+              'function approve(address spender, uint256 amount) returns (bool)',
+              'function balanceOf(address) view returns (uint256)',
+            ];
+            const erc20 = new ethers.Contract(token.address, ERC20_ABI, deployer);
+            const balance = await erc20.getFunction('balanceOf')(await deployer.getAddress());
+            if (balance < amount) {
+              console.warn(
+                `[XLN] Deployer has insufficient ${token.symbol} (${ethers.formatUnits(balance, decimals)}), skipping reserve funding`,
+              );
+              continue;
+            }
+            const depAddr = globalJAdapter.addresses.depository;
+            console.log(`[XLN] Approving ${token.symbol} for Depository...`);
+            const approveTx = await erc20.getFunction('approve')(depAddr, amount);
+            await approveTx.wait();
+            console.log(`[XLN] Depositing ${token.symbol} to hub reserves via externalTokenToReserve...`);
+            const dep = globalJAdapter.depository;
+            const regTx = await dep.connect(deployer as any).externalTokenToReserve({
+              entity: hubEntityId.length === 66 ? hubEntityId : ethers.zeroPadValue(hubEntityId, 32),
+              contractAddress: token.address,
+              externalTokenId: 0,
+              tokenType: 0,
+              internalTokenId: tokenId,
+              amount,
+            });
+            await regTx.wait();
+            console.log(
+              `[XLN] Hub reserves funded via externalTokenToReserve: tokenId=${tokenId} amount=${ethers.formatUnits(amount, decimals)} for ${hubEntityId.slice(0, 10)}...`,
+            );
+          } else {
+            // Local chain: use debugFundReserves (anvil/hardhat only)
+            const events = await globalJAdapter.debugFundReserves(hubEntityId, tokenId, amount);
+            console.log(
+              `[XLN] Hub reserves funded: tokenId=${tokenId} amount=${ethers.formatUnits(amount, decimals)} for ${hubEntityId.slice(0, 10)}...`,
+            );
+            await applyJEventsToEnv(env, events, 'HUB-FUND');
+          }
         } catch (err) {
           console.warn(`[XLN] Hub reserve funding failed (tokenId=${tokenId}):`, (err as Error).message);
         }
