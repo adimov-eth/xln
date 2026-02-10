@@ -2247,8 +2247,47 @@ export const process = async (env: Env, inputs?: RoutedEntityInput[], runtimeDel
 };
 
 // === LEVELDB PERSISTENCE ===
+
+/**
+ * Build a serializable snapshot of the current Env state.
+ * Excludes non-serializable fields: history, browserVM, functions, runtimeState.
+ * Uses snapshot-coder's encode() which correctly handles Maps, BigInts, and circular refs.
+ */
+function buildPersistableSnapshot(env: Env): Record<string, unknown> {
+  return {
+    height: env.height,
+    timestamp: env.timestamp,
+    ...(env.runtimeSeed !== undefined && env.runtimeSeed !== null ? { runtimeSeed: env.runtimeSeed } : {}),
+    ...(env.runtimeId ? { runtimeId: env.runtimeId } : {}),
+    ...(env.dbNamespace ? { dbNamespace: env.dbNamespace } : {}),
+    eReplicas: env.eReplicas,
+    jReplicas: env.jReplicas
+      ? Array.from(env.jReplicas.values()).map(jr => ({
+          name: jr.name,
+          blockNumber: jr.blockNumber,
+          stateRoot: jr.stateRoot,
+          mempool: [...jr.mempool],
+          blockDelayMs: jr.blockDelayMs,
+          lastBlockTimestamp: jr.lastBlockTimestamp,
+          position: { ...jr.position },
+          ...(jr.rpcs ? { rpcs: [...jr.rpcs] } : {}),
+          ...(jr.chainId !== undefined ? { chainId: jr.chainId } : {}),
+          ...(jr.depositoryAddress ? { depositoryAddress: jr.depositoryAddress } : {}),
+          ...(jr.entityProviderAddress ? { entityProviderAddress: jr.entityProviderAddress } : {}),
+          ...(jr.contracts ? { contracts: { ...jr.contracts } } : {}),
+        }))
+      : [],
+    gossip: {
+      profiles: env.gossip?.profiles instanceof Map ? env.gossip.profiles : new Map(),
+    },
+    ...(env.browserVMState ? { browserVMState: env.browserVMState } : {}),
+    ...(env.activeJurisdiction ? { activeJurisdiction: env.activeJurisdiction } : {}),
+  };
+}
+
 export const saveEnvToDB = async (env: Env): Promise<void> => {
-  if (!isBrowser) return; // Only persist in browser
+  // Skip persistence in scenario/test mode — deterministic replay doesn't need disk I/O
+  if (env.scenarioMode) return;
 
   try {
     const dbReady = await tryOpenDb(env);
@@ -2256,44 +2295,20 @@ export const saveEnvToDB = async (env: Env): Promise<void> => {
     const dbNamespace = resolveDbNamespace({ env });
     const db = getRuntimeDb(env);
 
-    // Save latest height pointer
-    await db.put(makeDbKey(dbNamespace, 'latest_height'), Buffer.from(String(env.height)));
+    const snapshot = buildPersistableSnapshot(env);
+    const snapshotBuffer = encode(snapshot);
 
-    // Save environment snapshot (jReplicas with stateRoot are serializable)
-    // CRITICAL: Exclude 'history' to prevent exponential growth (history contains all previous snapshots)
-    const seen = new WeakSet();
-    const snapshot = JSON.stringify(env, (k, v) => {
-      if (k === 'history') return undefined; // Skip history - it's rebuilt from individual snapshots
-      if (k === 'browserVM') return undefined; // BrowserVM is non-serializable (circular refs)
-      if (k === 'log' || k === 'info' || k === 'warn' || k === 'error' || k === 'emit') return undefined;
-      if (k === 'gossip' && v && typeof v === 'object') {
-        return {
-          profiles: v.profiles instanceof Map ? Array.from(v.profiles.entries()) : v.profiles,
-        };
-      }
-      if (typeof v === 'bigint') return String(v);
-      if (v instanceof Uint8Array) return Array.from(v);
-      if (v instanceof Map) return Array.from(v.entries());
-      if (v instanceof Set) return Array.from(v);
-      if (typeof v === 'function') return undefined;
-      if (v && typeof v === 'object') {
-        if (seen.has(v)) return '[Circular]';
-        seen.add(v);
-      }
-      return v;
-    });
-    await db.put(makeDbKey(dbNamespace, `snapshot:${env.height}`), Buffer.from(snapshot));
+    // Atomic batch write: snapshot + height pointer
+    const batch = db.batch();
+    batch.put(makeDbKey(dbNamespace, `snapshot:${env.height}`), snapshotBuffer);
+    batch.put(makeDbKey(dbNamespace, 'latest_height'), Buffer.from(String(env.height)));
+    await batch.write();
   } catch (err) {
     console.error('❌ Failed to save to LevelDB:', err);
-    if (env.scenarioMode) {
-      throw err;
-    }
   }
 };
 
 export const loadEnvFromDB = async (runtimeId?: string | null, runtimeSeed?: string | null): Promise<Env | null> => {
-  if (!isBrowser) return null;
-
   try {
     const tempEnv = createEmptyEnv(runtimeSeed ?? null);
     if (runtimeId) {
@@ -2309,147 +2324,154 @@ export const loadEnvFromDB = async (runtimeId?: string | null, runtimeSeed?: str
       env: tempEnv,
     });
     const db = getRuntimeDb(tempEnv);
-    const latestHeightBuffer = await db.get(makeDbKey(dbNamespace, 'latest_height'));
+
+    let latestHeightBuffer: Buffer;
+    try {
+      latestHeightBuffer = await db.get(makeDbKey(dbNamespace, 'latest_height'));
+    } catch {
+      // No latest_height key — DB is empty
+      return null;
+    }
     const latestHeight = parseInt(latestHeightBuffer.toString());
+    if (isNaN(latestHeight) || latestHeight < 0) return null;
 
-    // Load all snapshots to build history
-    const history: Env[] = [];
-    for (let i = 0; i <= latestHeight; i++) {
-      const buffer = await db.get(makeDbKey(dbNamespace, `snapshot:${i}`));
-      const data = JSON.parse(buffer.toString());
+    // Load latest snapshot only (server doesn't need full history for time-travel)
+    let latestBuffer: Buffer;
+    try {
+      latestBuffer = await db.get(makeDbKey(dbNamespace, `snapshot:${latestHeight}`));
+    } catch {
+      console.warn(`⚠️ Snapshot ${latestHeight} missing from DB`);
+      return null;
+    }
 
-      // Hydrate Maps/BigInts
-      const runtimeSeedRaw = Array.isArray(data.runtimeSeed)
-        ? new TextDecoder().decode(new Uint8Array(data.runtimeSeed))
-        : data.runtimeSeed;
-      const env = createEmptyEnv(runtimeSeedRaw ?? null);
-      env.height = Number(data.height || 0);
-      env.timestamp = Number(data.timestamp || 0);
-      env.dbNamespace = data.dbNamespace ?? dbNamespace;
-      if (data.browserVMState) {
-        env.browserVMState = data.browserVMState;
+    const data = decode(latestBuffer);
+
+    // Hydrate into a fresh Env
+    const runtimeSeedRaw = Array.isArray(data.runtimeSeed)
+      ? new TextDecoder().decode(new Uint8Array(data.runtimeSeed))
+      : data.runtimeSeed;
+    const env = createEmptyEnv(runtimeSeedRaw ?? null);
+    env.height = Number(data.height || 0);
+    env.timestamp = Number(data.timestamp || 0);
+    env.dbNamespace = data.dbNamespace ?? dbNamespace;
+    if (data.browserVMState) {
+      env.browserVMState = data.browserVMState;
+    }
+    if (data.activeJurisdiction) {
+      env.activeJurisdiction = data.activeJurisdiction;
+    }
+    if (runtimeSeedRaw !== undefined && runtimeSeedRaw !== null) {
+      setCryptoRuntimeSeed(runtimeSeedRaw);
+    }
+    if (data.runtimeId) {
+      env.runtimeId = data.runtimeId;
+    } else if (runtimeSeedRaw !== undefined && runtimeSeedRaw !== null) {
+      try {
+        env.runtimeId = deriveSignerAddressSync(runtimeSeedRaw, '1');
+      } catch (error) {
+        console.warn('⚠️ Failed to derive runtimeId from DB snapshot:', error);
       }
-      if (runtimeSeedRaw !== undefined && runtimeSeedRaw !== null) {
-        setCryptoRuntimeSeed(runtimeSeedRaw);
-      }
-      if (data.runtimeId) {
-        env.runtimeId = data.runtimeId;
-      } else if (runtimeSeedRaw !== undefined && runtimeSeedRaw !== null) {
-        try {
-          env.runtimeId = deriveSignerAddressSync(runtimeSeedRaw, '1');
-        } catch (error) {
-          console.warn('⚠️ Failed to derive runtimeId from DB snapshot:', error);
+    }
+
+    // Restore entity and jurisdiction replicas
+    env.eReplicas = normalizeReplicaMap(data.eReplicas || data.replicas || []);
+    env.jReplicas = normalizeJReplicaMap(data.jReplicas || []);
+    if (env.jReplicas.size > 0) {
+      for (const [name, jr] of env.jReplicas.entries()) {
+        if (jr.stateRoot) {
+          env.jReplicas.set(name, {
+            ...jr,
+            stateRoot: new Uint8Array(jr.stateRoot),
+          });
         }
       }
-      // Support both old (replicas) and new (eReplicas) format
-      env.eReplicas = normalizeReplicaMap(data.eReplicas || data.replicas || []);
-      env.jReplicas = normalizeJReplicaMap(data.jReplicas || []);
-      if (env.jReplicas.size > 0) {
-        for (const [name, jr] of env.jReplicas.entries()) {
-          if (jr.stateRoot) {
-            env.jReplicas.set(name, {
-              ...jr,
-              stateRoot: new Uint8Array(jr.stateRoot),
-            });
-          }
-        }
-      }
-      if (data.gossip?.profiles) {
+    }
+
+    // Restore gossip profiles
+    if (data.gossip?.profiles) {
+      if (data.gossip.profiles instanceof Map) {
+        env.gossip.profiles = data.gossip.profiles;
+      } else if (Array.isArray(data.gossip.profiles)) {
         env.gossip.profiles = new Map(data.gossip.profiles);
       }
-      const envState = ensureRuntimeState(env);
-      const tempState = ensureRuntimeState(tempEnv);
-      envState.db = tempState.db;
-      envState.dbOpenPromise = tempState.dbOpenPromise ?? null;
-      history.push(env);
     }
 
-    const latestEnv = history[history.length - 1];
-    if (latestEnv) {
-      latestEnv.history = history as unknown as EnvSnapshot[];
+    // Share DB handle from tempEnv
+    const envState = ensureRuntimeState(env);
+    const tempState = ensureRuntimeState(tempEnv);
+    envState.db = tempState.db;
+    envState.dbOpenPromise = tempState.dbOpenPromise ?? null;
 
-      // Restore BrowserVM if state was persisted
-      let restoredBrowserVM: any = null;
-      if (latestEnv.browserVMState && isBrowser) {
+    // Restore BrowserVM if state was persisted (browser only)
+    let restoredBrowserVM: InstanceType<(typeof import('./jadapter'))['BrowserVMProvider']> | null = null;
+    if (env.browserVMState && isBrowser) {
+      try {
+        const { BrowserVMProvider: BVMProvider } = await import('./jadapter');
+        const browserVM = new BVMProvider();
+        await browserVM.init();
+        await browserVM.restoreState(env.browserVMState);
+        env.browserVM = browserVM;
+        restoredBrowserVM = browserVM;
+        setBrowserVMJurisdiction(env, browserVM.getDepositoryAddress(), browserVM);
+        if (typeof window !== 'undefined') {
+          (window as unknown as { __xlnBrowserVM: unknown }).__xlnBrowserVM = browserVM;
+        }
+        console.log('✅ BrowserVM restored from loadEnvFromDB');
+      } catch (error) {
+        console.warn('⚠️ Failed to restore BrowserVM state (loadEnvFromDB):', error);
+      }
+    }
+
+    // Derive JAdapters for all jReplicas (they are not serialized — runtime objects)
+    if (env.jReplicas && env.jReplicas.size > 0) {
+      const { createJAdapter } = await import('./jadapter');
+      const { createBrowserVMAdapter } = await import('./jadapter/browservm');
+
+      for (const [name, jReplica] of env.jReplicas.entries()) {
+        if (jReplica.jadapter) continue;
+
         try {
-          const { BrowserVMProvider } = await import('./jadapter');
-          const browserVM = new BrowserVMProvider();
-          await browserVM.init();
-          await browserVM.restoreState(latestEnv.browserVMState);
-          latestEnv.browserVM = browserVM;
-          restoredBrowserVM = browserVM;
-          setBrowserVMJurisdiction(latestEnv, browserVM.getDepositoryAddress(), browserVM);
-          if (typeof window !== 'undefined') {
-            (window as unknown as { __xlnBrowserVM: unknown }).__xlnBrowserVM = browserVM;
+          const hasRpcs = jReplica.rpcs && jReplica.rpcs.length > 0 && jReplica.rpcs[0] !== '';
+          const chainId = jReplica.chainId ?? 31337;
+
+          if (!hasRpcs && restoredBrowserVM) {
+            const { BrowserVMEthersProvider } = await import('./jadapter/browservm-ethers-provider');
+            const provider = new BrowserVMEthersProvider(restoredBrowserVM);
+            const { ethers: ethersLib } = await import('ethers');
+            const { DEFAULT_PRIVATE_KEY } = await import('./jadapter/helpers');
+            const signer = new ethersLib.Wallet(DEFAULT_PRIVATE_KEY, provider);
+            const adapter = await createBrowserVMAdapter(
+              { mode: 'browservm', chainId },
+              provider,
+              signer,
+              restoredBrowserVM,
+            );
+            jReplica.jadapter = adapter;
+          } else if (hasRpcs) {
+            const rpcUrl = jReplica.rpcs![0]!;
+            const jadapter = await createJAdapter({
+              mode: 'rpc',
+              chainId,
+              rpcUrl,
+              fromReplica: jReplica,
+            });
+            jReplica.jadapter = jadapter;
           }
-          console.log('✅ BrowserVM restored from loadEnvFromDB');
+
+          if (jReplica.jadapter) {
+            jReplica.jadapter.startWatching(env);
+            console.log(`✅ JAdapter restored for jReplica "${name}" (${hasRpcs ? 'rpc' : 'browservm'})`);
+          }
         } catch (error) {
-          console.warn('⚠️ Failed to restore BrowserVM state (loadEnvFromDB):', error);
-        }
-      }
-
-      // Derive JAdapters for all jReplicas (they are not serialized — runtime objects)
-      if (latestEnv.jReplicas && latestEnv.jReplicas.size > 0) {
-        const { createJAdapter } = await import('./jadapter');
-        const { createBrowserVMAdapter } = await import('./jadapter/browservm');
-
-        for (const [name, jReplica] of latestEnv.jReplicas.entries()) {
-          if (jReplica.jadapter) continue; // Already has adapter (shouldn't happen on restore)
-
-          try {
-            const hasRpcs = jReplica.rpcs && jReplica.rpcs.length > 0 && jReplica.rpcs[0] !== '';
-            const chainId = jReplica.chainId ?? 31337;
-
-            if (!hasRpcs && restoredBrowserVM) {
-              // BrowserVM mode: wrap restored VM in JAdapter
-              const jadapter = await createJAdapter({
-                mode: 'browservm',
-                chainId,
-              });
-              // Replace the inner browserVM with the already-restored one
-              const inner = jadapter.getBrowserVM();
-              if (inner && restoredBrowserVM) {
-                // The VM was already initialized fresh in createJAdapter.
-                // We need to use the restored VM instead. Re-create with it.
-                const { BrowserVMEthersProvider } = await import('./jadapter/browservm-ethers-provider');
-                const provider = new BrowserVMEthersProvider(restoredBrowserVM);
-                const { ethers } = await import('ethers');
-                const { DEFAULT_PRIVATE_KEY } = await import('./jadapter/helpers');
-                const signer = new ethers.Wallet(DEFAULT_PRIVATE_KEY, provider);
-                const adapter = await createBrowserVMAdapter(
-                  { mode: 'browservm', chainId },
-                  provider,
-                  signer,
-                  restoredBrowserVM,
-                );
-                jReplica.jadapter = adapter;
-              } else {
-                jReplica.jadapter = jadapter;
-              }
-            } else if (hasRpcs) {
-              // RPC mode: connect using stored rpcs + addresses
-              const rpcUrl = jReplica.rpcs![0]!;
-              const jadapter = await createJAdapter({
-                mode: 'rpc',
-                chainId,
-                rpcUrl,
-                fromReplica: jReplica,
-              });
-              jReplica.jadapter = jadapter;
-            }
-
-            if (jReplica.jadapter) {
-              jReplica.jadapter.startWatching(latestEnv);
-              console.log(`✅ JAdapter derived for jReplica "${name}" (${hasRpcs ? 'rpc' : 'browservm'})`);
-            }
-          } catch (error) {
-            console.warn(`⚠️ Failed to derive JAdapter for jReplica "${name}":`, error);
-          }
+          console.warn(`⚠️ Failed to derive JAdapter for jReplica "${name}":`, error);
         }
       }
     }
 
-    return latestEnv ?? null;
+    console.log(
+      `✅ Restored from LevelDB: height=${env.height}, eReplicas=${env.eReplicas.size}, jReplicas=${env.jReplicas.size}`,
+    );
+    return env;
   } catch (err) {
     console.log('No persisted state found');
     return null;
@@ -2457,7 +2479,6 @@ export const loadEnvFromDB = async (runtimeId?: string | null, runtimeSeed?: str
 };
 
 export const clearDB = async (env?: Env): Promise<void> => {
-  if (!isBrowser) return;
   const targetEnv = env ?? createEmptyEnv(null);
 
   try {
